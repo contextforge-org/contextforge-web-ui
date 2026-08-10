@@ -2,6 +2,8 @@
 
 React-based admin UI for ContextForge MCP Gateway.
 
+This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi.json) committed at repo root.
+
 ## Tech Stack
 
 - **React 18** with TypeScript
@@ -63,6 +65,16 @@ Builds the production bundle to `dist/`.
 ```bash
 npm run preview
 ```
+
+## API Types
+
+TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7 — not re-fetched at build time.
+
+```bash
+npm run generate   # regenerate src/generated/ from ./openapi.json
+```
+
+To bump the API version, replace `openapi.json` with the new spec, update the version note above, then run `npm run generate`.
 
 ## Code Quality
 
@@ -270,6 +282,7 @@ client/
 | ----------------------- | -------------------------------- |
 | `npm run dev`           | Start development server         |
 | `npm run build`         | Build for production             |
+| `npm run generate`      | Regenerate API types from `openapi.json` |
 | `npm run preview`       | Preview production build         |
 | `npm run lint`          | Check for linting errors         |
 | `npm run lint:fix`      | Auto-fix linting errors          |
