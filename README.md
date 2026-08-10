@@ -41,35 +41,36 @@ The app is split into three pieces that all must run for local dev:
 
 Bring them up in this order:
 
-1. **Start ContextForge** in another terminal/repo (e.g. `make dev` in the
-   `mcp-context-forge` repo). Note the port — defaults to `4444`.
+1. **Start ContextForge** — the upstream `mcp-context-forge` repo. Follow
+   its own quick-start guide:
+   https://github.com/IBM/mcp-context-forge/issues/2503
+   Note whatever port it ends up listening on for the next step.
 
-2. **Configure the BFF's env:**
+2. **Configure and start the BFF** (terminal B, this repo's `server/`):
 
    ```bash
    cd server
    cp .env.example .env
    ```
 
-   Edit `server/.env` and set `FASTAPI_URL` to wherever ContextForge is
-   listening (default `http://127.0.0.1:4444` already matches `make dev`).
-   Other values (`PORT`, `REDIS_URL`, `COOKIE_SECURE`, etc.) have dev-safe
-   defaults — see comments in `server/.env.example`. `REDIS_URL=memory://`
-   is fine for a single local process; use a real `redis://` URL if you need
-   state shared across instances or restarts.
+   Edit `server/.env`:
+   - `FASTAPI_URL` — point it at whatever host:port ContextForge is
+     listening on from step 1 (`.env.example`'s default is `4444`; confirm
+     against your ContextForge run rather than assuming).
+   - `COOKIE_SECURE=false` — needed for local HTTP; the default (`true`) is
+     for prod and silently drops the session cookie over plain HTTP.
 
-3. **Install and start the BFF server:**
+   Other values (`PORT`, `REDIS_URL`, `SESSION_TTL_SECONDS`, etc.) have
+   dev-safe defaults — see comments in `server/.env.example`.
+   `REDIS_URL=memory://` (the default) is an in-process store, no Redis
+   process needed for local dev — state resets on restart.
 
    ```bash
-   cd server
    npm install
-   npm run dev
+   npm run dev   # :3000, tsx watch
    ```
 
-   This runs Fastify with `tsx watch` at `http://localhost:3000` (or
-   whatever `PORT` you set).
-
-4. **Build and serve the frontend from the BFF**, from the repo root:
+3. **Build the frontend for the BFF to serve**, from the repo root:
 
    ```bash
    npm install
@@ -77,17 +78,31 @@ Bring them up in this order:
    ```
 
    This builds the SPA into `server/public/`, which the already-running BFF
-   serves directly. Re-run `npm run build` after frontend changes — there's
-   no HMR dev server wired to the BFF, so this build step is the loop for
-   local iteration against the real backend. (`npm run build:watch` reruns
-   it automatically on file changes.)
+   serves directly. Re-run `npm run build` after any frontend change —
+   there's no HMR dev server wired to the BFF, so this build step is the
+   loop for local iteration against the real backend. (`npm run build:watch`
+   reruns it automatically on file changes.)
 
-5. **Access the application:**
-   Open `http://localhost:3000/app`.
+4. **Use it.** Visit `http://localhost:3000/` — redirects to `/app/login`
+   (unauthed) or `/app/` (authed). The login form posts through the BFF,
+   which holds the ContextForge JWT server-side and hands the browser only
+   an opaque session cookie.
+
+   Default seeded admin: `admin@example.com` / `changeme` (first login
+   forces a password change unless `PASSWORD_CHANGE_ENFORCEMENT_ENABLED=false`
+   is set in ContextForge's `.env`).
 
 > `npm run dev` (plain Vite dev server at `:5173`, no BFF in front) still
 > works for UI-only iteration, but `/api/*` calls need the BFF — it won't
 > reach ContextForge on its own.
+
+#### Troubleshooting
+
+- **`EADDRINUSE` on `:3000`** — stale `tsx watch` process:
+  `lsof -ti:3000 | xargs kill`, then restart `npm run dev` in `server/`.
+- **401 mid-session** — expected; the ContextForge token hard-expires per
+  `TOKEN_EXPIRY` (default 20 min). The BFF auto-revokes the session and
+  redirects to login.
 
 ### Build
 
