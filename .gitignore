@@ -29,7 +29,6 @@ pnpm-lock.yaml
 yarn.lock
 
 # Generated files
-openapi.json
 src/generated/
 
 # Logs
