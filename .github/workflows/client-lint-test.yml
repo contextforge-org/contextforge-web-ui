@@ -1,0 +1,57 @@
+# ===============================================================
+# ⚛️  Client Lint & Test - React Frontend Quality Gate
+# ===============================================================
+#   - runs ESLint, Prettier, and Vitest for the React client
+#   - ensures code quality and test coverage for frontend
+#   - runs on PRs and pushes to main
+# ---------------------------------------------------------------
+
+name: Client Lint & Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: Lint & Test Client
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: ⬇️  Checkout source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: 🟩  Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: 📥  Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: ⚙️  Generate types with orval
+        run: npm run generate
+
+      - name: 🎨  Check code formatting with Prettier
+        run: npm run format:check
+
+      - name: 🔍  Lint code with ESLint
+        run: npm run lint
+
+      - name: 🧪  Run tests with Vitest
+        run: npm run test:coverage
