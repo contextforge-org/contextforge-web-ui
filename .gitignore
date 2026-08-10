@@ -24,8 +24,7 @@ server/.env
 !.env.example
 !server/.env.example
 
-# Package manager lock files
-package-lock.json
+# Alternative package manager lock files
 pnpm-lock.yaml
 yarn.lock
 
