@@ -1,0 +1,13 @@
+set -e
+
+echo "Running prettier..."
+npm run format:check
+
+echo "Running eslint..."
+npm run lint
+
+echo "Running build..."
+npm run build
+
+echo "Running unit tests..."
+npm run test

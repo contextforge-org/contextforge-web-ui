@@ -19,10 +19,11 @@ const prettierOptions = JSON.parse(fs.readFileSync(path.join(__dirname, ".pretti
 export default tseslint.config(
   {
     ignores: [
-      "../mcpgateway/static/app",
       "src/generated",
       "dist",
       "build",
+      "server/dist",
+      "server/public",
       "playwright-report",
       "test-results",
     ],

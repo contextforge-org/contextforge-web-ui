@@ -22,9 +22,7 @@ export default defineConfig({
   base: "/",
 
   build: {
-    // BFF (server/) serves this directory as static files — see
-    // server/src/plugins/static.ts.
-    outDir: "server/public",
+    outDir: "dist",
     emptyOutDir: true,
     manifest: true,
     sourcemap: false,

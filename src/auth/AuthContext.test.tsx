@@ -307,11 +307,10 @@ describe("AuthContext", () => {
       email_verified: true,
       password_change_required: false,
     };
-
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     // Hold the permissions fetch open so we can observe the loading window.
