@@ -27,30 +27,67 @@ npm install
 
 ### Development
 
-The client development workflow requires both the client dev server and the backend gateway:
+The app is split into three pieces that all must run for local dev:
 
-1. **Build the client assets:**
+- **ContextForge** (`mcpgateway`) — the upstream FastAPI gateway. It owns
+  auth and all business data.
+- **BFF** (`server/`) — a Fastify app that sits between the browser and
+  ContextForge. It holds the session cookie/CSRF boundary and keeps the
+  API's JWT off the browser (`server/src/index.ts`). The browser only ever
+  talks to the BFF, never directly to ContextForge.
+- **Client** (`src/`) — this React SPA, served as static files by the BFF
+  (same-origin — the API client always calls relative paths, see
+  `src/api/client.ts`).
+
+Bring them up in this order:
+
+1. **Start ContextForge** in another terminal/repo (e.g. `make dev` in the
+   `mcp-context-forge` repo). Note the port — defaults to `4444`.
+
+2. **Configure the BFF's env:**
 
    ```bash
-   npm run build
+   cd server
+   cp .env.example .env
    ```
 
-2. **Start the client development server:**
+   Edit `server/.env` and set `FASTAPI_URL` to wherever ContextForge is
+   listening (default `http://127.0.0.1:4444` already matches `make dev`).
+   Other values (`PORT`, `REDIS_URL`, `COOKIE_SECURE`, etc.) have dev-safe
+   defaults — see comments in `server/.env.example`. `REDIS_URL=memory://`
+   is fine for a single local process; use a real `redis://` URL if you need
+   state shared across instances or restarts.
+
+3. **Install and start the BFF server:**
 
    ```bash
+   cd server
+   npm install
    npm run dev
    ```
 
-   This starts the Vite dev server at `http://localhost:5173` with hot module replacement.
+   This runs Fastify with `tsx watch` at `http://localhost:3000` (or
+   whatever `PORT` you set).
 
-3. **In another terminal, start the backend gateway:**
+4. **Build and serve the frontend from the BFF**, from the repo root:
 
    ```bash
-   make dev
+   npm install
+   npm run build
    ```
 
-4. **Access the application:**
-   Open your browser and navigate to `http://localhost:8000/app` to view the UI.
+   This builds the SPA into `server/public/`, which the already-running BFF
+   serves directly. Re-run `npm run build` after frontend changes — there's
+   no HMR dev server wired to the BFF, so this build step is the loop for
+   local iteration against the real backend. (`npm run build:watch` reruns
+   it automatically on file changes.)
+
+5. **Access the application:**
+   Open `http://localhost:3000/app`.
+
+> `npm run dev` (plain Vite dev server at `:5173`, no BFF in front) still
+> works for UI-only iteration, but `/api/*` calls need the BFF — it won't
+> reach ContextForge on its own.
 
 ### Build
 
@@ -58,7 +95,7 @@ The client development workflow requires both the client dev server and the back
 npm run build
 ```
 
-Builds the production bundle to `dist/`.
+Builds the SPA into `server/public/`, for the BFF to serve.
 
 ### Preview Production Build
 
@@ -272,8 +309,17 @@ client/
 ├── vitest.config.ts      # Vitest configuration
 ├── tsconfig.json         # TypeScript base config
 ├── tsconfig.app.json     # TypeScript app config
-├── vite.config.ts        # Vite configuration
-└── package.json          # Dependencies and scripts
+├── vite.config.ts        # Vite configuration (builds to server/public/)
+├── package.json          # Dependencies and scripts
+└── server/               # BFF (Fastify): session/CSRF boundary in front of ContextForge
+    ├── src/
+    │   ├── index.ts       # Entrypoint
+    │   ├── config.ts      # Env-driven config
+    │   ├── plugins/       # cookie, redis, session, csrf, static
+    │   └── routes/        # auth/, proxy/ (catch-all to ContextForge), sse/
+    ├── public/            # Built SPA (npm run build output), served by BFF
+    ├── .env.example       # Copy to .env and configure FASTAPI_URL etc.
+    └── package.json
 ```
 
 ## Available Scripts

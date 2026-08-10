@@ -19,12 +19,12 @@ export default defineConfig({
     },
   },
 
-  // Assets are served from /static/app/ by FastAPI's StaticFiles mount
-  base: "/static/app/",
+  base: "/",
 
   build: {
-    // Output goes into mcpgateway/static/app/ — FastAPI serves /static/* from mcpgateway/static/
-    outDir: "../mcpgateway/static/app",
+    // BFF (server/) serves this directory as static files — see
+    // server/src/plugins/static.ts.
+    outDir: "server/public",
     emptyOutDir: true,
     manifest: true,
     sourcemap: false,
