@@ -9,10 +9,8 @@ import prettierConfig from "eslint-config-prettier";
 import globals from "globals";
 
 // Load .prettierrc explicitly instead of letting eslint-plugin-prettier
-// resolve it on its own — this repo has a second, differently-configured
-// prettier.config.js one directory up (repo root), and relying on the
-// plugin's own cosmiconfig search risks it picking that one up instead,
-// producing formatting eslint --fix disagrees with the prettier CLI on.
+// resolve it via its own cosmiconfig search, so eslint --fix always agrees
+// with the prettier CLI.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prettierOptions = JSON.parse(fs.readFileSync(path.join(__dirname, ".prettierrc"), "utf8"));
 

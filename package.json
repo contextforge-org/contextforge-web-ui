@@ -25,6 +25,7 @@
     "e2e:report": "playwright show-report",
     "i18n:extract": "formatjs extract 'src/**/*.{ts,tsx}' --out-file src/i18n/extracted.json --id-interpolation-pattern '[sha512:contenthash:base64:6]'",
     "i18n:compile": "formatjs compile-folder --ast src/i18n/locales src/i18n/compiled",
+    "lint-staged": "lint-staged",
     "export-schema": "cd .. && make export-schema",
     "pregenerate": "test -f openapi.json || npm run export-schema",
     "generate": "orval",
@@ -70,6 +71,7 @@
     "globals": "^16.0.0",
     "husky": "^9.1.7",
     "jsdom": "^25.0.1",
+    "lint-staged": "^17.3.0",
     "msw": "^2.14.2",
     "orval": "^8.18.0",
     "prettier": "^3.4.2",
@@ -78,5 +80,9 @@
     "typescript-eslint": "^8.32.0",
     "vite": "^6.4.3",
     "vitest": "^4.1.9"
+  },
+  "lint-staged": {
+    "{src,e2e}/**/*.{ts,tsx,css,json}": "prettier --write",
+    "{src,e2e}/**/*.{ts,tsx}": "eslint --fix"
   }
 }
