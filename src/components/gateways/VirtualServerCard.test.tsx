@@ -82,7 +82,7 @@ describe("VirtualServerCard", () => {
       <VirtualServerCard server={makeServer({ enabled: true })} onViewDetails={vi.fn()} />,
     );
     expect(screen.getByTestId("status-indicator")).toHaveClass("bg-emerald-500");
-    expect(screen.getByLabelText("Enabled")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Enabled" })).toBeTruthy();
   });
 
   it("shows a red disabled indicator for disabled server", () => {
@@ -90,7 +90,7 @@ describe("VirtualServerCard", () => {
       <VirtualServerCard server={makeServer({ enabled: false })} onViewDetails={vi.fn()} />,
     );
     expect(screen.getByTestId("status-indicator")).toHaveClass("bg-red-500");
-    expect(screen.getByLabelText("Disabled")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Disabled" })).toBeTruthy();
   });
 
   it("renders empty state with add components button when no tools/resources/prompts", () => {

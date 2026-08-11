@@ -1160,7 +1160,8 @@ test.describe("Virtual Servers page", () => {
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
 
-    await expect(card.getByTestId("enabled-indicator")).toHaveCount(0);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-red-500/);
+    await expect(card.getByRole("img", { name: "Disabled" })).toBeVisible();
 
     await expect(card.getByText("disabled")).toBeVisible();
   });

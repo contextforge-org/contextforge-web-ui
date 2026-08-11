@@ -13,6 +13,7 @@ import {
 import type { VirtualServer } from "@/types/server";
 import type { Dispatch, SetStateAction } from "react";
 import type { VirtualServersResponse } from "@/types/server";
+import { ApiError } from "@/api/client";
 
 // Mock the router
 const mockNavigate = vi.fn();
@@ -325,12 +326,16 @@ describe("Gateways", () => {
     await waitFor(() => {
       expect(mockSetVirtualServerState).toHaveBeenCalledWith(server.id, true);
     });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith("GH repo tasks activated.");
 
     const updateCache = setData.mock.calls[0][0];
     expect(typeof updateCache).toBe("function");
     expect(updateCache({ servers: [server] })?.servers?.[0].enabled).toBe(true);
+    expect(updateCache(undefined)).toBeUndefined();
+    expect(updateCache({ servers: undefined })?.servers).toEqual([]);
+    const otherServer = makeServer({ id: "gateway-2", name: "Other server" });
+    expect(updateCache({ servers: [otherServer] })?.servers).toEqual([otherServer]);
   });
 
   it("requires confirmation before deactivating a virtual server", async () => {
@@ -353,7 +358,7 @@ describe("Gateways", () => {
       expect(mockSetVirtualServerState).toHaveBeenCalledWith(server.id, false);
     });
     await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
     expect(toast.success).toHaveBeenCalledWith("GH repo tasks deactivated.");
   });
@@ -369,7 +374,25 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(mockSetVirtualServerState).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps confirmation open and shows an error when deactivation fails", async () => {
+    const user = userEvent.setup();
+    const server = makeServer({ enabled: true });
+    mockSetVirtualServerState.mockRejectedValueOnce(new Error("network unavailable"));
+    setupWithServer(server);
+
+    renderWithProviders(<Gateways />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Deactivate" }));
+    await user.click(screen.getByRole("button", { name: "Deactivate" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to deactivate virtual server.");
+    });
+    expect(screen.getByRole("alertdialog", { name: "Deactivate virtual server" })).toBeVisible();
   });
 
   it("keeps current state and shows an error when activation fails", async () => {
@@ -389,6 +412,24 @@ describe("Gateways", () => {
     });
     expect(setData).not.toHaveBeenCalled();
     expect(screen.getByTestId("status-indicator")).toHaveClass("bg-red-500");
+  });
+
+  it("shows API error detail when activation fails", async () => {
+    const user = userEvent.setup();
+    const server = makeServer({ enabled: false });
+    mockSetVirtualServerState.mockRejectedValueOnce(
+      new ApiError(409, { detail: "Server state changed elsewhere." }, "Conflict"),
+    );
+    setupWithServer(server);
+
+    renderWithProviders(<Gateways />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Activate" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Server state changed elsewhere.");
+    });
   });
 
   it("renders empty virtual servers as full-width add-components rows", () => {
@@ -792,7 +833,7 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText("Delete virtual server")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -823,11 +864,11 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("button", { name: "Actions for Dialog Close Server" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     // API promise is still pending at this point — resolve and flush the resulting
     // state update inside act(...) so React doesn't warn about an unwrapped update.
     await act(async () => {
@@ -873,7 +914,7 @@ describe("Gateways", () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Actions for Server B" }));
@@ -1223,11 +1264,11 @@ describe("Gateways", () => {
     renderWithProviders(<Gateways />);
     await user.click(screen.getByRole("button", { name: "Actions for Cancel Server" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(mockDeleteVirtualServer).not.toHaveBeenCalled();
   });
 

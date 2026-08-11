@@ -325,6 +325,7 @@ export function Gateways() {
 
       <ConfirmDialog
         open={deactivateDialogOpen}
+        role="alertdialog"
         onOpenChange={handleDeactivateDialogOpenChange}
         title={intl.formatMessage({ id: "gateways.state.deactivateTitle" })}
         description={intl.formatMessage(
@@ -342,6 +343,7 @@ export function Gateways() {
 
       <ConfirmDialog
         open={deleteDialogOpen}
+        role="alertdialog"
         onOpenChange={handleDeleteDialogOpenChange}
         title={intl.formatMessage({ id: "gateways.delete.title" })}
         description={intl.formatMessage(

@@ -74,6 +74,7 @@ export function VirtualServerCard({
                 server.enabled ? "bg-emerald-500" : "bg-red-500",
               )}
               data-testid="status-indicator"
+              role="img"
               aria-label={intl.formatMessage({
                 id: server.enabled ? "gateways.card.enabled" : "gateways.card.disabled",
               })}
