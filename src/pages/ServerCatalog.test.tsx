@@ -46,7 +46,7 @@ const apiKeyServer: CatalogServer = {
   category: "Security",
   url: "https://secret.example/mcp",
   auth_type: "API Key",
-  provider: "Example",
+  provider: "SecureCo",
   description: "Requires a secret API key",
   tags: ["security"],
   is_registered: false,
@@ -57,7 +57,7 @@ const response: CatalogListResponse = {
   total: 3,
   categories: ["Monitoring", "Productivity", "Security"],
   auth_types: ["API Key", "Open"],
-  providers: ["Example", "jsDelivr"],
+  providers: ["Example", "jsDelivr", "SecureCo"],
   all_tags: ["documents", "network", "observability", "search", "security"],
 };
 
@@ -106,7 +106,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
     expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
-    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(within(catalogList).getByText("Connected")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 servers shown");
     expect(screen.getByRole("button", { name: "View Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Public Notes" })).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("ServerCatalog", () => {
       "aria-pressed",
       "true",
     );
-    expect(within(viewOptions).getByRole("button", { name: "Installed" })).toHaveAttribute(
+    expect(within(viewOptions).getByRole("button", { name: "Connected" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -192,7 +192,7 @@ describe("ServerCatalog", () => {
       "/app/server-catalog?search=global&show_registered_only=true",
     );
 
-    expect(screen.getByRole("button", { name: "Installed" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Connected" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -212,7 +212,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Installed" }));
+    await user.click(screen.getByRole("button", { name: "Connected" }));
     expect(window.location.search).toContain("show_registered_only=true");
     expect(
       screen.getByText("No MCP servers match the active search and filters."),
@@ -231,6 +231,7 @@ describe("ServerCatalog", () => {
     await user.click(screen.getByRole("button", { name: /^Filters$/ }));
     expect(screen.getByRole("dialog", { name: "Filters" })).toBeInTheDocument();
     await user.click(screen.getByRole("combobox", { name: "Category" }));
+    expect(screen.queryByRole("option", { name: "Security" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: "Productivity" }));
 
     await waitFor(() => expect(window.location.search).toContain("category=Productivity"));
@@ -251,6 +252,17 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("button", { name: "Filters, 2 active" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+  });
+
+  it("does not offer provider or tag filters owned only by non-Open servers", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
+    expect(screen.queryByRole("checkbox", { name: "security" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Provider" }));
+    expect(screen.queryByRole("option", { name: "SecureCo" })).not.toBeInTheDocument();
   });
 
   it("filters by provider and auth type, then clears filters", async () => {
@@ -306,5 +318,20 @@ describe("ServerCatalog", () => {
 
     expect(screen.getByText("No open MCP servers are available.")).toBeInTheDocument();
     expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
+  });
+
+  it("shows a dedicated empty state when no Open servers are connected", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [openAvailable, apiKeyServer], total: 2 } }),
+    );
+
+    renderWithRouter(<ServerCatalog />);
+    await user.click(screen.getByRole("button", { name: "Connected" }));
+
+    expect(screen.getByText("No MCP server catalog options are connected.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("No MCP servers match the active search and filters."),
+    ).not.toBeInTheDocument();
   });
 });
