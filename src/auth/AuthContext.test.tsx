@@ -258,7 +258,7 @@ describe("AuthContext", () => {
       email_verified: true,
       password_change_required: false,
     };
-    vi.mocked(api.get).mockResolvedValueOnce(mockUser);
+    vi.mocked(api.get).mockResolvedValueOnce({ authenticated: true, user: mockUser });
 
     // Hold the permissions fetch open so we can observe the loading window.
     let resolvePerms!: (perms: string[]) => void;
