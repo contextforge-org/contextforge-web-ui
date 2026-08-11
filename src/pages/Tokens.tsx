@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
@@ -22,6 +22,9 @@ export function Tokens() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [tokenToDelete, setTokenToDelete] = useState<TokenResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Focus lands here after the one-time secret dialog closes: the button that
+  // opened it (the form's submit) is gone by then. See TokenCreatedDialog.
+  const generateButtonRef = useRef<HTMLButtonElement>(null);
 
   const { data, isLoading, error, setData, refetch } = useQuery<TokenListResponse>("/tokens");
   const tokens = useMemo(() => data?.tokens ?? [], [data?.tokens]);
@@ -92,6 +95,7 @@ export function Tokens() {
         {!isLoading && !error && tokens.length > 0 && (
           <SettingsToolbar>
             <Button
+              ref={generateButtonRef}
               variant="default"
               className="h-7 rounded-sm px-4"
               onClick={() => setView("create")}
@@ -147,7 +151,11 @@ export function Tokens() {
         />
       )}
 
-      <TokenCreatedDialog token={createdToken} onClose={() => setCreatedToken(null)} />
+      <TokenCreatedDialog
+        token={createdToken}
+        onClose={() => setCreatedToken(null)}
+        returnFocusRef={generateButtonRef}
+      />
 
       {tokenToDelete && (
         <ConfirmDialog

@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { Copy } from "lucide-react";
 import { useIntl } from "react-intl";
 
@@ -15,6 +16,14 @@ interface TokenCreatedDialogProps {
   /** The raw access token to reveal, or null when the dialog is closed. */
   token: string | null;
   onClose: () => void;
+  /**
+   * Element to focus once the dialog closes. Radix normally restores focus to
+   * whatever was focused when the dialog mounted, but the submit button that
+   * triggered this dialog unmounts in the same commit that opens it (the create
+   * form is replaced by the list), so there is nothing left to restore to and
+   * focus would fall back to `<body>`.
+   */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -22,7 +31,7 @@ interface TokenCreatedDialogProps {
  * the create call and can never be retrieved again, so the dialog leads with
  * that warning and offers a copy affordance. Closing discards the value.
  */
-export function TokenCreatedDialog({ token, onClose }: TokenCreatedDialogProps) {
+export function TokenCreatedDialog({ token, onClose, returnFocusRef }: TokenCreatedDialogProps) {
   const intl = useIntl();
   const isOpen = token !== null;
 
@@ -33,7 +42,15 @@ export function TokenCreatedDialog({ token, onClose }: TokenCreatedDialogProps) 
         if (!open) onClose();
       }}
     >
-      <DialogContent className="gap-6 sm:max-w-xl">
+      <DialogContent
+        className="gap-6 sm:max-w-xl"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef?.current;
+          if (!target) return; // No target: leave Radix's default restore alone.
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl leading-snug">
             {intl.formatMessage({ id: "tokens.created.title" })}

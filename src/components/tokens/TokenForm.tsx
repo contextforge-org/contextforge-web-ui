@@ -27,6 +27,7 @@ import type { TokenScopeRequestUsageLimits } from "@/generated/types/tokenScopeR
 import type { TokenCreateRequest, TokenResponse, TokenScopeRequest } from "@/types/token";
 import { TimezoneSelect } from "./TimezoneSelect";
 import { TokenIcon } from "./TokenIcon";
+import { parseIpRestrictions } from "./ipRestrictions";
 import {
   availableBuckets,
   bucketScopes,
@@ -116,9 +117,12 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
   const [endTime, setEndTime] = useState("");
   const [timezone, setTimezone] = useState("");
   const [allowedDays, setAllowedDays] = useState<string[]>([...ALL_DAYS]);
-  const [errors, setErrors] = useState<{ name?: string; permissions?: string; submit?: string }>(
-    {},
-  );
+  const [errors, setErrors] = useState<{
+    name?: string;
+    permissions?: string;
+    ipRestrictions?: string;
+    submit?: string;
+  }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: teamsData } = useQuery<TeamsResponse>("/teams");
@@ -193,8 +197,23 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
       nextErrors.permissions = intl.formatMessage({ id: "tokens.form.permissions.required" });
     }
 
-    if (nextErrors.name || nextErrors.permissions) {
+    // Reject malformed addresses here rather than round-tripping to the 422 the
+    // backend validator would return, so the bad entries are named in place.
+    const { entries: ipList, invalid: invalidIps } = parseIpRestrictions(ipRestrictions);
+    if (invalidIps.length > 0) {
+      nextErrors.ipRestrictions = intl.formatMessage(
+        { id: "tokens.form.ipRestrictions.invalid" },
+        { ips: invalidIps.join(", "), count: invalidIps.length },
+      );
+    }
+
+    if (nextErrors.name || nextErrors.permissions || nextErrors.ipRestrictions) {
       setErrors(nextErrors);
+      // The field lives in the collapsed Advanced section; reveal it so the
+      // error the submit just failed on is actually visible.
+      if (nextErrors.ipRestrictions) {
+        setAdvancedOpen(true);
+      }
       return;
     }
 
@@ -209,10 +228,6 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
     if (serverId.trim()) {
       scope.server_id = serverId.trim();
     }
-    const ipList = ipRestrictions
-      .split(/[\n,]/)
-      .map((entry) => entry.trim())
-      .filter(Boolean);
     if (ipList.length > 0) {
       scope.ip_restrictions = ipList;
     }
@@ -500,15 +515,23 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
                   <Field
                     id="token-ip-restrictions"
                     label={intl.formatMessage({ id: "tokens.form.ipRestrictions" })}
+                    error={errors.ipRestrictions}
                   >
                     <Input
                       id="token-ip-restrictions"
                       value={ipRestrictions}
-                      onChange={(event) => setIpRestrictions(event.target.value)}
+                      onChange={(event) => {
+                        setIpRestrictions(event.target.value);
+                        setErrors((prev) => ({ ...prev, ipRestrictions: undefined }));
+                      }}
                       placeholder={intl.formatMessage({
                         id: "tokens.form.ipRestrictions.placeholder",
                       })}
                       className={FIELD_CONTROL_CLASS}
+                      aria-invalid={!!errors.ipRestrictions}
+                      aria-describedby={
+                        errors.ipRestrictions ? "token-ip-restrictions-error" : undefined
+                      }
                     />
                   </Field>
 

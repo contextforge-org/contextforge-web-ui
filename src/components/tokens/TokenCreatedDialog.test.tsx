@@ -1,5 +1,6 @@
+import { useRef, useState } from "react";
 import { describe, it, expect, vi } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/test/test-utils";
 import { copyToClipboard } from "@/lib/clipboard";
 import { TokenCreatedDialog } from "./TokenCreatedDialog";
@@ -45,6 +46,37 @@ describe("TokenCreatedDialog", () => {
     const onClose = vi.fn();
     renderWithProviders(<TokenCreatedDialog token={null} onClose={onClose} />);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to returnFocusRef when it closes", async () => {
+    function Harness() {
+      const ref = useRef<HTMLButtonElement>(null);
+      const [token, setToken] = useState<string | null>("raw-secret-123");
+      return (
+        <>
+          <button ref={ref}>Generate token</button>
+          <TokenCreatedDialog token={token} onClose={() => setToken(null)} returnFocusRef={ref} />
+        </>
+      );
+    }
+    renderWithProviders(<Harness />);
+
+    const closeBtn = screen.getAllByRole("button").find((btn) => btn.textContent === "Close")!;
+    fireEvent.click(closeBtn);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Generate token" })).toHaveFocus(),
+    );
+  });
+
+  it("leaves Radix's default focus restore alone when no returnFocusRef is given", async () => {
+    // Without a target the dialog must not preventDefault, or focus would be
+    // stranded wherever the dialog left it.
+    const onClose = vi.fn();
+    renderWithProviders(<TokenCreatedDialog token="raw-secret-123" onClose={onClose} />);
+    const closeBtn = screen.getAllByRole("button").find((btn) => btn.textContent === "Close")!;
+    fireEvent.click(closeBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("calls copyToClipboard with the token when the copy button is clicked", () => {

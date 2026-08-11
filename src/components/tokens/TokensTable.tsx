@@ -120,7 +120,13 @@ export function TokensTable({ tokens, teamNames, onDeleteClick }: TokensTablePro
                           align="end"
                           className="w-64 border-0 p-3 text-sm shadow-lg dark:bg-neutral-700 dark:text-neutral-100"
                         >
-                          {token.description}
+                          {/* Rendered as a JSX child, so React escapes it — the
+                              description is text, never markup. `break-words`
+                              keeps an unbroken string from overflowing the
+                              popover. */}
+                          <span className="block whitespace-pre-wrap break-words">
+                            {token.description}
+                          </span>
                         </PopoverContent>
                       </Popover>
                     )}

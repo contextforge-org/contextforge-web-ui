@@ -172,6 +172,67 @@ describe("Tokens page", () => {
         screen.queryByText("Save token in a secure place. It won't be viewable again."),
       ).not.toBeInTheDocument(),
     );
+
+    // The submit button that opened the dialog unmounted along with the form,
+    // so focus is handed to the toolbar's generate action instead of <body>.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Generate token" })).toHaveFocus(),
+    );
+  });
+
+  it("blocks submission on a malformed IP restriction and names the bad entries", async () => {
+    const user = userEvent.setup();
+    let posted = false;
+    primeHandlers([]);
+    server.use(
+      http.post("*/tokens", () => {
+        posted = true;
+        return HttpResponse.json({ access_token: "raw", token: makeToken() }, { status: 201 });
+      }),
+    );
+    renderWithProviders(<Tokens />);
+
+    await user.click(await screen.findByRole("button", { name: "Generate token" }));
+    await user.type(screen.getByPlaceholderText("Add a memorable name"), "bad ips");
+    await user.click(screen.getByRole("button", { name: "Advanced settings" }));
+    await user.type(
+      screen.getByPlaceholderText("192.168.1.0/24"),
+      "10.0.0.0/8, 999.999.999.999/99, nope",
+    );
+    await user.click(screen.getByRole("button", { name: "Generate token" }));
+
+    expect(
+      await screen.findByText("Invalid IP addresses or CIDR ranges: 999.999.999.999/99, nope"),
+    ).toBeInTheDocument();
+    expect(posted).toBe(false);
+
+    // Correcting the field clears the error and lets the submit through.
+    await user.clear(screen.getByPlaceholderText("192.168.1.0/24"));
+    await user.type(screen.getByPlaceholderText("192.168.1.0/24"), "10.0.0.0/8");
+    expect(
+      screen.queryByText("Invalid IP addresses or CIDR ranges: 999.999.999.999/99, nope"),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Generate token" }));
+    await waitFor(() => expect(posted).toBe(true));
+  });
+
+  it("reopens the advanced section when the IP error is raised while it is collapsed", async () => {
+    const user = userEvent.setup();
+    primeHandlers([]);
+    renderWithProviders(<Tokens />);
+
+    await user.click(await screen.findByRole("button", { name: "Generate token" }));
+    await user.type(screen.getByPlaceholderText("Add a memorable name"), "bad ips");
+    await user.click(screen.getByRole("button", { name: "Advanced settings" }));
+    await user.type(screen.getByPlaceholderText("192.168.1.0/24"), "nope");
+    // Collapse the section — the offending field is now off-screen.
+    await user.click(screen.getByRole("button", { name: "Advanced settings" }));
+    expect(screen.queryByPlaceholderText("192.168.1.0/24")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Generate token" }));
+
+    expect(await screen.findByText("Invalid IP address or CIDR range: nope")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("192.168.1.0/24")).toBeInTheDocument();
   });
 
   it("submits advanced rate-limit and day restrictions", async () => {
