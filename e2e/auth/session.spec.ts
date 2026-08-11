@@ -8,9 +8,7 @@ test.describe("Authenticated session", () => {
     // Polled rather than read once: Vite can trigger a full reload on this page
     // (dep pre-bundling), which destroys the execution context mid-evaluate.
     await expect
-      .poll(() =>
-        page.evaluate((key) => window.sessionStorage.getItem(key), TOKEN_STORAGE_KEY),
-      )
+      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), TOKEN_STORAGE_KEY))
       .toBeNull();
   });
 });
