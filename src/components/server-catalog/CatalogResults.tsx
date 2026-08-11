@@ -18,10 +18,24 @@ import {
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-function CatalogLogo({ server }: { server: CatalogServer }) {
-  const [failed, setFailed] = useState(false);
+function getSafeCatalogLogoUrl(logoUrl: string | null | undefined): string | null {
+  if (!logoUrl) return null;
 
-  if (!server.logo_url || failed) {
+  try {
+    const parsed = new URL(logoUrl);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function CatalogLogo({ server }: { server: CatalogServer }) {
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const logoUrl = getSafeCatalogLogoUrl(server.logo_url);
+
+  if (!logoUrl || failedLogoUrl === logoUrl) {
     return (
       <div aria-hidden="true">
         <ServerIcon name={server.name} size="lg" />
@@ -35,13 +49,13 @@ function CatalogLogo({ server }: { server: CatalogServer }) {
       className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"
     >
       <img
-        src={server.logo_url}
+        src={logoUrl}
         alt=""
         className="size-4 object-contain"
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
+        onError={() => setFailedLogoUrl(logoUrl)}
       />
     </div>
   );

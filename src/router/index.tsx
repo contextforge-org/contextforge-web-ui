@@ -110,8 +110,12 @@ interface RouterState {
   params: Record<string, string>;
 }
 
+interface NavigateOptions {
+  replace?: boolean;
+}
+
 interface RouterContextValue extends RouterState {
-  navigate: (to: string) => void;
+  navigate: (to: string, options?: NavigateOptions) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +160,7 @@ function matchPath(pattern: string, path: string): Record<string, string> | null
 export function RouterProvider({ children }: { children: ReactNode }) {
   const [path, setPath] = useState(() => window.location.pathname + window.location.search);
 
-  const navigate = useCallback((to: string) => {
+  const navigate = useCallback((to: string, options?: NavigateOptions) => {
     const safe = validateDestination(to);
     if (safe === null) {
       // Destination rejected — do nothing and warn in development
@@ -165,7 +169,11 @@ export function RouterProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-    window.history.pushState(null, "", safe);
+    if (options?.replace) {
+      window.history.replaceState(null, "", safe);
+    } else {
+      window.history.pushState(null, "", safe);
+    }
     setPath(safe);
   }, []);
 

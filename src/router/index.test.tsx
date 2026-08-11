@@ -406,6 +406,31 @@ describe("Destination validation", () => {
     });
   });
 
+  it("can replace the current history entry for in-page state changes", async () => {
+    const TestComponent = () => {
+      const router = useRouter();
+      return (
+        <button onClick={() => router.navigate("/app/test?search=notes", { replace: true })}>
+          replace
+        </button>
+      );
+    };
+
+    renderWithRouter(<TestComponent />, "/app/test");
+    const replaceState = vi.spyOn(window.history, "replaceState");
+    const pushState = vi.spyOn(window.history, "pushState");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "replace" }));
+
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/app/test?search=notes");
+    expect(pushState).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?search=notes");
+
+    replaceState.mockRestore();
+    pushState.mockRestore();
+  });
+
   it("accepts exactly /app", async () => {
     const TestComponent = () => {
       const router = useRouter();

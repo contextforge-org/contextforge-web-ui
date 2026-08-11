@@ -17,6 +17,7 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 
+// TODO: Fetch subsequent pages when CatalogListResponse.total exceeds this MVP page limit.
 const CATALOG_PATH = "/v1/catalog?limit=1000";
 const PAGE_PATH = "/app/server-catalog";
 const OPEN_AUTH_TYPE = "Open";
@@ -71,7 +72,7 @@ function useCatalogFilters() {
       });
 
       const query = params.toString();
-      navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH);
+      navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH, { replace: true });
     },
     [navigate, path],
   );
@@ -101,7 +102,7 @@ function filterOpenServers(servers: CatalogServer[], filters: CatalogFilters): C
   const search = filters.search.trim().toLocaleLowerCase();
 
   return servers.filter((server) => {
-    // Catalog MVP is intentionally fail-closed: only the exact Open value is visible.
+    // MVP display scope includes only entries whose auth type is exactly Open.
     if (server.auth_type !== OPEN_AUTH_TYPE) return false;
     if (filters.authType && server.auth_type !== filters.authType) return false;
     if (filters.category && server.category !== filters.category) return false;

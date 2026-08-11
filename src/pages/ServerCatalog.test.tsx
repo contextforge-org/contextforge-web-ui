@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
@@ -129,6 +129,47 @@ describe("ServerCatalog", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(viewButton).toHaveFocus());
+
+    await user.click(screen.getByRole("button", { name: "View Public Notes" }));
+    expect(within(screen.getByRole("dialog")).getByText("Not connected")).toBeInTheDocument();
+  });
+
+  it("renders safe remote logos and falls back when loading fails", () => {
+    const logoUrl = "https://cdn.example/globalping.svg";
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, logo_url: logoUrl }],
+          total: 1,
+        },
+      }),
+    );
+
+    const { container } = renderWithRouter(<ServerCatalog />);
+    const logo = container.querySelector(`img[src="${logoUrl}"]`);
+
+    expect(logo).toBeInTheDocument();
+    fireEvent.error(logo!);
+    expect(container.querySelector(`img[src="${logoUrl}"]`)).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Globalping icon"]')).toBeInTheDocument();
+  });
+
+  it("rejects non-HTTPS catalog logos", () => {
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, logo_url: "http://tracking.example/logo.svg" }],
+          total: 1,
+        },
+      }),
+    );
+
+    const { container } = renderWithRouter(<ServerCatalog />);
+
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Globalping icon"]')).toBeInTheDocument();
   });
 
   it("uses a labelled pressed-button group for catalog views", () => {
@@ -163,6 +204,8 @@ describe("ServerCatalog", () => {
   it("updates URL state for search and tabs", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
+    const pushState = vi.spyOn(window.history, "pushState");
+    const replaceState = vi.spyOn(window.history, "replaceState");
 
     await user.type(screen.getByRole("searchbox", { name: "Search MCP servers" }), "notes");
     expect(window.location.search).toContain("search=notes");
@@ -174,6 +217,11 @@ describe("ServerCatalog", () => {
     expect(
       screen.getByText("No MCP servers match the active search and filters."),
     ).toBeInTheDocument();
+    expect(pushState).not.toHaveBeenCalled();
+    expect(replaceState).toHaveBeenCalled();
+
+    pushState.mockRestore();
+    replaceState.mockRestore();
   });
 
   it("filters by category and reflects it in the URL", async () => {
@@ -201,6 +249,31 @@ describe("ServerCatalog", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.getAll("tags")).toEqual(["network", "documents"]);
     expect(screen.getByRole("button", { name: "Filters, 2 active" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+  });
+
+  it("filters by provider and auth type, then clears filters", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
+    await user.click(screen.getByRole("combobox", { name: "Provider" }));
+    await user.click(screen.getByRole("option", { name: "jsDelivr" }));
+    await user.click(screen.getByRole("combobox", { name: "Authentication" }));
+    await user.click(screen.getByRole("option", { name: "Open" }));
+
+    let params = new URLSearchParams(window.location.search);
+    expect(params.get("provider")).toBe("jsDelivr");
+    expect(params.get("auth_type")).toBe("Open");
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    params = new URLSearchParams(window.location.search);
+    expect(params.has("provider")).toBe(false);
+    expect(params.has("auth_type")).toBe(false);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
   });
