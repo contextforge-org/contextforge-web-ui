@@ -22,6 +22,7 @@ import type {
 
 import { config } from "../../config.js";
 import { clearSessionCookie, deleteSession } from "../../lib/session-store.js";
+import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
@@ -96,13 +97,17 @@ export default async function catchAllProxyRoute(fastify: FastifyInstance): Prom
       const sessionId = request.session!.sessionId;
 
       return reply.from(upstreamPath, {
-        rewriteRequestHeaders: (_req, headers) => ({
-          ...headers,
-          authorization: `Bearer ${bearerToken}`,
-          // Preserve real client IP for upstream audit logging.
-          "x-forwarded-for": request.ip,
-          "x-real-ip": request.ip,
-        }),
+        rewriteRequestHeaders: (_req, headers) => {
+          // Drop browser Cookie — bff_sid/bff_csrf are BFF-only secrets, upstream only needs the bearer.
+          const { cookie: _cookie, ...forwarded } = headers;
+          return {
+            ...forwarded,
+            ...upstreamAuthHeader(bearerToken),
+            // Preserve real client IP for upstream audit logging.
+            "x-forwarded-for": request.ip,
+            "x-real-ip": request.ip,
+          };
+        },
         rewriteHeaders: rewriteUpstreamLocation,
         onResponse: (req, res, upstreamResponse) => {
           // 401 from upstream means the bearer token itself is dead

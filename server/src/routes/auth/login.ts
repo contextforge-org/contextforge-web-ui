@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
 import { createSession, setSessionCookie, type SessionUser } from "../../lib/session-store.js";
+import { setNoStore } from "../../lib/no-store.js";
 
 interface LoginBody {
   email: string;
@@ -26,10 +27,21 @@ interface UpstreamAuthenticationResponse {
   user: SessionUser;
 }
 
+// No CSRF token yet at login, so check Sec-Fetch-Site instead to block cross-site login CSRF.
+function isCrossSiteRequest(request: FastifyRequest): boolean {
+  return request.headers["sec-fetch-site"] === "cross-site";
+}
+
 export default async function loginRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: LoginBody }>(
     "/auth/login",
     async (request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) => {
+      setNoStore(reply);
+
+      if (isCrossSiteRequest(request)) {
+        return reply.code(403).send({ error: "cross_site_request_forbidden" });
+      }
+
       const { email, password } = request.body ?? {};
       if (!email || !password) {
         return reply.code(400).send({ error: "email and password are required" });
@@ -53,7 +65,13 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         return reply.code(upstreamResponse.status).send({ error: "login_failed", detail });
       }
 
-      const auth = (await upstreamResponse.json()) as UpstreamAuthenticationResponse; // pragma: allowlist secret
+      let auth: UpstreamAuthenticationResponse; // pragma: allowlist secret
+      try {
+        auth = (await upstreamResponse.json()) as UpstreamAuthenticationResponse;
+      } catch (err) {
+        request.log.error({ err }, "upstream login returned a non-JSON 2xx body");
+        return reply.code(502).send({ error: "upstream_invalid_response" });
+      }
 
       // The BFF session/cookie must not outlive the bearer token it wraps —
       // use the upstream JWT's own lifetime, not a fixed BFF-side default.

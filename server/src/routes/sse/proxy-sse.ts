@@ -22,6 +22,7 @@ import { config } from "../../config.js";
 import { getSession } from "../../lib/session-store.js";
 import { sseUpstreamPool } from "../../lib/upstream-http-client.js";
 import { writeSseHeaders } from "../../lib/sse-headers.js";
+import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 import { register, unregister } from "./registry.js";
 
 export interface SseProxyRouteOptions {
@@ -53,7 +54,7 @@ export function registerSseProxyRoute(fastify: FastifyInstance, opts: SseProxyRo
           path: opts.upstreamPath,
           method: opts.upstreamMethod,
           headers: {
-            authorization: `Bearer ${session.bearerToken}`,
+            ...upstreamAuthHeader(session.bearerToken),
             accept: "text/event-stream",
             ...(body ? { "content-type": "application/json" } : {}),
           },

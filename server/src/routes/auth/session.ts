@@ -11,9 +11,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { getSession, SESSION_COOKIE_NAME } from "../../lib/session-store.js";
+import { setNoStore } from "../../lib/no-store.js";
 
 export default async function sessionRoute(fastify: FastifyInstance): Promise<void> {
   fastify.get("/auth/session", async (request: FastifyRequest, reply: FastifyReply) => {
+    setNoStore(reply);
+
     const sessionId = request.cookies[SESSION_COOKIE_NAME];
     const record = sessionId ? await getSession(fastify.redis, sessionId) : null;
 

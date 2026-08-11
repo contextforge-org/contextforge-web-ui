@@ -10,6 +10,9 @@ function optional(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
 
+// RFC 7230 token chars — blocks CR/LF/space/separators (header-injection guard).
+const HTTP_TOKEN_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
 export const config = {
   port: Number(optional("PORT", "3000")),
   host: optional("HOST", "0.0.0.0"),
@@ -17,6 +20,9 @@ export const config = {
   // Upstream ContextForge API (FastAPI). All bearer-token traffic goes here,
   // server-to-server only — the browser never talks to this origin directly.
   fastapiUrl: optional("FASTAPI_URL", "http://127.0.0.1:4444"),
+
+  // Header mcpgateway reads the bearer token from — must match its own AUTH_HEADER_NAME.
+  fastapiAuthHeaderName: optional("FASTAPI_AUTH_HEADER_NAME", "Authorization"),
 
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
@@ -30,6 +36,9 @@ export const config = {
 
   cookieDomain: process.env.COOKIE_DOMAIN, // undefined = host-only cookie
   cookieSecure: optional("COOKIE_SECURE", "true") === "true",
+
+  // Trust X-Forwarded-For so request.ip is the real client, not the LB. Only safe behind a trusted proxy.
+  trustProxy: optional("TRUST_PROXY", "true") === "true",
 
   // SPA build directory (see plugins/static.ts). undefined = default,
   // computed relative to that plugin's own file location
@@ -46,6 +55,15 @@ export const config = {
 } as const;
 
 // NODE_ENV isn't reliably set by the start script, so also fail closed on COOKIE_SECURE=true (prod's default).
-if (config.redisUrl.startsWith("memory://") && (process.env.NODE_ENV === "production" || config.cookieSecure)) {
+if (
+  config.redisUrl.startsWith("memory://") &&
+  (process.env.NODE_ENV === "production" || config.cookieSecure)
+) {
   throw new Error("REDIS_URL=memory:// is dev-only — set a real redis:// URL in production");
+}
+
+if (!HTTP_TOKEN_RE.test(config.fastapiAuthHeaderName)) {
+  throw new Error(
+    `FASTAPI_AUTH_HEADER_NAME "${config.fastapiAuthHeaderName}" is not a valid HTTP header token`,
+  );
 }

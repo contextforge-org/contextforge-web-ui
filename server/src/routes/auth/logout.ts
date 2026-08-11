@@ -26,12 +26,14 @@ import {
   SESSION_COOKIE_NAME,
 } from "../../lib/session-store.js";
 import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
+import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
+import { setNoStore } from "../../lib/no-store.js";
 
 async function revokeUpstreamToken(request: FastifyRequest, bearerToken: string): Promise<void> {
   try {
     const response = await fetch(`${config.fastapiUrl}/auth/logout`, {
       method: "POST",
-      headers: { authorization: `Bearer ${bearerToken}` },
+      headers: upstreamAuthHeader(bearerToken),
     });
     if (!response.ok) {
       request.log.warn(
@@ -49,6 +51,8 @@ export default async function logoutRoute(fastify: FastifyInstance): Promise<voi
     "/auth/logout",
     { preHandler: [fastify.csrfProtection] },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      setNoStore(reply);
+
       const sessionId = request.cookies[SESSION_COOKIE_NAME];
       if (sessionId) {
         const record = await getSession(fastify.redis, sessionId);
@@ -59,7 +63,8 @@ export default async function logoutRoute(fastify: FastifyInstance): Promise<voi
       }
 
       clearSessionCookie(reply);
-      reply.clearCookie(CSRF_COOKIE_NAME, { path: "/" });
+      // domain must match csrf.ts's setCookie or this clear is a no-op under COOKIE_DOMAIN.
+      reply.clearCookie(CSRF_COOKIE_NAME, { path: "/", domain: config.cookieDomain });
 
       return reply.send({ ok: true });
     },
