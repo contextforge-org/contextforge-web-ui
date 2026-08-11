@@ -44,7 +44,7 @@ function listBody(tokens: TokenResponse[]) {
 
 test.describe("API Tokens", () => {
   test.beforeEach(async ({ page, apiMock }) => {
-    await apiMock.mockMe();
+    await apiMock.mockSession();
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
     });
