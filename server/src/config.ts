@@ -37,8 +37,19 @@ export const config = {
   cookieDomain: process.env.COOKIE_DOMAIN, // undefined = host-only cookie
   cookieSecure: optional("COOKIE_SECURE", "true") === "true",
 
-  // Trust X-Forwarded-For so request.ip is the real client, not the LB. Only safe behind a trusted proxy.
-  trustProxy: optional("TRUST_PROXY", "true") === "true",
+  // Exact scheme://host the BFF is publicly reached at, for Origin-header
+  // validation on routes that can't use CSRF tokens (see lib/origin-guard.ts).
+  // undefined = derive from the request itself (request.protocol/host) —
+  // fine for a single-hostname deployment, but set this explicitly behind a
+  // reverse proxy where that derivation isn't trustworthy (e.g.
+  // TLS-terminated without TRUST_PROXY=true), or where request.host can't
+  // be relied on for other reasons.
+  publicOrigin: process.env.PUBLIC_ORIGIN,
+
+  // Trust X-Forwarded-For so request.ip is the real client, not the LB. Only
+  // safe behind a trusted proxy — default off so a direct-exposed BFF
+  // doesn't let clients forge their own IP. Opt in with TRUST_PROXY=true.
+  trustProxy: optional("TRUST_PROXY", "false") === "true",
 
   // SPA build directory (see plugins/static.ts). undefined = default,
   // computed relative to that plugin's own file location

@@ -12,6 +12,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { config } from "../../config.js";
 import { createSession, setSessionCookie, type SessionUser } from "../../lib/session-store.js";
 import { setNoStore } from "../../lib/no-store.js";
+import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
+import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
 
 interface LoginBody {
   email: string;
@@ -27,18 +29,13 @@ interface UpstreamAuthenticationResponse {
   user: SessionUser;
 }
 
-// No CSRF token yet at login, so check Sec-Fetch-Site instead to block cross-site login CSRF.
-function isCrossSiteRequest(request: FastifyRequest): boolean {
-  return request.headers["sec-fetch-site"] === "cross-site";
-}
-
 export default async function loginRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: LoginBody }>(
     "/auth/login",
     async (request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) => {
       setNoStore(reply);
 
-      if (isCrossSiteRequest(request)) {
+      if (isForbiddenCrossOrigin(request)) {
         return reply.code(403).send({ error: "cross_site_request_forbidden" });
       }
 
@@ -47,16 +44,22 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         return reply.code(400).send({ error: "email and password are required" });
       }
 
-      const upstreamResponse = await fetch(`${config.fastapiUrl}/auth/email/login`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          // Preserve real client IP for upstream audit logging.
-          "x-forwarded-for": request.ip,
-          "x-real-ip": request.ip,
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      let upstreamResponse: Response;
+      try {
+        upstreamResponse = await fetch(`${config.fastapiUrl}/auth/email/login`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            // Preserve real client IP for upstream audit logging.
+            "x-forwarded-for": request.ip,
+            "x-real-ip": request.ip,
+          },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch (err) {
+        request.log.error({ err }, "upstream login request failed");
+        return reply.code(502).send({ error: "upstream_unavailable" });
+      }
 
       if (!upstreamResponse.ok) {
         // Upstream 401/403/429 pass through as-is; body may carry rate-limit or
@@ -70,6 +73,11 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         auth = (await upstreamResponse.json()) as UpstreamAuthenticationResponse;
       } catch (err) {
         request.log.error({ err }, "upstream login returned a non-JSON 2xx body");
+        return reply.code(502).send({ error: "upstream_invalid_response" });
+      }
+
+      if (typeof auth.access_token !== "string" || !auth.access_token) {
+        request.log.error({ auth }, "upstream login 2xx response missing access_token");
         return reply.code(502).send({ error: "upstream_invalid_response" });
       }
 
@@ -91,6 +99,13 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
       );
 
       setSessionCookie(reply, sessionId, ttlSeconds);
+      // generateCsrf() only mints a fresh secret when request.cookies has no
+      // bff_csrf entry — reply.clearCookie() alone doesn't clear that (it
+      // only queues an outgoing Set-Cookie, request.cookies is untouched),
+      // so delete it directly to force rotation. Otherwise a secret planted
+      // before login (subdomain XSS, a plaintext hop with COOKIE_SECURE=false)
+      // survives into the authenticated session.
+      delete request.cookies[CSRF_COOKIE_NAME];
       // Cookie holds the CSRF secret (HttpOnly); the SPA needs the derived
       // token itself to echo back via X-CSRF-Token — see plugins/csrf.ts.
       const csrfToken = await reply.generateCsrf();

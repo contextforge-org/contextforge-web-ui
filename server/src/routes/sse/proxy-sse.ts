@@ -10,9 +10,13 @@
 // and a first-class AbortController to register for cleanup.
 //
 // CSRF is intentionally not applied here: EventSource can't set custom
-// headers, so double-submit CSRF doesn't work for SSE. These routes are
-// GET/read-only; defense in depth is the SameSite session cookie + this
-// route never being state-changing. See Risk #2 in the plan doc.
+// headers, so double-submit CSRF doesn't work for SSE. That matters because
+// upstreamMethod can be POST (see resources/subscribe) — an exact
+// Origin-header check below (lib/origin-guard.ts) is the substitute for the
+// CSRF double-submit, same as login.ts's guard. SameSite=Lax on the session
+// cookie is not sufficient by itself: it's still sent on cross-site
+// top-level GET navigations, and the browser-facing verb here is always GET
+// even when the upstream call it triggers is a state-changing POST.
 
 import { pipeline } from "node:stream/promises";
 
@@ -23,6 +27,7 @@ import { getSession } from "../../lib/session-store.js";
 import { sseUpstreamPool } from "../../lib/upstream-http-client.js";
 import { writeSseHeaders } from "../../lib/sse-headers.js";
 import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
+import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
 import { register, unregister } from "./registry.js";
 
 export interface SseProxyRouteOptions {
@@ -41,6 +46,10 @@ export function registerSseProxyRoute(fastify: FastifyInstance, opts: SseProxyRo
     opts.browserPath,
     { preHandler: [fastify.sessionAuth] },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      if (isForbiddenCrossOrigin(request)) {
+        return reply.code(403).send({ error: "cross_site_request_forbidden" });
+      }
+
       const session = request.session!;
       const controller = new AbortController();
 

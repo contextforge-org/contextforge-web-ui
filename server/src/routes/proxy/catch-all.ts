@@ -26,6 +26,37 @@ import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
+// Inbound headers that must never reach upstream verbatim: bff_sid/bff_csrf
+// (Cookie) are BFF-only secrets; the rest are infra/auth headers mcpgateway
+// trusts for request-URL construction (Forwarded/X-Forwarded-*, including
+// OAuth redirect URLs) or for the bearer token itself (Authorization / the
+// configured FASTAPI_AUTH_HEADER_NAME). None of these are on the Fetch
+// spec's forbidden-header list, so a browser tab can set them via fetch()
+// directly — strip all of them and let the BFF inject its own values below,
+// rather than only overwriting the ones we happen to already set.
+const STRIPPED_INBOUND_HEADERS = new Set([
+  "cookie",
+  "authorization",
+  "forwarded",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  "x-forwarded-port",
+  "x-real-ip",
+]);
+
+function stripInboundHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, string | string[] | undefined> {
+  const authHeaderKey = config.fastapiAuthHeaderName.toLowerCase();
+  const result: Record<string, string | string[] | undefined> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (STRIPPED_INBOUND_HEADERS.has(key) || key === authHeaderKey) continue;
+    result[key] = value;
+  }
+  return result;
+}
+
 // FastAPI/Starlette 307s bare "/teams" -> "/teams/" (redirect_slashes) with an
 // absolute Location built from its own host:port. Passed through unmodified,
 // the browser would follow it straight to FastAPI — leaking the upstream
@@ -35,12 +66,18 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 function rewriteUpstreamLocation(
   headers: Record<string, string | string[] | undefined>,
 ): typeof headers {
-  const location = headers.location;
+  // Drop upstream Set-Cookie unconditionally — mcpgateway's own jwt_token
+  // cookie must never reach the browser; the BFF session cookie is the only
+  // cookie the browser should ever see. See catch-all's own Cookie-stripping
+  // on the request side above.
+  const { "set-cookie": _dropped, ...rest } = headers;
+
+  const location = rest.location;
   if (typeof location !== "string" || !location.startsWith(config.fastapiUrl)) {
-    return headers;
+    return rest;
   }
   const upstreamPath = location.slice(config.fastapiUrl.length);
-  return { ...headers, location: `/api${upstreamPath}` };
+  return { ...rest, location: `/api${upstreamPath}` };
 }
 
 // fastify.csrfProtection is callback-style (request, reply, done), not
@@ -98,8 +135,10 @@ export default async function catchAllProxyRoute(fastify: FastifyInstance): Prom
 
       return reply.from(upstreamPath, {
         rewriteRequestHeaders: (_req, headers) => {
-          // Drop browser Cookie — bff_sid/bff_csrf are BFF-only secrets, upstream only needs the bearer.
-          const { cookie: _cookie, ...forwarded } = headers;
+          // See STRIPPED_INBOUND_HEADERS above — drop every inbound
+          // infra/auth header before injecting the BFF-owned bearer and IP
+          // headers, rather than only overwriting the ones we set below.
+          const forwarded = stripInboundHeaders(headers);
           return {
             ...forwarded,
             ...upstreamAuthHeader(bearerToken),

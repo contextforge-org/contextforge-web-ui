@@ -36,16 +36,21 @@ export default fp(
 
     fastify.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
       const pathname = request.url.split("?")[0] ?? request.url;
-      // A missing asset (has a file extension, e.g. /assets/nope.js) is a
-      // real 404, not a client route — only extension-less paths (client
-      // router paths like /login, /tools/123) get the SPA fallback.
-      const looksLikeAsset = /\.[a-zA-Z0-9]+$/.test(pathname);
+      // Allowlist known static-asset paths instead of guessing from a
+      // trailing extension — a trailing-dot heuristic (e.g. "has a file
+      // extension") wrongly 404s client routes like
+      // /app/reset-password/:token when the token itself contains a dot.
+      // Anything under these prefixes that reaches here is a genuinely
+      // missing build artifact; everything else is a client-router path and
+      // gets the SPA shell. Keep in sync with vite.config.ts's outDir
+      // contents and the root public/ dir it copies verbatim.
+      const isKnownAssetPath = pathname.startsWith("/assets/") || pathname === "/favicon.ico";
 
       if (
         request.method !== "GET" ||
         pathname.startsWith("/api/") ||
         pathname.startsWith("/auth/") ||
-        looksLikeAsset
+        isKnownAssetPath
       ) {
         return reply.code(404).send({
           message: `Route ${request.method}:${request.url} not found`,
