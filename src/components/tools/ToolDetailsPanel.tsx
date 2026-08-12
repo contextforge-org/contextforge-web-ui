@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { Activity, Globe, PanelRightClose, Wrench } from "lucide-react";
+import { Activity, PanelRightClose, Wrench } from "lucide-react";
+import {
+  VisibilityInfoPopover,
+  getVisibilityIcon,
+} from "@/components/common/VisibilityInfoPopover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
@@ -81,12 +85,16 @@ export function ToolDetailsPanel({
   }, [open]);
 
   // Re-sync the selected tool when the tools list refreshes (e.g. after an
-  // activate/deactivate) so the details column reflects the latest status.
+  // activate/deactivate or optimistic delete) so the details column reflects
+  // the latest state. When the selected tool has been removed, fall back to
+  // the first remaining tool.
   useEffect(() => {
     if (!selectedTool) return;
     const updated = tools.find((t) => t.id === selectedTool.id);
     if (updated && updated !== selectedTool) {
       setSelectedTool(updated);
+    } else if (!updated && tools.length > 0) {
+      setSelectedTool(tools[0]);
     }
   }, [tools, selectedTool]);
 
@@ -113,14 +121,14 @@ export function ToolDetailsPanel({
 
   const getVisibilityLabel = useCallback(
     (value?: string | null) => {
-      if (value === "team") return intl.formatMessage({ id: "tools.details.visibility.team" });
-      if (value === "public") return intl.formatMessage({ id: "tools.details.visibility.public" });
-      if (value === "private")
-        return intl.formatMessage({ id: "tools.details.visibility.private" });
+      if (value === "team") return intl.formatMessage({ id: "common.visibility.team" });
+      if (value === "public") return intl.formatMessage({ id: "common.visibility.internal" });
+      if (value === "private") return intl.formatMessage({ id: "common.visibility.private" });
       return intl.formatMessage({ id: "tools.details.notAvailable" });
     },
     [intl],
   );
+  const VisibilityIcon = getVisibilityIcon(selectedTool?.visibility);
 
   const getIntegrationTypeLabel = useCallback(
     (type?: string) => {
@@ -230,8 +238,9 @@ export function ToolDetailsPanel({
                         label={intl.formatMessage({ id: "tools.details.label.visibility" })}
                       >
                         <span className="flex items-center gap-2">
-                          <Globe className="size-3.5 text-muted-foreground" />
+                          <VisibilityIcon className="size-3.5 text-muted-foreground" />
                           {getVisibilityLabel(selectedTool.visibility)}
+                          <VisibilityInfoPopover side="left" visibility={selectedTool.visibility} />
                         </span>
                       </DetailRow>
                       <DetailRow label={intl.formatMessage({ id: "tools.details.label.type" })}>

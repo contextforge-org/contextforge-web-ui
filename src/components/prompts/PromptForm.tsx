@@ -20,6 +20,7 @@ import { MAX_TAGS } from "@/utils/tags";
 import { getTagDisplay } from "@/components/gateways/utils";
 import type { PromptRead } from "@/generated/types";
 import type { Visibility } from "@/types/server";
+import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 
 interface PromptFormProps {
   isOpen: boolean;
@@ -146,15 +147,15 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
             </div>
 
             <div className="space-y-2.5">
-              <Label
-                htmlFor="visibility"
-                className="mb-2.5 block text-sm font-medium text-foreground"
-              >
-                {intl.formatMessage({ id: "prompts.add.field.visibility" })}{" "}
-                <span className="text-destructive" aria-hidden="true">
-                  {intl.formatMessage({ id: "prompts.add.required" })}
-                </span>
-              </Label>
+              <div className="mb-2.5 flex items-center gap-1.5">
+                <Label htmlFor="visibility" className="block text-sm font-medium text-foreground">
+                  {intl.formatMessage({ id: "prompts.add.field.visibility" })}{" "}
+                  <span className="text-destructive" aria-hidden="true">
+                    {intl.formatMessage({ id: "prompts.add.required" })}
+                  </span>
+                </Label>
+                <VisibilityInfoPopover />
+              </div>
               <Select
                 value={form.visibility}
                 onValueChange={(value) => form.setVisibility(value as Visibility)}
@@ -170,13 +171,13 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="public">
-                    {intl.formatMessage({ id: "prompts.add.visibility.public" })}
+                    {intl.formatMessage({ id: "common.visibility.internal" })}
                   </SelectItem>
                   <SelectItem value="team">
-                    {intl.formatMessage({ id: "prompts.add.visibility.team" })}
+                    {intl.formatMessage({ id: "common.visibility.team" })}
                   </SelectItem>
                   <SelectItem value="private">
-                    {intl.formatMessage({ id: "prompts.add.visibility.private" })}
+                    {intl.formatMessage({ id: "common.visibility.private" })}
                   </SelectItem>
                 </SelectContent>
               </Select>

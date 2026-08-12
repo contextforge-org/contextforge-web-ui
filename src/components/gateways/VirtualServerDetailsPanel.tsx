@@ -11,9 +11,12 @@ import {
   PanelRightClose,
   Plus,
   Search,
-  Users,
   Wrench,
 } from "lucide-react";
+import {
+  VisibilityInfoPopover,
+  getVisibilityIcon,
+} from "@/components/common/VisibilityInfoPopover";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -156,16 +159,14 @@ export function VirtualServerDetailsPanel({
   );
   const getVisibilityLabel = useCallback(
     (value?: string) => {
-      if (value === "team")
-        return intl.formatMessage({ id: "gateways.createServer.visibility.team" });
-      if (value === "public")
-        return intl.formatMessage({ id: "gateways.createServer.visibility.public" });
-      if (value === "private")
-        return intl.formatMessage({ id: "gateways.createServer.visibility.private" });
+      if (value === "team") return intl.formatMessage({ id: "common.visibility.team" });
+      if (value === "public") return intl.formatMessage({ id: "common.visibility.internal" });
+      if (value === "private") return intl.formatMessage({ id: "common.visibility.private" });
       return intl.formatMessage({ id: "gateways.details.notAvailable" });
     },
     [intl],
   );
+  const VisibilityIcon = getVisibilityIcon(server?.visibility);
 
   const handleTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLButtonElement>, currentValue: ComponentFilter) => {
@@ -665,8 +666,9 @@ export function VirtualServerDetailsPanel({
                   </DetailRow>
                   <DetailRow label={intl.formatMessage({ id: "gateways.details.visibility" })}>
                     <span className="flex items-center gap-2">
-                      <Users className="size-3.5 text-muted-foreground" />
+                      <VisibilityIcon className="size-3.5 text-muted-foreground" />
                       {getVisibilityLabel(server.visibility)}
+                      <VisibilityInfoPopover side="left" visibility={server.visibility} />
                     </span>
                   </DetailRow>
                   <DetailRow label={intl.formatMessage({ id: "gateways.details.version" })}>

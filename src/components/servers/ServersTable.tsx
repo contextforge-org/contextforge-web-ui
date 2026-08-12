@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Copy,
-  Globe,
+  Building2,
   Lock,
-  Shield,
+  Users,
   TriangleAlert,
   Check,
   Activity,
@@ -56,11 +56,11 @@ function getServerStatus(server: MCPServer): ServerStatus {
 function getVisibilityConfig(visibility: MCPServer["visibility"]) {
   switch (visibility) {
     case "private":
-      return { label: "Private", Icon: Lock };
+      return { labelId: "common.visibility.private", Icon: Lock };
     case "team":
-      return { label: "Team", Icon: Shield };
+      return { labelId: "common.visibility.team", Icon: Users };
     default:
-      return { label: "Public", Icon: Globe };
+      return { labelId: "common.visibility.internal", Icon: Building2 };
   }
 }
 
@@ -160,7 +160,7 @@ export function ServersTable({
     <div className="overflow-hidden">
       <Table className="min-w-full border-separate border-spacing-y-1.5">
         <TableCaption className="sr-only">List of MCP servers with status and actions</TableCaption>
-        <TableHeader className="bg-main">
+        <TableHeader className="bg-white dark:bg-transparent">
           <TableRow className="border-none hover:bg-transparent">
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
               Name
@@ -200,7 +200,7 @@ export function ServersTable({
             return (
               <TableRow
                 key={server.id}
-                className="bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+                className="bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
               >
                 <TableCell className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
@@ -245,7 +245,7 @@ export function ServersTable({
                 <TableCell className="px-4 py-2.5">
                   <div className="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
                     <VisibilityIcon className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
-                    <span>{visibility.label}</span>
+                    <span>{intl.formatMessage({ id: visibility.labelId })}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">

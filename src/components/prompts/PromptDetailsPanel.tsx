@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Activity, Globe, MessageSquareCode, PanelRightClose } from "lucide-react";
+import { Activity, MessageSquareCode, PanelRightClose } from "lucide-react";
 import { useIntl } from "react-intl";
+import {
+  VisibilityInfoPopover,
+  getVisibilityIcon,
+} from "@/components/common/VisibilityInfoPopover";
 import type { PromptRead } from "@/generated/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -93,6 +97,17 @@ export function PromptDetailsPanel({
     () => prompts.find((p) => p.id === selectedId) ?? prompts[0] ?? null,
     [prompts, selectedId],
   );
+
+  const getVisibilityLabel = useCallback(
+    (value?: string | null) => {
+      if (value === "team") return intl.formatMessage({ id: "common.visibility.team" });
+      if (value === "public") return intl.formatMessage({ id: "common.visibility.internal" });
+      if (value === "private") return intl.formatMessage({ id: "common.visibility.private" });
+      return intl.formatMessage({ id: "prompts.details.notAvailable" });
+    },
+    [intl],
+  );
+  const VisibilityIcon = getVisibilityIcon(selected?.visibility);
 
   const headingId = useMemo(
     () => `prompt-details-heading-${selected?.id ?? "none"}`,
@@ -282,14 +297,9 @@ export function PromptDetailsPanel({
                       label={intl.formatMessage({ id: "prompts.details.label.visibility" })}
                     >
                       <span className="flex items-center gap-2">
-                        <Globe className="size-3.5 text-muted-foreground" />
-                        {selected.visibility === "team"
-                          ? intl.formatMessage({ id: "prompts.details.visibility.team" })
-                          : selected.visibility === "public"
-                            ? intl.formatMessage({ id: "prompts.details.visibility.public" })
-                            : selected.visibility === "private"
-                              ? intl.formatMessage({ id: "prompts.details.visibility.private" })
-                              : intl.formatMessage({ id: "prompts.details.notAvailable" })}
+                        <VisibilityIcon className="size-3.5 text-muted-foreground" />
+                        {getVisibilityLabel(selected.visibility)}
+                        <VisibilityInfoPopover side="left" visibility={selected.visibility} />
                       </span>
                     </DetailRow>
                     <DetailRow
