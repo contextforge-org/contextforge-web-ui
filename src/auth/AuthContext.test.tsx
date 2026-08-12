@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, render, waitFor } from "@testing-library/react";
-import { AuthProvider, useAuthContext } from "./AuthContext";
+import { AuthProvider, useAuthContext, ApiError } from "./AuthContext";
 import { useAuth } from "./useAuth";
 import { api, setCsrfToken } from "../api/client";
 import { permissionsApi } from "../api/permissions";
@@ -26,20 +26,10 @@ vi.mock("../api/client", () => {
 });
 
 // The permissions effect fires after authentication; mock it so it resolves
-// deterministically and does not hit the (mocked) api.get for /app/auth/me.
+// deterministically and does not hit the (mocked) api.get for /auth/session.
 vi.mock("../api/permissions", () => ({
   permissionsApi: { listMine: vi.fn().mockResolvedValue([]) },
 }));
-
-const mockUser = {
-  email: "user@example.com",
-  full_name: "Test User",
-  is_admin: false,
-  is_active: true,
-  auth_provider: "local",
-  email_verified: true,
-  password_change_required: false,
-};
 
 // Helper component to test context values
 function TestComponent() {
@@ -101,10 +91,20 @@ describe("AuthContext", () => {
   });
 
   it("handles successful initial authentication", async () => {
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: true,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "session-csrf-token",
+      csrfToken: "test-csrf-token",
     });
 
     render(
@@ -122,11 +122,30 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
     expect(screen.getByTestId("user-email")).toHaveTextContent("user@example.com");
     expect(api.get).toHaveBeenCalledWith("/auth/session");
-    expect(setCsrfToken).toHaveBeenCalledWith("session-csrf-token");
+    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
   });
 
-  it("handles an unauthenticated initial session check", async () => {
+  it("treats an unauthenticated session response as a guest", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({ authenticated: false });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading")).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+    expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
+    expect(setCsrfToken).toHaveBeenCalledWith(null);
+  });
+
+  it("handles failed initial authentication (401)", async () => {
+    const error = new ApiError(401, "Unauthorized", "");
+    vi.mocked(api.get).mockRejectedValueOnce(error);
 
     render(
       <AuthProvider>
@@ -142,7 +161,7 @@ describe("AuthContext", () => {
     expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
   });
 
-  it("handles failed initial authentication (network/generic error)", async () => {
+  it("handles failed initial authentication (generic error)", async () => {
     vi.mocked(api.get).mockRejectedValueOnce(new Error("Network Failure"));
 
     render(
@@ -159,7 +178,7 @@ describe("AuthContext", () => {
   });
 
   it("handles successful login", async () => {
-    vi.mocked(api.get).mockResolvedValueOnce({ authenticated: false });
+    vi.mocked(api.get).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
 
     render(
       <AuthProvider>
@@ -171,9 +190,19 @@ describe("AuthContext", () => {
       expect(screen.queryByTestId("loading")).not.toBeInTheDocument();
     });
 
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
     vi.mocked(api.post).mockResolvedValueOnce({
       user: mockUser,
-      csrfToken: "csrf-token-123",
+      csrfToken: "test-csrf-token",
     });
 
     screen.getByText("Login").click();
@@ -188,14 +217,24 @@ describe("AuthContext", () => {
       { email: "test@example.com", password: "pass" },
       { authenticated: false },
     );
-    expect(setCsrfToken).toHaveBeenCalledWith("csrf-token-123");
+    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
   });
 
   it("handles successful logout", async () => {
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "t",
+      csrfToken: "test-csrf-token",
     });
 
     render(
@@ -218,14 +257,24 @@ describe("AuthContext", () => {
     });
 
     expect(api.post).toHaveBeenCalledWith("/auth/logout");
-    expect(setCsrfToken).toHaveBeenCalledWith(null);
+    expect(setCsrfToken).toHaveBeenLastCalledWith(null);
   });
 
   it("handles logout server failure gracefully", async () => {
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "t",
+      csrfToken: "test-csrf-token",
     });
 
     render(
@@ -258,7 +307,12 @@ describe("AuthContext", () => {
       email_verified: true,
       password_change_required: false,
     };
-    vi.mocked(api.get).mockResolvedValueOnce({ authenticated: true, user: mockUser });
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      authenticated: true,
+      user: mockUser,
+      csrfToken: "test-csrf-token",
+    });
 
     // Hold the permissions fetch open so we can observe the loading window.
     let resolvePerms!: (perms: string[]) => void;
@@ -286,8 +340,16 @@ describe("AuthContext", () => {
   it("re-exports useAuth correctly", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
-      user: mockUser,
-      csrfToken: "t",
+      user: {
+        email: "user@example.com",
+        full_name: "Test User",
+        is_admin: false,
+        is_active: true,
+        auth_provider: "local",
+        email_verified: true,
+        password_change_required: false,
+      },
+      csrfToken: "test-csrf-token",
     });
 
     render(

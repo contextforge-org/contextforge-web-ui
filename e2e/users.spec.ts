@@ -2,7 +2,7 @@ import { test, expect } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { User } from "../src/types/user";
 
-// Logged-in admin (from apiMock.mockMe) uses DEFAULT_TEST_USER: email = "test@example.com".
+// Logged-in admin (from apiMock.mockSession) uses DEFAULT_TEST_USER: email = "test@example.com".
 // MOCK_USER uses a different email so tests can delete/edit without self-conflict.
 const MOCK_USER: User = {
   email: "john@example.com",
