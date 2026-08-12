@@ -1,6 +1,7 @@
 # Build outputs
 dist
 build
+../mcpgateway/static/app
 
 # Dependencies
 node_modules
