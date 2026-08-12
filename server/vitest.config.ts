@@ -7,5 +7,8 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.ts"],
     globals: false,
+    // REDIS_URL defaults to memory://, and config.ts fails closed when that's
+    // paired with COOKIE_SECURE's own default of "true" — opt out for tests.
+    env: { COOKIE_SECURE: "false" },
   },
 });

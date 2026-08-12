@@ -10,6 +10,13 @@ function optional(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
 
+// Distinct from `optional`: for values with no fallback, `KEY=` (empty string)
+// must mean "unset", not "explicitly set to empty" — otherwise `??` downstream
+// treats "" as a real value instead of falling through.
+function optionalUnset(name: string): string | undefined {
+  return process.env[name] || undefined;
+}
+
 // RFC 7230 token chars — blocks CR/LF/space/separators (header-injection guard).
 const HTTP_TOKEN_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
@@ -34,7 +41,7 @@ export const config = {
   // session key once this elapses.
   sessionTtlSeconds: Number(optional("SESSION_TTL_SECONDS", "86400")),
 
-  cookieDomain: process.env.COOKIE_DOMAIN, // undefined = host-only cookie
+  cookieDomain: optionalUnset("COOKIE_DOMAIN"), // undefined = host-only cookie
   cookieSecure: optional("COOKIE_SECURE", "true") === "true",
 
   // Exact scheme://host the BFF is publicly reached at, for Origin-header
@@ -44,7 +51,7 @@ export const config = {
   // reverse proxy where that derivation isn't trustworthy (e.g.
   // TLS-terminated without TRUST_PROXY=true), or where request.host can't
   // be relied on for other reasons.
-  publicOrigin: process.env.PUBLIC_ORIGIN,
+  publicOrigin: optionalUnset("PUBLIC_ORIGIN"),
 
   // Trust X-Forwarded-For so request.ip is the real client, not the LB. Only
   // safe behind a trusted proxy — default off so a direct-exposed BFF
@@ -55,7 +62,7 @@ export const config = {
   // computed relative to that plugin's own file location
   // (`npm run build` -> server/public/). Override
   // for a non-standard layout, or to point at a temp dir in tests.
-  publicDir: process.env.PUBLIC_DIR,
+  publicDir: optionalUnset("PUBLIC_DIR"),
 
   // Session-revocation re-check cadence for long-lived SSE connections
   // (Option A from agent-output/bff-proxy-and-sse-plan.md — bounded staleness,
@@ -76,5 +83,20 @@ if (
 if (!HTTP_TOKEN_RE.test(config.fastapiAuthHeaderName)) {
   throw new Error(
     `FASTAPI_AUTH_HEADER_NAME "${config.fastapiAuthHeaderName}" is not a valid HTTP header token`,
+  );
+}
+
+// COOKIE_SECURE=true (prod default) with neither PUBLIC_ORIGIN nor TRUST_PROXY
+// set means origin-guard.ts derives its expected origin from request.protocol,
+// which is wrong behind a TLS-terminating proxy (it reads "http" while the
+// browser sends "https"). That silently 403s every login and SSE connection,
+// so fail fast at boot instead of at the first request.
+if (config.cookieSecure && !config.publicOrigin && !config.trustProxy) {
+  throw new Error(
+    "COOKIE_SECURE=true requires either PUBLIC_ORIGIN or TRUST_PROXY=true, " +
+      "otherwise origin-guard.ts can't validate Origin behind a reverse proxy " +
+      "(request.protocol won't reflect TLS termination). Set PUBLIC_ORIGIN to " +
+      "this deployment's exact scheme://host, or TRUST_PROXY=true if the BFF " +
+      "is directly TLS-terminated.",
   );
 }
