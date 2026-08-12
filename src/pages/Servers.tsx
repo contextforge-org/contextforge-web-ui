@@ -55,6 +55,7 @@ export function Servers() {
     error: queryError,
     isLoading,
     refetch,
+    setData: setQueryData,
   } = useQuery<ServersResponse>(queryPath);
 
   // Fetch server details when selectedServerIdForDetails changes
@@ -121,7 +122,12 @@ export function Servers() {
     const previousServers = allServers;
     const serverToDelete = allServers.find((s) => s.id === idToDelete);
 
-    setAllServers(allServers.filter((s) => s.id !== idToDelete));
+    const filtered = allServers.filter((s) => s.id !== idToDelete);
+    setAllServers(filtered);
+    // Keep the query cache aligned so the refetch useEffect doesn't restore the deleted server.
+    setQueryData((prev) =>
+      prev ? { ...prev, gateways: prev.gateways.filter((s) => s.id !== idToDelete) } : prev,
+    );
 
     const previousServerIdForDetails = selectedServerIdForDetails;
     const previousDrawerOpen = isDetailsDrawerOpen;
@@ -149,6 +155,7 @@ export function Servers() {
       }
     } catch (err) {
       setAllServers(previousServers);
+      setQueryData((prev) => (prev ? { ...prev, gateways: previousServers } : prev));
       setSelectedServerIdForDetails(previousServerIdForDetails);
       setIsDetailsDrawerOpen(previousDrawerOpen);
       const errorMsg = sanitizeError(err);
@@ -163,6 +170,7 @@ export function Servers() {
     selectedServerIdForDetails,
     isDetailsDrawerOpen,
     refetch,
+    setQueryData,
     intl,
   ]);
 

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { Activity, FileText, Globe, PanelRightClose } from "lucide-react";
+import { Activity, FileText, PanelRightClose } from "lucide-react";
+import {
+  VisibilityInfoPopover,
+  getVisibilityIcon,
+} from "@/components/common/VisibilityInfoPopover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
@@ -106,15 +110,14 @@ export function ResourceDetailsPanel({
 
   const getVisibilityLabel = useCallback(
     (value?: string | null) => {
-      if (value === "team") return intl.formatMessage({ id: "resources.details.visibility.team" });
-      if (value === "public")
-        return intl.formatMessage({ id: "resources.details.visibility.public" });
-      if (value === "private")
-        return intl.formatMessage({ id: "resources.details.visibility.private" });
+      if (value === "team") return intl.formatMessage({ id: "common.visibility.team" });
+      if (value === "public") return intl.formatMessage({ id: "common.visibility.internal" });
+      if (value === "private") return intl.formatMessage({ id: "common.visibility.private" });
       return intl.formatMessage({ id: "resources.details.notAvailable" });
     },
     [intl],
   );
+  const VisibilityIcon = getVisibilityIcon(selectedResource?.visibility);
 
   return (
     <>
@@ -211,8 +214,12 @@ export function ResourceDetailsPanel({
                         label={intl.formatMessage({ id: "resources.details.label.visibility" })}
                       >
                         <span className="flex items-center gap-2">
-                          <Globe className="size-3.5 text-muted-foreground" />
+                          <VisibilityIcon className="size-3.5 text-muted-foreground" />
                           {getVisibilityLabel(selectedResource.visibility)}
+                          <VisibilityInfoPopover
+                            side="left"
+                            visibility={selectedResource.visibility}
+                          />
                         </span>
                       </DetailRow>
                       {selectedResource.mimeType && (
