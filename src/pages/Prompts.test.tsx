@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import { toast } from "sonner";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders } from "@/test/test-utils";
 import { useAuthContext } from "@/auth/AuthContext";
@@ -831,6 +840,204 @@ describe("Prompts", () => {
     // Closing hides the panel (aria-hidden), so it drops out of the a11y tree.
     await waitFor(() => {
       expect(screen.queryByRole("region", { name: /prompt details/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("toggle prompt (activate/deactivate)", () => {
+    beforeEach(() => {
+      vi.mocked(toast.success).mockClear();
+      vi.mocked(toast.error).mockClear();
+    });
+
+    it("deactivates an active prompt, sends activate=false, and shows a success toast", async () => {
+      const user = userEvent.setup();
+      let enabled = true;
+      server.use(
+        http.get("/api/prompts", () =>
+          HttpResponse.json([
+            createMockPrompt({ id: "prompt-1", gatewaySlug: "gh-repo-tasks", enabled }),
+          ]),
+        ),
+        http.post("/api/prompts/prompt-1/state", ({ request }) => {
+          expect(new URL(request.url).searchParams.get("activate")).toBe("false");
+          enabled = false;
+          return HttpResponse.json({ status: "success" });
+        }),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Active")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Deactivate/ }));
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("Summarize document"));
+      });
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Inactive")).toBeInTheDocument();
+    });
+
+    it("activates an inactive prompt, sends activate=true, and shows a success toast", async () => {
+      const user = userEvent.setup();
+      let enabled = false;
+      server.use(
+        http.get("/api/prompts", () =>
+          HttpResponse.json([
+            createMockPrompt({ id: "prompt-1", gatewaySlug: "gh-repo-tasks", enabled }),
+          ]),
+        ),
+        http.post("/api/prompts/prompt-1/state", ({ request }) => {
+          expect(new URL(request.url).searchParams.get("activate")).toBe("true");
+          enabled = true;
+          return HttpResponse.json({ status: "success" });
+        }),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Inactive")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Activate/ }));
+
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("Summarize document"));
+      });
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Active")).toBeInTheDocument();
+    });
+
+    it("optimistically flips the status dot before the request resolves", async () => {
+      const user = userEvent.setup();
+      let resolveRequest: () => void;
+      const requestGate = new Promise<void>((resolve) => {
+        resolveRequest = resolve;
+      });
+      server.use(
+        http.get("/api/prompts", () =>
+          HttpResponse.json([
+            createMockPrompt({ id: "prompt-1", gatewaySlug: "gh-repo-tasks", enabled: true }),
+          ]),
+        ),
+        http.post("/api/prompts/prompt-1/state", async () => {
+          await requestGate;
+          return HttpResponse.json({ status: "success" });
+        }),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Deactivate/ }));
+
+      // The dot flips before the (still-pending) request resolves.
+      await waitFor(() => {
+        expect(
+          within(getPromptCard("gh-repo-tasks")).getByLabelText("Inactive"),
+        ).toBeInTheDocument();
+      });
+      expect(toast.success).not.toHaveBeenCalled();
+
+      resolveRequest!();
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    });
+
+    it("reverts the optimistic update and surfaces the API error detail on failure", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.get("/api/prompts", () =>
+          HttpResponse.json([
+            createMockPrompt({ id: "prompt-1", gatewaySlug: "gh-repo-tasks", enabled: true }),
+          ]),
+        ),
+        http.post("/api/prompts/prompt-1/state", () =>
+          HttpResponse.json({ detail: "Permission denied" }, { status: 403 }),
+        ),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Deactivate/ }));
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("Permission denied");
+      });
+      // Reverted back to Active after the failed request.
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Active")).toBeInTheDocument();
+    });
+
+    it("keeps the toggle success toast and mutation even when the follow-up refetch fails", async () => {
+      const user = userEvent.setup();
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      let promptsListCalls = 0;
+      server.use(
+        http.get("/api/prompts", () => {
+          promptsListCalls += 1;
+          if (promptsListCalls === 1) {
+            return HttpResponse.json([
+              createMockPrompt({ id: "prompt-1", gatewaySlug: "gh-repo-tasks", enabled: true }),
+            ]);
+          }
+          // The refetch triggered after a successful toggle fails.
+          return HttpResponse.json({ detail: "Nope" }, { status: 500 });
+        }),
+        http.post("/api/prompts/prompt-1/state", () => HttpResponse.json({ status: "success" })),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Deactivate/ }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+      await waitFor(() => expect(consoleErrorSpy).toHaveBeenCalled());
+      // The optimistic mutation stands despite the failed refetch.
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Inactive")).toBeInTheDocument();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("treats a prompt with an undefined `enabled` as active for both the menu label and the request", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.get("/api/prompts", () =>
+          HttpResponse.json([
+            {
+              id: "prompt-1",
+              name: "summarize",
+              displayName: "Summarize document",
+              originalName: "summarize_document",
+              gatewayId: "gw-github",
+              gatewaySlug: "gh-repo-tasks",
+              description: null,
+              template: "Summarize: {{topic}}",
+              arguments: [],
+              createdAt: "2026-01-01T00:00:00Z",
+              updatedAt: "2026-01-01T00:00:00Z",
+              // `enabled` intentionally omitted, mirroring a legacy API response.
+            },
+          ]),
+        ),
+        http.post("/api/prompts/prompt-1/state", ({ request }) => {
+          expect(new URL(request.url).searchParams.get("activate")).toBe("false");
+          return HttpResponse.json({ status: "success" });
+        }),
+      );
+
+      renderWithProviders(<Prompts />);
+      await waitFor(() => expect(screen.getByText("gh-repo-tasks")).toBeInTheDocument());
+
+      // Missing `enabled` reads as active: dot and menu item agree.
+      expect(within(getPromptCard("gh-repo-tasks")).getByLabelText("Active")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "More options for gh-repo-tasks" }));
+      await user.click(await screen.findByRole("menuitem", { name: /^Deactivate/ }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
     });
   });
 });
