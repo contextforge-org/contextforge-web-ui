@@ -383,6 +383,13 @@ function VirtualServerDetailsPanelContainer({
   } = useQuery<VirtualServer>(`/servers/${encodeURIComponent(serverId)}`);
   const hydratedServer = serverDetails?.id === serverId ? serverDetails : server;
 
+  useEffect(() => {
+    if (!server) return;
+    setServerDetails((current) =>
+      current?.id === server.id ? { ...current, ...server } : current,
+    );
+  }, [server, setServerDetails]);
+
   const handleAddTag = useCallback(
     async (id: string, tags: string[]) => {
       try {

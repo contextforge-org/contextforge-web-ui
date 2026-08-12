@@ -363,6 +363,61 @@ describe("Gateways", () => {
     expect(toast.success).toHaveBeenCalledWith("GH repo tasks deactivated.");
   });
 
+  it("patches cached details after changing virtual server state", async () => {
+    const user = userEvent.setup();
+    const server = makeServer({ enabled: true });
+    const setServerDetails = vi.fn();
+
+    mockUseQuery.mockImplementation((path) => {
+      if (path === "/servers?limit=12&include_inactive=true&include_pagination=true") {
+        return {
+          data: { servers: [server] },
+          error: null,
+          isLoading: false,
+          execute: vi.fn(),
+          refetch: vi.fn(),
+          setData: vi.fn(),
+        };
+      }
+
+      if (path === "/servers/gateway-1") {
+        return {
+          data: server,
+          error: null,
+          isLoading: false,
+          execute: vi.fn(),
+          refetch: vi.fn(),
+          setData: setServerDetails,
+        };
+      }
+
+      return {
+        data: undefined,
+        error: null,
+        isLoading: false,
+        execute: vi.fn(),
+        refetch: vi.fn(),
+        setData: vi.fn(),
+      };
+    });
+
+    renderWithProviders(<Gateways />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
+    await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+    await user.click(screen.getByRole("button", { name: "Close virtual server details" }));
+    setServerDetails.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Deactivate" }));
+    await user.click(screen.getByRole("button", { name: "Deactivate" }));
+
+    await waitFor(() => expect(setServerDetails).toHaveBeenCalled());
+    const updateDetails = setServerDetails.mock.calls[setServerDetails.mock.calls.length - 1]?.[0];
+    expect(typeof updateDetails).toBe("function");
+    expect(updateDetails(server)).toMatchObject({ id: server.id, enabled: false });
+  });
+
   it("does not deactivate when confirmation is cancelled", async () => {
     const user = userEvent.setup();
     setupWithServer(makeServer({ enabled: true }));

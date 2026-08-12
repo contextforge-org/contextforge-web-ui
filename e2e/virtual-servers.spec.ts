@@ -455,7 +455,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Deactivate" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Deactivate virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Deactivate virtual server" });
     await expect(dialog).toContainText("Are you sure you want to deactivate testVS?");
     expect(stateRequestCount).toBe(0);
 
@@ -467,7 +467,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Deactivate" }).click();
     await page
-      .getByRole("dialog", { name: "Deactivate virtual server" })
+      .getByRole("alertdialog", { name: "Deactivate virtual server" })
       .getByRole("button", { name: "Deactivate" })
       .click();
 
@@ -507,7 +507,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect(page.getByTestId("virtual-server-card").filter({ hasText: "testVS" })).toHaveCount(
@@ -549,7 +549,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Delete" }).click();
 
@@ -587,7 +587,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByText("Are you sure you want to delete testVS? This action cannot be undone."),
@@ -630,7 +630,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect(dialog).toHaveCount(0);
@@ -681,7 +681,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect(page.getByTestId("virtual-server-card").filter({ hasText: "testVS" })).toHaveCount(
@@ -726,7 +726,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect.poll(() => deleteRequestCount).toBe(1);
@@ -757,7 +757,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await expect(dialog).toBeVisible();
 
     await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -802,7 +802,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect.poll(() => deleteRequestCount).toBe(1);
@@ -865,7 +865,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect(page.getByTestId("virtual-server-card").filter({ hasText: "testVS" })).toHaveCount(
@@ -928,7 +928,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect(page.getByTestId("virtual-server-card").filter({ hasText: "testVS" })).toHaveCount(
@@ -986,7 +986,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
-    const dialog = page.getByRole("dialog", { name: "Delete virtual server" });
+    const dialog = page.getByRole("alertdialog", { name: "Delete virtual server" });
     await dialog.getByRole("button", { name: "Delete" }).click();
 
     await expect.poll(() => deleteRequestCount).toBe(1);
