@@ -5,8 +5,9 @@ server/node_modules/
 # Build outputs
 dist/
 server/dist/
-server/public/.vite/
-server/public/assets/
+# Entire SPA build dir — vite's outDir with emptyOutDir:true regenerates all
+# of it, including index.html; nothing under here should be tracked.
+server/public/
 
 # Test outputs
 test-results/

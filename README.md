@@ -27,30 +27,82 @@ npm install
 
 ### Development
 
-The client development workflow requires both the client dev server and the backend gateway:
+The app is split into three pieces that all must run for local dev:
 
-1. **Build the client assets:**
+- **ContextForge** (`mcpgateway`) — the upstream FastAPI gateway. It owns
+  auth and all business data.
+- **BFF** (`server/`) — a Fastify app that sits between the browser and
+  ContextForge. It holds the session cookie/CSRF boundary and keeps the
+  API's JWT off the browser (`server/src/index.ts`). The browser only ever
+  talks to the BFF, never directly to ContextForge.
+- **Client** (`src/`) — this React SPA, served as static files by the BFF
+  (same-origin — the API client always calls relative paths, see
+  `src/api/client.ts`).
+
+Bring them up in this order:
+
+1. **Start ContextForge** — the upstream `mcp-context-forge` repo. Follow
+   its own quick-start guide:
+   https://github.com/IBM/mcp-context-forge/issues/2503
+   Note whatever port it ends up listening on for the next step.
+
+2. **Configure and start the BFF** (terminal B, this repo's `server/`):
 
    ```bash
+   cd server
+   cp .env.example .env
+   ```
+
+   Edit `server/.env`:
+   - `FASTAPI_URL` — point it at whatever host:port ContextForge is
+     listening on from step 1 (`.env.example`'s default is `4444`; confirm
+     against your ContextForge run rather than assuming).
+   - `COOKIE_SECURE=false` — needed for local HTTP; the default (`true`) is
+     for prod and silently drops the session cookie over plain HTTP.
+
+   Other values (`PORT`, `REDIS_URL`, `SESSION_TTL_SECONDS`, etc.) have
+   dev-safe defaults — see comments in `server/.env.example`.
+   `REDIS_URL=memory://` (the default) is an in-process store, no Redis
+   process needed for local dev — state resets on restart.
+
+   ```bash
+   npm install
+   npm run dev   # :3000, tsx watch
+   ```
+
+3. **Build the frontend for the BFF to serve**, from the repo root:
+
+   ```bash
+   npm install
    npm run build
    ```
 
-2. **Start the client development server:**
+   This builds the SPA into `server/public/`, which the already-running BFF
+   serves directly. Re-run `npm run build` after any frontend change —
+   there's no HMR dev server wired to the BFF, so this build step is the
+   loop for local iteration against the real backend. (`npm run build:watch`
+   reruns it automatically on file changes.)
 
-   ```bash
-   npm run dev
-   ```
+4. **Use it.** Visit `http://localhost:3000/` — redirects to `/app/login`
+   (unauthed) or `/app/` (authed). The login form posts through the BFF,
+   which holds the ContextForge JWT server-side and hands the browser only
+   an opaque session cookie.
 
-   This starts the Vite dev server at `http://localhost:5173` with hot module replacement.
+   Default seeded admin: `admin@example.com` / `changeme` (first login
+   forces a password change unless `PASSWORD_CHANGE_ENFORCEMENT_ENABLED=false`
+   is set in ContextForge's `.env`).
 
-3. **In another terminal, start the backend gateway:**
+> `npm run dev` (plain Vite dev server at `:5173`, no BFF in front) still
+> works for UI-only iteration, but `/api/*` calls need the BFF — it won't
+> reach ContextForge on its own.
 
-   ```bash
-   make dev
-   ```
+#### Troubleshooting
 
-4. **Access the application:**
-   Open your browser and navigate to `http://localhost:8000/app` to view the UI.
+- **`EADDRINUSE` on `:3000`** — stale `tsx watch` process:
+  `lsof -ti:3000 | xargs kill`, then restart `npm run dev` in `server/`.
+- **401 mid-session** — expected; the ContextForge token hard-expires per
+  `TOKEN_EXPIRY` (default 20 min). The BFF auto-revokes the session and
+  redirects to login.
 
 ### Build
 
@@ -58,7 +110,7 @@ The client development workflow requires both the client dev server and the back
 npm run build
 ```
 
-Builds the production bundle to `dist/`.
+Builds the SPA into `server/public/`, for the BFF to serve.
 
 ### Preview Production Build
 
@@ -272,8 +324,17 @@ client/
 ├── vitest.config.ts      # Vitest configuration
 ├── tsconfig.json         # TypeScript base config
 ├── tsconfig.app.json     # TypeScript app config
-├── vite.config.ts        # Vite configuration
-└── package.json          # Dependencies and scripts
+├── vite.config.ts        # Vite configuration (builds to server/public/)
+├── package.json          # Dependencies and scripts
+└── server/               # BFF (Fastify): session/CSRF boundary in front of ContextForge
+    ├── src/
+    │   ├── index.ts       # Entrypoint
+    │   ├── config.ts      # Env-driven config
+    │   ├── plugins/       # cookie, redis, session, csrf, static
+    │   └── routes/        # auth/, proxy/ (catch-all to ContextForge), sse/
+    ├── public/            # Built SPA (npm run build output), served by BFF
+    ├── .env.example       # Copy to .env and configure FASTAPI_URL etc.
+    └── package.json
 ```
 
 ## Available Scripts

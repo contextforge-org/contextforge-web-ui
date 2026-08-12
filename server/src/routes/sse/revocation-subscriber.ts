@@ -1,0 +1,48 @@
+// Location: ./client/server/src/routes/sse/revocation-subscriber.ts
+// Copyright contributors to the MCP-CONTEXT-FORGE project
+// SPDX-License-Identifier: Apache-2.0
+//
+// Cross-instance SSE revocation (Option B from agent-output/bff-proxy-and-sse-plan.md,
+// layered on top of Option A's periodic re-check). A dedicated ioredis
+// connection in subscribe mode — the command client decorated by
+// plugins/redis.ts can't issue normal commands once subscribed, hence the
+// separate connection here. REDIS_URL=memory:// swaps in the in-process
+// MemoryRedis (see plugins/redis.ts) instead — irrelevant for a single dev
+// process, but kept symmetric with the command client's mode.
+
+import { Redis } from "ioredis";
+import type { FastifyBaseLogger } from "fastify";
+
+import { config } from "../../config.js";
+import { isMemoryRedisUrl, MemoryRedis } from "../../lib/memory-redis.js";
+import { abortAll } from "./registry.js";
+
+// Must stay in sync with session-store.ts's sessionRevokedChannel().
+const REVOKED_CHANNEL_PREFIX = `${config.redisKeyPrefix}:session:revoked:`;
+const REVOKED_PATTERN = `${REVOKED_CHANNEL_PREFIX}*`;
+
+function onPmessage(_pattern: string, channel: string): void {
+  const sessionId = channel.slice(REVOKED_CHANNEL_PREFIX.length);
+  if (sessionId) abortAll(sessionId);
+}
+
+export function startRevocationSubscriber(log: FastifyBaseLogger): Redis | MemoryRedis {
+  const subscriber = isMemoryRedisUrl(config.redisUrl)
+    ? new MemoryRedis()
+    : new Redis(config.redisUrl);
+
+  // Without a listener, an unhandled "error" emit crashes the process.
+  subscriber.on("error", (err) => {
+    log.warn({ err }, "revocation subscriber redis error");
+  });
+
+  subscriber.psubscribe(REVOKED_PATTERN, (err) => {
+    if (err) {
+      subscriber.emit("error", err);
+    }
+  });
+
+  subscriber.on("pmessage", onPmessage);
+
+  return subscriber;
+}
