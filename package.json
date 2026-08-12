@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.22.1"
+  },
   "scripts": {
     "dev": "vite",
     "dev:e2e": "vite --base=/ --port 5173 --strictPort",
