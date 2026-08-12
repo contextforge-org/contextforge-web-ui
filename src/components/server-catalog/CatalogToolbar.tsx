@@ -136,11 +136,13 @@ function CatalogFilterSectionFields({
       </RadioGroup>
 
       {mode === SELECT_MODE && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pl-6 md:grid-cols-4">
+        // Multi-column rather than a grid so options read alphabetically down
+        // each column, as the design lays them out.
+        <div className="columns-2 gap-x-4 pl-6 md:columns-4">
           {options.map((option, index) => {
             const checkboxId = `${idPrefix}-option-${index}`;
             return (
-              <div key={option} className="flex items-center gap-2">
+              <div key={option} className="flex break-inside-avoid items-center gap-2 pb-2">
                 <Checkbox
                   id={checkboxId}
                   checked={selected.includes(option)}
