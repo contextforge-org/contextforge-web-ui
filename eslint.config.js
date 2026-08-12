@@ -89,4 +89,21 @@ export default tseslint.config(
       "no-new-func": "error",
     },
   },
+  {
+    extends: [...tseslint.configs.recommended],
+    files: ["server/**/*.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+    plugins: {
+      prettier: prettierPlugin,
+    },
+    rules: {
+      ...prettierConfig.rules,
+      "prettier/prettier": ["error", prettierOptions],
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-new-func": "error",
+    },
+  },
 );
