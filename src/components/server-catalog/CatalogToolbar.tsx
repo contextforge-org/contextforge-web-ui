@@ -1,32 +1,49 @@
-import { useId } from "react";
+import { useCallback, useId, useState } from "react";
 import { Filter } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
 import { CardTag } from "@/components/ui/card-tag";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ListSearch } from "@/components/ui/list-search";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-const OPEN_AUTH_TYPE = "Open";
-const ALL_FILTER_VALUE = "__all__";
+const ALL_MODE = "all";
+const SELECT_MODE = "select";
 
-export type CatalogSingleFilterKey = "category" | "provider" | "auth_type";
+export interface CatalogFilterDraft {
+  category: string[];
+  provider: string[];
+  tags: string[];
+}
+
+type CatalogFilterSection = keyof CatalogFilterDraft;
+type CatalogSectionMode = typeof ALL_MODE | typeof SELECT_MODE;
+type CatalogSectionModes = Record<CatalogFilterSection, CatalogSectionMode>;
+
+function getSectionModes(draft: CatalogFilterDraft): CatalogSectionModes {
+  return {
+    category: draft.category.length > 0 ? SELECT_MODE : ALL_MODE,
+    provider: draft.provider.length > 0 ? SELECT_MODE : ALL_MODE,
+    tags: draft.tags.length > 0 ? SELECT_MODE : ALL_MODE,
+  };
+}
 
 interface CatalogToolbarProps {
   search: string;
   installedOnly: boolean;
-  category: string;
-  provider: string;
-  authType: string;
+  category: string[];
+  provider: string[];
   selectedTags: string[];
   categories: string[];
   providers: string[];
@@ -34,9 +51,7 @@ interface CatalogToolbarProps {
   activeFilterCount: number;
   onSearchChange: (value: string) => void;
   onInstalledChange: (installedOnly: boolean) => void;
-  onSetSingleFilter: (key: CatalogSingleFilterKey, value: string | null) => void;
-  onToggleTag: (tag: string, checked: boolean) => void;
-  onClear: () => void;
+  onApply: (draft: CatalogFilterDraft) => void;
 }
 
 function CatalogViewToggle({
@@ -76,29 +91,138 @@ function CatalogViewToggle({
   );
 }
 
-function CatalogFiltersPopover({
+function CatalogFilterSectionFields({
+  idPrefix,
+  legendId,
+  legend,
+  options,
+  selected,
+  mode,
+  allLabel,
+  selectLabel,
+  onModeChange,
+  onToggle,
+}: {
+  idPrefix: string;
+  legendId: string;
+  legend: string;
+  options: string[];
+  selected: string[];
+  mode: CatalogSectionMode;
+  allLabel: string;
+  selectLabel: string;
+  onModeChange: (mode: string) => void;
+  onToggle: (option: string, checked: boolean) => void;
+}) {
+  return (
+    <fieldset className="space-y-3" aria-labelledby={legendId}>
+      <legend id={legendId} className="text-sm font-medium text-foreground">
+        {legend}
+      </legend>
+
+      <RadioGroup value={mode} onValueChange={onModeChange} className="gap-2">
+        <div className="flex items-center gap-2">
+          <RadioGroupItem id={`${idPrefix}-all`} value={ALL_MODE} />
+          <Label htmlFor={`${idPrefix}-all`} className="cursor-pointer text-sm font-normal">
+            {allLabel}
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem id={`${idPrefix}-select`} value={SELECT_MODE} />
+          <Label htmlFor={`${idPrefix}-select`} className="cursor-pointer text-sm font-normal">
+            {selectLabel}
+          </Label>
+        </div>
+      </RadioGroup>
+
+      {mode === SELECT_MODE && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 pl-6 md:grid-cols-4">
+          {options.map((option, index) => {
+            const checkboxId = `${idPrefix}-option-${index}`;
+            return (
+              <div key={option} className="flex items-center gap-2">
+                <Checkbox
+                  id={checkboxId}
+                  checked={selected.includes(option)}
+                  onCheckedChange={(checked) => onToggle(option, checked === true)}
+                />
+                <Label htmlFor={checkboxId} className="cursor-pointer text-sm font-normal">
+                  {option}
+                </Label>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </fieldset>
+  );
+}
+
+function CatalogFiltersDialog({
   category,
   provider,
-  authType,
   selectedTags,
   categories,
   providers,
   availableTags,
   activeFilterCount,
-  onSetSingleFilter,
-  onToggleTag,
-  onClear,
+  onApply,
 }: Omit<CatalogToolbarProps, "search" | "installedOnly" | "onSearchChange" | "onInstalledChange">) {
   const intl = useIntl();
   const id = useId();
-  const filtersTitleId = `${id}-title`;
-  const categoryTriggerId = `${id}-category`;
-  const providerTriggerId = `${id}-provider`;
-  const authTriggerId = `${id}-auth`;
+  const [open, setOpen] = useState(false);
+  const initialDraft: CatalogFilterDraft = { category, provider, tags: selectedTags };
+  const [draft, setDraft] = useState<CatalogFilterDraft>(initialDraft);
+  const [modes, setModes] = useState<CatalogSectionModes>(() => getSectionModes(initialDraft));
+
+  // Seeded only when the dialog opens. The page re-renders on every debounced
+  // search keystroke, so syncing the draft in an effect would discard edits that
+  // are still in progress.
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        const committed: CatalogFilterDraft = { category, provider, tags: selectedTags };
+        setDraft(committed);
+        setModes(getSectionModes(committed));
+      }
+      setOpen(nextOpen);
+    },
+    [category, provider, selectedTags],
+  );
+
+  const setSectionMode = useCallback((section: CatalogFilterSection, mode: string) => {
+    const nextMode: CatalogSectionMode = mode === SELECT_MODE ? SELECT_MODE : ALL_MODE;
+    setModes((previous) => ({ ...previous, [section]: nextMode }));
+    // Switching a section back to All clears that section and leaves the others
+    // untouched. Switching to Select keeps whatever was already ticked.
+    if (nextMode === ALL_MODE) {
+      setDraft((previous) => ({ ...previous, [section]: [] }));
+    }
+  }, []);
+
+  const toggleSectionOption = useCallback(
+    (section: CatalogFilterSection, option: string, checked: boolean) => {
+      // Ticking a box always implies Select mode for that section.
+      if (checked) setModes((previous) => ({ ...previous, [section]: SELECT_MODE }));
+      setDraft((previous) => {
+        const current = previous[section];
+        return {
+          ...previous,
+          [section]: checked ? [...current, option] : current.filter((item) => item !== option),
+        };
+      });
+    },
+    [],
+  );
+
+  const handleApply = useCallback(() => {
+    onApply(draft);
+    setOpen(false);
+  }, [draft, onApply]);
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -117,119 +241,71 @@ function CatalogFiltersPopover({
             </CardTag>
           )}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-4" aria-labelledby={filtersTitleId}>
-        <div className="flex items-center justify-between">
-          <h2 id={filtersTitleId} className="text-sm font-semibold">
-            {intl.formatMessage({ id: "mcpServer.catalog.filters" })}
-          </h2>
-          {activeFilterCount > 0 && (
-            <Button type="button" variant="ghost" size="xs" onClick={onClear}>
-              {intl.formatMessage({ id: "mcpServer.catalog.clearFilters" })}
-            </Button>
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-[696px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Filter className="size-4" aria-hidden="true" />
+            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <CatalogFilterSectionFields
+            idPrefix={`${id}-provider`}
+            legendId={`${id}-provider-legend`}
+            legend={intl.formatMessage({ id: "mcpServer.catalog.providers" })}
+            options={providers}
+            selected={draft.provider}
+            mode={modes.provider}
+            allLabel={intl.formatMessage({ id: "mcpServer.catalog.allProvidersOption" })}
+            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectProviders" })}
+            onModeChange={(mode) => setSectionMode("provider", mode)}
+            onToggle={(option, checked) => toggleSectionOption("provider", option, checked)}
+          />
+
+          <CatalogFilterSectionFields
+            idPrefix={`${id}-category`}
+            legendId={`${id}-category-legend`}
+            legend={intl.formatMessage({ id: "mcpServer.catalog.categories" })}
+            options={categories}
+            selected={draft.category}
+            mode={modes.category}
+            allLabel={intl.formatMessage({ id: "mcpServer.catalog.allCategoriesOption" })}
+            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectCategories" })}
+            onModeChange={(mode) => setSectionMode("category", mode)}
+            onToggle={(option, checked) => toggleSectionOption("category", option, checked)}
+          />
+
+          {availableTags.length > 0 && (
+            <CatalogFilterSectionFields
+              idPrefix={`${id}-tags`}
+              legendId={`${id}-tags-legend`}
+              legend={intl.formatMessage({ id: "mcpServer.catalog.tags" })}
+              options={availableTags}
+              selected={draft.tags}
+              mode={modes.tags}
+              allLabel={intl.formatMessage({ id: "mcpServer.catalog.allTagsOption" })}
+              selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectTags" })}
+              onModeChange={(mode) => setSectionMode("tags", mode)}
+              onToggle={(option, checked) => toggleSectionOption("tags", option, checked)}
+            />
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor={categoryTriggerId} className="text-xs">
-            {intl.formatMessage({ id: "mcpServer.catalog.category" })}
-          </Label>
-          <Select
-            value={category || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
-              onSetSingleFilter("category", value === ALL_FILTER_VALUE ? null : value)
-            }
-          >
-            <SelectTrigger id={categoryTriggerId} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_FILTER_VALUE}>
-                {intl.formatMessage({ id: "mcpServer.catalog.allCategories" })}
-              </SelectItem>
-              {categories.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor={providerTriggerId} className="text-xs">
-            {intl.formatMessage({ id: "mcpServer.catalog.provider" })}
-          </Label>
-          <Select
-            value={provider || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
-              onSetSingleFilter("provider", value === ALL_FILTER_VALUE ? null : value)
-            }
-          >
-            <SelectTrigger id={providerTriggerId} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_FILTER_VALUE}>
-                {intl.formatMessage({ id: "mcpServer.catalog.allProviders" })}
-              </SelectItem>
-              {providers.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor={authTriggerId} className="text-xs">
-            {intl.formatMessage({ id: "mcpServer.catalog.authentication" })}
-          </Label>
-          <Select
-            value={authType || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
-              onSetSingleFilter("auth_type", value === ALL_FILTER_VALUE ? null : value)
-            }
-          >
-            <SelectTrigger id={authTriggerId} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_FILTER_VALUE}>
-                {intl.formatMessage({ id: "mcpServer.catalog.allAuthTypes" })}
-              </SelectItem>
-              <SelectItem value={OPEN_AUTH_TYPE}>{OPEN_AUTH_TYPE}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {availableTags.length > 0 && (
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-medium">
-              {intl.formatMessage({ id: "mcpServer.catalog.tags" })}
-            </legend>
-            <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-2">
-              {availableTags.map((tag, index) => {
-                const checkboxId = `${id}-tag-${index}`;
-                return (
-                  <div key={tag} className="flex items-center gap-2">
-                    <Checkbox
-                      id={checkboxId}
-                      checked={selectedTags.includes(tag)}
-                      onCheckedChange={(checked) => onToggleTag(tag, checked === true)}
-                    />
-                    <Label htmlFor={checkboxId} className="cursor-pointer text-sm font-normal">
-                      {tag}
-                    </Label>
-                  </div>
-                );
-              })}
-            </div>
-          </fieldset>
-        )}
-      </PopoverContent>
-    </Popover>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="ghost">
+              {intl.formatMessage({ id: "common.button.cancel" })}
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={handleApply}>
+            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -256,7 +332,7 @@ export function CatalogToolbar({
           expandedWidthClassName="w-full sm:w-[432px]"
         />
 
-        <CatalogFiltersPopover {...filterProps} />
+        <CatalogFiltersDialog {...filterProps} />
       </div>
     </div>
   );

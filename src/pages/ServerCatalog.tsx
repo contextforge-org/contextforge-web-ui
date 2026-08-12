@@ -8,7 +8,7 @@ import {
 } from "@/components/server-catalog/CatalogResults";
 import {
   CatalogToolbar,
-  type CatalogSingleFilterKey,
+  type CatalogFilterDraft,
 } from "@/components/server-catalog/CatalogToolbar";
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,8 @@ const PAGE_HEADING_ID = "server-catalog-heading";
 
 interface CatalogFilters {
   search: string;
-  category: string;
-  provider: string;
-  authType: string;
+  category: string[];
+  provider: string[];
   tags: string[];
   installedOnly: boolean;
 }
@@ -41,15 +40,18 @@ function getQuery(path: string): string {
   return queryIndex === -1 ? "" : path.slice(queryIndex + 1);
 }
 
+function readMulti(params: URLSearchParams, key: string): string[] {
+  return [...new Set(params.getAll(key).filter(Boolean))];
+}
+
 function parseFilters(path: string): CatalogFilters {
   const params = new URLSearchParams(getQuery(path));
 
   return {
     search: params.get("search") ?? "",
-    category: params.get("category") ?? "",
-    provider: params.get("provider") ?? "",
-    authType: params.get("auth_type") === OPEN_AUTH_TYPE ? OPEN_AUTH_TYPE : "",
-    tags: [...new Set(params.getAll("tags").filter(Boolean))],
+    category: readMulti(params, "category"),
+    provider: readMulti(params, "provider"),
+    tags: readMulti(params, "tags"),
     installedOnly: params.get("show_registered_only") === "true",
   };
 }
@@ -73,31 +75,30 @@ function useCatalogFilters() {
         }
       });
 
+      // Transitional: the auth type filter was removed while the catalog only
+      // offers Open servers. Drop any auth_type left over in existing URLs so it
+      // cannot survive later navigations. Remove once auth types ship again.
+      params.delete("auth_type");
+
       const query = params.toString();
       navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH, { replace: true });
     },
     [navigate, path],
   );
 
-  const setSingleFilter = useCallback(
-    (key: CatalogSingleFilterKey, value: string | null) => updateQuery({ [key]: value }),
-    [updateQuery],
-  );
-
-  const toggleTag = useCallback(
-    (tag: string, checked: boolean) =>
+  // Commits every dialog filter in a single navigation so applying filters adds
+  // exactly one history entry.
+  const applyFilters = useCallback(
+    (draft: CatalogFilterDraft) =>
       updateQuery({
-        tags: checked ? [...filters.tags, tag] : filters.tags.filter((item) => item !== tag),
+        category: draft.category,
+        provider: draft.provider,
+        tags: draft.tags,
       }),
-    [filters.tags, updateQuery],
-  );
-
-  const clearFilters = useCallback(
-    () => updateQuery({ category: null, provider: null, auth_type: null, tags: [] }),
     [updateQuery],
   );
 
-  return { filters, updateQuery, setSingleFilter, toggleTag, clearFilters };
+  return { filters, updateQuery, applyFilters };
 }
 
 function getOpenServers(servers: CatalogServer[]): CatalogServer[] {
@@ -109,9 +110,12 @@ function filterOpenServers(openServers: CatalogServer[], filters: CatalogFilters
   const search = filters.search.trim().toLocaleLowerCase();
 
   return openServers.filter((server) => {
-    if (filters.authType && server.auth_type !== filters.authType) return false;
-    if (filters.category && server.category !== filters.category) return false;
-    if (filters.provider && server.provider !== filters.provider) return false;
+    if (filters.category.length > 0 && !filters.category.includes(server.category ?? "")) {
+      return false;
+    }
+    if (filters.provider.length > 0 && !filters.provider.includes(server.provider ?? "")) {
+      return false;
+    }
     if (filters.installedOnly && !server.is_registered) return false;
     if (filters.tags.length > 0 && !filters.tags.some((tag) => server.tags?.includes(tag))) {
       return false;
@@ -144,7 +148,7 @@ export function ServerCatalog() {
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
   const lastViewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data, error, isLoading, refetch } = useQuery<CatalogListResponse>(CATALOG_PATH);
-  const { filters, updateQuery, setSingleFilter, toggleTag, clearFilters } = useCatalogFilters();
+  const { filters, updateQuery, applyFilters } = useCatalogFilters();
   const [search, setSearch] = useState(filters.search);
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -158,6 +162,9 @@ export function ServerCatalog() {
     }
   }, [debouncedSearch, filters.search, updateQuery]);
 
+  // Only the debounced search box filters ahead of the URL. Category, provider
+  // and tag selections stay committed here: the dialog holds them as a draft
+  // until Add filters is pressed, so an unapplied draft must never reach the grid.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
   const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
@@ -184,11 +191,7 @@ export function ServerCatalog() {
     : filters.installedOnly && !hasConnectedServers
       ? "mcpServer.catalog.noneConnected"
       : "mcpServer.catalog.noResults";
-  const activeFilterCount =
-    Number(Boolean(filters.category)) +
-    Number(Boolean(filters.provider)) +
-    Number(Boolean(filters.authType)) +
-    filters.tags.length;
+  const activeFilterCount = filters.category.length + filters.provider.length + filters.tags.length;
 
   const handleView = useCallback((server: CatalogServer, trigger: HTMLButtonElement) => {
     lastViewTriggerRef.current = trigger;
@@ -249,7 +252,6 @@ export function ServerCatalog() {
         installedOnly={filters.installedOnly}
         category={filters.category}
         provider={filters.provider}
-        authType={filters.authType}
         selectedTags={filters.tags}
         categories={categoryOptions}
         providers={providerOptions}
@@ -257,9 +259,7 @@ export function ServerCatalog() {
         activeFilterCount={activeFilterCount}
         onSearchChange={setSearch}
         onInstalledChange={(installedOnly) => updateQuery({ show_registered_only: installedOnly })}
-        onSetSingleFilter={setSingleFilter}
-        onToggleTag={toggleTag}
-        onClear={clearFilters}
+        onApply={applyFilters}
       />
 
       <CatalogResults

@@ -73,6 +73,31 @@ function queryResult(overrides: Partial<ReturnType<typeof useQuery>> = {}) {
   } as ReturnType<typeof useQuery>;
 }
 
+type UserEvent = ReturnType<typeof userEvent.setup>;
+
+function getFilterSection(name: string): HTMLElement {
+  return screen.getByRole("group", { name });
+}
+
+async function openFilters(user: UserEvent) {
+  await user.click(screen.getByRole("button", { name: /^Filters(, \d+ active)?$/ }));
+}
+
+async function applyFilters(user: UserEvent) {
+  const dialog = screen.getByRole("dialog", { name: "Add filters" });
+  await user.click(within(dialog).getByRole("button", { name: "Add filters" }));
+}
+
+// Sections start in All mode; ticking an option requires switching to Select first.
+async function selectSectionOption(user: UserEvent, section: string, option: string) {
+  const fields = getFilterSection(section);
+  const selectRadio = within(fields).getByRole("radio", { name: "Select..." });
+  if (selectRadio.getAttribute("aria-checked") !== "true") {
+    await user.click(selectRadio);
+  }
+  await user.click(within(getFilterSection(section)).getByRole("checkbox", { name: option }));
+}
+
 function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
   window.history.pushState({}, "", path);
   return render(
@@ -231,24 +256,62 @@ describe("ServerCatalog", () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    expect(screen.getByRole("dialog", { name: "Filters" })).toBeInTheDocument();
-    await user.click(screen.getByRole("combobox", { name: "Category" }));
-    expect(screen.queryByRole("option", { name: "Security" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "Productivity" }));
+    await openFilters(user);
+    expect(screen.getByRole("dialog", { name: "Add filters" })).toBeInTheDocument();
+
+    await selectSectionOption(user, "Categories", "Productivity");
+    expect(screen.queryByRole("checkbox", { name: "Security" })).not.toBeInTheDocument();
+
+    await applyFilters(user);
 
     await waitFor(() => expect(window.location.search).toContain("category=Productivity"));
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
   });
 
+  it("leaves the URL and results untouched until filters are applied", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Categories", "Productivity");
+
+    // The open modal marks the page behind it aria-hidden, so the grid has to be
+    // queried with hidden: true while the draft is still uncommitted.
+    expect(window.location.search).not.toContain("category");
+    expect(screen.getByRole("heading", { name: "Globalping", hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Notes", hidden: true })).toBeInTheDocument();
+  });
+
+  it("discards the draft when the dialog is cancelled or closed", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Categories", "Productivity");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(window.location.search).not.toContain("category");
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+
+    await openFilters(user);
+    await selectSectionOption(user, "Categories", "Productivity");
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(window.location.search).not.toContain("category");
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+  });
+
   it("supports repeatable OR tag filters", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("checkbox", { name: "network" }));
-    await user.click(screen.getByRole("checkbox", { name: "documents" }));
+    await openFilters(user);
+    await selectSectionOption(user, "Tags", "network");
+    await selectSectionOption(user, "Tags", "documents");
+    await applyFilters(user);
 
     const params = new URLSearchParams(window.location.search);
     expect(params.getAll("tags")).toEqual(["network", "documents"]);
@@ -261,36 +324,118 @@ describe("ServerCatalog", () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
+    await openFilters(user);
+    await user.click(within(getFilterSection("Tags")).getByRole("radio", { name: "Select..." }));
     expect(screen.queryByRole("checkbox", { name: "security" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("combobox", { name: "Provider" }));
-    expect(screen.queryByRole("option", { name: "SecureCo" })).not.toBeInTheDocument();
+    await user.click(
+      within(getFilterSection("Providers")).getByRole("radio", { name: "Select..." }),
+    );
+    expect(screen.queryByRole("checkbox", { name: "SecureCo" })).not.toBeInTheDocument();
   });
 
-  it("filters by provider and auth type, then clears filters", async () => {
+  it("filters by several providers at once", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("combobox", { name: "Provider" }));
-    await user.click(screen.getByRole("option", { name: "jsDelivr" }));
-    await user.click(screen.getByRole("combobox", { name: "Authentication" }));
-    await user.click(screen.getByRole("option", { name: "Open" }));
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "jsDelivr");
+    await applyFilters(user);
 
     let params = new URLSearchParams(window.location.search);
-    expect(params.get("provider")).toBe("jsDelivr");
-    expect(params.get("auth_type")).toBe("Open");
+    expect(params.getAll("provider")).toEqual(["jsDelivr"]);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Clear" }));
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "Example");
+    await applyFilters(user);
 
     params = new URLSearchParams(window.location.search);
-    expect(params.has("provider")).toBe(false);
-    expect(params.has("auth_type")).toBe(false);
+    expect(params.getAll("provider")).toEqual(["jsDelivr", "Example"]);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+  });
+
+  it("restores repeated category and provider params from the URL", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <ServerCatalog />,
+      "/app/server-catalog?category=Monitoring&category=Productivity&provider=jsDelivr",
+    );
+
+    expect(screen.getByRole("button", { name: "Filters, 3 active" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
+
+    await openFilters(user);
+    expect(
+      within(getFilterSection("Categories")).getByRole("checkbox", { name: "Monitoring" }),
+    ).toBeChecked();
+    expect(
+      within(getFilterSection("Categories")).getByRole("checkbox", { name: "Productivity" }),
+    ).toBeChecked();
+    expect(
+      within(getFilterSection("Providers")).getByRole("checkbox", { name: "jsDelivr" }),
+    ).toBeChecked();
+    expect(
+      within(getFilterSection("Providers")).getByRole("checkbox", { name: "Example" }),
+    ).not.toBeChecked();
+  });
+
+  it("clears only the section switched back to All", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />, "/app/server-catalog?provider=jsDelivr&tags=network");
+
+    await openFilters(user);
+    await user.click(within(getFilterSection("Providers")).getByRole("radio", { name: "All" }));
+    await applyFilters(user);
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has("provider")).toBe(false);
+    expect(params.getAll("tags")).toEqual(["network"]);
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeInTheDocument();
+  });
+
+  it("shows no active filter count on a fresh page", () => {
+    renderWithRouter(<ServerCatalog />);
+
+    expect(screen.getByRole("button", { name: /^Filters$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Filters, \d+ active/ })).not.toBeInTheDocument();
+  });
+
+  it("applies every filter section in a single history entry", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+    const replaceState = vi.spyOn(window.history, "replaceState");
+
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "jsDelivr");
+    await selectSectionOption(user, "Categories", "Monitoring");
+    await selectSectionOption(user, "Tags", "network");
+    expect(replaceState).not.toHaveBeenCalled();
+
+    await applyFilters(user);
+    expect(replaceState).toHaveBeenCalledTimes(1);
+
+    replaceState.mockRestore();
+  });
+
+  it("drops a legacy auth_type param on any navigation", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />, "/app/server-catalog?auth_type=Open");
+
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "jsDelivr");
+    await applyFilters(user);
+
+    expect(new URLSearchParams(window.location.search).has("auth_type")).toBe(false);
+
+    renderWithRouter(<ServerCatalog />, "/app/server-catalog?auth_type=Open");
+    await user.type(screen.getAllByRole("searchbox", { name: "Search MCP servers" })[0], "notes");
+
+    await waitFor(() => expect(window.location.search).toContain("search=notes"));
+    expect(new URLSearchParams(window.location.search).has("auth_type")).toBe(false);
   });
 
   it("shows explicit disabled and generic error states with retry", async () => {
