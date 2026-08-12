@@ -32,6 +32,11 @@ export default fp(
       root: PUBLIC_DIR,
       prefix: "/",
       index: false, // '/' is handled explicitly by routes/app.ts, for the auth check
+      // Vite content-hashes every /assets/* filename, so those are safe to
+      // cache for a year. index.html itself overrides this below — it must
+      // always revalidate, since it's what points at the current hashes.
+      maxAge: "1y",
+      immutable: true,
     });
 
     fastify.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
@@ -58,7 +63,7 @@ export default fp(
           statusCode: 404,
         });
       }
-      return reply.sendFile("index.html");
+      return reply.sendFile("index.html", { maxAge: 0, immutable: false });
     });
   },
   { name: "staticPlugin" },
