@@ -17,10 +17,12 @@ import { config } from "../../config.js";
 import { isMemoryRedisUrl, MemoryRedis } from "../../lib/memory-redis.js";
 import { abortAll } from "./registry.js";
 
-const REVOKED_PATTERN = "bff:session:revoked:*";
+// Must stay in sync with session-store.ts's sessionRevokedChannel().
+const REVOKED_CHANNEL_PREFIX = `${config.redisKeyPrefix}:session:revoked:`;
+const REVOKED_PATTERN = `${REVOKED_CHANNEL_PREFIX}*`;
 
 function onPmessage(_pattern: string, channel: string): void {
-  const sessionId = channel.slice("bff:session:revoked:".length);
+  const sessionId = channel.slice(REVOKED_CHANNEL_PREFIX.length);
   if (sessionId) abortAll(sessionId);
 }
 

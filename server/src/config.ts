@@ -41,6 +41,10 @@ export const config = {
   // session key once this elapses.
   sessionTtlSeconds: Number(optional("SESSION_TTL_SECONDS", "86400")),
 
+  // Redis key namespace, in case multiple BFF deployments (staging/prod)
+  // ever share one Redis instance.
+  redisKeyPrefix: optional("REDIS_KEY_PREFIX", "bff"),
+
   cookieDomain: optionalUnset("COOKIE_DOMAIN"), // undefined = host-only cookie
   cookieSecure: optional("COOKIE_SECURE", "true") === "true",
 

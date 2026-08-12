@@ -97,14 +97,20 @@ export function registerSseProxyRoute(fastify: FastifyInstance, opts: SseProxyRo
 
       // Option A (bounded-staleness): re-check the Redis session periodically
       // and abort if it's gone, in case pub/sub revocation (Option B, see
-      // revocation-subscriber.ts) is missed for any reason.
-      const recheckTimer = setInterval(() => {
-        getSession(fastify.redis, session.sessionId)
-          .then((record) => {
-            if (!record) cleanup();
-          })
-          .catch((err) => request.log.warn({ err }, "sse session recheck failed"));
-      }, config.sseSessionRecheckSeconds * 1000);
+      // revocation-subscriber.ts) is missed for any reason. Jittered ±10% so
+      // many connections opened around the same time don't all poll Redis
+      // in lockstep.
+      const jitter = 1 + (Math.random() * 0.2 - 0.1);
+      const recheckTimer = setInterval(
+        () => {
+          getSession(fastify.redis, session.sessionId)
+            .then((record) => {
+              if (!record) cleanup();
+            })
+            .catch((err) => request.log.warn({ err }, "sse session recheck failed"));
+        },
+        config.sseSessionRecheckSeconds * 1000 * jitter,
+      );
 
       try {
         // pipeline() handles backpressure and tears down both streams on

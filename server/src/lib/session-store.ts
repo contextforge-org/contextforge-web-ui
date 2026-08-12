@@ -40,12 +40,12 @@ export interface SessionRecord {
 }
 
 export function sessionRedisKey(sessionId: string): string {
-  return `bff:session:${sessionId}`;
+  return `${config.redisKeyPrefix}:session:${sessionId}`;
 }
 
 /** Publish channel for cross-instance revocation (see routes/sse/revocation-subscriber.ts). */
 export function sessionRevokedChannel(sessionId: string): string {
-  return `bff:session:revoked:${sessionId}`;
+  return `${config.redisKeyPrefix}:session:revoked:${sessionId}`;
 }
 
 // TTL defaults to config.sessionTtlSeconds, but callers should pass the

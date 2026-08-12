@@ -22,6 +22,7 @@ import sessionRoute from "./routes/auth/session.js";
 import catchAllProxyRoute from "./routes/proxy/catch-all.js";
 import { startRevocationSubscriber } from "./routes/sse/revocation-subscriber.js";
 import sseRoutes from "./routes/sse/routes.js";
+import { sseUpstreamPool } from "./lib/upstream-http-client.js";
 
 const fastify = Fastify({ logger: { level: config.logLevel }, trustProxy: config.trustProxy });
 
@@ -43,6 +44,7 @@ await fastify.register(appRoute);
 const revocationSubscriber = startRevocationSubscriber(fastify.log);
 fastify.addHook("onClose", async () => {
   await revocationSubscriber.quit();
+  await sseUpstreamPool.close();
 });
 
 try {

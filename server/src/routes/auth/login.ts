@@ -84,10 +84,18 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
       // The BFF session/cookie must not outlive the bearer token it wraps —
       // use the upstream JWT's own lifetime, not a fixed BFF-side default.
       // See createSession's comment in lib/session-store.ts.
-      const ttlSeconds =
-        Number.isFinite(auth.expires_in) && auth.expires_in > 0
-          ? auth.expires_in
-          : config.sessionTtlSeconds;
+      let ttlSeconds = config.sessionTtlSeconds;
+      if (Number.isFinite(auth.expires_in) && auth.expires_in > 0) {
+        ttlSeconds = auth.expires_in;
+      } else {
+        // Upstream returned a bogus expires_in — fall back, but log it: this
+        // means the BFF session can outlive the JWT it wraps until the
+        // proxy's revoke-on-401 catches up (see session-store.ts).
+        request.log.warn(
+          { expires_in: auth.expires_in },
+          "upstream login returned invalid expires_in, using BFF default session TTL",
+        );
+      }
 
       const sessionId = await createSession(
         fastify.redis,

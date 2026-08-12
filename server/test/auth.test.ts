@@ -154,6 +154,31 @@ describe("GET /auth/session", () => {
     expect(payload.user.email).toBe("user@example.com");
     expect(payload.csrfToken).toBeTruthy();
   });
+
+  it("rotates the CSRF secret on login, so a pre-existing secret can't survive into the new session", async () => {
+    const app = await buildTestApp();
+    const first = await login(app);
+    const firstCsrfCookie = first.cookies.find((c) => c.startsWith("bff_csrf="));
+    expect(firstCsrfCookie).toBeTruthy();
+
+    // Log in again while presenting the previous login's CSRF secret cookie —
+    // simulates a secret planted before login (subdomain cookie tossing, a
+    // plaintext hop) surviving across the login call.
+    mockUpstreamLogin(true, {
+      access_token: "upstream-jwt-2", // pragma: allowlist secret
+      user: { email: "user@example.com", is_admin: false },
+    });
+    const second = await app.fastify.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { cookie: firstCsrfCookie! },
+      payload: { email: "user@example.com", password: "secret" }, // pragma: allowlist secret
+    });
+
+    const secondCsrfCookie = second.cookies.find((c) => c.name === "bff_csrf");
+    expect(secondCsrfCookie).toBeTruthy();
+    expect(`bff_csrf=${secondCsrfCookie!.value}`).not.toBe(firstCsrfCookie);
+  });
 });
 
 describe("POST /auth/logout", () => {
