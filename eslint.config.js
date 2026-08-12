@@ -104,6 +104,18 @@ export default tseslint.config(
       "no-eval": "error",
       "no-implied-eval": "error",
       "no-new-func": "error",
+
+      // Allow `_`-prefixed locals to signal intentional discard (destructured
+      // rest patterns that strip a key, unused catch bindings, etc).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
     },
   },
 );

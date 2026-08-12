@@ -15,8 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 let upstream: Server;
 let upstreamOrigin: string;
 let lastRequest:
-  | { path: string; authorization: string | undefined; method: string; body: string }
-  | undefined;
+  { path: string; authorization: string | undefined; method: string; body: string } | undefined;
 
 beforeAll(async () => {
   upstream = createServer((req: IncomingMessage, res) => {
