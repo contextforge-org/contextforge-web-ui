@@ -30,5 +30,6 @@
   "mcpServer.catalog.noResults": "No MCP servers match the active search and filters.",
   "mcpServer.catalog.noneConnected": "No MCP server catalog options are connected.",
   "mcpServer.catalog.disabled": "Server catalog is disabled for this gateway.",
-  "mcpServer.catalog.error": "Unable to load server catalog. Try again."
+  "mcpServer.catalog.error": "Unable to load server catalog. Try again.",
+  "mcpServer.catalog.retry": "Retry"
 }

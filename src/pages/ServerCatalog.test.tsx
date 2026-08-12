@@ -208,9 +208,12 @@ describe("ServerCatalog", () => {
     const replaceState = vi.spyOn(window.history, "replaceState");
 
     await user.type(screen.getByRole("searchbox", { name: "Search MCP servers" }), "notes");
-    expect(window.location.search).toContain("search=notes");
+    expect(replaceState).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
+
+    await waitFor(() => expect(window.location.search).toContain("search=notes"));
+    expect(replaceState).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "Connected" }));
     expect(window.location.search).toContain("show_registered_only=true");
@@ -290,7 +293,8 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
   });
 
-  it("shows explicit disabled and generic error states", () => {
+  it("shows explicit disabled and generic error states with retry", async () => {
+    const user = userEvent.setup();
     mockUseQuery.mockReturnValue(
       queryResult({ data: undefined, error: { message: "HTTP 404", status: 404 } }),
     );
@@ -299,14 +303,17 @@ describe("ServerCatalog", () => {
     expect(screen.getByText("Server catalog is disabled for this gateway.")).toBeInTheDocument();
 
     unmount();
+    const refetch = vi.fn().mockResolvedValue(response);
     mockUseQuery.mockReturnValue(
-      queryResult({ data: undefined, error: { message: "HTTP 500", status: 500 } }),
+      queryResult({ data: undefined, error: { message: "HTTP 500", status: 500 }, refetch }),
     );
     renderWithRouter(<ServerCatalog />);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Unable to load server catalog. Try again.",
     );
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refetch).toHaveBeenCalledOnce();
   });
 
   it("shows an empty state when the response has no Open entries", () => {

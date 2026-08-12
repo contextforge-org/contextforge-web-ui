@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
 
@@ -11,9 +11,11 @@ import {
   type CatalogSingleFilterKey,
 } from "@/components/server-catalog/CatalogToolbar";
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
+import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 
@@ -141,11 +143,28 @@ export function ServerCatalog() {
   const intl = useIntl();
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
   const lastViewTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const { data, error, isLoading } = useQuery<CatalogListResponse>(CATALOG_PATH);
+  const { data, error, isLoading, refetch } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const { filters, updateQuery, setSingleFilter, toggleTag, clearFilters } = useCatalogFilters();
+  const [search, setSearch] = useState(filters.search);
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  useEffect(() => {
+    setSearch(filters.search);
+  }, [filters.search]);
+
+  useEffect(() => {
+    if (debouncedSearch !== filters.search) {
+      updateQuery({ search: debouncedSearch || null });
+    }
+  }, [debouncedSearch, filters.search, updateQuery]);
+
+  const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
   const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
-  const servers = useMemo(() => filterOpenServers(openServers, filters), [openServers, filters]);
+  const servers = useMemo(
+    () => filterOpenServers(openServers, activeFilters),
+    [openServers, activeFilters],
+  );
   const categoryOptions = useMemo(
     () => sortedUnique(openServers.map((server) => server.category)),
     [openServers],
@@ -210,6 +229,14 @@ export function ServerCatalog() {
             type="error"
             message={intl.formatMessage({ id: "mcpServer.catalog.error" })}
           />
+          <Button
+            className="mt-3"
+            type="button"
+            variant="outline"
+            onClick={() => void refetch().catch(() => {})}
+          >
+            {intl.formatMessage({ id: "mcpServer.catalog.retry" })}
+          </Button>
         </div>
       </CatalogPageLayout>
     );
@@ -218,7 +245,7 @@ export function ServerCatalog() {
   return (
     <CatalogPageLayout>
       <CatalogToolbar
-        search={filters.search}
+        search={search}
         installedOnly={filters.installedOnly}
         category={filters.category}
         provider={filters.provider}
@@ -228,7 +255,7 @@ export function ServerCatalog() {
         providers={providerOptions}
         availableTags={tagOptions}
         activeFilterCount={activeFilterCount}
-        onSearchChange={(search) => updateQuery({ search: search || null })}
+        onSearchChange={setSearch}
         onInstalledChange={(installedOnly) => updateQuery({ show_registered_only: installedOnly })}
         onSetSingleFilter={setSingleFilter}
         onToggleTag={toggleTag}

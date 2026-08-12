@@ -30,5 +30,6 @@
   "mcpServer.catalog.noResults": "Ningún servidor MCP coincide con la búsqueda y los filtros activos.",
   "mcpServer.catalog.noneConnected": "Ninguna opción del catálogo de servidores MCP está conectada.",
   "mcpServer.catalog.disabled": "El catálogo de servidores está deshabilitado para esta puerta de enlace.",
-  "mcpServer.catalog.error": "No se pudo cargar el catálogo de servidores. Inténtalo de nuevo."
+  "mcpServer.catalog.error": "No se pudo cargar el catálogo de servidores. Inténtalo de nuevo.",
+  "mcpServer.catalog.retry": "Reintentar"
 }
