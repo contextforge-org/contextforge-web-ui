@@ -29,11 +29,16 @@ import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
 import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 import { setNoStore } from "../../lib/no-store.js";
 
+// The user is waiting on this request, so cap how long a hung (not refused)
+// upstream can hold it open.
+const UPSTREAM_REVOKE_TIMEOUT_MS = 3000;
+
 async function revokeUpstreamToken(request: FastifyRequest, bearerToken: string): Promise<void> {
   try {
     const response = await fetch(`${config.fastapiUrl}/auth/logout`, {
       method: "POST",
       headers: upstreamAuthHeader(bearerToken),
+      signal: AbortSignal.timeout(UPSTREAM_REVOKE_TIMEOUT_MS),
     });
     if (!response.ok) {
       request.log.warn(
@@ -56,10 +61,12 @@ export default async function logoutRoute(fastify: FastifyInstance): Promise<voi
       const sessionId = request.cookies[SESSION_COOKIE_NAME];
       if (sessionId) {
         const record = await getSession(fastify.redis, sessionId);
+        // Drop the BFF session first: the upstream revoke is best-effort and
+        // must not leave a live session behind if it stalls or throws.
+        await deleteSession(fastify.redis, sessionId);
         if (record) {
           await revokeUpstreamToken(request, record.bearerToken);
         }
-        await deleteSession(fastify.redis, sessionId);
       }
 
       clearSessionCookie(reply);
