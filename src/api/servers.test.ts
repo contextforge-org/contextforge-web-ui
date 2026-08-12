@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { serversApi } from "./servers";
 import { setCsrfToken } from "./client";
-import type { GatewayTestRequest } from "@/generated/types";
+import type { GatewayTestRequest, GatewayHandshakeRequest } from "@/generated/types";
 
 describe("serversApi", () => {
   const mockFetch = vi.fn();
@@ -509,6 +509,32 @@ describe("serversApi", () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/v1/mcp-servers/test"),
         expect.objectContaining({ method: "POST", body: JSON.stringify(request) }),
+      );
+    });
+  });
+
+  describe("testHandshake", () => {
+    it("POSTs the request to /v1/mcp-servers/test-handshake, forwards the signal, and returns the response", async () => {
+      const upstream = { success: true, latencyMs: 12, credentialSource: "none" };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(upstream), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const request: GatewayHandshakeRequest = { baseUrl: "https://example.com" };
+      const controller = new AbortController();
+      const result = await serversApi.testHandshake(request, controller.signal);
+
+      expect(result).toEqual(upstream);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/v1/mcp-servers/test-handshake"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        }),
       );
     });
   });

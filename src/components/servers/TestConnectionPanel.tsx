@@ -2,17 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { CircleCheck, CircleAlert, Info, Loader2 } from "lucide-react";
-import { useIntl } from "react-intl";
+import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
 import { CopyButton } from "../ui/copy-button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { JsonHighlighter } from "../ui/json-highlighter";
 import { serversApi } from "@/api/servers";
-import type { GatewayTestRequest, GatewayTestResponse } from "@/generated/types";
+import type {
+  GatewayHandshakeRequest,
+  GatewayHandshakeResponse,
+  GatewayTestRequest,
+  GatewayTestResponse,
+} from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +28,57 @@ interface TestConnectionPanelProps {
 }
 
 type TestStatus = "idle" | "testing" | "success" | "error";
+type TestMode = "http" | "handshake";
+
+const SEGMENTED_TRIGGER_CLASS =
+  "rounded-md px-3 py-1 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
+
+const FAILURE_CLASS_MESSAGE_IDS: Record<string, string> = {
+  transport: "mcpServer.testConnection.failureClass.transport",
+  protocol: "mcpServer.testConnection.failureClass.protocol",
+  auth: "mcpServer.testConnection.failureClass.auth",
+  invalid_response: "mcpServer.testConnection.failureClass.invalidResponse",
+};
+
+const CREDENTIAL_SOURCE_MESSAGE_IDS: Record<string, string> = {
+  stored: "mcpServer.testConnection.credentialSource.stored",
+  form: "mcpServer.testConnection.credentialSource.form",
+  none: "mcpServer.testConnection.credentialSource.none",
+};
+
+const NEGOTIATION_PATH_MESSAGE_IDS: Record<string, string> = {
+  server_discover: "mcpServer.testConnection.negotiationPath.serverDiscover",
+  initialize: "mcpServer.testConnection.negotiationPath.initialize",
+};
+
+const COUNT_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.counts.tools",
+  resources: "mcpServer.testConnection.counts.resources",
+  prompts: "mcpServer.testConnection.counts.prompts",
+};
+
+// Deliberately plain substitution, not ICU plural: the "+" means "at least",
+// so "1+ tools" is correct even when the first page holds a single item.
+const PARTIAL_COUNT_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.countsPartial.tools",
+  resources: "mcpServer.testConnection.countsPartial.resources",
+  prompts: "mcpServer.testConnection.countsPartial.prompts",
+};
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[128px_minmax(0,1fr)] items-start gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+function getHandshakeHeadline(response: GatewayHandshakeResponse, intl: IntlShape): string {
+  return response?.success
+    ? intl.formatMessage({ id: "mcpServer.testConnection.handshakeSucceeded" })
+    : intl.formatMessage({ id: "mcpServer.testConnection.handshakeFailed" });
+}
 
 const HTTP_METHODS = ["Get", "Post", "Put", "Delete", "Patch"] as const;
 
@@ -72,6 +130,15 @@ function validateHeaders(value: string): string | undefined {
     const parsed = JSON.parse(value);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return "Headers must be a JSON object.";
+    }
+    // Both test endpoints type header values as strings; a number or nested
+    // object would only come back as a 422 from the backend.
+    if (
+      Object.values(parsed as Record<string, unknown>).some(
+        (headerValue) => typeof headerValue !== "string",
+      )
+    ) {
+      return "Header values must be strings.";
     }
   } catch (e) {
     return `Invalid headers JSON: ${e instanceof Error ? e.message : "Parse error"}`;
@@ -126,6 +193,7 @@ function FieldLabel({
 export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
   const intl = useIntl();
   const [status, setStatus] = useState<TestStatus>("idle");
+  const [mode, setMode] = useState<TestMode>("http");
   const [method, setMethod] = useState<string>("Get");
   const [url, setUrl] = useState<string>(serverUrl);
   const [path, setPath] = useState<string>("");
@@ -133,6 +201,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
   const [contentType, setContentType] = useState<string>("application/json");
   const [body, setBody] = useState<string>("");
   const [response, setResponse] = useState<GatewayTestResponse>(null);
+  const [handshakeResponse, setHandshakeResponse] = useState<GatewayHandshakeResponse>(null);
   const [error, setError] = useState<string>("");
   const [errors, setErrors] = useState<FieldErrors>({});
   // Aborted on unmount or via Cancel to avoid state updates on a stale request.
@@ -147,7 +216,9 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const handleTest = useCallback(async () => {
+    setStatus("idle");
     setResponse(null);
+    setHandshakeResponse(null);
     setError("");
 
     // Validate every field up front and surface problems inline; don't send a
@@ -156,20 +227,56 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
       url: validateUrl(url),
       path: validatePath(path),
       headers: validateHeaders(headers),
-      body: validateBody(body, method, contentType),
+      body: mode === "http" ? validateBody(body, method, contentType) : undefined,
     };
     setErrors(nextErrors);
     if (nextErrors.url || nextErrors.path || nextErrors.headers || nextErrors.body) {
       return;
     }
 
-    // Fields are valid — parse the JSON payloads for sending. JSON bodies are
-    // parsed to an object so the backend forwards them as JSON; form-encoded
-    // bodies are sent as-is.
+    // Fields are valid — parse the headers JSON, which is validated and sent
+    // in both modes.
     const parsedHeaders: Record<string, string> | undefined = headers.trim()
       ? (JSON.parse(headers) as Record<string, string>)
       : undefined;
 
+    // Cancel any previous in-flight request before starting a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setStatus("testing");
+
+    if (mode === "handshake") {
+      const handshakePayload: GatewayHandshakeRequest = {
+        baseUrl: url.trim(),
+        ...(path.trim() ? { path: path.trim() } : {}),
+        ...(parsedHeaders ? { headers: parsedHeaders } : {}),
+      };
+      try {
+        const result = await serversApi.testHandshake(handshakePayload, controller.signal);
+        if (controller.signal.aborted) {
+          return;
+        }
+        setHandshakeResponse(result);
+        setStatus(result?.success ? "success" : "error");
+      } catch (e) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setHandshakeResponse(null);
+        setStatus("error");
+        setError(
+          parseApiError(e, intl.formatMessage({ id: "mcpServer.testConnection.handshakeError" })),
+        );
+      }
+      return;
+    }
+
+    // HTTP mode only from here: the body is validated above only in this mode,
+    // so parsing it before the handshake branch returns would throw on input
+    // that handshake mode never sends. JSON bodies are parsed to an object so
+    // the backend forwards them as JSON; form-encoded bodies are sent as-is.
     let parsedBody: string | Record<string, unknown> | undefined;
     if (sendsBodyFor(method) && body.trim()) {
       parsedBody =
@@ -185,12 +292,6 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
       ...(parsedBody !== undefined ? { body: parsedBody } : {}),
     };
 
-    // Cancel any previous in-flight request before starting a new one.
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setStatus("testing");
     try {
       const result = await serversApi.testConnectivity(payload, controller.signal);
       if (controller.signal.aborted) {
@@ -208,7 +309,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
       setStatus("error");
       setError(parseApiError(e, "Connection test failed. Please try again."));
     }
-  }, [url, headers, body, method, path, contentType]);
+  }, [url, headers, body, method, path, contentType, mode, intl]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -222,45 +323,65 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
       : JSON.stringify(response.body, null, 2);
   }, [response]);
 
-  const headline = response
-    ? `Status: ${response.statusCode} ${status === "success" ? "OK" : "error"}`
-    : error || "Connection failed";
+  const handshakeRawPreview = useMemo(() => {
+    if (!handshakeResponse?.rawPreview) return "";
+    try {
+      return JSON.stringify(JSON.parse(handshakeResponse.rawPreview), null, 2);
+    } catch {
+      return handshakeResponse.rawPreview;
+    }
+  }, [handshakeResponse]);
+
+  const handshakeCountChips = useMemo(() => {
+    const counts = handshakeResponse?.componentCounts;
+    if (!counts) return [];
+    return ["tools", "resources", "prompts"].filter((key) => counts[key] != null);
+  }, [handshakeResponse]);
+
+  const copyText = mode === "http" ? responseBodyText : handshakeRawPreview;
+
+  const headline =
+    mode === "handshake"
+      ? getHandshakeHeadline(handshakeResponse, intl)
+      : response
+        ? `Status: ${response.statusCode} ${status === "success" ? "OK" : "error"}`
+        : error || "Connection failed";
 
   const isTesting = status === "testing";
   const hasResult = status === "success" || status === "error";
 
-  return (
-    <div className="@container space-y-6">
-      <div className="grid gap-6 @3xl:grid-cols-2">
-        {/* Left column — request form */}
-        <div className="space-y-4">
-          {/* URL */}
-          <div className="space-y-2">
-            <FieldLabel htmlFor="url" required hint="The full URL of the MCP server to test.">
-              URL
-            </FieldLabel>
-            <Input
-              id="url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                clearError("url");
-              }}
-              onBlur={() => setErrors((prev) => ({ ...prev, url: validateUrl(url) }))}
-              placeholder="https://mcp.github.com/mcp"
-              disabled={isTesting}
-              aria-invalid={!!errors.url}
-              aria-describedby={errors.url ? "url-error" : undefined}
-              className="bg-transparent dark:bg-transparent"
-            />
-            {errors.url && (
-              <p id="url-error" className="text-sm text-red-500">
-                {errors.url}
-              </p>
-            )}
-          </div>
+  const formGrid = (
+    <div className="grid gap-6 @3xl:grid-cols-2">
+      {/* Left column — request form */}
+      <div className="space-y-4">
+        {/* URL */}
+        <div className="space-y-2">
+          <FieldLabel htmlFor="url" required hint="The full URL of the MCP server to test.">
+            URL
+          </FieldLabel>
+          <Input
+            id="url"
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              clearError("url");
+            }}
+            onBlur={() => setErrors((prev) => ({ ...prev, url: validateUrl(url) }))}
+            placeholder="https://mcp.github.com/mcp"
+            disabled={isTesting}
+            aria-invalid={!!errors.url}
+            aria-describedby={errors.url ? "url-error" : undefined}
+            className="bg-transparent dark:bg-transparent"
+          />
+          {errors.url && (
+            <p id="url-error" className="text-sm text-red-500">
+              {errors.url}
+            </p>
+          )}
+        </div>
 
-          {/* Method */}
+        {/* Method */}
+        {mode === "http" && (
           <div className="space-y-2">
             <FieldLabel>Method</FieldLabel>
             <RadioGroup
@@ -287,34 +408,36 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
               ))}
             </RadioGroup>
           </div>
+        )}
 
-          {/* Path */}
-          <div className="space-y-2">
-            <FieldLabel htmlFor="path" hint="Optional path appended to the URL.">
-              Path
-            </FieldLabel>
-            <Input
-              id="path"
-              value={path}
-              onChange={(e) => {
-                setPath(e.target.value);
-                clearError("path");
-              }}
-              onBlur={() => setErrors((prev) => ({ ...prev, path: validatePath(path) }))}
-              placeholder="/health"
-              disabled={isTesting}
-              aria-invalid={!!errors.path}
-              aria-describedby={errors.path ? "path-error" : undefined}
-              className="bg-transparent dark:bg-transparent"
-            />
-            {errors.path && (
-              <p id="path-error" className="text-sm text-red-500">
-                {errors.path}
-              </p>
-            )}
-          </div>
+        {/* Path */}
+        <div className="space-y-2">
+          <FieldLabel htmlFor="path" hint="Optional path appended to the URL.">
+            Path
+          </FieldLabel>
+          <Input
+            id="path"
+            value={path}
+            onChange={(e) => {
+              setPath(e.target.value);
+              clearError("path");
+            }}
+            onBlur={() => setErrors((prev) => ({ ...prev, path: validatePath(path) }))}
+            placeholder="/health"
+            disabled={isTesting}
+            aria-invalid={!!errors.path}
+            aria-describedby={errors.path ? "path-error" : undefined}
+            className="bg-transparent dark:bg-transparent"
+          />
+          {errors.path && (
+            <p id="path-error" className="text-sm text-red-500">
+              {errors.path}
+            </p>
+          )}
+        </div>
 
-          {/* Content type */}
+        {/* Content type */}
+        {mode === "http" && (
           <div className="space-y-2">
             <FieldLabel htmlFor="content-type">Content type</FieldLabel>
             <Select value={contentType} onValueChange={setContentType} disabled={isTesting}>
@@ -332,154 +455,307 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
               </SelectContent>
             </Select>
           </div>
+        )}
 
-          {/* Headers */}
+        {/* Headers */}
+        <div className="space-y-2">
+          <FieldLabel htmlFor="headers" hint="Request headers as a JSON object.">
+            Headers
+          </FieldLabel>
+          <Textarea
+            id="headers"
+            value={headers}
+            onChange={(e) => {
+              setHeaders(e.target.value);
+              clearError("headers");
+            }}
+            onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
+            placeholder="Add request headers as JSON..."
+            className="min-h-[96px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+            disabled={isTesting}
+            aria-invalid={!!errors.headers}
+            aria-describedby={
+              [
+                errors.headers ? "headers-error" : null,
+                mode === "handshake" ? "headers-hint" : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+          />
+          {errors.headers && (
+            <p id="headers-error" className="text-sm text-red-500">
+              {errors.headers}
+            </p>
+          )}
+          {mode === "handshake" && (
+            <p id="headers-hint" className="text-[13px] text-muted-foreground">
+              {intl.formatMessage({ id: "mcpServer.testConnection.storedCredentialsHint" })}
+            </p>
+          )}
+        </div>
+
+        {/* Body — not applicable to GET requests */}
+        {mode === "http" && method !== "Get" && (
           <div className="space-y-2">
-            <FieldLabel htmlFor="headers" hint="Request headers as a JSON object.">
-              Headers
+            <FieldLabel htmlFor="body" hint="Request body sent with non-GET methods.">
+              Body
             </FieldLabel>
             <Textarea
-              id="headers"
-              value={headers}
+              id="body"
+              value={body}
               onChange={(e) => {
-                setHeaders(e.target.value);
-                clearError("headers");
+                setBody(e.target.value);
+                clearError("body");
               }}
-              onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
-              placeholder="Add request headers as JSON..."
-              className="min-h-[96px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+              onBlur={() =>
+                setErrors((prev) => ({
+                  ...prev,
+                  body: validateBody(body, method, contentType),
+                }))
+              }
+              placeholder="Add request body as JSON..."
+              className="min-h-[116px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
               disabled={isTesting}
-              aria-invalid={!!errors.headers}
-              aria-describedby={errors.headers ? "headers-error" : undefined}
+              aria-invalid={!!errors.body}
+              aria-describedby={errors.body ? "body-error" : undefined}
             />
-            {errors.headers && (
-              <p id="headers-error" className="text-sm text-red-500">
-                {errors.headers}
+            {errors.body && (
+              <p id="body-error" className="text-sm text-red-500">
+                {errors.body}
               </p>
             )}
           </div>
+        )}
+      </div>
 
-          {/* Body — not applicable to GET requests */}
-          {method !== "Get" && (
-            <div className="space-y-2">
-              <FieldLabel htmlFor="body" hint="Request body sent with non-GET methods.">
-                Body
-              </FieldLabel>
-              <Textarea
-                id="body"
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value);
-                  clearError("body");
-                }}
-                onBlur={() =>
-                  setErrors((prev) => ({
-                    ...prev,
-                    body: validateBody(body, method, contentType),
-                  }))
-                }
-                placeholder="Add request body as JSON..."
-                className="min-h-[116px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
-                disabled={isTesting}
-                aria-invalid={!!errors.body}
-                aria-describedby={errors.body ? "body-error" : undefined}
-              />
-              {errors.body && (
-                <p id="body-error" className="text-sm text-red-500">
-                  {errors.body}
-                </p>
+      {/* Right column — action button + response panel */}
+      <div className="flex flex-col gap-2">
+        {/* Mirror the left column's label row: a fixed label-height band so the
+              response panel below lines up with the URL input. The button is taller
+              than the band and overflows it upward instead of pushing the panel down. */}
+        <div className="flex h-5 items-end justify-end gap-3">
+          {isTesting && (
+            <Button variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button onClick={handleTest} disabled={isTesting}>
+            {isTesting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Running test…
+              </>
+            ) : hasResult ? (
+              "Re-test connection"
+            ) : (
+              "Test connection"
+            )}
+          </Button>
+        </div>
+
+        <div className="flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-md border border-input bg-transparent">
+          {status === "idle" && (
+            <div className="flex flex-1 items-center justify-center p-6 text-center">
+              <p className="text-sm text-muted-foreground">Run a test to see the response here.</p>
+            </div>
+          )}
+
+          {isTesting && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Running test…</p>
+            </div>
+          )}
+
+          {hasResult && (
+            <div
+              className="relative flex flex-1 flex-col gap-2 overflow-auto p-4"
+              role={status === "error" ? "alert" : "status"}
+              aria-live="polite"
+            >
+              {copyText && (
+                <CopyButton
+                  value={copyText}
+                  label={intl.formatMessage({ id: "mcpServer.testConnection.copyResponseBody" })}
+                  className="absolute right-2 top-2 size-6 bg-background/80 text-muted-foreground backdrop-blur-sm hover:bg-muted hover:text-foreground"
+                />
+              )}
+              <div className="flex items-start gap-2 pr-8">
+                {status === "success" ? (
+                  <CircleCheck className="mt-0.5 size-4 shrink-0 text-green-500" />
+                ) : (
+                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+                )}
+                <span className="text-sm font-medium break-words text-foreground">{headline}</span>
+              </div>
+
+              {mode === "http" ? (
+                <>
+                  {response && (
+                    <p className="pl-6 text-[13px] text-muted-foreground">
+                      Latency: {response.latencyMs} ms
+                    </p>
+                  )}
+
+                  {responseBodyText && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[13px] text-muted-foreground">Response body:</p>
+                      <pre className="max-h-[420px] overflow-auto text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
+                        <code className="break-words">
+                          <JsonHighlighter text={responseBodyText} />
+                        </code>
+                      </pre>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {handshakeResponse && (
+                    <p className="pl-6 text-[13px] text-muted-foreground">
+                      Latency: {handshakeResponse.latencyMs} ms
+                    </p>
+                  )}
+
+                  {handshakeResponse && (
+                    <dl className="mt-1 space-y-1.5 pl-6 text-[13px]">
+                      {handshakeResponse.serverName && (
+                        <DetailRow
+                          label={intl.formatMessage({
+                            id: "mcpServer.testConnection.serverName",
+                          })}
+                        >
+                          {handshakeResponse.serverName}
+                        </DetailRow>
+                      )}
+                      {handshakeResponse.serverVersion && (
+                        <DetailRow
+                          label={intl.formatMessage({
+                            id: "mcpServer.testConnection.serverVersion",
+                          })}
+                        >
+                          {handshakeResponse.serverVersion}
+                        </DetailRow>
+                      )}
+                      {handshakeResponse.protocolVersion && (
+                        <DetailRow
+                          label={intl.formatMessage({
+                            id: "mcpServer.testConnection.protocolVersion",
+                          })}
+                        >
+                          {handshakeResponse.protocolVersion}
+                        </DetailRow>
+                      )}
+                      {handshakeResponse.negotiationPath && (
+                        <DetailRow
+                          label={intl.formatMessage({
+                            id: "mcpServer.testConnection.negotiationPath",
+                          })}
+                        >
+                          {NEGOTIATION_PATH_MESSAGE_IDS[handshakeResponse.negotiationPath]
+                            ? intl.formatMessage({
+                                id: NEGOTIATION_PATH_MESSAGE_IDS[handshakeResponse.negotiationPath],
+                              })
+                            : handshakeResponse.negotiationPath}
+                        </DetailRow>
+                      )}
+                      <DetailRow
+                        label={intl.formatMessage({
+                          id: "mcpServer.testConnection.credentialSource",
+                        })}
+                      >
+                        {CREDENTIAL_SOURCE_MESSAGE_IDS[handshakeResponse.credentialSource ?? "none"]
+                          ? intl.formatMessage({
+                              id: CREDENTIAL_SOURCE_MESSAGE_IDS[
+                                handshakeResponse.credentialSource ?? "none"
+                              ],
+                            })
+                          : (handshakeResponse.credentialSource ?? "none")}
+                      </DetailRow>
+                    </dl>
+                  )}
+
+                  {handshakeResponse?.success && handshakeCountChips.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pl-6">
+                      {handshakeCountChips.map((key) => {
+                        const count = handshakeResponse.componentCounts?.[key] ?? 0;
+                        const messageIds = handshakeResponse.countsPartial
+                          ? PARTIAL_COUNT_MESSAGE_IDS
+                          : COUNT_MESSAGE_IDS;
+                        return (
+                          <Badge key={key} variant="secondary">
+                            {intl.formatMessage({ id: messageIds[key] }, { count })}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {status === "error" && (
+                    <div className="mt-1 space-y-2 pl-6">
+                      {handshakeResponse?.failureClass && (
+                        <Badge variant="destructive">
+                          {FAILURE_CLASS_MESSAGE_IDS[handshakeResponse.failureClass]
+                            ? intl.formatMessage({
+                                id: FAILURE_CLASS_MESSAGE_IDS[handshakeResponse.failureClass],
+                              })
+                            : handshakeResponse.failureClass}
+                        </Badge>
+                      )}
+                      {(handshakeResponse?.error || error) && (
+                        <p className="text-[13px] text-muted-foreground">
+                          {handshakeResponse?.error ?? error}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {handshakeRawPreview && (
+                    <details className="mt-2 pl-6">
+                      <summary className="cursor-pointer text-[13px] text-muted-foreground">
+                        {intl.formatMessage({ id: "mcpServer.testConnection.rawResponse" })}
+                      </summary>
+                      <pre className="mt-1 overflow-auto text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
+                        <code className="break-words">
+                          <JsonHighlighter text={handshakeRawPreview} />
+                        </code>
+                      </pre>
+                    </details>
+                  )}
+                </>
               )}
             </div>
           )}
         </div>
-
-        {/* Right column — action button + response panel */}
-        <div className="flex flex-col gap-2">
-          {/* Mirror the left column's label row: a fixed label-height band so the
-              response panel below lines up with the URL input. The button is taller
-              than the band and overflows it upward instead of pushing the panel down. */}
-          <div className="flex h-5 items-end justify-end gap-3">
-            {isTesting && (
-              <Button variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-            )}
-            <Button onClick={handleTest} disabled={isTesting}>
-              {isTesting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Running test…
-                </>
-              ) : hasResult ? (
-                "Re-test connection"
-              ) : (
-                "Test connection"
-              )}
-            </Button>
-          </div>
-
-          <div className="flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-md border border-input bg-transparent">
-            {status === "idle" && (
-              <div className="flex flex-1 items-center justify-center p-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Run a test to see the response here.
-                </p>
-              </div>
-            )}
-
-            {isTesting && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Running test…</p>
-              </div>
-            )}
-
-            {hasResult && (
-              <div
-                className="relative flex flex-1 flex-col gap-2 overflow-auto p-4"
-                role={status === "error" ? "alert" : "status"}
-                aria-live="polite"
-              >
-                {responseBodyText && (
-                  <CopyButton
-                    value={responseBodyText}
-                    label={intl.formatMessage({ id: "mcpServer.testConnection.copyResponseBody" })}
-                    className="absolute right-2 top-2 size-6 bg-background/80 text-muted-foreground backdrop-blur-sm hover:bg-muted hover:text-foreground"
-                  />
-                )}
-
-                <div className="flex items-start gap-2 pr-8">
-                  {status === "success" ? (
-                    <CircleCheck className="mt-0.5 size-4 shrink-0 text-green-500" />
-                  ) : (
-                    <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-                  )}
-                  <span className="text-sm font-medium break-words text-foreground">
-                    {headline}
-                  </span>
-                </div>
-
-                {response && (
-                  <p className="pl-6 text-[13px] text-muted-foreground">
-                    Latency: {response.latencyMs} ms
-                  </p>
-                )}
-
-                {responseBodyText && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-[13px] text-muted-foreground">Response body:</p>
-                    <pre className="max-h-[420px] overflow-auto text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
-                      <code className="break-words">
-                        <JsonHighlighter text={responseBodyText} />
-                      </code>
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="@container">
+      <Tabs
+        className="gap-6"
+        value={mode}
+        onValueChange={(value) => {
+          setMode(value as TestMode);
+          setStatus("idle");
+          setResponse(null);
+          setHandshakeResponse(null);
+          setError("");
+          setErrors({});
+        }}
+      >
+        <TabsList className="inline-flex h-9 w-fit items-center gap-1 rounded-lg bg-muted p-1">
+          <TabsTrigger value="http" className={SEGMENTED_TRIGGER_CLASS} disabled={isTesting}>
+            {intl.formatMessage({ id: "mcpServer.testConnection.mode.http" })}
+          </TabsTrigger>
+          <TabsTrigger value="handshake" className={SEGMENTED_TRIGGER_CLASS} disabled={isTesting}>
+            {intl.formatMessage({ id: "mcpServer.testConnection.mode.handshake" })}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="http">{formGrid}</TabsContent>
+        <TabsContent value="handshake">{formGrid}</TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
@@ -7,6 +8,7 @@ import { renderWithProviders as render } from "@/test/test-utils";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 
 const TEST_ENDPOINT = "*/v1/mcp-servers/test";
+const HANDSHAKE_ENDPOINT = "*/v1/mcp-servers/test-handshake";
 
 describe("TestConnectionPanel", () => {
   const defaultProps = {
@@ -392,5 +394,496 @@ describe("TestConnectionPanel", () => {
     await user.tab();
 
     expect(screen.queryByText(/path shouldn't include a scheme or host/i)).not.toBeInTheDocument();
+  });
+
+  describe("MCP handshake mode", () => {
+    it("hides Method, Content type, and Body while keeping URL, Path, and Headers", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+
+      expect(screen.getByLabelText(/^url/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^path/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/headers/i)).toBeInTheDocument();
+      expect(screen.queryByRole("radiogroup", { name: /method/i })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/content type/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/body/i)).not.toBeInTheDocument();
+    });
+
+    it("shows the stored-credentials hint under Headers", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+
+      expect(screen.getByText(/stored credentials for registered servers/i)).toBeInTheDocument();
+    });
+
+    it("renders server identity rows and component count badges on success", async () => {
+      const user = userEvent.setup();
+      let requestBody: Record<string, unknown> | undefined;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, async ({ request }) => {
+          requestBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({
+            success: true,
+            latencyMs: 12,
+            negotiationPath: "server_discover",
+            protocolVersion: "2026-07-28",
+            serverName: "git-server",
+            serverVersion: "1.2.3",
+            capabilities: { tools: {}, resources: {} },
+            componentCounts: { tools: 3, resources: 1 },
+            countsPartial: false,
+            credentialSource: "none",
+          });
+        }),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      });
+      expect(screen.getByText("git-server")).toBeInTheDocument();
+      expect(screen.getByText("1.2.3")).toBeInTheDocument();
+      expect(screen.getByText("2026-07-28")).toBeInTheDocument();
+      expect(screen.getByText("server/discover")).toBeInTheDocument();
+      expect(screen.getByText("3 tools")).toBeInTheDocument();
+      expect(screen.getByText("1 resource")).toBeInTheDocument();
+      expect(requestBody).toEqual(expect.objectContaining({ baseUrl: "https://example.com" }));
+    });
+
+    it("keeps the plural label when counts are partial", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 12,
+            negotiationPath: "server_discover",
+            protocolVersion: "2026-07-28",
+            serverName: "git-server",
+            serverVersion: "1.2.3",
+            capabilities: { tools: {} },
+            componentCounts: { tools: 1 },
+            countsPartial: true,
+            credentialSource: "none",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("1+ tools")).toBeInTheDocument();
+      });
+    });
+
+    it("clears field errors when switching modes", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.clear(screen.getByLabelText(/^url/i));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+      await waitFor(() => expect(screen.getByText(/url is required/i)).toBeInTheDocument());
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+
+      expect(screen.queryByText(/url is required/i)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["transport", "Transport"],
+      ["protocol", "Protocol negotiation"],
+      ["auth", "Authentication"],
+      ["invalid_response", "Invalid response"],
+    ])("renders the %s failure classification and error copy", async (failureClass, label) => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: false,
+            latencyMs: 5,
+            credentialSource: "none",
+            failureClass,
+            error: "Actionable copy for the failure.",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      });
+      expect(screen.getByText(/handshake failed/i)).toBeInTheDocument();
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.getByText("Actionable copy for the failure.")).toBeInTheDocument();
+    });
+
+    it("keeps the diagnostic rows visible when the handshake fails", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: false,
+            latencyMs: 5,
+            failureClass: "auth",
+            credentialSource: "stored",
+            serverName: "srv",
+            protocolVersion: "2026-07-28",
+            negotiationPath: "initialize",
+            error: "Authentication rejected by the server.",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Authentication")).toBeInTheDocument();
+      });
+      expect(screen.getByText("Stored server credentials")).toBeInTheDocument();
+      expect(screen.getByText("srv")).toBeInTheDocument();
+      expect(screen.getByText("2026-07-28")).toBeInTheDocument();
+      expect(screen.getByText("initialize")).toBeInTheDocument();
+    });
+
+    it("renders an unrecognized negotiation path verbatim", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 12,
+            negotiationPath: "future_path",
+            credentialSource: "none",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      });
+      expect(screen.getByText("future_path")).toBeInTheDocument();
+    });
+
+    it("shows the API error once and keeps the generic failure headline", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({ detail: "Upstream exploded." }, { status: 500 }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/handshake failed/i)).toBeInTheDocument();
+      });
+      expect(screen.getAllByText("Upstream exploded.")).toHaveLength(1);
+    });
+
+    it("drops the previous result when a re-test fails validation", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({ success: true, latencyMs: 12, credentialSource: "none" }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+      await waitFor(() => {
+        expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      });
+
+      await user.clear(screen.getByLabelText(/^url/i));
+      await user.click(screen.getByRole("button", { name: /re-test connection/i }));
+
+      await waitFor(() => expect(screen.getByText(/url is required/i)).toBeInTheDocument());
+      expect(screen.queryByText(/handshake succeeded/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/handshake failed/i)).not.toBeInTheDocument();
+    });
+
+    it("points the Headers field at the stored-credentials hint", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+
+      const hint = screen.getByText(/stored credentials for registered servers/i);
+      expect(hint.id).toBe("headers-hint");
+      expect(screen.getByLabelText(/headers/i)).toHaveAttribute("aria-describedby", "headers-hint");
+    });
+
+    it("describes the Headers field by both the error and the hint", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.type(screen.getByLabelText(/headers/i), "not json");
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument());
+      expect(screen.getByLabelText(/headers/i)).toHaveAttribute(
+        "aria-describedby",
+        "headers-error headers-hint",
+      );
+    });
+
+    it("rejects non-string header values instead of posting them", async () => {
+      const user = userEvent.setup();
+      let requested = false;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () => {
+          requested = true;
+          return HttpResponse.json({ success: true, latencyMs: 1, credentialSource: "none" });
+        }),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.type(screen.getByLabelText(/headers/i), '{{"X-Retry": 3}');
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByText(/header values must be strings/i)).toBeInTheDocument(),
+      );
+      expect(requested).toBe(false);
+    });
+
+    it("cancels the in-flight handshake when the panel unmounts", async () => {
+      const user = userEvent.setup();
+      let aborted = false;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, async ({ request }) => {
+          // Resolve only once the client aborts, so the test can observe cancellation.
+          await new Promise<void>((resolve) => {
+            request.signal.addEventListener("abort", () => {
+              aborted = true;
+              resolve();
+            });
+          });
+          return HttpResponse.json({ success: true, latencyMs: 1 });
+        }),
+      );
+      const { unmount } = render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      unmount();
+
+      await waitFor(() => expect(aborted).toBe(true));
+    });
+
+    it("runs a handshake even when an invalid HTTP body was typed in HTTP mode", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 12,
+            negotiationPath: "server_discover",
+            protocolVersion: "2026-07-28",
+            serverName: "git-server",
+            serverVersion: "1.2.3",
+            capabilities: { tools: {} },
+            componentCounts: { tools: 1 },
+            countsPartial: false,
+            credentialSource: "none",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      // Only HTTP mode validates the body, and the handshake payload never
+      // carries one — leftover invalid JSON must not be parsed on this path.
+      await user.click(screen.getByRole("radio", { name: "Post" }));
+      await user.type(screen.getByLabelText(/body/i), "not json");
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      });
+    });
+
+    it("associates each tab with its tabpanel", async () => {
+      const user = userEvent.setup();
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      const httpPanel = screen.getByRole("tabpanel");
+      expect(httpPanel.id).toBeTruthy();
+      expect(screen.getByRole("tab", { name: /http request/i })).toHaveAttribute(
+        "aria-controls",
+        httpPanel.id,
+      );
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+
+      const handshakePanel = screen.getByRole("tabpanel");
+      expect(handshakePanel.id).toBeTruthy();
+      expect(screen.getByRole("tab", { name: /mcp handshake/i })).toHaveAttribute(
+        "aria-controls",
+        handshakePanel.id,
+      );
+    });
+
+    it("shows a Cancel button during a handshake and aborts on click", async () => {
+      const user = userEvent.setup();
+      let aborted = false;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, async ({ request }) => {
+          // Resolve only once the client aborts, so the test can observe cancellation.
+          await new Promise<void>((resolve) => {
+            request.signal.addEventListener("abort", () => {
+              aborted = true;
+              resolve();
+            });
+          });
+          return HttpResponse.json({ success: true, latencyMs: 1 });
+        }),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await user.click(await screen.findByRole("button", { name: /^cancel$/i }));
+
+      await waitFor(() => expect(aborted).toBe(true));
+      expect(screen.getByText(/run a test to see the response/i)).toBeInTheDocument();
+    });
+
+    it("renders the raw response preview and copies it", async () => {
+      const user = userEvent.setup();
+      const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 12,
+            negotiationPath: "initialize",
+            credentialSource: "none",
+            rawPreview: '{"result":{"ok":true}}',
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/raw response \(truncated\)/i)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole("button", { name: /copy response body/i }));
+
+      expect(writeText).toHaveBeenCalledWith(JSON.stringify({ result: { ok: true } }, null, 2));
+    });
+
+    it("labels stored credentials as the credential source", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 8,
+            negotiationPath: "initialize",
+            credentialSource: "stored",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Stored server credentials")).toBeInTheDocument();
+      });
+    });
+
+    it("labels form headers as the credential source", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, () =>
+          HttpResponse.json({
+            success: true,
+            latencyMs: 8,
+            negotiationPath: "initialize",
+            credentialSource: "form",
+          }),
+        ),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Form headers")).toBeInTheDocument();
+      });
+    });
+
+    it("forwards a non-empty path in the handshake payload", async () => {
+      const user = userEvent.setup();
+      let requestBody: Record<string, unknown> | undefined;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, async ({ request }) => {
+          requestBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ success: true, latencyMs: 1, credentialSource: "none" });
+        }),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.type(screen.getByLabelText(/^path/i), "/mcp");
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => expect(requestBody).toBeDefined());
+      expect(requestBody).toEqual(expect.objectContaining({ path: "/mcp" }));
+    });
+
+    it("forwards headers as a JSON object in the handshake payload", async () => {
+      const user = userEvent.setup();
+      let requestBody: Record<string, unknown> | undefined;
+      server.use(
+        http.post(HANDSHAKE_ENDPOINT, async ({ request }) => {
+          requestBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ success: true, latencyMs: 1, credentialSource: "form" });
+        }),
+      );
+      render(<TestConnectionPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await user.click(screen.getByLabelText(/headers/i));
+      await user.paste('{"X-Api-Key": "k"}');
+      await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+      await waitFor(() => expect(requestBody).toBeDefined());
+      expect(requestBody?.headers).toEqual({ "X-Api-Key": "k" });
+    });
   });
 });
