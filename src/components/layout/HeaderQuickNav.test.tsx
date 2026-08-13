@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { I18nProvider } from "@/i18n";
 import { searchEntities } from "@/api/search";
 import { useAuthContext } from "@/auth/AuthContext";
@@ -21,6 +21,11 @@ vi.mock("@/router", () => ({
 
 const originalPlatform = window.navigator.platform;
 const mockNavigate = vi.fn();
+
+/** Scopes queries to the dropdown so they ignore the mirrored screen-reader announcement. */
+function dropdown() {
+  return within(screen.getByRole("listbox"));
+}
 
 function renderQuickNav() {
   return render(
@@ -108,6 +113,75 @@ describe("HeaderQuickNav", () => {
     expect(input).toHaveValue("servers");
   });
 
+  it("clears the query and returns focus when the clear button is clicked", async () => {
+    const user = userEvent.setup();
+
+    renderQuickNav();
+
+    const input = screen.getByRole("searchbox", { name: "Search" });
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "servers" } });
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
+
+    expect(input).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
+  });
+
+  it("announces the result count through a live region that stays mounted", async () => {
+    vi.mocked(searchEntities).mockResolvedValue({
+      query: "server",
+      entity_types: ["gateways"],
+      limit_per_type: 8,
+      results: {},
+      groups: [
+        {
+          entity_type: "gateways",
+          count: 2,
+          items: [
+            { id: "gw-1", name: "Payments MCP", description: "Handles payment tools" },
+            { id: "gw-2", name: "Billing MCP", description: "Handles billing tools" },
+          ],
+        },
+      ],
+      items: [],
+      count: 2,
+    });
+
+    renderQuickNav();
+
+    const liveRegion = screen.getByRole("status");
+    expect(liveRegion).toBeEmptyDOMElement();
+
+    const input = screen.getByRole("searchbox", { name: "Search" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "server" } });
+
+    await waitFor(() => {
+      expect(liveRegion).toHaveTextContent("2 results");
+    });
+  });
+
+  it("does not open the dropdown while the input is expanding on focus", async () => {
+    const user = userEvent.setup();
+
+    renderQuickNav();
+
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("searchbox", { name: "Search" })).toHaveFocus();
+    });
+    expect(screen.queryByText("Type at least 2 characters to search.")).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
   it("keeps focus in the input when the popover opens on the first character", async () => {
     const user = userEvent.setup();
 
@@ -118,7 +192,7 @@ describe("HeaderQuickNav", () => {
     await user.keyboard("s");
 
     expect(input).toHaveFocus();
-    expect(screen.getByText("Type at least 2 characters to search.")).toBeInTheDocument();
+    expect(dropdown().getByText("Type at least 2 characters to search.")).toBeInTheDocument();
   });
 
   it("focuses the search input when the icon button is clicked", async () => {
@@ -204,7 +278,7 @@ describe("HeaderQuickNav", () => {
     vi.advanceTimersByTime(300);
 
     expect(searchEntities).not.toHaveBeenCalled();
-    expect(screen.getByText("Type at least 2 characters to search.")).toBeInTheDocument();
+    expect(dropdown().getByText("Type at least 2 characters to search.")).toBeInTheDocument();
   });
 
   it("searches /v1/search and renders grouped results", async () => {
@@ -261,7 +335,9 @@ describe("HeaderQuickNav", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "server" } });
 
-    expect(await screen.findByText("Search failed. Please try again.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(dropdown().getByText("Search failed. Please try again.")).toBeInTheDocument();
+    });
   });
 
   it("includes users for platform admins and selected team scope", async () => {
@@ -435,7 +511,9 @@ describe("HeaderQuickNav", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "missing" } });
 
-    expect(await screen.findByText("No matching results.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(dropdown().getByText("No matching results.")).toBeInTheDocument();
+    });
   });
 
   type SearchResult = Awaited<ReturnType<typeof searchEntities>>;
@@ -483,7 +561,9 @@ describe("HeaderQuickNav", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "query" } });
 
-    expect(await screen.findByText("Searching...")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(dropdown().getByText("Searching...")).toBeInTheDocument();
+    });
   });
 
   it("ignores abort errors without showing an error state", async () => {
