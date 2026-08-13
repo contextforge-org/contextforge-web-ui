@@ -32,7 +32,7 @@ export function Header() {
           href={GITHUB_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="hidden size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
           aria-label="GitHub"
         >
           <GitHubIcon className="size-4" aria-hidden="true" />
@@ -41,7 +41,7 @@ export function Header() {
           href={DOCS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="hidden size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
           aria-label="Documentation"
         >
           <BookOpen className="size-4" aria-hidden="true" />

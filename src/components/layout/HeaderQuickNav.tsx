@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Search } from "lucide-react";
+import { Command, Search, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { searchEntities } from "@/api/search";
 import type { GlobalSearchGroup, GlobalSearchItem, SearchEntityType } from "@/api/search";
@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "@/router";
 import { Input } from "../ui/input";
 import { Button } from "@/components/ui/button";
-import { Loading } from "@/components/ui/loading";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 
@@ -74,12 +73,12 @@ type ShortcutNavigator = Pick<Navigator, "platform" | "userAgent"> & {
   };
 };
 
-export function getQuickNavShortcutLabel(nav: ShortcutNavigator = navigator) {
+export function isAppleShortcutPlatform(nav: ShortcutNavigator = navigator) {
   const detectedPlatform = [nav.userAgentData?.platform, nav.platform, nav.userAgent]
     .filter(Boolean)
     .join(" ");
 
-  return /mac|iphone|ipad|ipod/i.test(detectedPlatform) ? "⌘ K" : "Ctrl K";
+  return /mac|iphone|ipad|ipod/i.test(detectedPlatform);
 }
 
 function getString(value: unknown): string {
@@ -133,7 +132,7 @@ export function HeaderQuickNav() {
   const { navigate } = useRouter();
   const { selectedTeamId, user } = useAuthContext();
   const [query, setQuery] = useState("");
-  const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
+  const [isApplePlatform, setIsApplePlatform] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>("idle");
@@ -178,6 +177,25 @@ export function HeaderQuickNav() {
     focusedResultIndex >= 0 && focusedResultIndex < visibleResults.length
       ? `quick-nav-result-${focusedResultIndex}`
       : undefined;
+  // Requiring a query keeps the dropdown from opening over the input's expand animation,
+  // which starts on the same focus event.
+  const isResultsOpen = isPopoverOpen && query.length > 0;
+  // Mirrors the dropdown's visible state into one region that stays mounted, since screen
+  // readers announce text changes far more reliably than a live region that mounts with content.
+  const announcedStatus = useMemo(() => {
+    if (query.length === 0) return "";
+    if (trimmedQuery.length < MIN_QUERY_LENGTH) {
+      return intl.formatMessage({ id: "common.search.startTyping" }, { count: MIN_QUERY_LENGTH });
+    }
+    if (status === "loading") return intl.formatMessage({ id: "common.search.searching" });
+    if (status === "error") return intl.formatMessage({ id: "common.search.error" });
+    if (status === "success") {
+      return hasResults
+        ? intl.formatMessage({ id: "common.search.resultCount" }, { count: visibleResults.length })
+        : intl.formatMessage({ id: "common.search.noResults" });
+    }
+    return "";
+  }, [query.length, trimmedQuery.length, status, hasResults, visibleResults.length, intl]);
 
   const focusSearchInput = useCallback((select = false) => {
     setIsExpanded(true);
@@ -191,7 +209,7 @@ export function HeaderQuickNav() {
   }, []);
 
   useEffect(() => {
-    setShortcutLabel(getQuickNavShortcutLabel());
+    setIsApplePlatform(isAppleShortcutPlatform());
   }, []);
 
   useEffect(() => {
@@ -313,6 +331,11 @@ export function HeaderQuickNav() {
     }
   };
 
+  const handleClear = () => {
+    setQuery("");
+    focusSearchInput();
+  };
+
   const renderSearchContent = () => {
     if (trimmedQuery.length < MIN_QUERY_LENGTH) {
       return (
@@ -324,10 +347,9 @@ export function HeaderQuickNav() {
 
     if (status === "loading") {
       return (
-        <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
-          <Loading variant="inline" />
-          <span>{intl.formatMessage({ id: "common.search.searching" })}</span>
-        </div>
+        <p className="px-3 py-3 text-sm text-muted-foreground">
+          {intl.formatMessage({ id: "common.search.searching" })}
+        </p>
       );
     }
 
@@ -394,12 +416,12 @@ export function HeaderQuickNav() {
   };
 
   return (
-    <div className="hidden md:block">
-      <Popover
-        open={isPopoverOpen && (isExpanded || query.length > 0)}
-        onOpenChange={setIsPopoverOpen}
-      >
-        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+    <div className="mr-3">
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcedStatus}
+      </p>
+      <Popover open={isResultsOpen} onOpenChange={setIsPopoverOpen}>
+        <form onSubmit={handleSubmit} className="flex items-center">
           <PopoverTrigger asChild>
             <Button
               type="button"
@@ -415,49 +437,74 @@ export function HeaderQuickNav() {
             </Button>
           </PopoverTrigger>
           <PopoverAnchor asChild>
-            <Input
-              ref={inputRef}
-              type="search"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setIsPopoverOpen(true);
-              }}
-              onKeyDown={handleSearchKeyDown}
-              onFocus={() => {
-                setIsExpanded(true);
-                setIsPopoverOpen(true);
-              }}
-              onBlur={() => setIsExpanded(query.length > 0)}
-              aria-label={intl.formatMessage({ id: "common.search" })}
-              aria-controls="quick-nav-results"
-              aria-activedescendant={activeResultId}
-              aria-expanded={isPopoverOpen && (isExpanded || query.length > 0)}
-              data-expanded={isExpanded}
-              autoComplete="off"
-              placeholder={
-                isExpanded || query.length > 0 ? intl.formatMessage({ id: "common.search" }) : ""
-              }
+            <div
               className={cn(
-                "h-8 rounded-lg border-border bg-muted/50 pr-2 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground/80 focus-visible:bg-background",
-                isExpanded || query.length > 0
-                  ? "w-44 px-3 text-foreground md:w-48 lg:w-56"
-                  : "w-[3.9rem] px-2 text-transparent caret-foreground",
+                "relative flex items-center transition-[margin] duration-200 ease-out",
+                isExpanded || query.length > 0 ? "ml-1.5" : "ml-0",
               )}
-            />
+            >
+              <Input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setIsPopoverOpen(true);
+                }}
+                onKeyDown={handleSearchKeyDown}
+                onFocus={() => {
+                  setIsExpanded(true);
+                  setIsPopoverOpen(true);
+                }}
+                onBlur={() => setIsExpanded(query.length > 0)}
+                aria-label={intl.formatMessage({ id: "common.search" })}
+                aria-controls="quick-nav-results"
+                aria-activedescendant={activeResultId}
+                aria-expanded={isResultsOpen}
+                data-expanded={isExpanded}
+                autoComplete="off"
+                placeholder={
+                  isExpanded || query.length > 0 ? intl.formatMessage({ id: "common.search" }) : ""
+                }
+                className={cn(
+                  "h-8 rounded-lg border-border bg-muted/50 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out [&::-webkit-search-cancel-button]:appearance-none placeholder:text-muted-foreground/80 focus-visible:bg-background",
+                  isExpanded || query.length > 0
+                    ? "w-44 max-w-[50vw] pl-3 pr-8 text-foreground md:w-75 md:max-w-none lg:w-100"
+                    : "w-0 overflow-hidden border-0 bg-transparent px-0 text-transparent caret-foreground",
+                )}
+              />
+              {query.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={handleClear}
+                  aria-label={intl.formatMessage({ id: "common.search.clear" })}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              )}
+            </div>
           </PopoverAnchor>
-          <span
-            className={cn(
-              "pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground transition-opacity duration-150",
-              isExpanded || query.length > 0 ? "opacity-0" : "opacity-100",
-            )}
-          >
-            {shortcutLabel}
-          </span>
+          {isExpanded || query.length > 0 ? null : (
+            <span
+              aria-hidden="true"
+              // -ml-0.5 trims the icon button's padding down to the 6px gap the design specifies.
+              className={cn(
+                "pointer-events-none -ml-0.5 hidden h-5 items-center justify-center gap-1 rounded bg-muted text-[13px] leading-4 text-muted-foreground/80 md:flex",
+                isApplePlatform ? "w-[30px]" : "px-1.5",
+              )}
+            >
+              {isApplePlatform ? <Command className="size-3" /> : <span>Ctrl</span>}
+              <span>k</span>
+            </span>
+          )}
         </form>
         <PopoverContent
           align="start"
-          className="w-80 max-w-[calc(100vw-2rem)] p-0"
+          className="w-75 max-w-[calc(100vw-2rem)] p-0 lg:w-100"
           onOpenAutoFocus={(event) => event.preventDefault()}
         >
           <div
