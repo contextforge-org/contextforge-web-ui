@@ -8,7 +8,7 @@
 // process.env.PUBLIC_DIR set in beforeAll, with modules under test
 // dynamic-imported afterwards.
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -24,6 +24,9 @@ beforeAll(async () => {
     path.join(publicDir, "index.html"),
     "<!doctype html><title>spa-shell-marker</title>",
   );
+  await writeFile(path.join(publicDir, "favicon.ico"), "favicon-bytes");
+  await mkdir(path.join(publicDir, "assets"), { recursive: true });
+  await writeFile(path.join(publicDir, "assets", "index-abc123.js"), "console.log('hashed')");
   process.env.PUBLIC_DIR = publicDir;
 });
 
@@ -118,5 +121,31 @@ describe("SPA fallback (404 handler)", () => {
     // 401 (no session) proves the catch-all's own auth check ran, not the fallback.
     expect(response.statusCode).toBe(401);
     expect(response.body).not.toContain("spa-shell-marker");
+  });
+});
+
+describe("Cache-Control headers", () => {
+  it("long-caches hashed /assets/* files", async () => {
+    app = await buildApp();
+    const response = await app.fastify.inject({ method: "GET", url: "/assets/index-abc123.js" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+  });
+
+  it("does not long-cache favicon.ico served directly (not content-hashed)", async () => {
+    app = await buildApp();
+    const response = await app.fastify.inject({ method: "GET", url: "/favicon.ico" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).not.toContain("immutable");
+  });
+
+  it("does not long-cache index.html when served directly (not via the SPA fallback)", async () => {
+    app = await buildApp();
+    const response = await app.fastify.inject({ method: "GET", url: "/index.html" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).not.toContain("immutable");
   });
 });
