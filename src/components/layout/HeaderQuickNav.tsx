@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
-import { Search } from "lucide-react";
+import { Command, Search } from "lucide-react";
 import { useIntl } from "react-intl";
 import { searchEntities } from "@/api/search";
 import type { GlobalSearchGroup, GlobalSearchItem, SearchEntityType } from "@/api/search";
@@ -74,12 +74,12 @@ type ShortcutNavigator = Pick<Navigator, "platform" | "userAgent"> & {
   };
 };
 
-export function getQuickNavShortcutLabel(nav: ShortcutNavigator = navigator) {
+export function isAppleShortcutPlatform(nav: ShortcutNavigator = navigator) {
   const detectedPlatform = [nav.userAgentData?.platform, nav.platform, nav.userAgent]
     .filter(Boolean)
     .join(" ");
 
-  return /mac|iphone|ipad|ipod/i.test(detectedPlatform) ? "⌘ K" : "Ctrl K";
+  return /mac|iphone|ipad|ipod/i.test(detectedPlatform);
 }
 
 function getString(value: unknown): string {
@@ -133,7 +133,7 @@ export function HeaderQuickNav() {
   const { navigate } = useRouter();
   const { selectedTeamId, user } = useAuthContext();
   const [query, setQuery] = useState("");
-  const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
+  const [isApplePlatform, setIsApplePlatform] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>("idle");
@@ -191,7 +191,7 @@ export function HeaderQuickNav() {
   }, []);
 
   useEffect(() => {
-    setShortcutLabel(getQuickNavShortcutLabel());
+    setIsApplePlatform(isAppleShortcutPlatform());
   }, []);
 
   useEffect(() => {
@@ -394,12 +394,12 @@ export function HeaderQuickNav() {
   };
 
   return (
-    <div className="hidden md:block">
+    <div className="mr-3 hidden md:block">
       <Popover
         open={isPopoverOpen && (isExpanded || query.length > 0)}
         onOpenChange={setIsPopoverOpen}
       >
-        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center">
           <PopoverTrigger asChild>
             <Button
               type="button"
@@ -439,21 +439,26 @@ export function HeaderQuickNav() {
                 isExpanded || query.length > 0 ? intl.formatMessage({ id: "common.search" }) : ""
               }
               className={cn(
-                "h-8 rounded-lg border-border bg-muted/50 pr-2 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground/80 focus-visible:bg-background",
+                "h-8 rounded-lg border-border bg-muted/50 text-sm shadow-none transition-[width,margin,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground/80 focus-visible:bg-background",
                 isExpanded || query.length > 0
-                  ? "w-44 px-3 text-foreground md:w-48 lg:w-56"
-                  : "w-[3.9rem] px-2 text-transparent caret-foreground",
+                  ? "ml-1.5 w-44 px-3 text-foreground md:w-48 lg:w-56"
+                  : "ml-0 w-0 overflow-hidden border-0 bg-transparent px-0 text-transparent caret-foreground",
               )}
             />
           </PopoverAnchor>
-          <span
-            className={cn(
-              "pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground transition-opacity duration-150",
-              isExpanded || query.length > 0 ? "opacity-0" : "opacity-100",
-            )}
-          >
-            {shortcutLabel}
-          </span>
+          {isExpanded || query.length > 0 ? null : (
+            <span
+              aria-hidden="true"
+              // -ml-0.5 trims the icon button's padding down to the 6px gap the design specifies.
+              className={cn(
+                "pointer-events-none -ml-0.5 flex h-5 items-center justify-center gap-1 rounded bg-muted text-[13px] leading-4 text-muted-foreground/80",
+                isApplePlatform ? "w-[30px]" : "px-1.5",
+              )}
+            >
+              {isApplePlatform ? <Command className="size-3" /> : <span>Ctrl</span>}
+              <span>k</span>
+            </span>
+          )}
         </form>
         <PopoverContent
           align="start"

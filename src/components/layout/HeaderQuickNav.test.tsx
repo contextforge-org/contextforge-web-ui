@@ -91,7 +91,8 @@ describe("HeaderQuickNav", () => {
 
     const input = screen.getByRole("searchbox", { name: "Search" });
     expect(input).toHaveAttribute("data-expanded", "false");
-    expect(screen.getByText("Ctrl K")).toBeInTheDocument();
+    expect(screen.getByText("Ctrl")).toBeInTheDocument();
+    expect(screen.getByText("k")).toBeInTheDocument();
 
     fireEvent.focus(input);
 
@@ -132,7 +133,7 @@ describe("HeaderQuickNav", () => {
     });
   });
 
-  it("shows the macOS shortcut symbol on Apple platforms", async () => {
+  it("shows the command glyph instead of Ctrl on Apple platforms", async () => {
     Object.defineProperty(window.navigator, "platform", {
       configurable: true,
       value: "MacIntel",
@@ -140,7 +141,10 @@ describe("HeaderQuickNav", () => {
 
     renderQuickNav();
 
-    expect(await screen.findByText("⌘ K")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Ctrl")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("k")).toBeInTheDocument();
   });
 
   it("focuses the search input when the shortcut is pressed", () => {
