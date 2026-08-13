@@ -39,28 +39,28 @@ export function UsersTable({ users, onDeleteClick, onEditClick }: UsersTableProp
         </TableCaption>
         <TableHeader className="bg-main">
           <TableRow className="hover:bg-transparent data-[state=selected]:bg-transparent">
-            <TableHead className="border-b border-border h-[52px] px-2 pl-3 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 pl-3 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.user" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.role" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.status" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.provider" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.security" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.created" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] px-2 text-[13px] font-normal leading-4 text-muted-foreground">
+            <TableHead className="border-b border-border h-12 px-2 text-xs font-medium">
               {intl.formatMessage({ id: "users.table.lastLogin" })}
             </TableHead>
-            <TableHead className="border-b border-border h-[52px] w-10 px-2 pr-3">
+            <TableHead className="border-b border-border h-12 w-10 px-2 pr-3">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>

@@ -65,22 +65,22 @@ export function TeamsTable({
         </TableCaption>
         <TableHeader className="bg-main">
           <TableRow className="border-none hover:bg-transparent">
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               {intl.formatMessage({ id: "teams.table.name" })}
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               {intl.formatMessage({ id: "teams.table.visibility" })}
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               {intl.formatMessage({ id: "teams.table.members" })}
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               {intl.formatMessage({ id: "teams.table.created" })}
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               {intl.formatMessage({ id: "teams.table.updated" })}
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400 text-right">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-right">
               {intl.formatMessage({ id: "teams.table.actions" })}
             </TableHead>
           </TableRow>
