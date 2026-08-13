@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { AuthProvider } from "./auth/AuthContext";
 import { ThemeProvider } from "./hooks/useTheme";
 import { Toaster } from "@/components/ui/sonner";
@@ -6,56 +6,47 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { RouterProvider, Route, Redirect, AuthGuard, useRouter } from "./router";
 import { AppShell } from "./components/layout/AppShell";
 import { Loading } from "@/components/ui/loading";
+import { ErrorBoundary, clearChunkReloadGuard } from "@/components/ErrorBoundary";
 
 // Route-level code splitting: each page becomes its own chunk, fetched only
 // when its route is visited, instead of all ~25 pages riding in the initial
-// bundle. Named exports need the `.then(m => ({ default: m.X }))` adapter
-// since React.lazy only accepts a default export.
-const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
-const ForgotPassword = lazy(() =>
-  import("./pages/ForgotPassword").then((m) => ({ default: m.ForgotPassword })),
+// bundle. `lazyNamed` is the shared `.then(m => ({ default: m[key] }))`
+// adapter since React.lazy only accepts a default export.
+function lazyNamed<M extends Record<string, ComponentType>, K extends keyof M & string>(
+  factory: () => Promise<M>,
+  key: K,
+) {
+  return lazy(() => factory().then((m) => ({ default: m[key] })));
+}
+
+const Login = lazyNamed(() => import("./pages/Login"), "Login");
+const ForgotPassword = lazyNamed(() => import("./pages/ForgotPassword"), "ForgotPassword");
+const ResetPassword = lazyNamed(() => import("./pages/ResetPassword"), "ResetPassword");
+const ChangePassword = lazyNamed(() => import("./pages/ChangePassword"), "ChangePassword");
+const PasswordChangeRequired = lazyNamed(
+  () => import("./pages/PasswordChangeRequired"),
+  "PasswordChangeRequired",
 );
-const ResetPassword = lazy(() =>
-  import("./pages/ResetPassword").then((m) => ({ default: m.ResetPassword })),
-);
-const ChangePassword = lazy(() =>
-  import("./pages/ChangePassword").then((m) => ({ default: m.ChangePassword })),
-);
-const PasswordChangeRequired = lazy(() =>
-  import("./pages/PasswordChangeRequired").then((m) => ({ default: m.PasswordChangeRequired })),
-);
-const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
-const Gateways = lazy(() => import("./pages/Gateways").then((m) => ({ default: m.Gateways })));
-const CreateServer = lazy(() =>
-  import("./pages/CreateServer").then((m) => ({ default: m.CreateServer })),
-);
-const Servers = lazy(() => import("./pages/Servers").then((m) => ({ default: m.Servers })));
-const Tools = lazy(() => import("./pages/Tools").then((m) => ({ default: m.Tools })));
-const Resources = lazy(() => import("./pages/Resources").then((m) => ({ default: m.Resources })));
-const ServerCatalog = lazy(() =>
-  import("./pages/ServerCatalog").then((m) => ({ default: m.ServerCatalog })),
-);
-const Prompts = lazy(() => import("./pages/Prompts").then((m) => ({ default: m.Prompts })));
-const Agents = lazy(() => import("./pages/Agents").then((m) => ({ default: m.Agents })));
-const RestApi = lazy(() => import("./pages/RestApi").then((m) => ({ default: m.RestApi })));
-const Grpc = lazy(() => import("./pages/Grpc").then((m) => ({ default: m.Grpc })));
-const LLMProviders = lazy(() =>
-  import("./pages/LLMProviders").then((m) => ({ default: m.LLMProviders })),
-);
-const LLMModels = lazy(() => import("./pages/LLMModels").then((m) => ({ default: m.LLMModels })));
-const Metrics = lazy(() => import("./pages/Metrics").then((m) => ({ default: m.Metrics })));
-const Observability = lazy(() =>
-  import("./pages/Observability").then((m) => ({ default: m.Observability })),
-);
-const Plugins = lazy(() => import("./pages/Plugins").then((m) => ({ default: m.Plugins })));
-const Performance = lazy(() =>
-  import("./pages/Performance").then((m) => ({ default: m.Performance })),
-);
-const Maintenance = lazy(() =>
-  import("./pages/Maintenance").then((m) => ({ default: m.Maintenance })),
-);
-const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
-const NotFound = lazy(() => import("./pages/NotFound").then((m) => ({ default: m.NotFound })));
+const Dashboard = lazyNamed(() => import("./pages/Dashboard"), "Dashboard");
+const Gateways = lazyNamed(() => import("./pages/Gateways"), "Gateways");
+const CreateServer = lazyNamed(() => import("./pages/CreateServer"), "CreateServer");
+const Servers = lazyNamed(() => import("./pages/Servers"), "Servers");
+const Tools = lazyNamed(() => import("./pages/Tools"), "Tools");
+const Resources = lazyNamed(() => import("./pages/Resources"), "Resources");
+const ServerCatalog = lazyNamed(() => import("./pages/ServerCatalog"), "ServerCatalog");
+const Prompts = lazyNamed(() => import("./pages/Prompts"), "Prompts");
+const Agents = lazyNamed(() => import("./pages/Agents"), "Agents");
+const RestApi = lazyNamed(() => import("./pages/RestApi"), "RestApi");
+const Grpc = lazyNamed(() => import("./pages/Grpc"), "Grpc");
+const LLMProviders = lazyNamed(() => import("./pages/LLMProviders"), "LLMProviders");
+const LLMModels = lazyNamed(() => import("./pages/LLMModels"), "LLMModels");
+const Metrics = lazyNamed(() => import("./pages/Metrics"), "Metrics");
+const Observability = lazyNamed(() => import("./pages/Observability"), "Observability");
+const Plugins = lazyNamed(() => import("./pages/Plugins"), "Plugins");
+const Performance = lazyNamed(() => import("./pages/Performance"), "Performance");
+const Maintenance = lazyNamed(() => import("./pages/Maintenance"), "Maintenance");
+const Settings = lazyNamed(() => import("./pages/Settings"), "Settings");
+const NotFound = lazyNamed(() => import("./pages/NotFound"), "NotFound");
 
 function SettingsTabRedirect({ to }: { to: string }) {
   const { path } = useRouter();
@@ -125,12 +116,20 @@ function PrivateRoutes() {
 // Root
 // ---------------------------------------------------------------------------
 export function App() {
+  // Mounted without throwing: any stale-chunk auto-reload already did its
+  // job, so re-arm it for whatever the *next* deploy breaks.
+  useEffect(() => {
+    clearChunkReloadGuard();
+  }, []);
+
   return (
     <RouterProvider>
       <ThemeProvider>
         <AuthProvider>
           <TooltipProvider>
-            <Routes />
+            <ErrorBoundary>
+              <Routes />
+            </ErrorBoundary>
             <Toaster />
           </TooltipProvider>
         </AuthProvider>
