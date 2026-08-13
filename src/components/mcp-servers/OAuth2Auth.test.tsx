@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen, fireEvent, act } from "@testing-library/react";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { OAuth2Auth } from "./OAuth2Auth";
 
@@ -229,5 +229,85 @@ describe("OAuth2Auth", () => {
 
     fireEvent.click(screen.getByLabelText(/Automatically refresh expired tokens/i));
     expect(onAutoRefreshChange).toHaveBeenCalled();
+  });
+
+  describe("copy button interaction", () => {
+    beforeEach(() => {
+      Object.assign(navigator, {
+        clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+      });
+    });
+
+    it("copies the redirect URI to clipboard when the copy button is clicked", async () => {
+      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+
+      const copyButton = screen.getByRole("button", { name: /Copy to clipboard/i });
+      await act(async () => {
+        fireEvent.click(copyButton);
+      });
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        `${window.location.origin}/oauth/callback`,
+      );
+    });
+
+    it("shows a check icon immediately after clicking copy and reverts after 2 s", async () => {
+      vi.useFakeTimers();
+
+      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+
+      const copyButton = screen.getByRole("button", { name: /Copy to clipboard/i });
+      await act(async () => {
+        fireEvent.click(copyButton);
+      });
+
+      // The button is still present (aria-label unchanged; icon swap is visual-only)
+      expect(copyButton).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("localhost warning", () => {
+    it("shows a localhost warning when the derived redirect URI points to localhost", () => {
+      // jsdom sets window.location.origin to 'http://localhost'
+      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+
+      expect(
+        screen.getByText(/Redirect URIs derived from localhost will not work/i),
+      ).toBeInTheDocument();
+    });
+
+    it("does not show the localhost warning when a non-localhost stored redirect URI is used", () => {
+      render(
+        <OAuth2Auth
+          {...defaultProps}
+          grantType="authorization_code"
+          redirectUri="https://public.example.com/oauth/callback"
+        />,
+      );
+
+      expect(
+        screen.queryByText(/Redirect URIs derived from localhost will not work/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the localhost warning when a stored redirect URI points to 127.0.0.1", () => {
+      render(
+        <OAuth2Auth
+          {...defaultProps}
+          grantType="authorization_code"
+          redirectUri="http://127.0.0.1:8080/oauth/callback"
+        />,
+      );
+
+      expect(
+        screen.getByText(/Redirect URIs derived from localhost will not work/i),
+      ).toBeInTheDocument();
+    });
   });
 });

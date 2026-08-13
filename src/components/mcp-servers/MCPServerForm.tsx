@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { ChevronDown, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,13 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     queryParamApiKey,
     setQueryParamApiKey,
   } = useMCPServerForm(serverId);
+
+  const handleRedirectUriChange = useCallback(
+    (uri: string) => {
+      setOAuthRedirectUri(uri);
+    },
+    [setOAuthRedirectUri],
+  );
 
   const handleCancel = () => {
     setCreatedGateway(null);
@@ -347,7 +354,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onOAuthTokenUrlChange={setOAuthTokenUrl}
                   onOAuthGrantTypeChange={setOAuthGrantType}
                   onOAuthIssuerUrlChange={setOAuthIssuerUrl}
-                  onOAuthRedirectUriChange={setOAuthRedirectUri}
+                  onOAuthRedirectUriChange={handleRedirectUriChange}
                   onOAuthAuthorizationUrlChange={setOAuthAuthorizationUrl}
                   onOAuthScopesChange={setOAuthScopes}
                   onOAuthStoreTokensChange={setOAuthStoreTokens}
