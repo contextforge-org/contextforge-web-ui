@@ -12,6 +12,10 @@ function Bomb({ message }: { message: string }): never {
   throw new Error(message);
 }
 
+function NonErrorBomb({ value }: { value: unknown }): never {
+  throw value; // deliberately non-Error — see test below
+}
+
 // Silence React's error-boundary console.error noise for these tests.
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -82,6 +86,20 @@ describe("ErrorBoundary", () => {
     expect(sessionStorage.getItem("cf:error-boundary-reloaded")).toBeNull();
     expect(window.location.reload).toHaveBeenCalled();
   });
+
+  it.each([null, undefined, "plain string", 42])(
+    "shows the generic fallback instead of crashing when %p is thrown",
+    (value) => {
+      render(
+        <ErrorBoundary>
+          <NonErrorBomb value={value} />
+        </ErrorBoundary>,
+      );
+      expect(screen.getByRole("alert")).toBeTruthy();
+      expect(screen.getByText("common.errorBoundary.genericMessage")).toBeTruthy();
+      expect(window.location.reload).not.toHaveBeenCalled();
+    },
+  );
 
   it("clearChunkReloadGuard removes the session flag", () => {
     sessionStorage.setItem("cf:error-boundary-reloaded", "1");

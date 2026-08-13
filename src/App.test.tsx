@@ -16,9 +16,19 @@ vi.mock("@/hooks/useQuery", () => ({
 }));
 
 describe("App", () => {
-  it("shows the Suspense fallback while a route chunk is loading", async () => {
+  it("shows the Suspense fallback while a route chunk is loading, and only clears the chunk-reload guard once real content mounts", async () => {
+    // Must be the first test in this file to exercise Login's *unresolved*
+    // lazy import — later tests hit its now-cached module instead, so the
+    // fallback never actually shows for them.
     localStorage.clear();
     sessionStorage.clear();
+    // Regression coverage: the guard used to live in an effect on App
+    // itself, an ancestor of Suspense — so it fired on the fallback's own
+    // commit, before the lazy chunk had a chance to succeed or fail. A
+    // route stuck permanently broken would then auto-reload forever
+    // instead of once. Pre-set the flag and assert it survives the
+    // fallback phase, only clearing once the chunk actually mounts.
+    sessionStorage.setItem("cf:error-boundary-reloaded", "1");
     window.history.pushState({}, "", "/app/login");
 
     renderWithProviders(<App />);
@@ -26,10 +36,13 @@ describe("App", () => {
     // First mount of the Login chunk: its Suspense fallback shows before
     // the lazy import resolves (later tests hit the cached module instead).
     expect(screen.getByRole("status", { name: /loading/i })).toBeInTheDocument();
+    expect(sessionStorage.getItem("cf:error-boundary-reloaded")).toBe("1");
+
     await waitFor(() =>
       expect(screen.queryByRole("status", { name: /loading/i })).not.toBeInTheDocument(),
     );
     expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(sessionStorage.getItem("cf:error-boundary-reloaded")).toBeNull();
   });
 
   it("logs in and navigates to Gateways page via sidebar", async () => {

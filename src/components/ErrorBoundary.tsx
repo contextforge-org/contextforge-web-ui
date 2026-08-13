@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 const CHUNK_LOAD_ERROR_PATTERN =
   /Failed to fetch dynamically imported module|error loading dynamically imported module|ChunkLoadError|Importing a module script failed/i;
 
-function isChunkLoadError(error: Error): boolean {
+// `error` is typed `Error` by React but isn't guaranteed to be one at
+// runtime — `throw "x"` or an empty `Promise.reject()` land here unchanged.
+function isChunkLoadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
   return error.name === "ChunkLoadError" || CHUNK_LOAD_ERROR_PATTERN.test(error.message);
 }
 
@@ -51,18 +54,19 @@ interface Props {
 }
 
 interface State {
-  error: Error | null;
+  error: unknown;
+  hasError: boolean;
 }
 
 // Class component: componentDidCatch has no hook equivalent.
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null };
+  state: State = { error: null, hasError: false };
 
-  static getDerivedStateFromError(error: Error): State {
-    return { error };
+  static getDerivedStateFromError(error: unknown): State {
+    return { error, hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  componentDidCatch(error: unknown, info: ErrorInfo) {
     if (isChunkLoadError(error) && !sessionStorage.getItem(RELOAD_FLAG_KEY)) {
       sessionStorage.setItem(RELOAD_FLAG_KEY, "1");
       window.location.reload();
@@ -77,10 +81,12 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   render() {
-    const { error } = this.state;
-    if (error) {
+    const { error, hasError } = this.state;
+    if (hasError) {
       // Chunk-load errors auto-reload once (above); this fallback only
-      // renders if that reload didn't fix it, or for non-chunk errors.
+      // renders if that reload didn't fix it, or for non-chunk errors —
+      // `error` itself may be null/undefined (e.g. a bare `throw`), so
+      // `hasError` — not truthiness of `error` — is what gates this.
       return <Fallback isChunkError={isChunkLoadError(error)} onReload={this.handleReload} />;
     }
     return this.props.children;
