@@ -67,13 +67,14 @@ describe("ResetPassword", () => {
     await fillPasswords("new-password");
     fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Your password was reset successfully",
+    expect(await screen.findByRole("status")).toHaveTextContent("Password changed");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Your password was changed for ContextForge.",
     );
     expect(resetPassword).toHaveBeenCalledWith("reset/token", "new-password", "new-password");
     expect(navigate).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Sign In" }));
+    fireEvent.click(screen.getByRole("button", { name: "Return to login" }));
     expect(navigate).toHaveBeenCalledWith("/app/login");
   });
 

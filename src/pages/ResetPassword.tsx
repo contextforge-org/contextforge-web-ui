@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CircleCheck } from "lucide-react";
 import { useIntl } from "react-intl";
 import { ApiError } from "@/api/client";
 import { resetPassword, validatePasswordResetToken } from "@/api/passwordReset";
@@ -89,25 +90,37 @@ export function ResetPassword({ token = "" }: { token?: string }) {
   return (
     <main className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 px-4">
       <section
-        className="w-full max-w-sm bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 shadow-sm"
+        className={`w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-sm ${
+          succeeded ? "max-w-[400px] rounded-xl p-6" : "max-w-sm rounded-lg p-8"
+        }`}
         aria-labelledby="reset-password-title"
       >
         {succeeded ? (
-          <div className="space-y-4">
-            <h1
-              id="reset-password-title"
-              ref={successHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 outline-none"
+          <div className="space-y-6">
+            <div role="status" className="space-y-4">
+              <h1
+                id="reset-password-title"
+                ref={successHeadingRef}
+                tabIndex={-1}
+                className="flex items-center gap-2 text-base font-semibold leading-6 text-neutral-900 dark:text-neutral-100 outline-none"
+              >
+                <CircleCheck
+                  className="size-6 shrink-0 text-emerald-500 dark:text-emerald-400"
+                  aria-hidden="true"
+                />
+                {intl.formatMessage({ id: "auth.resetPassword.successTitle" })}
+              </h1>
+              <p className="text-[13px] leading-4 text-neutral-500 dark:text-neutral-400">
+                {intl.formatMessage({ id: "auth.resetPassword.success" })}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="xs"
+              className="w-full"
+              onClick={() => navigate("/app/login")}
             >
-              {intl.formatMessage({ id: "auth.resetPassword.successTitle" })}
-            </h1>
-            <InlineNotification
-              type="success"
-              message={intl.formatMessage({ id: "auth.resetPassword.success" })}
-            />
-            <Button type="button" className="w-full" onClick={() => navigate("/app/login")}>
-              {intl.formatMessage({ id: "auth.forgotPassword.backToLogin" })}
+              {intl.formatMessage({ id: "auth.resetPassword.returnToLogin" })}
             </Button>
           </div>
         ) : (
