@@ -162,25 +162,25 @@ export function ServersTable({
         <TableCaption className="sr-only">List of MCP servers with status and actions</TableCaption>
         <TableHeader className="bg-white dark:bg-transparent">
           <TableRow className="border-none hover:bg-transparent">
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               Name
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               Components
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               Last response
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               UUID
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               Visibility
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
               Status
             </TableHead>
-            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400 text-right">
+            <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-right">
               Actions
             </TableHead>
           </TableRow>

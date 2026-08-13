@@ -34,8 +34,7 @@ export function TokensTable({ tokens, teamNames, onDeleteClick }: TokensTablePro
   const intl = useIntl();
   const neverLabel = intl.formatMessage({ id: "tokens.table.never" });
 
-  const headClass =
-    "border-b border-border h-12 px-4 text-xs font-medium text-neutral-600 dark:text-neutral-400";
+  const headClass = "border-b border-border h-12 px-4 text-xs font-medium";
 
   return (
     <div className="overflow-hidden">
