@@ -7,6 +7,9 @@
 // only wraps replies from routes registered after it. SSE routes are exempt
 // automatically: proxy-sse.ts calls reply.hijack(), which skips the onSend
 // chain this plugin hooks into.
+//
+// globalDecompression: false — { global: true } alone also auto-decompresses
+// request bodies fleet-wide (undocumented decompression-bomb surface).
 
 import fastifyCompress from "@fastify/compress";
 import type { FastifyInstance } from "fastify";
@@ -14,7 +17,7 @@ import fp from "fastify-plugin";
 
 export default fp(
   async function compressPlugin(fastify: FastifyInstance) {
-    await fastify.register(fastifyCompress, { global: true });
+    await fastify.register(fastifyCompress, { global: true, globalDecompression: false });
   },
   { name: "compressPlugin" },
 );

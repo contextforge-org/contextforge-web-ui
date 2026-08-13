@@ -54,5 +54,9 @@
   "common.theme.dark": "Modo escuro",
   "common.theme.system": "Tema do sistema",
   "common.theme.toggle": "Alternar tema",
-  "common.button.remove": "Remover"
+  "common.button.remove": "Remover",
+  "common.errorBoundary.title": "Algo deu errado",
+  "common.errorBoundary.chunkLoadMessage": "Esta página foi atualizada desde o último carregamento. Recarregue para obter a versão mais recente.",
+  "common.errorBoundary.genericMessage": "Ocorreu um erro inesperado. Tente recarregar a página.",
+  "common.errorBoundary.reload": "Recarregar página"
 }
