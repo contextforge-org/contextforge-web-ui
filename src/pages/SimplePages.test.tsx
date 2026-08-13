@@ -101,7 +101,11 @@ describe("Simple Page Components", () => {
   });
 
   it("renders Plugins page", () => {
-    renderWithProviders(<Plugins />);
+    renderWithProviders(
+      <RouterProvider>
+        <Plugins />
+      </RouterProvider>,
+    );
     expect(document.body).toBeTruthy();
   });
 

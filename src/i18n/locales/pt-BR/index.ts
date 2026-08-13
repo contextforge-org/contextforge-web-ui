@@ -13,6 +13,7 @@ import prompts from "./prompts.json";
 import mcpServer from "./mcpServer.json";
 import settings from "./settings.json";
 import tokens from "./tokens.json";
+import plugins from "./plugins.json";
 
 export default {
   ...common,
@@ -30,4 +31,5 @@ export default {
   ...mcpServer,
   ...settings,
   ...tokens,
+  ...plugins,
 };
