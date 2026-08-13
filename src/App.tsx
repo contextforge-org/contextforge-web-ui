@@ -1,5 +1,8 @@
 import { lazy, Suspense, useEffect, type ComponentType } from "react";
 import { AuthProvider } from "./auth/AuthContext";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
+import { ChangePassword } from "./pages/ChangePassword";
 import { ThemeProvider } from "./hooks/useTheme";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,15 +22,21 @@ function lazyNamed<M extends Record<string, ComponentType>, K extends keyof M & 
   return lazy(() => factory().then((m) => ({ default: m[key] })));
 }
 
+// ForgotPassword/ResetPassword/ChangePassword are a few lines of static
+// placeholder JSX each ("Not yet implemented") — splitting them into their
+// own chunk costs a request for less code than the import() wiring saves.
 const Login = lazyNamed(() => import("./pages/Login"), "Login");
-const ForgotPassword = lazyNamed(() => import("./pages/ForgotPassword"), "ForgotPassword");
-const ResetPassword = lazyNamed(() => import("./pages/ResetPassword"), "ResetPassword");
-const ChangePassword = lazyNamed(() => import("./pages/ChangePassword"), "ChangePassword");
 const PasswordChangeRequired = lazyNamed(
   () => import("./pages/PasswordChangeRequired"),
   "PasswordChangeRequired",
 );
 const Dashboard = lazyNamed(() => import("./pages/Dashboard"), "Dashboard");
+// Dashboard is the default post-login landing page (see the /app/ route
+// below), so warm its chunk in parallel with the auth check instead of
+// waiting for AuthGuard to resolve first — otherwise its own useQuery data
+// fetch only starts after chunk-fetch -> parse -> mount, a JS-then-data
+// waterfall on the single most common navigation in the app.
+void import("./pages/Dashboard");
 const Gateways = lazyNamed(() => import("./pages/Gateways"), "Gateways");
 const CreateServer = lazyNamed(() => import("./pages/CreateServer"), "CreateServer");
 const Servers = lazyNamed(() => import("./pages/Servers"), "Servers");
@@ -48,6 +57,18 @@ const Maintenance = lazyNamed(() => import("./pages/Maintenance"), "Maintenance"
 const Settings = lazyNamed(() => import("./pages/Settings"), "Settings");
 const NotFound = lazyNamed(() => import("./pages/NotFound"), "NotFound");
 
+// Rendered as a Suspense *child*, not an ancestor — so its effect only
+// fires once the lazy route chunk has actually resolved and mounted, never
+// while the fallback is still showing. Clearing the reload guard here (not
+// in App itself) is what makes "reload once, then give up" actually hold
+// for a chunk that's permanently broken, not just stale.
+function ClearReloadGuardOnMount() {
+  useEffect(() => {
+    clearChunkReloadGuard();
+  }, []);
+  return null;
+}
+
 function SettingsTabRedirect({ to }: { to: string }) {
   const { path } = useRouter();
   const query = path.split("?")[1];
@@ -63,6 +84,7 @@ const TokensRedirect = () => <SettingsTabRedirect to="/app/settings/tokens" />;
 function PublicRoutes() {
   return (
     <Suspense fallback={<Loading />}>
+      <ClearReloadGuardOnMount />
       <Route path="/app/login" component={Login} />
       <Route path="/app/forgot-password" component={ForgotPassword} />
       <Route path="/app/reset-password/:token" component={ResetPassword} />
@@ -81,6 +103,7 @@ function PrivateRoutes() {
         {/* Suspense sits inside AppShell so sidebar/header render immediately
             and only the route body shows the fallback while its chunk loads. */}
         <Suspense fallback={<Loading />}>
+          <ClearReloadGuardOnMount />
           <Route path="/app/" component={Dashboard} />
           <Route path="/app/change-password" component={ChangePassword} />
           <Route path="/app/gateways" component={Gateways} />
@@ -116,12 +139,6 @@ function PrivateRoutes() {
 // Root
 // ---------------------------------------------------------------------------
 export function App() {
-  // Mounted without throwing: any stale-chunk auto-reload already did its
-  // job, so re-arm it for whatever the *next* deploy breaks.
-  useEffect(() => {
-    clearChunkReloadGuard();
-  }, []);
-
   return (
     <RouterProvider>
       <ThemeProvider>
