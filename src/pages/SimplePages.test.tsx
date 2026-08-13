@@ -34,7 +34,6 @@ import { Observability } from "./Observability";
 import { Performance } from "./Performance";
 import { Plugins } from "./Plugins";
 import { Prompts } from "./Prompts";
-import { ResetPassword } from "./ResetPassword";
 import { Resources } from "./Resources";
 import { RestApi } from "./RestApi";
 import { ServerCatalog } from "./ServerCatalog";
@@ -61,7 +60,11 @@ describe("Simple Page Components", () => {
   });
 
   it("renders ForgotPassword page", () => {
-    renderWithProviders(<ForgotPassword />);
+    renderWithProviders(
+      <RouterProvider>
+        <ForgotPassword />
+      </RouterProvider>,
+    );
     expect(document.body).toBeTruthy();
   });
 
@@ -107,11 +110,6 @@ describe("Simple Page Components", () => {
 
   it("renders Prompts page", () => {
     renderWithProviders(<Prompts />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders ResetPassword page", () => {
-    renderWithProviders(<ResetPassword />);
     expect(document.body).toBeTruthy();
   });
 

@@ -200,8 +200,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 // ---------------------------------------------------------------------------
 
 export const api = {
-  get<T>(path: string, headers?: Record<string, string>, signal?: AbortSignal): Promise<T> {
-    return request<T>(path, { method: "GET", headers, signal });
+  get<T>(
+    path: string,
+    headers?: Record<string, string>,
+    signal?: AbortSignal,
+    opts?: Pick<RequestOptions, "authenticated">,
+  ): Promise<T> {
+    return request<T>(path, { method: "GET", headers, signal, ...opts });
   },
 
   post<T>(
