@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { ApiError } from "@/api/client";
 import { requestPasswordReset } from "@/api/passwordReset";
+import { classifyPasswordResetError } from "@/api/passwordResetErrors";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
@@ -33,9 +33,10 @@ export function ForgotPassword() {
       await requestPasswordReset(email.trim());
       setSubmitted(true);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) {
+      const resetError = classifyPasswordResetError(err);
+      if (resetError.kind === "rateLimited") {
         setError(intl.formatMessage({ id: "auth.forgotPassword.error.rateLimited" }));
-      } else if (err instanceof ApiError && err.status === 403) {
+      } else if (resetError.kind === "disabled") {
         setError(intl.formatMessage({ id: "auth.forgotPassword.error.disabled" }));
       } else {
         setError(intl.formatMessage({ id: "auth.forgotPassword.error.failed" }));

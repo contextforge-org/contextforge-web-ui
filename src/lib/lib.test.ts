@@ -61,8 +61,8 @@ describe("VALIDATION constants", () => {
     expect(VALIDATION.MAX_PASSWORD_LENGTH).toBe(1000);
   });
 
-  it("MIN_PASSWORD_LENGTH is 8", () => {
-    expect(VALIDATION.MIN_PASSWORD_LENGTH).toBe(8);
+  it("MIN_PASSWORD_LENGTH is 12", () => {
+    expect(VALIDATION.MIN_PASSWORD_LENGTH).toBe(12);
   });
 
   it("MAX_NAME_LENGTH is 255", () => {

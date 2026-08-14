@@ -54,7 +54,7 @@ describe("ResetPassword", () => {
 
   it("rejects mismatched passwords without API request", async () => {
     renderPage();
-    await fillPasswords("password-one", "password-two");
+    await fillPasswords("Password-one1", "Password-two2");
     fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
 
     expect(await screen.findAllByText("Passwords do not match.")).not.toHaveLength(0);
@@ -64,18 +64,48 @@ describe("ResetPassword", () => {
   it("shows persistent success and waits for explicit login navigation", async () => {
     vi.mocked(resetPassword).mockResolvedValue({ success: true, message: "ok" });
     renderPage("reset/token");
-    await fillPasswords("new-password");
+    await fillPasswords("New-password1");
     fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("Password changed");
     expect(screen.getByRole("status")).toHaveTextContent(
       "Your password was changed for ContextForge.",
     );
-    expect(resetPassword).toHaveBeenCalledWith("reset/token", "new-password", "new-password");
+    expect(resetPassword).toHaveBeenCalledWith("reset/token", "New-password1", "New-password1");
     expect(navigate).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Return to login" }));
     expect(navigate).toHaveBeenCalledWith("/app/login");
+  });
+
+  it("enforces minimum length and complexity before submission", async () => {
+    renderPage();
+    await fillPasswords("short-A1!");
+    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
+    expect(await screen.findByText("Password must be at least 12 characters.")).toBeInTheDocument();
+
+    await fillPasswords("alllowercasepassword");
+    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
+    expect(
+      await screen.findByText(
+        "Password must contain at least 3 of: uppercase, lowercase, number, or special character.",
+      ),
+    ).toBeInTheDocument();
+    expect(resetPassword).not.toHaveBeenCalled();
+  });
+
+  it("shows backend password-policy detail without treating link as invalid", async () => {
+    vi.mocked(resetPassword).mockRejectedValue(
+      new ApiError(400, { detail: "Password must not be a commonly used password" }, "HTTP 400"),
+    );
+    renderPage();
+    await fillPasswords("New-password1");
+    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
+
+    expect(
+      await screen.findByText("Password must not be a commonly used password"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/reset link is invalid/i)).not.toBeInTheDocument();
   });
 
   it("offers new link for expired token without exposing token", async () => {

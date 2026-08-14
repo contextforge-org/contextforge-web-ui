@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleCheck } from "lucide-react";
 import { useIntl } from "react-intl";
-import { ApiError } from "@/api/client";
 import { resetPassword, validatePasswordResetToken } from "@/api/passwordReset";
+import { classifyPasswordResetError } from "@/api/passwordResetErrors";
 import { PasswordInput } from "@/components/users/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
+import { VALIDATION } from "@/lib/constants";
 import { useRouter } from "@/router";
 
 type TokenState = "validating" | "valid" | "invalid" | "expired" | "disabled";
@@ -36,8 +37,9 @@ export function ResetPassword({ token = "" }: { token?: string }) {
       .then((result) => setTokenState(result.valid ? "valid" : "invalid"))
       .catch((err) => {
         if (controller.signal.aborted) return;
-        if (err instanceof ApiError && err.status === 410) setTokenState("expired");
-        else if (err instanceof ApiError && err.status === 403) setTokenState("disabled");
+        const resetError = classifyPasswordResetError(err);
+        if (resetError.kind === "expired") setTokenState("expired");
+        else if (resetError.kind === "disabled") setTokenState("disabled");
         else setTokenState("invalid");
       });
 
@@ -54,8 +56,15 @@ export function ResetPassword({ token = "" }: { token?: string }) {
     setConfirmPasswordError(null);
     setSubmitError(null);
 
-    if (password.length < 8) {
+    if (password.length < VALIDATION.MIN_PASSWORD_LENGTH) {
       setPasswordError(intl.formatMessage({ id: "auth.resetPassword.error.tooShort" }));
+      return;
+    }
+    const characterTypes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((pattern) =>
+      pattern.test(password),
+    ).length;
+    if (characterTypes < 3) {
+      setPasswordError(intl.formatMessage({ id: "auth.resetPassword.error.complexity" }));
       return;
     }
     if (password !== confirmPassword) {
@@ -70,9 +79,11 @@ export function ResetPassword({ token = "" }: { token?: string }) {
       setConfirmPassword("");
       setSucceeded(true);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 410) setTokenState("expired");
-      else if (err instanceof ApiError && err.status === 403) setTokenState("disabled");
-      else if (err instanceof ApiError && err.status === 400)
+      const resetError = classifyPasswordResetError(err);
+      if (resetError.kind === "expired") setTokenState("expired");
+      else if (resetError.kind === "disabled") setTokenState("disabled");
+      else if (resetError.kind === "validation") setPasswordError(resetError.message);
+      else if (resetError.kind === "invalid")
         setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.invalid" }));
       else setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.failed" }));
     } finally {
