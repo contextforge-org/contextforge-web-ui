@@ -12,7 +12,6 @@
   "plugins.catalog.allHooks": "All hooks",
   "plugins.catalog.allTags": "All tags",
   "plugins.catalog.enabled": "Enabled",
-  "plugins.catalog.disabled": "Disabled",
   "plugins.catalog.view": "View",
   "plugins.catalog.viewPlugin": "View {name}",
   "plugins.catalog.viewOptions": "Plugins view",
