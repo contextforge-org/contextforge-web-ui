@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Env-driven config for the BFF. All values have dev-safe defaults; override
-// via env in every non-local deployment (COOKIE_SECURE and FASTAPI_URL in
-// particular).
+// via env in every non-local deployment (COOKIE_SECURE and CONTEXTFORGE_URL
+// in particular).
 
 function optional(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
@@ -24,17 +24,20 @@ export const config = {
   port: Number(optional("PORT", "3000")),
   host: optional("HOST", "0.0.0.0"),
 
-  // Upstream ContextForge API (FastAPI). All bearer-token traffic goes here,
+  // Upstream ContextForge API. All bearer-token traffic goes here,
   // server-to-server only — the browser never talks to this origin directly.
-  fastapiUrl: optional("FASTAPI_URL", "http://127.0.0.1:4444"),
+  // Not named after the upstream's current framework (FastAPI) since that's
+  // an implementation detail ContextForge could change independently.
+  contextforgeUrl: optional("CONTEXTFORGE_URL", "http://127.0.0.1:4444"),
 
   // Header mcpgateway reads the bearer token from — must match its own AUTH_HEADER_NAME.
-  fastapiAuthHeaderName: optional("FASTAPI_AUTH_HEADER_NAME", "Authorization"),
+  contextforgeAuthHeaderName: optional("CONTEXTFORGE_AUTH_HEADER_NAME", "Authorization"),
 
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
-  // local dev process.
-  redisUrl: optional("REDIS_URL", "memory://"),
+  // local dev process. optionalUnset so REDIS_URL="" also falls through
+  // to this default and trips the fail-closed check below.
+  redisUrl: optionalUnset("REDIS_URL") ?? "memory://",
 
   // Opaque session_id -> { bearerToken, user } TTL in Redis. Independent of
   // the upstream JWT's own expiry; the BFF just stops trusting a stale
@@ -84,9 +87,9 @@ if (
   throw new Error("REDIS_URL=memory:// is dev-only — set a real redis:// URL in production");
 }
 
-if (!HTTP_TOKEN_RE.test(config.fastapiAuthHeaderName)) {
+if (!HTTP_TOKEN_RE.test(config.contextforgeAuthHeaderName)) {
   throw new Error(
-    `FASTAPI_AUTH_HEADER_NAME "${config.fastapiAuthHeaderName}" is not a valid HTTP header token`,
+    `CONTEXTFORGE_AUTH_HEADER_NAME "${config.contextforgeAuthHeaderName}" is not a valid HTTP header token`,
   );
 }
 

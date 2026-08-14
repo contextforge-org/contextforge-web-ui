@@ -15,6 +15,8 @@ This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi
 
 ## Getting Started
 
+> Running this in Docker instead? See [DOCKER.md](./DOCKER.md).
+
 ### Prerequisites
 
 - Node.js 20+ and npm
@@ -46,28 +48,28 @@ Bring them up in this order:
    https://github.com/IBM/mcp-context-forge/issues/2503
    Note whatever port it ends up listening on for the next step.
 
-2. **Configure and start the BFF** (terminal B, this repo's `server/`):
+2. **Configure and start the BFF** (terminal B, from the repo root):
 
    ```bash
-   cd server
    cp .env.example .env
    ```
 
-   Edit `server/.env`:
-   - `FASTAPI_URL` — point it at whatever host:port ContextForge is
-     listening on from step 1 (`.env.example`'s default is `4444`; confirm
-     against your ContextForge run rather than assuming).
+   Edit `.env`:
+   - `CONTEXTFORGE_URL` — point it at whatever host:port ContextForge is
+     listening on from step 1 (`.env.example`'s default is `0.0.0.0:8000`;
+     confirm against your ContextForge run rather than assuming).
    - `COOKIE_SECURE=false` — needed for local HTTP; the default (`true`) is
      for prod and silently drops the session cookie over plain HTTP.
 
    Other values (`PORT`, `REDIS_URL`, `SESSION_TTL_SECONDS`, etc.) have
-   dev-safe defaults — see comments in `server/.env.example`.
-   `REDIS_URL=memory://` (the default) is an in-process store, no Redis
-   process needed for local dev — state resets on restart.
+   dev-safe defaults — see comments in `.env.example`. `REDIS_URL` is left
+   unset, which falls back to an in-process store (no Redis process needed
+   for local dev — state resets on restart).
 
    ```bash
+   cd server
    npm install
-   npm run dev   # :3000, tsx watch
+   npm run dev   # :3000, tsx watch, reads ../.env
    ```
 
 3. **Build the frontend for the BFF to serve**, from the repo root:
@@ -326,6 +328,9 @@ client/
 ├── tsconfig.app.json     # TypeScript app config
 ├── vite.config.ts        # Vite configuration (builds to server/public/)
 ├── package.json          # Dependencies and scripts
+├── .env.example          # Shared BFF config — copy to .env (see Getting Started)
+├── .env.prod.example     # Production-ready template — copy to .env
+├── Dockerfile / docker-compose.yml / DOCKER.md  # see DOCKER.md
 └── server/               # BFF (Fastify): session/CSRF boundary in front of ContextForge
     ├── src/
     │   ├── index.ts       # Entrypoint
@@ -333,7 +338,6 @@ client/
     │   ├── plugins/       # cookie, redis, session, csrf, static
     │   └── routes/        # auth/, proxy/ (catch-all to ContextForge), sse/
     ├── public/            # Built SPA (npm run build output), served by BFF
-    ├── .env.example       # Copy to .env and configure FASTAPI_URL etc.
     └── package.json
 ```
 

@@ -35,7 +35,7 @@ const UPSTREAM_REVOKE_TIMEOUT_MS = 3000;
 
 async function revokeUpstreamToken(request: FastifyRequest, bearerToken: string): Promise<void> {
   try {
-    const response = await fetch(`${config.fastapiUrl}/auth/logout`, {
+    const response = await fetch(`${config.contextforgeUrl}/auth/logout`, {
       method: "POST",
       headers: upstreamAuthHeader(bearerToken),
       signal: AbortSignal.timeout(UPSTREAM_REVOKE_TIMEOUT_MS),

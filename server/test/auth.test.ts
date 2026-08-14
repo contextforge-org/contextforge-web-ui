@@ -253,7 +253,7 @@ describe("POST /auth/logout", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const revokeCall = fetchCalls.find((call) => call.url === `${config.fastapiUrl}/auth/logout`);
+    const revokeCall = fetchCalls.find((call) => call.url === `${config.contextforgeUrl}/auth/logout`);
     expect(revokeCall).toBeTruthy();
     // The stored bearer token, minted at login — never a session/cookie value.
     expect(revokeCall?.authorization).toBe("Bearer upstream-jwt");

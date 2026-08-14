@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    env_file:
+      - .env
+    environment:
+      # `-` not `:-`: only substitute when REDIS_URL is unset, not when
+      # it's present-but-blank (e.g. an unfilled .env.prod.example).
+      REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
+    extra_hosts:
+      # Lets CONTEXTFORGE_URL=http://host.docker.internal:<port> reach a
+      # gateway running on the host. Docker Desktop (mac/Windows) resolves
+      # this automatically; Linux needs this mapping explicitly.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

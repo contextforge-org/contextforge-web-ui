@@ -2,9 +2,9 @@
 // Copyright contributors to the MCP-CONTEXT-FORGE project
 // SPDX-License-Identifier: Apache-2.0
 //
-// FASTAPI_URL must be set before src/config.ts (and anything importing it)
+// CONTEXTFORGE_URL must be set before src/config.ts (and anything importing it)
 // is first evaluated, so the fake upstream server is spun up and
-// process.env.FASTAPI_URL set in beforeAll, with every module under test
+// process.env.CONTEXTFORGE_URL set in beforeAll, with every module under test
 // dynamic-imported afterwards rather than statically at the top of the file.
 
 import { createServer, type IncomingMessage, type Server } from "node:http";
@@ -57,7 +57,7 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", () => resolve()));
   const { port } = upstream.address() as AddressInfo;
   upstreamOrigin = `http://127.0.0.1:${port}`;
-  process.env.FASTAPI_URL = upstreamOrigin;
+  process.env.CONTEXTFORGE_URL = upstreamOrigin;
 });
 
 afterAll(() => new Promise<void>((resolve) => upstream.close(() => resolve())));

@@ -7,7 +7,7 @@
 // Fastify/light-my-request's normal capture path — inject() would hang
 // waiting for a stream that's designed to live indefinitely.
 //
-// Same env-ordering constraint as proxy.test.ts: FASTAPI_URL must be set
+// Same env-ordering constraint as proxy.test.ts: CONTEXTFORGE_URL must be set
 // before anything importing src/config.ts (transitively, the SSE upstream
 // pool) is first evaluated, so every module under test is dynamic-imported
 // after the fake upstream server is listening.
@@ -39,7 +39,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", () => resolve()));
   const { port } = upstream.address() as AddressInfo;
-  process.env.FASTAPI_URL = `http://127.0.0.1:${port}`;
+  process.env.CONTEXTFORGE_URL = `http://127.0.0.1:${port}`;
   process.env.SSE_SESSION_RECHECK_SECONDS = "3600"; // keep the recheck timer out of the way of these tests
 });
 

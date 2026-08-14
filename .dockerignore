@@ -1,0 +1,35 @@
+# Dependencies (installed fresh inside the image)
+node_modules/
+server/node_modules/
+
+# Build outputs (generated fresh inside the image)
+dist/
+server/dist/
+server/public/
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+e2e/
+
+# VCS / CI / editor
+.git/
+.github/
+.husky/
+.bob/
+.claude/
+.vscode/
+.idea/
+.DS_Store
+
+# Env files — never bake secrets/config into the image; env comes from
+# `docker run -e` / compose at runtime.
+*.env
+*.env.*
+!.env*.example
+server/.env
+
+# Docs (not needed at build time)
+*.md
+LICENSE

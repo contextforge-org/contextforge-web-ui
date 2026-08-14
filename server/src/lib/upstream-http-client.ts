@@ -12,7 +12,7 @@ import { Pool } from "undici";
 
 import { config } from "../config.js";
 
-export const sseUpstreamPool = new Pool(config.fastapiUrl, {
+export const sseUpstreamPool = new Pool(config.contextforgeUrl, {
   headersTimeout: 0,
   bodyTimeout: 0,
 });
