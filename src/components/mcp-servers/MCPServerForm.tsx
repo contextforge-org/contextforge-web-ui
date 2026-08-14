@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useIntl } from "react-intl";
 import { ChevronDown, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
@@ -23,6 +24,7 @@ interface CreatedGatewayInfo {
 }
 
 export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServerFormProps) {
+  const intl = useIntl();
   const { navigate } = useRouter();
   const [createdGateway, setCreatedGateway] = useState<CreatedGatewayInfo | null>(null);
   const {
@@ -154,33 +156,38 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 <MCPIcon className="h-4 w-4" />
               </div>
               <h2 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
-                {serverId ? "Edit MCP server" : "Connect MCP server"}
+                {intl.formatMessage({
+                  id: serverId ? "mcpServer.form.editTitle" : "mcpServer.form.connectTitle",
+                })}
               </h2>
             </div>
 
             <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              {
-                "Context Forge will discover the server's tools, resources, and prompts. The MCP server should be running and reachable. Or, choose a server from the"
-              }{" "}
-              <Button
-                type="button"
-                variant="link"
-                onClick={() => {
-                  onToggle();
-                  navigate("/app/server-catalog");
-                }}
-                className="font-medium text-cyan-700 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
-              >
-                mcp server catalog
-              </Button>
-              .
+              {intl.formatMessage(
+                { id: "mcpServer.form.intro" },
+                {
+                  catalog: (chunks: ReactNode) => (
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => {
+                        onToggle();
+                        navigate("/app/server-catalog");
+                      }}
+                      className="font-medium text-cyan-700 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
+                    >
+                      {chunks}
+                    </Button>
+                  ),
+                },
+              )}
             </p>
           </div>
 
           {fetchError && serverId && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/50">
               <p className="text-sm text-red-600 dark:text-red-400">
-                Failed to load server data: {fetchError}
+                {intl.formatMessage({ id: "mcpServer.form.fetchError" }, { error: fetchError })}
               </p>
             </div>
           )}
@@ -188,11 +195,11 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
           <form className="space-y-6" onSubmit={onSubmit}>
             <div className="space-y-3">
               <label className="text-sm font-medium text-neutral-950 dark:text-white">
-                Server transport type
+                {intl.formatMessage({ id: "mcpServer.form.transportLabel" })}
               </label>
               <div
                 role="radiogroup"
-                aria-label="Server transport type"
+                aria-label={intl.formatMessage({ id: "mcpServer.form.transportLabel" })}
                 className="flex gap-2 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
               >
                 {(["STREAMABLEHTTP", "SSE"] as TransportType[]).map((type) => {
@@ -225,14 +232,17 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 htmlFor="server-name"
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
-                Name<span className="text-red-500">*</span>
-                <span className="sr-only">(required)</span>
+                {intl.formatMessage({ id: "mcpServer.form.nameLabel" })}
+                <span className="text-red-500">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
               </label>
               <Input
                 id="server-name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Add MCP server name..."
+                placeholder={intl.formatMessage({ id: "mcpServer.form.namePlaceholder" })}
                 className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? "name-error" : undefined}
@@ -249,15 +259,18 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 htmlFor="server-url"
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
-                URL<span className="text-red-500">*</span>
-                <span className="sr-only">(required)</span>
+                {intl.formatMessage({ id: "mcpServer.form.urlLabel" })}
+                <span className="text-red-500">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
                 <CircleAlert className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
               </label>
               <Input
                 id="server-url"
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
-                placeholder="Add URL for a running MCP server..."
+                placeholder={intl.formatMessage({ id: "mcpServer.form.urlPlaceholder" })}
                 className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
                 aria-invalid={!!errors.url}
                 aria-describedby={errors.url ? "url-error" : undefined}
@@ -271,13 +284,13 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
 
             <div className="space-y-1">
               <label htmlFor="server-description" className="sr-only">
-                Description
+                {intl.formatMessage({ id: "mcpServer.form.descriptionLabel" })}
               </label>
               <Textarea
                 id="server-description"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Add an optional description..."
+                placeholder={intl.formatMessage({ id: "mcpServer.form.descriptionPlaceholder" })}
                 className="min-h-28 focus-visible:ring-1 focus-visible:ring-offset-0"
                 aria-invalid={!!errors.description}
                 aria-describedby={errors.description ? "description-error" : undefined}
@@ -298,7 +311,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 aria-expanded={advancedOpen}
               >
                 <ChevronDown className={`h-4 w-4 transition ${advancedOpen ? "rotate-180" : ""}`} />
-                Advanced settings
+                {intl.formatMessage({ id: "mcpServer.form.advancedSettings" })}
               </Button>
 
               {advancedOpen && (
@@ -371,7 +384,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-950/50"
                 >
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Waiting for OAuth authorization in the popup window…
+                    {intl.formatMessage({ id: "mcpServer.form.oauthPending" })}
                   </p>
                 </div>
               )}
@@ -381,7 +394,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   type={oauthNotification.type}
                   message={oauthNotification.message}
                   onDismiss={clearOAuthNotification}
-                  dismissLabel="Dismiss OAuth notification"
+                  dismissLabel={intl.formatMessage({ id: "mcpServer.form.dismissOAuth" })}
                 />
               )}
 
@@ -390,7 +403,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   type={fetchToolsNotification.type}
                   message={fetchToolsNotification.message}
                   onDismiss={clearFetchToolsNotification}
-                  dismissLabel="Dismiss fetch tools notification"
+                  dismissLabel={intl.formatMessage({ id: "mcpServer.form.dismissFetchTools" })}
                 />
               )}
 
@@ -401,20 +414,22 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onClick={() => handleCancel()}
                   className="h-10 rounded-md px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                 >
-                  Cancel
+                  {intl.formatMessage({ id: "common.button.cancel" })}
                 </Button>
                 <Button
                   type="submit"
                   disabled={!isValid || isSubmitting || oauthPending}
                   className="h-10 rounded-md bg-neutral-950 px-4 text-sm font-medium text-white hover:enabled:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:enabled:bg-neutral-200"
                 >
-                  {isSubmitting
-                    ? "Connecting..."
-                    : oauthPending
-                      ? "Waiting for OAuth…"
-                      : serverId
-                        ? "Save changes"
-                        : "Connect server"}
+                  {intl.formatMessage({
+                    id: isSubmitting
+                      ? "mcpServer.form.connecting"
+                      : oauthPending
+                        ? "mcpServer.form.waitingOAuth"
+                        : serverId
+                          ? "mcpServer.form.saveChanges"
+                          : "mcpServer.form.connectServer",
+                  })}
                 </Button>
               </div>
             </div>

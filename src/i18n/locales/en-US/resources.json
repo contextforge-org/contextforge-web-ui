@@ -6,7 +6,7 @@
   "resources.addResources.description": "Resources will appear automatically when you connect a MCP server. Or, register a standalone resource endpoint.",
   "resources.restResourcesGroup": "REST resources",
   "resources.card.moreOptionsFor": "More options for {name}",
-  "resources.card.viewDetails": "View Details",
+  "resources.card.viewDetails": "View details",
   "resources.card.resourceCount": "{count, plural, one {# resource} other {# resources}}",
   "resources.card.moreResources": "{count} more {count, plural, one {resource} other {resources}}",
   "resources.form.title": "Add resources",

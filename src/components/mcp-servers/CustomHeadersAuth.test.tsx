@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { CustomHeadersAuth, type CustomHeader } from "./CustomHeadersAuth";
 
 const makeHeader = (overrides: Partial<CustomHeader> = {}): CustomHeader => ({

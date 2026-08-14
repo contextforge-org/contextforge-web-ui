@@ -209,11 +209,11 @@ export function Servers() {
         setAllServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       } catch (err) {
         const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
-        toast.error(detail || "Failed to add tag. Please try again.");
+        toast.error(detail || intl.formatMessage({ id: "mcpServer.tags.addError" }));
         throw err;
       }
     },
-    [setDetailsServer],
+    [setDetailsServer, intl],
   );
 
   useEffect(() => {
@@ -277,7 +277,7 @@ export function Servers() {
           className="flex items-center justify-center p-12"
         >
           <Loading />
-          <span className="sr-only">Loading servers, please wait...</span>
+          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.loading" })}</span>
         </div>
       ) : (
         <>
@@ -288,7 +288,9 @@ export function Servers() {
               aria-live="assertive"
               aria-atomic="true"
             >
-              <h3 className="font-semibold mb-1">Error loading servers</h3>
+              <h3 className="font-semibold mb-1">
+                {intl.formatMessage({ id: "mcpServer.error.loadingTitle" })}
+              </h3>
               <p className="text-red-800 dark:text-red-200">{error}</p>
             </div>
           )}
@@ -325,7 +327,7 @@ export function Servers() {
                     onClick={() => setIsFormOpen(true)}
                   >
                     <Plus className="h-4 w-4" />
-                    Connect
+                    {intl.formatMessage({ id: "mcpServer.connect" })}
                   </Button>
                 </div>
               </div>
@@ -346,21 +348,21 @@ export function Servers() {
 
               <div className="flex items-center justify-between mt-6">
                 <div className="flex items-center gap-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Showing {filteredServers.length} server{filteredServers.length !== 1 ? "s" : ""}
+                  <div className="text-sm text-muted-foreground">
+                    {intl.formatMessage(
+                      { id: "mcpServer.list.showing" },
+                      { count: filteredServers.length },
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <label
-                      htmlFor="limit-select"
-                      className="text-sm text-gray-600 dark:text-gray-400"
-                    >
-                      Per page:
+                    <label htmlFor="limit-select" className="text-sm text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.list.perPage" })}
                     </label>
                     <select
                       id="limit-select"
                       value={limit}
                       onChange={(e) => handleLimitChange(Number(e.target.value))}
-                      className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                      className="rounded-md border border-border bg-background px-2 py-1 text-sm"
                     >
                       <option value={10}>10</option>
                       <option value={25}>25</option>
@@ -375,9 +377,11 @@ export function Servers() {
                     size="sm"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    aria-label="Load more servers"
+                    aria-label={intl.formatMessage({ id: "mcpServer.list.loadMoreLabel" })}
                   >
-                    {loadingMore ? "Loading..." : "Load More"}
+                    {intl.formatMessage({
+                      id: loadingMore ? "mcpServer.list.loadingMore" : "mcpServer.list.loadMore",
+                    })}
                   </Button>
                 )}
               </div>
@@ -388,13 +392,14 @@ export function Servers() {
                 <div className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-orange-500">
                   <MCPIcon className="size-4 [&_path]:fill-black" />
                 </div>
-                <h2 className="text-base font-medium">Connect MCP server</h2>
+                <h2 className="text-base font-medium">
+                  {intl.formatMessage({ id: "mcpServer.empty.title" })}
+                </h2>
               </div>
 
               <div className="py-5">
                 <p className="text-sm text-foreground">
-                  Register a MCP server to federate its tools, resources, and prompts to use with a
-                  virtual server.
+                  {intl.formatMessage({ id: "mcpServer.empty.description" })}
                 </p>
               </div>
 
@@ -403,7 +408,7 @@ export function Servers() {
                 onClick={() => setIsFormOpen(true)}
               >
                 <Plus className="size-3" />
-                Connect
+                {intl.formatMessage({ id: "mcpServer.connect" })}
               </Button>
             </div>
           )}
@@ -413,10 +418,10 @@ export function Servers() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete MCP Server"
-        description="Are you sure you want to delete this MCP server? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={intl.formatMessage({ id: "mcpServer.delete.title" })}
+        description={intl.formatMessage({ id: "mcpServer.delete.description" })}
+        confirmLabel={intl.formatMessage({ id: "common.button.delete" })}
+        cancelLabel={intl.formatMessage({ id: "common.button.cancel" })}
         variant="destructive"
         onConfirm={confirmDelete}
       />

@@ -68,27 +68,27 @@ function getStatusConfig(status: ServerStatus) {
   switch (status) {
     case "active":
       return {
-        label: "Active",
+        labelId: "mcpServer.status.active",
         Icon: Activity,
-        className: "text-emerald-400",
+        className: "text-emerald-600 dark:text-emerald-400",
       };
     case "warning":
       return {
-        label: "Warning",
+        labelId: "mcpServer.status.warning",
         Icon: TriangleAlert,
-        className: "text-amber-400",
+        className: "text-amber-600 dark:text-amber-400",
       };
     case "offline":
       return {
-        label: "Offline",
+        labelId: "mcpServer.status.offline",
         Icon: CircleSlash,
-        className: "text-neutral-500",
+        className: "text-muted-foreground",
       };
     default:
       return {
-        label: "Draft",
+        labelId: "mcpServer.status.draft",
         Icon: CircleDashed,
-        className: "text-neutral-500",
+        className: "text-muted-foreground",
       };
   }
 }
@@ -151,7 +151,7 @@ export function ServersTable({
         aria-busy="true"
       >
         <Loading />
-        <span className="sr-only">Loading servers, please wait...</span>
+        <span className="sr-only">{intl.formatMessage({ id: "mcpServer.loading" })}</span>
       </div>
     );
   }
@@ -159,29 +159,31 @@ export function ServersTable({
   return (
     <div className="overflow-hidden">
       <Table className="min-w-full border-separate border-spacing-y-1.5">
-        <TableCaption className="sr-only">List of MCP servers with status and actions</TableCaption>
-        <TableHeader className="bg-white dark:bg-transparent">
+        <TableCaption className="sr-only">
+          {intl.formatMessage({ id: "mcpServer.table.caption" })}
+        </TableCaption>
+        <TableHeader className="bg-main">
           <TableRow className="border-none hover:bg-transparent">
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              Name
+              {intl.formatMessage({ id: "mcpServer.table.name" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              Components
+              {intl.formatMessage({ id: "mcpServer.table.components" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              Last response
+              {intl.formatMessage({ id: "mcpServer.table.lastResponse" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              UUID
+              {intl.formatMessage({ id: "mcpServer.table.uuid" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              Visibility
+              {intl.formatMessage({ id: "mcpServer.table.visibility" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium">
-              Status
+              {intl.formatMessage({ id: "mcpServer.table.status" })}
             </TableHead>
             <TableHead className="border-b border-border h-12 px-4 text-xs font-medium text-right">
-              Actions
+              {intl.formatMessage({ id: "mcpServer.table.actions" })}
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -200,26 +202,39 @@ export function ServersTable({
             return (
               <TableRow
                 key={server.id}
-                className="bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+                className="border-0 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
               >
                 <TableCell className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
                     <ServerIcon name={server.name} size="md" />
-                    <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                      {server.name}
-                    </span>
+                    <span className="font-medium text-card-foreground">{server.name}</span>
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                    <span>{toolCount} tools</span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {intl.formatMessage(
+                        { id: "mcpServer.table.components.tools" },
+                        { count: toolCount },
+                      )}
+                    </span>
                     <span>•</span>
-                    <span>{resourcesCount} resources</span>
+                    <span>
+                      {intl.formatMessage(
+                        { id: "mcpServer.table.components.resources" },
+                        { count: resourcesCount },
+                      )}
+                    </span>
                     <span>•</span>
-                    <span>{promptsCount} prompts</span>
+                    <span>
+                      {intl.formatMessage(
+                        { id: "mcpServer.table.components.prompts" },
+                        { count: promptsCount },
+                      )}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-neutral-600 dark:text-neutral-400">
+                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
                   {formatLocalDateTime(lastSeen, intl.formatMessage({ id: "mcpServer.neverUsed" }))}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
@@ -228,14 +243,22 @@ export function ServersTable({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleCopy(server.id)}
-                    className="inline-flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400 transition hover:text-neutral-900 dark:hover:text-neutral-200"
-                    aria-label={`Copy UUID for ${server.name}`}
+                    className="inline-flex items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground"
+                    aria-label={intl.formatMessage(
+                      { id: "mcpServer.table.copyUuid" },
+                      { name: server.name },
+                    )}
                   >
                     <span className="max-w-[180px] truncate">{server.id}</span>
                     {copiedId === server.id ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
-                        <span className="sr-only">Copied!</span>
+                        <Check
+                          className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">
+                          {intl.formatMessage({ id: "mcpServer.table.copied" })}
+                        </span>
                       </>
                     ) : (
                       <Copy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -243,7 +266,7 @@ export function ServersTable({
                   </Button>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <div className="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                  <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                     <VisibilityIcon className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
                     <span>{intl.formatMessage({ id: visibility.labelId })}</span>
                   </div>
@@ -253,8 +276,8 @@ export function ServersTable({
                     className={`inline-flex items-center gap-1.5 text-xs ${statusConfig.className}`}
                   >
                     <StatusIcon className="h-3.5 w-3.5" />
-                    <span className="text-neutral-600 dark:text-neutral-400">
-                      {statusConfig.label}
+                    <span className="text-muted-foreground">
+                      {intl.formatMessage({ id: statusConfig.labelId })}
                     </span>
                   </div>
                 </TableCell>

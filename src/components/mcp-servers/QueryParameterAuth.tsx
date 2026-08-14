@@ -1,4 +1,6 @@
 import { AlertTriangle } from "lucide-react";
+import { useIntl } from "react-intl";
+import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 
 interface QueryParameterAuthProps {
@@ -14,15 +16,20 @@ export function QueryParameterAuth({
   onParameterNameChange,
   onApiKeyChange,
 }: QueryParameterAuthProps) {
+  const intl = useIntl();
+
   return (
     <div className="space-y-4">
       {/* Security Warning */}
       <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
         <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
         <p className="text-sm text-neutral-700 dark:text-neutral-300">
-          <span className="font-semibold">Security Warning:</span> API keys in URLs will be visible
-          in proxy logs, browser history, and server access logs. Use only when the upstream server
-          does not support header-based authentication.
+          {intl.formatMessage(
+            { id: "mcpServer.auth.query.warning" },
+            {
+              strong: (chunks: ReactNode) => <span className="font-semibold">{chunks}</span>,
+            },
+          )}
         </p>
       </div>
 
@@ -32,15 +39,16 @@ export function QueryParameterAuth({
           htmlFor="query-param-name"
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
-          Query parameter name<span className="text-red-500">*</span>
-          <span className="sr-only">(required)</span>
+          {intl.formatMessage({ id: "mcpServer.auth.query.nameLabel" })}
+          <span className="text-red-500">*</span>
+          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="query-param-name"
           type="text"
           value={parameterName}
           onChange={(e) => onParameterNameChange(e.target.value)}
-          placeholder="e.g. api_key..."
+          placeholder={intl.formatMessage({ id: "mcpServer.auth.query.namePlaceholder" })}
           className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
       </div>
@@ -51,15 +59,16 @@ export function QueryParameterAuth({
           htmlFor="query-param-api-key"
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
-          API key<span className="text-red-500">*</span>
-          <span className="sr-only">(required)</span>
+          {intl.formatMessage({ id: "mcpServer.auth.query.apiKeyLabel" })}
+          <span className="text-red-500">*</span>
+          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="query-param-api-key"
           type="password"
           value={apiKey}
           onChange={(e) => onApiKeyChange(e.target.value)}
-          placeholder="e.g. a1b2c3d4e5f6789..."
+          placeholder={intl.formatMessage({ id: "mcpServer.auth.query.apiKeyPlaceholder" })}
           className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
       </div>

@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
+import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,8 @@ export function CustomHeadersAuth({
   onHeadersChange,
   maxHeaders,
 }: CustomHeadersAuthProps) {
+  const intl = useIntl();
+
   const addHeader = () => {
     onHeadersChange([...headers, { id: crypto.randomUUID(), key: "", value: "" }]);
   };
@@ -38,9 +41,12 @@ export function CustomHeadersAuth({
   return (
     <div className="space-y-4">
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        {maxHeaders === 1
-          ? "Send one custom header with every request."
-          : "Send one or more custom headers with every request."}
+        {intl.formatMessage({
+          id:
+            maxHeaders === 1
+              ? "mcpServer.auth.custom.descriptionOne"
+              : "mcpServer.auth.custom.descriptionMany",
+        })}
       </p>
 
       <div className="space-y-3">
@@ -51,17 +57,23 @@ export function CustomHeadersAuth({
                 htmlFor={`header-key-${index}`}
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
-                Header key<span className="text-red-500">*</span>
-                <span className="sr-only">(required)</span>
+                {intl.formatMessage({ id: "mcpServer.auth.custom.keyLabel" })}
+                <span className="text-red-500">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
               </label>
               <Input
                 id={`header-key-${index}`}
                 type="text"
                 value={header.key}
                 onChange={(e) => updateHeader(index, "key", e.target.value)}
-                placeholder={
-                  index === 0 && headers.length === 1 ? "e.g. X-API-Key..." : "Add header key..."
-                }
+                placeholder={intl.formatMessage({
+                  id:
+                    index === 0 && headers.length === 1
+                      ? "mcpServer.auth.custom.keyPlaceholderExample"
+                      : "mcpServer.auth.custom.keyPlaceholder",
+                })}
                 className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
               />
             </div>
@@ -71,15 +83,18 @@ export function CustomHeadersAuth({
                 htmlFor={`header-value-${index}`}
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
-                Value<span className="text-red-500">*</span>
-                <span className="sr-only">(required)</span>
+                {intl.formatMessage({ id: "mcpServer.auth.custom.valueLabel" })}
+                <span className="text-red-500">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
               </label>
               <Input
                 id={`header-value-${index}`}
                 type="password"
                 value={header.value}
                 onChange={(e) => updateHeader(index, "value", e.target.value)}
-                placeholder={"Add header value..."}
+                placeholder={intl.formatMessage({ id: "mcpServer.auth.custom.valuePlaceholder" })}
                 className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
               />
             </div>
@@ -92,7 +107,7 @@ export function CustomHeadersAuth({
               className="h-10 gap-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
             >
               <Trash2 className="h-4 w-4" />
-              Remove
+              {intl.formatMessage({ id: "common.button.remove" })}
             </Button>
           </div>
         ))}
@@ -107,7 +122,7 @@ export function CustomHeadersAuth({
         className="gap-1.5 border-neutral-200 dark:border-neutral-600"
       >
         <Plus className="h-3.5 w-3.5" />
-        Add header
+        {intl.formatMessage({ id: "mcpServer.auth.custom.addHeader" })}
       </Button>
     </div>
   );

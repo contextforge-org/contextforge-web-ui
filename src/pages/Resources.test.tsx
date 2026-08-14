@@ -446,7 +446,7 @@ describe("Resources", () => {
       await user.click(moreOptionsButton);
 
       await waitFor(() => {
-        expect(screen.getByText("View Details")).toBeInTheDocument();
+        expect(screen.getByText("View details")).toBeInTheDocument();
       });
     });
 
@@ -468,7 +468,7 @@ describe("Resources", () => {
       const moreOptionsButton = screen.getByLabelText("More options for test-gateway");
       await user.click(moreOptionsButton);
 
-      const viewDetailsItem = await screen.findByText("View Details");
+      const viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -494,7 +494,7 @@ describe("Resources", () => {
 
       const moreOptionsButton = screen.getByLabelText("More options for test-gateway");
       await user.click(moreOptionsButton);
-      const viewDetailsItem = await screen.findByText("View Details");
+      const viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -527,7 +527,7 @@ describe("Resources", () => {
 
       const moreOptionsButton = screen.getByLabelText("More options for test-gateway");
       await user.click(moreOptionsButton);
-      const viewDetailsItem = await screen.findByText("View Details");
+      const viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -563,7 +563,7 @@ describe("Resources", () => {
 
       const moreOptionsButton = screen.getByLabelText("More options for multi-resource-gateway");
       await user.click(moreOptionsButton);
-      const viewDetailsItem = await screen.findByText("View Details");
+      const viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -595,7 +595,7 @@ describe("Resources", () => {
 
       const moreOptionsButtonA = screen.getByLabelText("More options for gateway-a");
       await user.click(moreOptionsButtonA);
-      let viewDetailsItem = await screen.findByText("View Details");
+      let viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -615,7 +615,7 @@ describe("Resources", () => {
 
       const moreOptionsButtonB = screen.getByLabelText("More options for gateway-b");
       await user.click(moreOptionsButtonB);
-      viewDetailsItem = await screen.findByText("View Details");
+      viewDetailsItem = await screen.findByText("View details");
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
@@ -631,7 +631,7 @@ describe("Resources", () => {
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
 
       await user.click(screen.getByLabelText("More options for test-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
 
       await waitFor(() => {
         expect(
@@ -716,7 +716,7 @@ describe("Resources", () => {
       renderWithRouter(<Resources />);
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
       await user.click(screen.getByLabelText("More options for test-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       await user.click(await screen.findByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Edit"));
 
@@ -736,7 +736,7 @@ describe("Resources", () => {
       renderWithRouter(<Resources />);
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
       await user.click(screen.getByLabelText("More options for test-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       await user.click(await screen.findByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Edit"));
 
@@ -869,7 +869,7 @@ describe("Resources", () => {
 
       const user = userEvent.setup();
       await user.click(screen.getByLabelText(`More options for ${gatewaySlug}`));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       await waitFor(() =>
         expect(
           screen.getByRole("region", { name: new RegExp(`Resources for ${gatewaySlug}`, "i") }),
@@ -906,7 +906,7 @@ describe("Resources", () => {
 
       const user = userEvent.setup();
       await user.click(screen.getByLabelText("More options for opt-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       await waitFor(() =>
         expect(
           screen.getByRole("region", { name: /Resources for opt-gateway/i }),
@@ -942,7 +942,7 @@ describe("Resources", () => {
 
       const user = userEvent.setup();
       await user.click(screen.getByLabelText("More options for rollback-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       await waitFor(() =>
         expect(
           screen.getByRole("region", { name: /Resources for rollback-gateway/i }),
@@ -1178,7 +1178,7 @@ describe("Resources", () => {
       const listCallsAfterLoad = resourcesListCalls;
 
       await user.click(screen.getByLabelText("More options for test-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
 
       const drawer = await screen.findByRole("region", { name: /Resources for test-gateway/i });
       expect(within(drawer).queryByText("alerts")).not.toBeInTheDocument();
@@ -1208,7 +1208,7 @@ describe("Resources", () => {
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
 
       await user.click(screen.getByLabelText("More options for test-gateway"));
-      await user.click(await screen.findByText("View Details"));
+      await user.click(await screen.findByText("View details"));
       const drawer = await screen.findByRole("region", { name: /Resources for test-gateway/i });
 
       await user.click(within(drawer).getByRole("button", { name: "Add tags" }));

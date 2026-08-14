@@ -1,5 +1,6 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import { Upload } from "lucide-react";
+import { useIntl } from "react-intl";
 import { Button } from "@/components/ui/button";
 
 interface CACertificateUploadProps {
@@ -7,6 +8,7 @@ interface CACertificateUploadProps {
 }
 
 export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProps) {
+  const intl = useIntl();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(
@@ -40,12 +42,18 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
     if (invalidFiles.length > 0) {
       setFeedback({
         type: "error",
-        message: `Invalid file type(s): ${invalidFiles.join(", ")}. Only .pem, .crt, .cer, .cert files are allowed.`,
+        message: intl.formatMessage(
+          { id: "mcpServer.caCert.invalidFiles" },
+          { count: invalidFiles.length, files: invalidFiles.join(", ") },
+        ),
       });
     } else if (validFiles.length > 0) {
       setFeedback({
         type: "success",
-        message: `${validFiles.length} file(s) selected successfully.`,
+        message: intl.formatMessage(
+          { id: "mcpServer.caCert.filesSelected" },
+          { count: validFiles.length },
+        ),
       });
     } else {
       setFeedback(null);
@@ -104,7 +112,9 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-neutral-950 dark:text-white">CA certificate</label>
+      <label className="text-sm font-medium text-neutral-950 dark:text-white">
+        {intl.formatMessage({ id: "mcpServer.caCert.label" })}
+      </label>
 
       <input
         ref={fileInputRef}
@@ -133,10 +143,10 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
           className="h-7 gap-2 border border-neutral-700 bg-neutral-800 text-white hover:bg-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800"
         >
           <Upload className="h-3 w-3" />
-          Upload
+          {intl.formatMessage({ id: "mcpServer.caCert.upload" })}
         </Button>
         <p className="pt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Public certificate files only (.pem, .crt, .cer, .cert)
+          {intl.formatMessage({ id: "mcpServer.caCert.hint" })}
         </p>
       </div>
 
@@ -154,7 +164,10 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
 
       {selectedFiles.length > 0 && (
         <div className="text-xs text-neutral-600 dark:text-neutral-400">
-          Selected: {selectedFiles.map((f) => f.name).join(", ")}
+          {intl.formatMessage(
+            { id: "mcpServer.caCert.selected" },
+            { files: selectedFiles.map((f) => f.name).join(", ") },
+          )}
         </div>
       )}
     </div>

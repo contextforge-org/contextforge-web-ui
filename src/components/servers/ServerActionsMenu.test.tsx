@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { render } from "@testing-library/react";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { ServerActionsMenu } from "./ServerActionsMenu";
 import type { MCPServer } from "@/types/server";
 

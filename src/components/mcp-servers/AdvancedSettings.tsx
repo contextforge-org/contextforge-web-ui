@@ -220,7 +220,9 @@ export function AdvancedSettings({
             id="visibility"
             className="h-10 w-full border-neutral-300 dark:border-neutral-700"
           >
-            <SelectValue placeholder="Select visibility" />
+            <SelectValue
+              placeholder={intl.formatMessage({ id: "mcpServer.advanced.visibilityPlaceholder" })}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="public">
@@ -236,9 +238,11 @@ export function AdvancedSettings({
         </Select>
         {visibility === "team" && (
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {selectedTeamId
-              ? "This server will be scoped to your currently selected team"
-              : "Please select a team using the team switcher in the sidebar"}
+            {intl.formatMessage({
+              id: selectedTeamId
+                ? "mcpServer.advanced.teamScoped"
+                : "mcpServer.advanced.teamNotSelected",
+            })}
           </p>
         )}
       </div>
@@ -246,26 +250,15 @@ export function AdvancedSettings({
       {/* Authentication type */}
       <div className="space-y-3">
         <label className="text-sm font-medium text-neutral-950 dark:text-white">
-          Authentication type
+          {intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
         </label>
         <div
           role="radiogroup"
-          aria-label="Authentication type"
+          aria-label={intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
           className="flex w-full flex-nowrap gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
         >
           {(["none", "basic", "bearer", "custom", "oauth", "query"] as AuthType[]).map((type) => {
-            const label =
-              type === "none"
-                ? "None"
-                : type === "basic"
-                  ? "Basic"
-                  : type === "bearer"
-                    ? "Bearer token"
-                    : type === "custom"
-                      ? "Custom headers"
-                      : type === "oauth"
-                        ? "OAuth 2.0"
-                        : "Query parameter";
+            const label = intl.formatMessage({ id: `mcpServer.advanced.authType.${type}` });
             const isLongerLabel = type === "custom" || type === "query";
             return (
               <div key={type} className={isLongerLabel ? "flex-[1.3] min-w-0" : "flex-1 min-w-0"}>
@@ -300,7 +293,7 @@ export function AdvancedSettings({
             htmlFor="one-time-auth"
             className="text-sm font-medium text-neutral-950 dark:text-white"
           >
-            One-time authentication
+            {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthLabel" })}
           </label>
           <Info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
         </div>
@@ -309,14 +302,14 @@ export function AdvancedSettings({
           <p
             className={`text-sm ${oneTimeAuth ? "text-neutral-900 dark:text-neutral-100" : "text-neutral-600 dark:text-neutral-400"}`}
           >
-            {"Use credentials once, don't store them. Health checks will be disabled."}
+            {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthDescription" })}
           </p>
         </div>
         {oneTimeAuth && (
           <div className="mt-3 flex items-start gap-3 rounded-md bg-neutral-50 p-3 dark:bg-neutral-800">
             <TriangleAlert className="text-yellow-300 mt-0.5 h-4 w-4 shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Add passthrough headers when one-time authentication is enabled.
+              {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthWarning" })}
             </p>
           </div>
         )}
@@ -328,17 +321,16 @@ export function AdvancedSettings({
           htmlFor="passthrough-headers"
           className="text-sm font-medium text-neutral-950 dark:text-white"
         >
-          Passthrough headers
+          {intl.formatMessage({ id: "mcpServer.advanced.passthroughLabel" })}
         </label>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Add comma-separate headers to forward from client requests. Leave empty to use global
-          defaults.
+          {intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
         </p>
         <Textarea
           id="passthrough-headers"
           value={passthroughHeaders}
           onChange={(e) => onPassthroughHeadersChange(e.target.value)}
-          placeholder="e.g. Authorization, X-Tenant-Id, X-Trace-Id..."
+          placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
           className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
         />
       </div>

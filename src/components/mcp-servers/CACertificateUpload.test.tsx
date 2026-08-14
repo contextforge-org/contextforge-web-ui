@@ -56,7 +56,7 @@ describe("CACertificateUpload", () => {
 
     await userEvent.upload(input, file);
 
-    expect(screen.getByText(/1 file\(s\) selected successfully\./)).toBeInTheDocument();
+    expect(screen.getByText(/1 file selected successfully\./)).toBeInTheDocument();
     expect(screen.getByText(/certificate.pem/)).toBeInTheDocument();
     expect(onFilesSelected).toHaveBeenCalledWith([file]);
   });
