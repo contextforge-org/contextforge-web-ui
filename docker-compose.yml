@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    # No volume by default — sessions are an ephemeral, opt-in cache (see
+    # .env.docker.example). Add persistence only if you actually need
+    # sessions to survive a `docker compose down`:
+    #   volumes: ["redis-data:/data"]
+    # and a top-level `volumes: { redis-data: {} }`.

@@ -15,6 +15,8 @@ This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi
 
 ## Getting Started
 
+> Running this in Docker instead? See [DOCKER.md](./DOCKER.md).
+
 ### Prerequisites
 
 - Node.js 20+ and npm
