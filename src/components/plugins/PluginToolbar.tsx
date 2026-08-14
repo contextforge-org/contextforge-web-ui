@@ -18,15 +18,13 @@ import {
 
 const ALL_FILTER_VALUE = "__all__";
 
-export type PluginSingleFilterKey = "mode" | "hook";
+export type PluginSingleFilterKey = "hook";
 
 interface PluginToolbarProps {
   search: string;
   enabledOnly: boolean;
-  mode: string;
   hook: string;
   selectedTags: string[];
-  modes: string[];
   hooks: string[];
   availableTags: string[];
   activeFilterCount: number;
@@ -75,10 +73,8 @@ function PluginViewToggle({
 }
 
 function PluginFiltersPopover({
-  mode,
   hook,
   selectedTags,
-  modes,
   hooks,
   availableTags,
   activeFilterCount,
@@ -89,7 +85,6 @@ function PluginFiltersPopover({
   const intl = useIntl();
   const id = useId();
   const filtersTitleId = `${id}-title`;
-  const modeTriggerId = `${id}-mode`;
   const hookTriggerId = `${id}-hook`;
 
   return (
@@ -124,32 +119,6 @@ function PluginFiltersPopover({
               {intl.formatMessage({ id: "plugins.catalog.clearFilters" })}
             </Button>
           )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor={modeTriggerId} className="text-xs">
-            {intl.formatMessage({ id: "plugins.catalog.mode" })}
-          </Label>
-          <Select
-            value={mode || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
-              onSetSingleFilter("mode", value === ALL_FILTER_VALUE ? null : value)
-            }
-          >
-            <SelectTrigger id={modeTriggerId} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_FILTER_VALUE}>
-                {intl.formatMessage({ id: "plugins.catalog.allModes" })}
-              </SelectItem>
-              {modes.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="space-y-2">

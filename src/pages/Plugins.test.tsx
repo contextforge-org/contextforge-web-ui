@@ -33,7 +33,7 @@ const logging: PluginSummary = {
   description: "Logs request and response payloads for auditing",
   author: "Community",
   version: "0.4.1",
-  mode: "permissive",
+  mode: "disabled",
   priority: 50,
   hooks: ["http_pre_request"],
   tags: ["observability"],
@@ -84,7 +84,7 @@ describe("Plugins", () => {
     expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
   });
 
-  it("renders plugin cards with status", () => {
+  it("renders plugin cards without a status badge", () => {
     renderWithRouter(<Plugins />);
 
     expect(screen.getByRole("region", { name: "Plugins" })).toBeInTheDocument();
@@ -92,8 +92,13 @@ describe("Plugins", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
-    expect(within(list).getByText("Enabled")).toBeInTheDocument();
-    expect(within(list).getByText("Disabled")).toBeInTheDocument();
+    expect(
+      within(list).getByText("Detects and redacts personally identifiable information"),
+    ).toBeInTheDocument();
+    // Cards carry no status until enable/disable lands, at which point only
+    // enabled plugins get a badge.
+    expect(within(list).queryByText("Enabled")).not.toBeInTheDocument();
+    expect(within(list).queryByText("Disabled")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 plugins shown");
   });
 
@@ -112,6 +117,9 @@ describe("Plugins", () => {
     expect(within(dialog).getByText("redact")).toBeInTheDocument();
     expect(within(dialog).getByText("true")).toBeInTheDocument();
     expect(within(dialog).getByText('["EMAIL","SSN"]')).toBeInTheDocument();
+    // Status is derived from mode (status === "disabled" iff mode === "disabled"),
+    // so the dialog shows mode only.
+    expect(within(dialog).queryByText("Status")).not.toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -128,17 +136,14 @@ describe("Plugins", () => {
     expect(screen.getByText("No plugins match the active search and filters.")).toBeInTheDocument();
   });
 
-  it("filters by mode and reflects it in the URL", async () => {
+  it("offers no mode filter — hook and tags only", async () => {
     const user = userEvent.setup();
     renderWithRouter(<Plugins />);
 
     await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("combobox", { name: "Mode" }));
-    await user.click(screen.getByRole("option", { name: "enforce" }));
 
-    await waitFor(() => expect(window.location.search).toContain("mode=enforce"));
-    expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Request Logger" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Hook" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Mode" })).not.toBeInTheDocument();
   });
 
   it("filters by hook and tag, then clears filters", async () => {

@@ -20,7 +20,6 @@ const PAGE_HEADING_ID = "plugins-catalog-heading";
 
 interface PluginFilters {
   search: string;
-  mode: string;
   hook: string;
   tags: string[];
   enabledOnly: boolean;
@@ -38,7 +37,6 @@ function parseFilters(path: string): PluginFilters {
 
   return {
     search: params.get("search") ?? "",
-    mode: params.get("mode") ?? "",
     hook: params.get("hook") ?? "",
     tags: [...new Set(params.getAll("tags").filter(Boolean))],
     enabledOnly: params.get("status") === ENABLED_STATUS,
@@ -83,10 +81,7 @@ function usePluginFilters() {
     [filters.tags, updateQuery],
   );
 
-  const clearFilters = useCallback(
-    () => updateQuery({ mode: null, hook: null, tags: [] }),
-    [updateQuery],
-  );
+  const clearFilters = useCallback(() => updateQuery({ hook: null, tags: [] }), [updateQuery]);
 
   return { filters, updateQuery, setSingleFilter, toggleTag, clearFilters };
 }
@@ -95,7 +90,6 @@ function filterPlugins(plugins: PluginSummary[], filters: PluginFilters): Plugin
   const search = filters.search.trim().toLocaleLowerCase();
 
   return plugins.filter((plugin) => {
-    if (filters.mode && plugin.mode !== filters.mode) return false;
     if (filters.hook && !plugin.hooks?.includes(filters.hook)) return false;
     if (filters.tags.length > 0 && !filters.tags.some((tag) => plugin.tags?.includes(tag))) {
       return false;
@@ -150,10 +144,6 @@ export function Plugins() {
     () => filterPlugins(allPlugins, activeFilters),
     [allPlugins, activeFilters],
   );
-  const modeOptions = useMemo(
-    () => sortedUnique(allPlugins.map((plugin) => plugin.mode)),
-    [allPlugins],
-  );
   const hookOptions = useMemo(
     () => sortedUnique(allPlugins.flatMap((plugin) => plugin.hooks ?? [])),
     [allPlugins],
@@ -169,8 +159,7 @@ export function Plugins() {
     : filters.enabledOnly && !hasEnabledPlugins
       ? "plugins.catalog.noneEnabled"
       : "plugins.catalog.noResults";
-  const activeFilterCount =
-    Number(Boolean(filters.mode)) + Number(Boolean(filters.hook)) + filters.tags.length;
+  const activeFilterCount = Number(Boolean(filters.hook)) + filters.tags.length;
 
   const handleView = useCallback((plugin: PluginSummary, trigger: HTMLButtonElement) => {
     lastViewTriggerRef.current = trigger;
@@ -229,10 +218,8 @@ export function Plugins() {
       <PluginToolbar
         search={search}
         enabledOnly={filters.enabledOnly}
-        mode={filters.mode}
         hook={filters.hook}
         selectedTags={filters.tags}
-        modes={modeOptions}
         hooks={hookOptions}
         availableTags={tagOptions}
         activeFilterCount={activeFilterCount}

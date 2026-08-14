@@ -4,7 +4,6 @@ import { Blocks } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
-import { StatusDot } from "@/components/dashboard/StatusDot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardTag } from "@/components/ui/card-tag";
@@ -17,8 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import type { PluginSummary } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-
-const ENABLED_STATUS = "enabled";
 
 enum PluginIconColor {
   Red = "bg-red-500",
@@ -48,10 +45,6 @@ function hashString(str: string): number {
     hash = hash & hash;
   }
   return Math.abs(hash);
-}
-
-function isEnabled(plugin: PluginSummary): boolean {
-  return plugin.status === ENABLED_STATUS;
 }
 
 const PluginIcon = memo(function PluginIcon({ name }: { name: string }) {
@@ -87,14 +80,6 @@ function PluginCard({
           <CardContent className="flex flex-1 flex-col px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <PluginIcon name={plugin.name} />
-              <StatusDot
-                tone={isEnabled(plugin) ? "success" : "muted"}
-                className="text-sm text-muted-foreground"
-              >
-                {isEnabled(plugin)
-                  ? intl.formatMessage({ id: "plugins.catalog.enabled" })
-                  : intl.formatMessage({ id: "plugins.catalog.disabled" })}
-              </StatusDot>
             </div>
 
             <h2 id={headingId} className="mt-4 truncate text-sm font-medium text-foreground">
@@ -182,11 +167,6 @@ export function PluginDetailsDialog({
             </DetailRow>
             <DetailRow label={intl.formatMessage({ id: "plugins.catalog.priority" })}>
               {plugin.priority}
-            </DetailRow>
-            <DetailRow label={intl.formatMessage({ id: "plugins.catalog.status" })}>
-              {isEnabled(plugin)
-                ? intl.formatMessage({ id: "plugins.catalog.enabled" })
-                : intl.formatMessage({ id: "plugins.catalog.disabled" })}
             </DetailRow>
           </dl>
 

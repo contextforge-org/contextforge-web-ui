@@ -211,3 +211,14 @@
     overflow-y: scroll;
   }
 }
+
+/* Radix dialogs lock the page through react-remove-scroll, which puts a
+   margin-right the width of the scrollbar on the body to compensate for the
+   scrollbar it expects to hide. Both rules above keep that space reserved for
+   the whole session, so the compensation double-counts and shifts the page left
+   as a dialog opens. Zero it out; the gutter already holds the space.
+   The injected rule is `body[data-scroll-locked] { margin-right: Npx !important }`
+   and lands later in the cascade, so this needs the extra specificity to win. */
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+}
