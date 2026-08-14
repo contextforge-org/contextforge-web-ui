@@ -9,7 +9,6 @@
   "plugins.catalog.mode": "Modo",
   "plugins.catalog.hook": "Hook",
   "plugins.catalog.tags": "Etiquetas",
-  "plugins.catalog.allModes": "Todos los modos",
   "plugins.catalog.allHooks": "Todos los hooks",
   "plugins.catalog.allTags": "Todas las etiquetas",
   "plugins.catalog.enabled": "Habilitado",

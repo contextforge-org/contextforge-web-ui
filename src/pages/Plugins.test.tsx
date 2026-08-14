@@ -131,38 +131,14 @@ describe("Plugins", () => {
     expect(screen.getByText("No plugins match the active search and filters.")).toBeInTheDocument();
   });
 
-  it("filters by mode and reflects it in the URL", async () => {
+  it("offers no mode filter — hook and tags only", async () => {
     const user = userEvent.setup();
     renderWithRouter(<Plugins />);
 
     await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("combobox", { name: "Mode" }));
-    await user.click(screen.getByRole("option", { name: "enforce" }));
 
-    await waitFor(() => expect(window.location.search).toContain("mode=enforce"));
-    expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Request Logger" })).not.toBeInTheDocument();
-  });
-
-  it("does not offer 'disabled' as a mode option", async () => {
-    const user = userEvent.setup();
-    renderWithRouter(<Plugins />);
-
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("combobox", { name: "Mode" }));
-
-    expect(screen.getByRole("option", { name: "enforce" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "disabled" })).not.toBeInTheDocument();
-  });
-
-  it("ignores mode=disabled from the URL", () => {
-    renderWithRouter(<Plugins />, "/app/plugins?mode=disabled");
-
-    expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
-    // Accessible name stays "Filters" (not "Filters, 1 active") — the ignored
-    // mode must not count towards the active filter badge.
-    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Hook" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Mode" })).not.toBeInTheDocument();
   });
 
   it("filters by hook and tag, then clears filters", async () => {
