@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Header } from "./Header";
 import { useQuery } from "../../hooks/useQuery";
@@ -26,19 +27,17 @@ describe("Header", () => {
     );
   };
 
-  it("renders without version when useQuery returns no data", () => {
+  it("always shows the UI's own package version", () => {
     vi.mocked(useQuery).mockReturnValue({ data: null } as unknown as ReturnType<typeof useQuery>);
     renderHeader();
 
     expect(screen.getByTestId("quick-nav")).toBeInTheDocument();
     expect(screen.getByTestId("profile-menu")).toBeInTheDocument();
-
-    // Check that there is no version string visible (like v1.2.3)
-    const versionMatch = screen.queryByText(/v\d+\.\d+\.\d+/);
-    expect(versionMatch).not.toBeInTheDocument();
+    expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
   });
 
-  it("renders with version when useQuery returns version data", () => {
+  it("shows supported and live API versions in the hover popover", async () => {
+    const user = userEvent.setup();
     vi.mocked(useQuery).mockReturnValue({
       data: {
         app: {
@@ -48,6 +47,19 @@ describe("Header", () => {
     } as unknown as ReturnType<typeof useQuery>);
     renderHeader();
 
-    expect(screen.getByText("v1.0.0")).toBeInTheDocument();
+    await user.hover(screen.getByText(`v${__APP_VERSION__}`));
+
+    expect(await screen.findByText(`v${__SUPPORTED_API_VERSION__}`)).toBeInTheDocument();
+    expect(await screen.findByText("v1.0.0")).toBeInTheDocument();
+  });
+
+  it("shows the live API version as unavailable when useQuery returns no data", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useQuery).mockReturnValue({ data: null } as unknown as ReturnType<typeof useQuery>);
+    renderHeader();
+
+    await user.hover(screen.getByText(`v${__APP_VERSION__}`));
+
+    expect(await screen.findByText("unavailable")).toBeInTheDocument();
   });
 });
