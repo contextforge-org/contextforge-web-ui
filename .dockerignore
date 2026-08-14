@@ -27,7 +27,7 @@ e2e/
 # `docker run -e` / compose at runtime.
 *.env
 *.env.*
-!*.env.example
+!.env*.example
 server/.env
 
 # Docs (not needed at build time)

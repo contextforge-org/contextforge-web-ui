@@ -5,66 +5,63 @@ built UI (root, Vite/React SPA) as static files and proxies `/api/*`, so
 the whole client stack — UI + BFF — is a single container. Redis is a
 separate service, wired in via `docker-compose.yml`.
 
-The upstream ContextForge/mcpgateway FastAPI API is **not** part of this
-repo or this compose file — it's expected to already be running somewhere
-you point `FASTAPI_URL` at.
+`.env`/`.env.example` are shared with native (non-Docker) dev — see the
+root README's Getting Started section. `docker-compose.yml` and
+`server`'s native `npm run dev`/`start` both read the same repo-root
+`.env`.
+
+The upstream ContextForge/mcpgateway API is **not** part of this repo or
+this compose file — it's expected to already be running somewhere you
+point `CONTEXTFORGE_URL` at.
 
 ## Quick start
 
 ```bash
-cp .env.docker.example .env
-# edit .env: at minimum set FASTAPI_URL to your gateway's address
+cp .env.example .env
+# edit .env: at minimum set CONTEXTFORGE_URL to your gateway's address
 docker compose up --build
 ```
 
 Visit `http://localhost:3000/` — redirects to `/app/login`. `GET /healthz`
 returns `{"ok":true}`.
 
-By default this boots with `COOKIE_SECURE=false` and an in-process
-(`memory://`) session store — good enough to poke at the UI, but sessions
-are lost on restart and won't work across multiple replicas. See below to
-opt into the `redis` service this compose file already starts.
+By default this boots with `COOKIE_SECURE=false` and sessions backed by
+this compose file's own `redis` service (`docker-compose.yml` defaults
+`REDIS_URL` to it; see below to override).
 
 ## Environment variables
 
-Full reference: `.env.docker.example` (each var has an inline comment).
+Full reference: `.env.example` (each var has an inline comment).
 Summary, grouped the same way:
 
 | Group | Vars | Notes |
 |---|---|---|
 | Works out of the box | `COOKIE_SECURE=false` | Required (or set `PUBLIC_ORIGIN`/`TRUST_PROXY`) for a zero-config boot — `server/src/config.ts` fails closed otherwise. |
-| Must be set | `FASTAPI_URL` | No safe default reaches your gateway from inside the container. **No boot-time check catches a missing/wrong value** — it just fails every `/api/*` call at request time. Top thing to check if API calls all connection-refuse. |
-| Fine as-is for dev | `PORT`, `HOST`, `FASTAPI_AUTH_HEADER_NAME`, `SESSION_TTL_SECONDS`, `REDIS_KEY_PREFIX`, `COOKIE_DOMAIN`, `TRUST_PROXY`, `PUBLIC_ORIGIN`, `SSE_SESSION_RECHECK_SECONDS`, `LOG_LEVEL` | Defaults match `server/src/config.ts`. |
+| Must be set | `CONTEXTFORGE_URL` | No safe default reaches your gateway from inside the container. **No boot-time check catches a missing/wrong value** — it just fails every `/api/*` call at request time. Top thing to check if API calls all connection-refuse. |
+| Fine as-is for dev | `PORT`, `HOST`, `CONTEXTFORGE_AUTH_HEADER_NAME`, `SESSION_TTL_SECONDS`, `REDIS_KEY_PREFIX`, `COOKIE_DOMAIN`, `TRUST_PROXY`, `PUBLIC_ORIGIN`, `SSE_SESSION_RECHECK_SECONDS`, `LOG_LEVEL` | Defaults match `server/src/config.ts`. |
 
 The image itself (`Dockerfile`) sets **none** of these — it ships
 respecting `config.ts`'s own defaults untouched. All configuration comes
 from the environment at run time.
 
-## Opting into real Redis
+## Redis
 
-`docker-compose.yml` always starts a `redis` service, but the app doesn't
-use it unless told to — this keeps the default `docker compose up` path as
-frictionless as running `npm run dev` locally. To back sessions with the
-real Redis container instead of the in-process fallback:
-
-```bash
-# in .env
-REDIS_URL=redis://redis:6379/0
-```
-
-```bash
-docker compose up -d --build
-```
-
-Confirm it took: the `memory-redis` warning line should be gone from
-`docker compose logs app`, and:
+`docker-compose.yml` defaults `REDIS_URL` to its own `redis` service, so
+sessions are Redis-backed out of the box — no `.env` edit needed. Confirm
+it: hit the login route, then
 
 ```bash
 docker compose exec redis redis-cli KEYS 'bff:*'
 ```
 
-should show keys once you've hit the login route. Sessions now survive
-`docker compose restart app`.
+should show keys, and a session survives `docker compose restart app`.
+
+To use something else instead, set `REDIS_URL` in `.env` — e.g. a
+different Redis, or `REDIS_URL=memory://` for the in-process,
+lost-on-restart, single-instance-only fallback (`.env`'s value overrides
+the compose default). If you see the `memory-redis` warning in
+`docker compose logs app` and didn't ask for it, check `.env` isn't
+setting `REDIS_URL=memory://`.
 
 ## Production checklist
 
@@ -74,7 +71,7 @@ Before this leaves a laptop:
 - `REDIS_URL=redis://...` pointing at a real, persistent Redis (not `memory://`)
 - `PUBLIC_ORIGIN=https://your-domain.example.com`, or `TRUST_PROXY=true` if
   directly TLS-terminated with no reverse proxy in front
-- `FASTAPI_URL` pointing at your real gateway
+- `CONTEXTFORGE_URL` pointing at your real gateway
 
 Get any of the first two wrong and the container won't boot at all —
 `server/src/config.ts` throws at startup rather than serving traffic
@@ -94,7 +91,7 @@ docker run -p 3000:3000 \
   --network your-existing-network \
   -e COOKIE_SECURE=true \
   -e REDIS_URL=redis://your-redis-host:6379/0 \
-  -e FASTAPI_URL=http://your-gateway:4444 \
+  -e CONTEXTFORGE_URL=http://your-gateway:4444 \
   -e PUBLIC_ORIGIN=https://your-domain.example.com \
   contextforge-web-ui
 ```
@@ -121,8 +118,8 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
 ## Troubleshooting
 
-- **Every `/api/*` request fails / connection refused**: `FASTAPI_URL` is
-  unset or unreachable from inside the container. There's no boot-time
+- **Every `/api/*` request fails / connection refused**: `CONTEXTFORGE_URL`
+  is unset or unreachable from inside the container. There's no boot-time
   check for this — the app starts fine either way.
 - **Container crash-loops on startup**: check `docker compose logs app` —
   `config.ts` throws a specific error for each fail-closed case

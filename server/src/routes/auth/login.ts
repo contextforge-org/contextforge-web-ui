@@ -46,7 +46,7 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
 
       let upstreamResponse: Response;
       try {
-        upstreamResponse = await fetch(`${config.fastapiUrl}/auth/email/login`, {
+        upstreamResponse = await fetch(`${config.contextforgeUrl}/auth/email/login`, {
           method: "POST",
           headers: {
             "content-type": "application/json",

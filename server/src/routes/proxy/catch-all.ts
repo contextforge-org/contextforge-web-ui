@@ -30,7 +30,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 // (Cookie) are BFF-only secrets; the rest are infra/auth headers mcpgateway
 // trusts for request-URL construction (Forwarded/X-Forwarded-*, including
 // OAuth redirect URLs) or for the bearer token itself (Authorization / the
-// configured FASTAPI_AUTH_HEADER_NAME). None of these are on the Fetch
+// configured CONTEXTFORGE_AUTH_HEADER_NAME). None of these are on the Fetch
 // spec's forbidden-header list, so a browser tab can set them via fetch()
 // directly — strip all of them and let the BFF inject its own values below,
 // rather than only overwriting the ones we happen to already set.
@@ -48,7 +48,7 @@ const STRIPPED_INBOUND_HEADERS = new Set([
 function stripInboundHeaders(
   headers: Record<string, string | string[] | undefined>,
 ): Record<string, string | string[] | undefined> {
-  const authHeaderKey = config.fastapiAuthHeaderName.toLowerCase();
+  const authHeaderKey = config.contextforgeAuthHeaderName.toLowerCase();
   const result: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(headers)) {
     if (STRIPPED_INBOUND_HEADERS.has(key) || key === authHeaderKey) continue;
@@ -73,10 +73,10 @@ function rewriteUpstreamLocation(
   const { "set-cookie": _dropped, ...rest } = headers;
 
   const location = rest.location;
-  if (typeof location !== "string" || !location.startsWith(config.fastapiUrl)) {
+  if (typeof location !== "string" || !location.startsWith(config.contextforgeUrl)) {
     return rest;
   }
-  const upstreamPath = location.slice(config.fastapiUrl.length);
+  const upstreamPath = location.slice(config.contextforgeUrl.length);
   return { ...rest, location: `/api${upstreamPath}` };
 }
 
@@ -92,7 +92,7 @@ function csrfIfUnsafe(
 }
 
 export default async function catchAllProxyRoute(fastify: FastifyInstance): Promise<void> {
-  await fastify.register(replyFrom, { base: config.fastapiUrl });
+  await fastify.register(replyFrom, { base: config.contextforgeUrl });
 
   // Fastify's default JSON parser throws FST_ERR_CTP_EMPTY_JSON_BODY on an
   // empty body with Content-Type: application/json — before preHandler, so
