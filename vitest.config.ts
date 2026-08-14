@@ -4,9 +4,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { versionDefines } from "./build-constants";
 
 export default defineConfig({
   plugins: [react()] as any,
+  // Mirrors vite.config.ts's version constants for code under test.
+  define: versionDefines,
   css: {
     postcss: {
       plugins: [],
