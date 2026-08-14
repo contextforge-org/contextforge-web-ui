@@ -84,7 +84,7 @@ describe("Plugins", () => {
     expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
   });
 
-  it("renders plugin cards with status", () => {
+  it("renders plugin cards without a status badge", () => {
     renderWithRouter(<Plugins />);
 
     expect(screen.getByRole("region", { name: "Plugins" })).toBeInTheDocument();
@@ -92,8 +92,13 @@ describe("Plugins", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
-    expect(within(list).getByText("Enabled")).toBeInTheDocument();
-    expect(within(list).getByText("Disabled")).toBeInTheDocument();
+    expect(
+      within(list).getByText("Detects and redacts personally identifiable information"),
+    ).toBeInTheDocument();
+    // Cards carry no status until enable/disable lands, at which point only
+    // enabled plugins get a badge.
+    expect(within(list).queryByText("Enabled")).not.toBeInTheDocument();
+    expect(within(list).queryByText("Disabled")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 plugins shown");
   });
 
