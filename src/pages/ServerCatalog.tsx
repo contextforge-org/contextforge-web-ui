@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
 
+import { registerCatalogServer } from "@/api/catalog";
 import {
   CatalogResults,
   CatalogServerDetailsDialog,
@@ -146,7 +147,9 @@ function CatalogPageLayout({ children }: { children: ReactNode }) {
 export function ServerCatalog() {
   const intl = useIntl();
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
-  const lastViewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [addingServerId, setAddingServerId] = useState<string | null>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const lastViewTriggerRef = useRef<HTMLElement | null>(null);
   const { data, error, isLoading, refetch } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const { filters, updateQuery, applyFilters } = useCatalogFilters();
   const [search, setSearch] = useState(filters.search);
@@ -193,10 +196,32 @@ export function ServerCatalog() {
       : "mcpServer.catalog.noResults";
   const activeFilterCount = filters.category.length + filters.provider.length + filters.tags.length;
 
-  const handleView = useCallback((server: CatalogServer, trigger: HTMLButtonElement) => {
+  const handleView = useCallback((server: CatalogServer, trigger: HTMLElement) => {
     lastViewTriggerRef.current = trigger;
     setSelectedServer(server);
   }, []);
+
+  const handleAdd = useCallback(
+    async (server: CatalogServer) => {
+      setAddingServerId(server.id);
+      setRegistrationError(null);
+      try {
+        const result = await registerCatalogServer(server.id);
+        if (!result.success) {
+          setRegistrationError(
+            result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
+          );
+          return;
+        }
+        await refetch();
+      } catch {
+        setRegistrationError(intl.formatMessage({ id: "mcpServer.catalog.addError" }));
+      } finally {
+        setAddingServerId(null);
+      }
+    },
+    [intl, refetch],
+  );
 
   const handleDetailsOpenChange = useCallback((open: boolean) => {
     if (open) return;
@@ -262,10 +287,22 @@ export function ServerCatalog() {
         onApply={applyFilters}
       />
 
+      {registrationError && (
+        <div className="mb-4">
+          <InlineNotification
+            type="error"
+            message={registrationError}
+            onDismiss={() => setRegistrationError(null)}
+          />
+        </div>
+      )}
+
       <CatalogResults
         servers={servers}
         emptyStateMessageId={emptyStateMessageId}
         onView={handleView}
+        onAdd={(server) => void handleAdd(server)}
+        addingServerId={addingServerId}
       />
 
       <CatalogServerDetailsDialog server={selectedServer} onOpenChange={handleDetailsOpenChange} />

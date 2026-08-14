@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { CircleCheck, EllipsisVertical, FileText, KeyRound, Lock, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
-import { StatusDot } from "@/components/dashboard/StatusDot";
 import { ServerIcon } from "@/components/servers/ServerIcon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,14 +15,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-function getSafeCatalogLogoUrl(logoUrl: string | null | undefined): string | null {
-  if (!logoUrl) return null;
+function getSafeExternalUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
 
   try {
-    const parsed = new URL(logoUrl);
+    const parsed = new URL(value);
     return parsed.protocol === "https:" && !parsed.username && !parsed.password
       ? parsed.href
       : null;
@@ -33,7 +39,7 @@ function getSafeCatalogLogoUrl(logoUrl: string | null | undefined): string | nul
 
 function CatalogLogo({ server }: { server: CatalogServer }) {
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
-  const logoUrl = getSafeCatalogLogoUrl(server.logo_url);
+  const logoUrl = getSafeExternalUrl(server.logo_url);
 
   if (!logoUrl || failedLogoUrl === logoUrl) {
     return (
@@ -64,12 +70,18 @@ function CatalogLogo({ server }: { server: CatalogServer }) {
 function CatalogCard({
   server,
   onView,
+  onAdd,
+  isAdding,
 }: {
   server: CatalogServer;
-  onView: (trigger: HTMLButtonElement) => void;
+  onView: (trigger: HTMLElement) => void;
+  onAdd: () => void;
+  isAdding: boolean;
 }) {
   const intl = useIntl();
   const headingId = useId();
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const requiresAuth = server.auth_type !== "Open";
 
   return (
     <li className="min-w-0">
@@ -78,10 +90,15 @@ function CatalogCard({
           <CardContent className="flex flex-1 flex-col px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <CatalogLogo server={server} />
-              {server.is_registered && (
-                <StatusDot tone="success" className="text-sm text-muted-foreground">
-                  {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
-                </StatusDot>
+              {requiresAuth && (
+                <CardTag variant="neutral" className="gap-1.5 text-xs">
+                  {server.requires_api_key ? (
+                    <KeyRound className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <Lock className="size-3.5" aria-hidden="true" />
+                  )}
+                  {intl.formatMessage({ id: "mcpServer.catalog.authRequired" })}
+                </CardTag>
               )}
             </div>
 
@@ -92,18 +109,65 @@ function CatalogCard({
               {server.description}
             </p>
 
-            <div className="mt-auto pt-4">
+            <div className="mt-auto flex min-h-6 items-center gap-3 pt-4">
+              {server.is_registered ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
+                    {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        ref={actionsTriggerRef}
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={intl.formatMessage(
+                          { id: "mcpServer.catalog.actionsFor" },
+                          { name: server.name },
+                        )}
+                      >
+                        <EllipsisVertical className="size-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (actionsTriggerRef.current) onView(actionsTriggerRef.current);
+                        }}
+                      >
+                        {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isAdding}
+                  onClick={onAdd}
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  {isAdding
+                    ? intl.formatMessage({ id: "mcpServer.catalog.adding" })
+                    : intl.formatMessage({ id: "mcpServer.catalog.add" })}
+                </Button>
+              )}
+
               <Button
                 type="button"
-                variant="outline"
-                size="xs"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={intl.formatMessage(
                   { id: "mcpServer.catalog.viewServer" },
                   { name: server.name },
                 )}
                 onClick={(event) => onView(event.currentTarget)}
               >
-                {intl.formatMessage({ id: "mcpServer.catalog.view" })}
+                <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
               </Button>
             </div>
           </CardContent>
@@ -190,10 +254,14 @@ export function CatalogResults({
   servers,
   emptyStateMessageId,
   onView,
+  onAdd,
+  addingServerId,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
-  onView: (server: CatalogServer, trigger: HTMLButtonElement) => void;
+  onView: (server: CatalogServer, trigger: HTMLElement) => void;
+  onAdd: (server: CatalogServer) => void;
+  addingServerId: string | null;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -213,6 +281,8 @@ export function CatalogResults({
               key={server.id}
               server={server}
               onView={(trigger) => onView(server, trigger)}
+              onAdd={() => onAdd(server)}
+              isAdding={addingServerId === server.id}
             />
           ))}
         </ul>

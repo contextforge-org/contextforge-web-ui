@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { registerCatalogServer } from "@/api/catalog";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
@@ -12,8 +13,12 @@ import { ServerCatalog } from "./ServerCatalog";
 vi.mock("@/hooks/useQuery", () => ({
   useQuery: vi.fn(),
 }));
+vi.mock("@/api/catalog", () => ({
+  registerCatalogServer: vi.fn(),
+}));
 
 const mockUseQuery = vi.mocked(useQuery);
+const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -111,6 +116,11 @@ describe("ServerCatalog", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
     mockUseQuery.mockReturnValue(queryResult());
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      server_id: "registered-server",
+      message: "Registered",
+    });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -133,6 +143,8 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
     expect(within(catalogList).getByText("Connected")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 servers shown");
+    expect(screen.getByRole("button", { name: "Actions for Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Public Notes" })).toBeInTheDocument();
     expect(screen.queryByText(/registration coming soon/i)).not.toBeInTheDocument();
@@ -155,8 +167,45 @@ describe("ServerCatalog", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(viewButton).toHaveFocus());
 
-    await user.click(screen.getByRole("button", { name: "View Public Notes" }));
-    expect(within(screen.getByRole("dialog")).getByText("Not connected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available");
+  });
+
+  it("reports catalog registration failures", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to add this server. Try again.",
+    );
+    expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
+  });
+
+  it("registers an available server and refreshes the catalog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available"));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("shows connected status in details opened from the action menu", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [{ ...openAvailable, is_registered: true }] } }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Public Notes" }));
+    await user.click(screen.getByRole("menuitem", { name: "View details" }));
+    expect(within(screen.getByRole("dialog")).getByText("Connected")).toBeInTheDocument();
   });
 
   it("renders safe remote logos and falls back when loading fails", () => {
