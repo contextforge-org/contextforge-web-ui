@@ -4,12 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     env_file:
       - .env
     environment:
-      # Defaults to this compose's redis service; .env's REDIS_URL overrides if set.
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # `-` not `:-`: only substitute when REDIS_URL is unset, not when
+      # it's present-but-blank (e.g. an unfilled .env.prod.example).
+      REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
     extra_hosts:
       # Lets CONTEXTFORGE_URL=http://host.docker.internal:<port> reach a
       # gateway running on the host. Docker Desktop (mac/Windows) resolves

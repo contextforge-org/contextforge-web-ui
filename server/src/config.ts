@@ -35,8 +35,9 @@ export const config = {
 
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
-  // local dev process.
-  redisUrl: optional("REDIS_URL", "memory://"),
+  // local dev process. optionalUnset so REDIS_URL="" also falls through
+  // to this default and trips the fail-closed check below.
+  redisUrl: optionalUnset("REDIS_URL") ?? "memory://",
 
   // Opaque session_id -> { bearerToken, user } TTL in Redis. Independent of
   // the upstream JWT's own expiry; the BFF just stops trusting a stale
