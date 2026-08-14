@@ -27,7 +27,10 @@ export function Header() {
         <HeaderQuickNav />
         <HoverCard openDelay={100}>
           <HoverCardTrigger asChild>
-            <span className="hidden cursor-default text-sm font-medium text-muted-foreground sm:inline">
+            <span
+              tabIndex={0}
+              className="hidden cursor-default text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline"
+            >
               v{__APP_VERSION__}
             </span>
           </HoverCardTrigger>

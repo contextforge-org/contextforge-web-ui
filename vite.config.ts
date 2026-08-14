@@ -2,19 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import pkg from "./package.json";
-import openapiSpec from "./openapi.json";
+import { versionDefines } from "./build-constants";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
-  // Exposes the UI's own package version and the ContextForge API version
-  // it was generated against to the client bundle (see Header.tsx).
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
-    __SUPPORTED_API_VERSION__: JSON.stringify(openapiSpec.info.version),
-  },
+  define: versionDefines,
 
   css: {
     postcss: {
