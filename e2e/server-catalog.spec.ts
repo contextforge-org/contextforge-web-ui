@@ -267,6 +267,7 @@ test.describe("Server catalog page", () => {
     const catalog = page.getByRole("list", { name: "Catalog servers" });
     await expect(catalog.getByText("Connected", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "View Public Notes" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "View Public Notes" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Actions for Public Notes" })).toBeVisible();
   });
 });

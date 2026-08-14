@@ -147,8 +147,12 @@ function CatalogPageLayout({ children }: { children: ReactNode }) {
 export function ServerCatalog() {
   const intl = useIntl();
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
-  const [addingServerId, setAddingServerId] = useState<string | null>(null);
+  const [addingServerIds, setAddingServerIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [registeredServerIds, setRegisteredServerIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const addingServerIdsRef = useRef(new Set<string>());
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
   const { data, error, isLoading, refetch } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const { filters, updateQuery, applyFilters } = useCatalogFilters();
@@ -170,7 +174,15 @@ export function ServerCatalog() {
   // until Add filters is pressed, so an unapplied draft must never reach the grid.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
-  const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
+  const openServers = useMemo(
+    () =>
+      getOpenServers(data?.servers ?? []).map((server) =>
+        registeredServerIds.has(server.id) && !server.is_registered
+          ? { ...server, is_registered: true }
+          : server,
+      ),
+    [data?.servers, registeredServerIds],
+  );
   const servers = useMemo(
     () => filterOpenServers(openServers, activeFilters),
     [openServers, activeFilters],
@@ -203,7 +215,10 @@ export function ServerCatalog() {
 
   const handleAdd = useCallback(
     async (server: CatalogServer) => {
-      setAddingServerId(server.id);
+      if (addingServerIdsRef.current.has(server.id)) return;
+
+      addingServerIdsRef.current.add(server.id);
+      setAddingServerIds(new Set(addingServerIdsRef.current));
       setRegistrationError(null);
       try {
         const result = await registerCatalogServer(server.id);
@@ -213,11 +228,20 @@ export function ServerCatalog() {
           );
           return;
         }
-        await refetch();
+
+        setRegisteredServerIds((current) => new Set(current).add(server.id));
+
+        try {
+          await refetch();
+        } catch {
+          // Registration already succeeded. Keep optimistic connected state
+          // instead of misreporting a refresh failure as an add failure.
+        }
       } catch {
         setRegistrationError(intl.formatMessage({ id: "mcpServer.catalog.addError" }));
       } finally {
-        setAddingServerId(null);
+        addingServerIdsRef.current.delete(server.id);
+        setAddingServerIds(new Set(addingServerIdsRef.current));
       }
     },
     [intl, refetch],
@@ -229,7 +253,7 @@ export function ServerCatalog() {
     window.setTimeout(() => lastViewTriggerRef.current?.focus(), 0);
   }, []);
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <CatalogPageLayout>
         <div aria-busy="true">
@@ -239,7 +263,7 @@ export function ServerCatalog() {
     );
   }
 
-  if (error?.status === 404) {
+  if (error?.status === 404 && !data) {
     return (
       <CatalogPageLayout>
         <div role="status" aria-live="polite" className="mt-6">
@@ -249,7 +273,7 @@ export function ServerCatalog() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <CatalogPageLayout>
         <div className="mt-6">
@@ -302,7 +326,7 @@ export function ServerCatalog() {
         emptyStateMessageId={emptyStateMessageId}
         onView={handleView}
         onAdd={(server) => void handleAdd(server)}
-        addingServerId={addingServerId}
+        addingServerIds={addingServerIds}
       />
 
       <CatalogServerDetailsDialog server={selectedServer} onOpenChange={handleDetailsOpenChange} />
