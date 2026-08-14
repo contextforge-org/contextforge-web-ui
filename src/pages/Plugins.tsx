@@ -4,7 +4,7 @@ import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { PluginDetailsDialog, PluginResults } from "@/components/plugins/PluginResults";
-import { PluginToolbar, type PluginSingleFilterKey } from "@/components/plugins/PluginToolbar";
+import { PluginToolbar, type PluginFilterDraft } from "@/components/plugins/PluginToolbar";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
@@ -20,7 +20,7 @@ const PAGE_HEADING_ID = "plugins-catalog-heading";
 
 interface PluginFilters {
   search: string;
-  hook: string;
+  hook: string[];
   tags: string[];
   enabledOnly: boolean;
 }
@@ -32,13 +32,17 @@ function getQuery(path: string): string {
   return queryIndex === -1 ? "" : path.slice(queryIndex + 1);
 }
 
+function readMulti(params: URLSearchParams, key: string): string[] {
+  return [...new Set(params.getAll(key).filter(Boolean))];
+}
+
 function parseFilters(path: string): PluginFilters {
   const params = new URLSearchParams(getQuery(path));
 
   return {
     search: params.get("search") ?? "",
-    hook: params.get("hook") ?? "",
-    tags: [...new Set(params.getAll("tags").filter(Boolean))],
+    hook: readMulti(params, "hook"),
+    tags: readMulti(params, "tags"),
     enabledOnly: params.get("status") === ENABLED_STATUS,
   };
 }
@@ -68,29 +72,27 @@ function usePluginFilters() {
     [navigate, path],
   );
 
-  const setSingleFilter = useCallback(
-    (key: PluginSingleFilterKey, value: string | null) => updateQuery({ [key]: value }),
+  // Commits every dialog filter in a single navigation so applying filters adds
+  // exactly one history entry.
+  const applyFilters = useCallback(
+    (draft: PluginFilterDraft) =>
+      updateQuery({
+        hook: draft.hook,
+        tags: draft.tags,
+      }),
     [updateQuery],
   );
 
-  const toggleTag = useCallback(
-    (tag: string, checked: boolean) =>
-      updateQuery({
-        tags: checked ? [...filters.tags, tag] : filters.tags.filter((item) => item !== tag),
-      }),
-    [filters.tags, updateQuery],
-  );
-
-  const clearFilters = useCallback(() => updateQuery({ hook: null, tags: [] }), [updateQuery]);
-
-  return { filters, updateQuery, setSingleFilter, toggleTag, clearFilters };
+  return { filters, updateQuery, applyFilters };
 }
 
 function filterPlugins(plugins: PluginSummary[], filters: PluginFilters): PluginSummary[] {
   const search = filters.search.trim().toLocaleLowerCase();
 
   return plugins.filter((plugin) => {
-    if (filters.hook && !plugin.hooks?.includes(filters.hook)) return false;
+    if (filters.hook.length > 0 && !filters.hook.some((hook) => plugin.hooks?.includes(hook))) {
+      return false;
+    }
     if (filters.tags.length > 0 && !filters.tags.some((tag) => plugin.tags?.includes(tag))) {
       return false;
     }
@@ -123,7 +125,7 @@ export function Plugins() {
   const [selectedPlugin, setSelectedPlugin] = useState<PluginSummary | null>(null);
   const lastViewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const { data, error, isLoading, refetch } = useQuery<PluginListResponse>(PLUGINS_PATH);
-  const { filters, updateQuery, setSingleFilter, toggleTag, clearFilters } = usePluginFilters();
+  const { filters, updateQuery, applyFilters } = usePluginFilters();
   const [search, setSearch] = useState(filters.search);
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -159,7 +161,7 @@ export function Plugins() {
     : filters.enabledOnly && !hasEnabledPlugins
       ? "plugins.catalog.noneEnabled"
       : "plugins.catalog.noResults";
-  const activeFilterCount = Number(Boolean(filters.hook)) + filters.tags.length;
+  const activeFilterCount = filters.hook.length + filters.tags.length;
 
   const handleView = useCallback((plugin: PluginSummary, trigger: HTMLButtonElement) => {
     lastViewTriggerRef.current = trigger;
@@ -225,9 +227,7 @@ export function Plugins() {
         activeFilterCount={activeFilterCount}
         onSearchChange={setSearch}
         onEnabledOnlyChange={(enabledOnly) => updateQuery({ status: enabledOnly })}
-        onSetSingleFilter={setSingleFilter}
-        onToggleTag={toggleTag}
-        onClear={clearFilters}
+        onApply={applyFilters}
       />
 
       <PluginResults

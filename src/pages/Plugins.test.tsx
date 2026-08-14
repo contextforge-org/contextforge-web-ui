@@ -60,6 +60,31 @@ function queryResult(overrides: Partial<ReturnType<typeof useQuery>> = {}) {
   } as ReturnType<typeof useQuery>;
 }
 
+type UserEvent = ReturnType<typeof userEvent.setup>;
+
+function getFilterSection(name: string): HTMLElement {
+  return screen.getByRole("group", { name });
+}
+
+async function openFilters(user: UserEvent) {
+  await user.click(screen.getByRole("button", { name: /^Filters(, \d+ active)?$/ }));
+}
+
+async function applyFilters(user: UserEvent) {
+  const dialog = screen.getByRole("dialog", { name: "Add filters" });
+  await user.click(within(dialog).getByRole("button", { name: "Add filters" }));
+}
+
+// Sections start in All mode; ticking an option requires switching to Select first.
+async function selectSectionOption(user: UserEvent, section: string, option: string) {
+  const fields = getFilterSection(section);
+  const selectRadio = within(fields).getByRole("radio", { name: "Select..." });
+  if (selectRadio.getAttribute("aria-checked") !== "true") {
+    await user.click(selectRadio);
+  }
+  await user.click(within(getFilterSection(section)).getByRole("checkbox", { name: option }));
+}
+
 function renderWithRouter(ui: ReactElement, path = "/app/plugins") {
   window.history.pushState({}, "", path);
   return render(
@@ -140,38 +165,41 @@ describe("Plugins", () => {
     const user = userEvent.setup();
     renderWithRouter(<Plugins />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
+    await openFilters(user);
 
-    expect(screen.getByRole("combobox", { name: "Hook" })).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Mode" })).not.toBeInTheDocument();
+    expect(getFilterSection("Hooks")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Modes" })).not.toBeInTheDocument();
   });
 
-  it("filters by hook and tag, then clears filters", async () => {
+  it("filters by hook and tag, then clears the hook filter", async () => {
     const user = userEvent.setup();
     renderWithRouter(<Plugins />);
 
-    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
-    await user.click(screen.getByRole("combobox", { name: "Hook" }));
-    await user.click(screen.getByRole("option", { name: "http_pre_request" }));
+    await openFilters(user);
+    await selectSectionOption(user, "Hooks", "http_pre_request");
+    await applyFilters(user);
 
     let params = new URLSearchParams(window.location.search);
-    expect(params.get("hook")).toBe("http_pre_request");
+    expect(params.getAll("hook")).toEqual(["http_pre_request"]);
     expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "PII Guardrails" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("checkbox", { name: "security" }));
+    await openFilters(user);
+    await selectSectionOption(user, "Tags", "security");
+    await applyFilters(user);
 
     params = new URLSearchParams(window.location.search);
     expect(params.getAll("tags")).toContain("security");
     expect(screen.getByText("No plugins match the active search and filters.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Clear" }));
+    await openFilters(user);
+    await user.click(within(getFilterSection("Hooks")).getByRole("radio", { name: "All" }));
+    await applyFilters(user);
 
     params = new URLSearchParams(window.location.search);
     expect(params.has("hook")).toBe(false);
-    expect(params.has("tags")).toBe(false);
-    expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
+    expect(params.getAll("tags")).toEqual(["security"]);
+    expect(screen.getByRole("button", { name: "Filters, 1 active" })).toBeInTheDocument();
   });
 
   it("updates URL state while typing a search and can toggle back to all", async () => {

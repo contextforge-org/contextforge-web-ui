@@ -33,6 +33,8 @@
   "common.search.startTyping": "Escribe al menos {count} caracteres para buscar.",
   "common.searchLabel": "Buscar {entity}",
   "common.filter": "Filtrar",
+  "common.addFilters": "Añadir filtros",
+  "common.selectOption": "Seleccionar...",
   "common.export": "Exportar",
   "common.import": "Importar",
   "common.refresh": "Actualizar",

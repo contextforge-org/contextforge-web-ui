@@ -248,8 +248,10 @@ function CatalogFiltersDialog({
       <DialogContent className="sm:max-w-[696px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Filter className="size-4" aria-hidden="true" />
-            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-selection">
+              <Filter className="size-4 text-black" aria-hidden="true" />
+            </span>
+            {intl.formatMessage({ id: "common.addFilters" })}
           </DialogTitle>
         </DialogHeader>
 
@@ -262,7 +264,7 @@ function CatalogFiltersDialog({
             selected={draft.provider}
             mode={modes.provider}
             allLabel={intl.formatMessage({ id: "mcpServer.catalog.allProvidersOption" })}
-            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectProviders" })}
+            selectLabel={intl.formatMessage({ id: "common.selectOption" })}
             onModeChange={(mode) => setSectionMode("provider", mode)}
             onToggle={(option, checked) => toggleSectionOption("provider", option, checked)}
           />
@@ -275,7 +277,7 @@ function CatalogFiltersDialog({
             selected={draft.category}
             mode={modes.category}
             allLabel={intl.formatMessage({ id: "mcpServer.catalog.allCategoriesOption" })}
-            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectCategories" })}
+            selectLabel={intl.formatMessage({ id: "common.selectOption" })}
             onModeChange={(mode) => setSectionMode("category", mode)}
             onToggle={(option, checked) => toggleSectionOption("category", option, checked)}
           />
@@ -289,7 +291,7 @@ function CatalogFiltersDialog({
               selected={draft.tags}
               mode={modes.tags}
               allLabel={intl.formatMessage({ id: "mcpServer.catalog.allTagsOption" })}
-              selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectTags" })}
+              selectLabel={intl.formatMessage({ id: "common.selectOption" })}
               onModeChange={(mode) => setSectionMode("tags", mode)}
               onToggle={(option, checked) => toggleSectionOption("tags", option, checked)}
             />
@@ -303,7 +305,7 @@ function CatalogFiltersDialog({
             </Button>
           </DialogClose>
           <Button type="button" onClick={handleApply}>
-            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
+            {intl.formatMessage({ id: "common.addFilters" })}
           </Button>
         </DialogFooter>
       </DialogContent>
