@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Info, TriangleAlert } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,8 +18,10 @@ import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/C
 import { OAuth2Auth } from "@/components/mcp-servers/OAuth2Auth";
 import { QueryParameterAuth } from "@/components/mcp-servers/QueryParameterAuth";
 import { useAuthContext } from "@/auth/AuthContext";
+import { resolveTeamId, useTeams } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { TeamSelect } from "@/components/common/TeamSelect";
 
 export type { CustomHeader };
 
@@ -30,6 +32,8 @@ interface AdvancedSettingsProps {
   onVisibilityChange: (value: Visibility) => void;
   teamId: string;
   onTeamIdChange: (value: string) => void;
+  /** Validation message for the team field, shown on the selector. */
+  teamError?: string;
   authType: AuthType;
   onAuthTypeChange: (value: AuthType) => void;
   basicAuthUsername: string;
@@ -81,6 +85,7 @@ export function AdvancedSettings({
   onVisibilityChange,
   teamId,
   onTeamIdChange,
+  teamError,
   authType,
   onAuthTypeChange,
   basicAuthUsername,
@@ -127,17 +132,32 @@ export function AdvancedSettings({
   oauthErrors,
 }: AdvancedSettingsProps) {
   const { selectedTeamId } = useAuthContext();
+  const { teams } = useTeams();
   const intl = useIntl();
 
+  const [pickedInForm, setPickedInForm] = useState(false);
+
+  // The sidebar switcher stays authoritative (#5077) until the caller picks a
+  // team in the selector below. "All teams" is not a scope a server can be
+  // created in, so it resolves to the caller's own team rather than leaving the
+  // server unscoped.
   useEffect(() => {
-    if (visibility === "team") {
-      if ((selectedTeamId ?? "") !== teamId) {
-        onTeamIdChange(selectedTeamId ?? "");
-      }
-    } else if (teamId) {
-      onTeamIdChange("");
+    if (visibility !== "team") {
+      if (teamId) onTeamIdChange("");
+      return;
     }
-  }, [visibility, selectedTeamId, teamId, onTeamIdChange]);
+    if (pickedInForm) return;
+
+    const resolved = resolveTeamId(teams, selectedTeamId);
+    if (resolved && resolved !== teamId) {
+      onTeamIdChange(resolved);
+    }
+  }, [visibility, selectedTeamId, teams, teamId, pickedInForm, onTeamIdChange]);
+
+  const handleTeamChange = (nextTeamId: string) => {
+    setPickedInForm(true);
+    onTeamIdChange(nextTeamId);
+  };
 
   const renderAuthContent = () => {
     switch (authType) {
@@ -220,9 +240,7 @@ export function AdvancedSettings({
             id="visibility"
             className="h-10 w-full border-neutral-300 dark:border-neutral-700"
           >
-            <SelectValue
-              placeholder={intl.formatMessage({ id: "mcpServer.advanced.visibilityPlaceholder" })}
-            />
+            <SelectValue placeholder="Select visibility" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="public">
@@ -236,29 +254,41 @@ export function AdvancedSettings({
             </SelectItem>
           </SelectContent>
         </Select>
-        {visibility === "team" && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {intl.formatMessage({
-              id: selectedTeamId
-                ? "mcpServer.advanced.teamScoped"
-                : "mcpServer.advanced.teamNotSelected",
-            })}
-          </p>
-        )}
       </div>
+
+      {visibility === "team" && (
+        <TeamSelect
+          id="server-team"
+          teams={teams}
+          value={teamId || undefined}
+          onChange={handleTeamChange}
+          error={teamError}
+        />
+      )}
 
       {/* Authentication type */}
       <div className="space-y-3">
         <label className="text-sm font-medium text-neutral-950 dark:text-white">
-          {intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
+          Authentication type
         </label>
         <div
           role="radiogroup"
-          aria-label={intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
+          aria-label="Authentication type"
           className="flex w-full flex-nowrap gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
         >
           {(["none", "basic", "bearer", "custom", "oauth", "query"] as AuthType[]).map((type) => {
-            const label = intl.formatMessage({ id: `mcpServer.advanced.authType.${type}` });
+            const label =
+              type === "none"
+                ? "None"
+                : type === "basic"
+                  ? "Basic"
+                  : type === "bearer"
+                    ? "Bearer token"
+                    : type === "custom"
+                      ? "Custom headers"
+                      : type === "oauth"
+                        ? "OAuth 2.0"
+                        : "Query parameter";
             const isLongerLabel = type === "custom" || type === "query";
             return (
               <div key={type} className={isLongerLabel ? "flex-[1.3] min-w-0" : "flex-1 min-w-0"}>
@@ -293,7 +323,7 @@ export function AdvancedSettings({
             htmlFor="one-time-auth"
             className="text-sm font-medium text-neutral-950 dark:text-white"
           >
-            {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthLabel" })}
+            One-time authentication
           </label>
           <Info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
         </div>
@@ -302,14 +332,14 @@ export function AdvancedSettings({
           <p
             className={`text-sm ${oneTimeAuth ? "text-neutral-900 dark:text-neutral-100" : "text-neutral-600 dark:text-neutral-400"}`}
           >
-            {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthDescription" })}
+            {"Use credentials once, don't store them. Health checks will be disabled."}
           </p>
         </div>
         {oneTimeAuth && (
           <div className="mt-3 flex items-start gap-3 rounded-md bg-neutral-50 p-3 dark:bg-neutral-800">
             <TriangleAlert className="text-yellow-300 mt-0.5 h-4 w-4 shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthWarning" })}
+              Add passthrough headers when one-time authentication is enabled.
             </p>
           </div>
         )}
@@ -321,16 +351,17 @@ export function AdvancedSettings({
           htmlFor="passthrough-headers"
           className="text-sm font-medium text-neutral-950 dark:text-white"
         >
-          {intl.formatMessage({ id: "mcpServer.advanced.passthroughLabel" })}
+          Passthrough headers
         </label>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
+          Add comma-separate headers to forward from client requests. Leave empty to use global
+          defaults.
         </p>
         <Textarea
           id="passthrough-headers"
           value={passthroughHeaders}
           onChange={(e) => onPassthroughHeadersChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
+          placeholder="e.g. Authorization, X-Tenant-Id, X-Trace-Id..."
           className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
         />
       </div>

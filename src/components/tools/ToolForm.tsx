@@ -496,6 +496,7 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                     onVisibilityChange={setVisibility}
                     teamId={teamId}
                     onTeamIdChange={setTeamId}
+                    teamError={errors.teamId}
                     authType={authType}
                     onAuthTypeChange={setAuthType}
                     basicAuthUsername={authUsername}

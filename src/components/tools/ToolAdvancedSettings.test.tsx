@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { api } from "@/api/client";
 import { renderWithProviders } from "@/test/test-utils";
 import { ToolAdvancedSettings } from "./ToolAdvancedSettings";
 import { ToolBearerTokenAuth } from "./ToolBearerTokenAuth";
@@ -13,6 +14,22 @@ vi.mock("@/auth/AuthContext", () => ({
     token: null,
   }),
 }));
+
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn().mockResolvedValue([]) },
+}));
+
+const mockGet = vi.mocked(api.get);
+
+const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true };
+const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false };
+
+/** Answers `GET /teams` with the given teams; everything else stays empty. */
+function mockTeams(teams: Array<Record<string, unknown>>) {
+  mockGet.mockImplementation((path: string) =>
+    path === "/teams" ? Promise.resolve({ teams }) : Promise.resolve([]),
+  );
+}
 
 const defaultProps = {
   visibility: "public" as const,
@@ -162,9 +179,28 @@ describe("ToolAdvancedSettings", () => {
     expect(screen.queryByRole("button", { name: /Add header/i })).toBeNull();
   });
 
-  it("shows team hint when visibility is team and selectedTeamId is set", () => {
-    renderWithProviders(<ToolAdvancedSettings {...defaultProps} visibility="team" />);
-    expect(screen.getByText(/currently selected team/i)).toBeTruthy();
+  describe("team visibility", () => {
+    it("renders no selector for a single team", async () => {
+      mockTeams([personalTeam]);
+
+      renderWithProviders(<ToolAdvancedSettings {...defaultProps} visibility="team" />);
+
+      await waitFor(() => {
+        expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it("renders a selector for several teams", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+
+      renderWithProviders(
+        <ToolAdvancedSettings {...defaultProps} visibility="team" teamId={sharedTeam.id} />,
+      );
+
+      expect(await screen.findByRole("combobox", { name: /^team/i })).toHaveTextContent(
+        "Shared team",
+      );
+    });
   });
 
   it("calls onResponseFilterChange when response filter changes", () => {

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,8 +16,10 @@ import { BasicAuth } from "@/components/mcp-servers/BasicAuth";
 import { ToolBearerTokenAuth } from "@/components/tools/ToolBearerTokenAuth";
 import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
 import { useAuthContext } from "@/auth/AuthContext";
+import { resolveTeamId, useTeams } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { TeamSelect } from "@/components/common/TeamSelect";
 
 export type { CustomHeader };
 
@@ -28,6 +30,8 @@ interface ToolAdvancedSettingsProps {
   onVisibilityChange: (value: Visibility) => void;
   teamId: string;
   onTeamIdChange: (value: string) => void;
+  /** Validation message for the team field, shown on the selector. */
+  teamError?: string;
   authType: AuthType;
   onAuthTypeChange: (value: AuthType) => void;
   basicAuthUsername: string;
@@ -51,6 +55,7 @@ export function ToolAdvancedSettings({
   onVisibilityChange,
   teamId,
   onTeamIdChange,
+  teamError,
   authType,
   onAuthTypeChange,
   basicAuthUsername,
@@ -70,17 +75,31 @@ export function ToolAdvancedSettings({
 }: ToolAdvancedSettingsProps) {
   const intl = useIntl();
   const { selectedTeamId } = useAuthContext();
+  const { teams } = useTeams();
   const tagSuggestions = useTagSuggestions();
 
+  const [pickedInForm, setPickedInForm] = useState(false);
+
+  // The sidebar switcher stays authoritative until the caller picks a team in
+  // the selector below. "All teams" is not a scope a tool can be created in, so
+  // it resolves to the caller's own team rather than leaving the tool unscoped.
   useEffect(() => {
-    if (visibility === "team") {
-      if (selectedTeamId && !teamId) {
-        onTeamIdChange(selectedTeamId);
-      }
-    } else if (teamId) {
-      onTeamIdChange("");
+    if (visibility !== "team") {
+      if (teamId) onTeamIdChange("");
+      return;
     }
-  }, [visibility, selectedTeamId, teamId, onTeamIdChange]);
+    if (pickedInForm) return;
+
+    const resolved = resolveTeamId(teams, selectedTeamId);
+    if (resolved && resolved !== teamId) {
+      onTeamIdChange(resolved);
+    }
+  }, [visibility, selectedTeamId, teams, teamId, pickedInForm, onTeamIdChange]);
+
+  const handleTeamChange = (nextTeamId: string) => {
+    setPickedInForm(true);
+    onTeamIdChange(nextTeamId);
+  };
   const renderAuthContent = () => {
     switch (authType) {
       case "none":
@@ -141,14 +160,17 @@ export function ToolAdvancedSettings({
             </SelectItem>
           </SelectContent>
         </Select>
-        {visibility === "team" && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {selectedTeamId
-              ? "This tool will be scoped to your currently selected team"
-              : "Please select a team using the team switcher in the sidebar"}
-          </p>
-        )}
       </div>
+
+      {visibility === "team" && (
+        <TeamSelect
+          id="tool-team"
+          teams={teams}
+          value={teamId || undefined}
+          onChange={handleTeamChange}
+          error={teamError}
+        />
+      )}
 
       {/* Authentication type */}
       <div className="space-y-3">

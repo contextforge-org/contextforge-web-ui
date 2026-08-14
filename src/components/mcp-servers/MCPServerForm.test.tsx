@@ -59,6 +59,12 @@ const server = setupServer(
   http.get("/api/prompts", () => {
     return HttpResponse.json([]);
   }),
+  // Everyone belongs to at least their own personal team.
+  http.get("/api/teams", () => {
+    return HttpResponse.json({
+      teams: [{ id: "team-personal", name: "Personal team", is_personal: true }],
+    });
+  }),
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
@@ -269,18 +275,44 @@ describe("MCPServerForm", () => {
       expect(screen.getByText("CA certificate")).toBeInTheDocument();
     });
 
-    it("shows team-switcher hint when Team visibility is selected and no team is active", async () => {
-      const user = userEvent.setup();
-      renderWithRouter(<MCPServerForm {...defaultProps} />);
+    describe("team visibility", () => {
+      const selectTeamVisibility = async () => {
+        const user = userEvent.setup();
+        renderWithRouter(<MCPServerForm {...defaultProps} />);
 
-      await user.click(screen.getByRole("button", { name: /Advanced settings/i }));
-      await user.click(screen.getByRole("combobox", { name: /visibility/i }));
-      await user.click(screen.getByRole("option", { name: /^Team$/i }));
+        await user.click(screen.getByRole("button", { name: /Advanced settings/i }));
+        await user.click(screen.getByRole("combobox", { name: /visibility/i }));
+        await user.click(screen.getByRole("option", { name: /^Team$/i }));
+      };
 
-      // AuthProvider returns selectedTeamId: null (unauthenticated), so the sidebar prompt appears
-      expect(
-        screen.getByText(/please select a team using the team switcher in the sidebar/i),
-      ).toBeInTheDocument();
+      it("hides the selector for one team", async () => {
+        // The default /api/teams handler returns a single, personal team.
+        await selectTeamVisibility();
+
+        await waitFor(() => {
+          expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+        });
+        expect(
+          screen.queryByText(/team selection is required when visibility is set to team/i),
+        ).not.toBeInTheDocument();
+      });
+
+      it("shows the selector for several teams", async () => {
+        server.use(
+          http.get("/api/teams", () =>
+            HttpResponse.json({
+              teams: [
+                { id: "team-personal", name: "Personal team", is_personal: true },
+                { id: "team-shared", name: "Shared team", is_personal: false },
+              ],
+            }),
+          ),
+        );
+
+        await selectTeamVisibility();
+
+        expect(await screen.findByRole("combobox", { name: /^team/i })).toBeInTheDocument();
+      });
     });
   });
 

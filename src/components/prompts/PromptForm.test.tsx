@@ -19,9 +19,20 @@ vi.mock("@/auth/AuthContext", () => ({
   useAuthContext: vi.fn(),
 }));
 
+const mockGet = vi.mocked(api.get);
 const mockPost = vi.mocked(api.post);
 const mockPut = vi.mocked(api.put);
 const mockUseAuthContext = vi.mocked(useAuthContext);
+
+const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true };
+const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false };
+
+/** Answers `GET /teams` with the given teams; everything else stays empty. */
+function mockTeams(teams: Array<Record<string, unknown>>) {
+  mockGet.mockImplementation((path: string) =>
+    path === "/teams" ? Promise.resolve({ teams }) : Promise.resolve([]),
+  );
+}
 
 function renderPromptForm(props?: {
   onToggle?: () => void;
@@ -69,13 +80,13 @@ describe("PromptForm", () => {
     vi.clearAllMocks();
     mockPost.mockReset();
     mockPut.mockReset();
+    mockTeams([personalTeam]);
     mockUseAuthContext.mockReturnValue({
       selectedTeamId: null,
       user: null,
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
-      completePasswordChangeRequired: vi.fn(),
       logout: vi.fn(),
       setSelectedTeamId: vi.fn(),
       permissions: [],
@@ -118,7 +129,6 @@ describe("PromptForm", () => {
       isAuthenticated: true,
       isLoading: false,
       login: vi.fn(),
-      completePasswordChangeRequired: vi.fn(),
       logout: vi.fn(),
       setSelectedTeamId: vi.fn(),
       permissions: [],
@@ -176,53 +186,85 @@ describe("PromptForm", () => {
     expect(screen.getByRole("button", { name: "Add prompt" })).toBeEnabled();
   });
 
-  it("requires an active team when visibility is set to team", async () => {
-    renderPromptForm();
-    const user = await fillRequiredFields();
+  describe("team visibility", () => {
+    it("scopes to the only team without asking", async () => {
+      renderPromptForm();
+      const user = await fillRequiredFields();
 
-    await user.click(screen.getByRole("combobox", { name: /visibility/i }));
-    await user.click(screen.getByRole("option", { name: /^Team$/i }));
+      await user.click(screen.getByRole("combobox", { name: /visibility/i }));
+      await user.click(screen.getByRole("option", { name: /^Team$/i }));
 
-    expect(
-      screen.getByText("Please select a team using the team switcher in the sidebar"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Team selection is required when visibility is set to team"),
-    ).toBeInTheDocument();
+      // One team means no choice to make: no selector, and above all no error.
+      expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Team selection is required when visibility is set to team"),
+      ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add prompt" }));
+      await user.click(screen.getByRole("button", { name: "Add prompt" }));
 
-    expect(mockPost).not.toHaveBeenCalled();
-  });
-
-  it("explains that team prompts use the currently selected sidebar team", async () => {
-    mockUseAuthContext.mockReturnValue({
-      selectedTeamId: "team-123",
-      user: null,
-      isAuthenticated: true,
-      isLoading: false,
-      login: vi.fn(),
-      completePasswordChangeRequired: vi.fn(),
-      logout: vi.fn(),
-      setSelectedTeamId: vi.fn(),
-      permissions: [],
-      permissionsLoading: false,
-      permissionsError: false,
-      hasPermission: () => true,
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          "/prompts",
+          expect.objectContaining({ team_id: personalTeam.id, visibility: "team" }),
+          expect.anything(),
+        );
+      });
     });
 
-    renderPromptForm();
-    const user = userEvent.setup();
+    it("offers a selector for several teams", async () => {
+      mockTeams([sharedTeam, personalTeam]);
+      renderPromptForm();
+      const user = await fillRequiredFields();
 
-    await user.click(screen.getByRole("combobox", { name: /visibility/i }));
-    await user.click(screen.getByRole("option", { name: /^Team$/i }));
+      await user.click(screen.getByRole("combobox", { name: /visibility/i }));
+      await user.click(screen.getByRole("option", { name: /^Team$/i }));
 
-    expect(
-      screen.getByText("This prompt will be scoped to your currently selected team"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Team selection is required when visibility is set to team"),
-    ).not.toBeInTheDocument();
+      const teamSelect = await screen.findByRole("combobox", { name: /^team/i });
+      // Defaults to the personal team rather than an empty required field.
+      expect(teamSelect).toHaveTextContent("Personal team");
+
+      await user.click(teamSelect);
+      await user.click(screen.getByRole("option", { name: "Shared team" }));
+      await user.click(screen.getByRole("button", { name: "Add prompt" }));
+
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          "/prompts",
+          expect.objectContaining({ team_id: sharedTeam.id, visibility: "team" }),
+          expect.anything(),
+        );
+      });
+    });
+
+    it("defaults to the sidebar's active team", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue({
+        selectedTeamId: sharedTeam.id,
+        user: null,
+        isAuthenticated: true,
+        isLoading: false,
+        login: vi.fn(),
+        logout: vi.fn(),
+        setSelectedTeamId: vi.fn(),
+        permissions: [],
+        permissionsLoading: false,
+        permissionsError: false,
+        hasPermission: () => true,
+      });
+
+      renderPromptForm();
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("combobox", { name: /visibility/i }));
+      await user.click(screen.getByRole("option", { name: /^Team$/i }));
+
+      expect(await screen.findByRole("combobox", { name: /^team/i })).toHaveTextContent(
+        "Shared team",
+      );
+      expect(
+        screen.queryByText("Team selection is required when visibility is set to team"),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("calls onToggle when cancel is clicked", async () => {

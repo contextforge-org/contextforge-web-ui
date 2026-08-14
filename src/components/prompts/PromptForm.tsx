@@ -21,6 +21,7 @@ import { getTagDisplay } from "@/components/gateways/utils";
 import type { PromptRead } from "@/generated/types";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { TeamSelect } from "@/components/common/TeamSelect";
 
 interface PromptFormProps {
   isOpen: boolean;
@@ -73,10 +74,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
 
   if (!isOpen) return null;
 
-  const visibilityHintId = form.visibility === "team" ? "prompt-visibility-team-hint" : undefined;
-  const visibilityErrorId = form.errors.visibility ? "prompt-visibility-error" : undefined;
-  const visibilityDescribedBy =
-    [visibilityHintId, visibilityErrorId].filter(Boolean).join(" ") || undefined;
+  const visibilityDescribedBy = form.errors.visibility ? "prompt-visibility-error" : undefined;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -181,21 +179,22 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                   </SelectItem>
                 </SelectContent>
               </Select>
-              {form.visibility === "team" && (
-                <p id="prompt-visibility-team-hint" className="text-sm text-muted-foreground">
-                  {intl.formatMessage({
-                    id: form.teamId
-                      ? "prompts.add.visibility.team.selectedHint"
-                      : "prompts.add.visibility.team.selectFromSidebarHint",
-                  })}
-                </p>
-              )}
               {form.errors.visibility && (
                 <p id="prompt-visibility-error" className="text-sm text-destructive">
                   {form.errors.visibility}
                 </p>
               )}
             </div>
+
+            {form.visibility === "team" && (
+              <TeamSelect
+                id="prompt-team"
+                teams={form.teams}
+                value={form.teamId}
+                onChange={form.setTeamId}
+                error={form.errors.teamId}
+              />
+            )}
 
             <div className="space-y-2.5">
               <Label

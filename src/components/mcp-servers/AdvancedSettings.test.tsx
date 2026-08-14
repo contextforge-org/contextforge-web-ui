@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderWithProviders as render, screen } from "@/test/test-utils";
+import { renderWithProviders as render, screen, waitFor } from "@/test/test-utils";
 import userEvent from "@testing-library/user-event";
+import { api } from "@/api/client";
 import * as AuthContextModule from "@/auth/AuthContext";
 import { AdvancedSettings } from "./AdvancedSettings";
 
@@ -8,7 +9,22 @@ vi.mock("@/auth/AuthContext", () => ({
   useAuthContext: vi.fn(),
 }));
 
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn() },
+}));
+
 const mockUseAuthContext = vi.mocked(AuthContextModule.useAuthContext);
+const mockGet = vi.mocked(api.get);
+
+const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true };
+const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false };
+
+/** Answers `GET /teams` with the given teams; everything else stays empty. */
+function mockTeams(teams: Array<Record<string, unknown>>) {
+  mockGet.mockImplementation((path: string) =>
+    path === "/teams" ? Promise.resolve({ teams }) : Promise.resolve([]),
+  );
+}
 
 type AdvancedSettingsProps = Parameters<typeof AdvancedSettings>[0];
 
@@ -82,6 +98,7 @@ const makeProps = (overrides: Partial<AdvancedSettingsProps> = {}): AdvancedSett
 describe("AdvancedSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTeams([personalTeam]);
     mockUseAuthContext.mockReturnValue(makeAuthContext());
   });
 
@@ -156,17 +173,28 @@ describe("AdvancedSettings", () => {
       expect(onTeamIdChange).toHaveBeenCalledWith("");
     });
 
-    it("clears teamId when selectedTeamId becomes null while visibility is team", () => {
-      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+    it("falls back to the caller's own team on a switch to All teams", () => {
+      mockUseAuthContext.mockReturnValue(makeAuthContext("team-A"));
       const onTeamIdChange = vi.fn();
+      const { rerender } = render(
+        <AdvancedSettings
+          {...makeProps({ visibility: "team", teamId: "team-A", onTeamIdChange })}
+        />,
+      );
+      onTeamIdChange.mockClear();
 
-      render(
+      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+      rerender(
         <AdvancedSettings
           {...makeProps({ visibility: "team", teamId: "team-A", onTeamIdChange })}
         />,
       );
 
-      expect(onTeamIdChange).toHaveBeenCalledWith("");
+      // "All teams" is not a scope a server can be created in, so the form
+      // falls back rather than leaving it unscoped.
+      return waitFor(() => {
+        expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+      });
     });
 
     it("does not call onTeamIdChange when visibility is not team and teamId is already empty", () => {
@@ -209,32 +237,32 @@ describe("AdvancedSettings", () => {
     });
   });
 
-  describe("team visibility — hint message", () => {
-    it("shows 'scoped to currently selected team' when visibility is team and a team is selected", () => {
-      mockUseAuthContext.mockReturnValue(makeAuthContext("team-A"));
+  describe("team visibility — selector", () => {
+    it("stays hidden for a single team", async () => {
+      render(<AdvancedSettings {...makeProps({ visibility: "team", teamId: personalTeam.id })} />);
 
-      render(<AdvancedSettings {...makeProps({ visibility: "team", teamId: "team-A" })} />);
-
-      expect(screen.getByText(/scoped to your currently selected team/i)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+      });
     });
 
-    it("shows 'please select a team' when visibility is team but no team is selected", () => {
-      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+    it("lists the caller's teams", async () => {
+      mockTeams([personalTeam, sharedTeam]);
 
-      render(<AdvancedSettings {...makeProps({ visibility: "team", teamId: "" })} />);
+      render(<AdvancedSettings {...makeProps({ visibility: "team", teamId: personalTeam.id })} />);
 
-      expect(screen.getByText(/please select a team using the team switcher/i)).toBeInTheDocument();
+      const teamSelect = await screen.findByRole("combobox", { name: /^team/i });
+      expect(teamSelect).toHaveTextContent("Personal team");
     });
 
-    it("does not show either team hint when visibility is not team", () => {
-      mockUseAuthContext.mockReturnValue(makeAuthContext("team-A"));
+    it("stays hidden when visibility is not team", async () => {
+      mockTeams([personalTeam, sharedTeam]);
 
       render(<AdvancedSettings {...makeProps({ visibility: "public" })} />);
 
-      expect(screen.queryByText(/scoped to your currently selected team/i)).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(/please select a team using the team switcher/i),
-      ).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+      });
     });
   });
 

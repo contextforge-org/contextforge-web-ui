@@ -320,6 +320,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onVisibilityChange={setVisibility}
                   teamId={teamId}
                   onTeamIdChange={setTeamId}
+                  teamError={errors.teamId}
                   authType={authType}
                   onAuthTypeChange={setAuthType}
                   basicAuthUsername={authUsername}
