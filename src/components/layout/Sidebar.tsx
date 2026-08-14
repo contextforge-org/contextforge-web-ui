@@ -34,19 +34,25 @@ interface NavItem {
   labelKey: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
+  hidden?: boolean;
 }
 
 const MAIN_NAV_ITEMS: NavItem[] = [
   { labelKey: "navigation.dashboard", path: "/app/", icon: House },
   { labelKey: "navigation.virtualServers", path: "/app/gateways", icon: Server },
-  { labelKey: "navigation.playground", path: "/app/playground", icon: MessageSquareMore },
+  {
+    labelKey: "navigation.playground",
+    path: "/app/playground",
+    icon: MessageSquareMore,
+    hidden: true,
+  },
 ];
 
 const COMPONENTS_NAV_ITEMS: NavItem[] = [
   { labelKey: "navigation.servers", path: "/app/servers", icon: MCPIcon },
-  { labelKey: "navigation.agents", path: "/app/agents", icon: AgentIcon },
-  { labelKey: "navigation.restApi", path: "/app/rest-api", icon: Code },
-  { labelKey: "navigation.grpc", path: "/app/grpc", icon: Unplug },
+  { labelKey: "navigation.agents", path: "/app/agents", icon: AgentIcon, hidden: true },
+  { labelKey: "navigation.restApi", path: "/app/rest-api", icon: Code, hidden: true },
+  { labelKey: "navigation.grpc", path: "/app/grpc", icon: Unplug, hidden: true },
   { labelKey: "navigation.tools", path: "/app/tools", icon: Wrench },
   { labelKey: "navigation.resources", path: "/app/resources", icon: Box },
   { labelKey: "navigation.prompts", path: "/app/prompts", icon: MessageSquareCode },
@@ -68,17 +74,19 @@ export function AppSidebar() {
   const { path, navigate } = useRouter();
 
   const renderNavItems = (items: NavItem[]) => {
-    return items.map(({ labelKey, path: itemPath, icon: Icon }) => {
-      const isActive = path === itemPath || (itemPath !== "/app/" && path.startsWith(itemPath));
-      return (
-        <SidebarMenuItem key={itemPath}>
-          <SidebarMenuButton isActive={isActive} onClick={() => navigate(itemPath)}>
-            <Icon className="h-4 w-4" />
-            <span>{intl.formatMessage({ id: labelKey })}</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    });
+    return items
+      .filter((item) => !item.hidden)
+      .map(({ labelKey, path: itemPath, icon: Icon }) => {
+        const isActive = path === itemPath || (itemPath !== "/app/" && path.startsWith(itemPath));
+        return (
+          <SidebarMenuItem key={itemPath}>
+            <SidebarMenuButton isActive={isActive} onClick={() => navigate(itemPath)}>
+              <Icon className="h-4 w-4" />
+              <span>{intl.formatMessage({ id: labelKey })}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      });
   };
 
   return (
