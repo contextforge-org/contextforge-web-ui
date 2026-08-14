@@ -224,7 +224,7 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("heading", { name: "Globalping" })).toBeVisible();
   });
 
-  test("adds an open server without refetching its card", async ({ page }) => {
+  test("adds an open server without refetching its card", async ({ page, apiMock }) => {
     let registered = false;
     let catalogCalls = 0;
     let registerCalls = 0;
@@ -247,7 +247,10 @@ test.describe("Server catalog page", () => {
 
     await page.route(REGISTER_ROUTE, async (route) => {
       expect(route.request().method()).toBe("POST");
-      expect(route.request().headers()["x-csrf-token"]).toBe(MOCK_CSRF_TOKEN);
+      // Real mode gets a real, randomly-generated token from the real login.
+      expect(route.request().headers()["x-csrf-token"]).toBe(
+        apiMock.getRealCsrfToken() ?? MOCK_CSRF_TOKEN,
+      );
       registerCalls += 1;
       registered = true;
       await route.fulfill({

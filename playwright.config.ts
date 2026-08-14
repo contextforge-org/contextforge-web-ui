@@ -1,8 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Port is pinned in package.json's `dev:e2e` script. Override the base URL
-// via PLAYWRIGHT_BASE_URL (typically together with PLAYWRIGHT_SKIP_WEBSERVER)
-// when pointing at a pre-running server.
+// Set by `npm run e2e:docker` — the suite runs against the real dockerized
+// backend (with PLAYWRIGHT_SKIP_WEBSERVER + its own PLAYWRIGHT_BASE_URL)
+// instead of page.route() stubs. See e2e/README.md.
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
+
+// Override for a pre-running server (typically together with PLAYWRIGHT_SKIP_WEBSERVER).
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173";
 const IS_CI = !!process.env.CI;
 // Keep the webServer command authoritative for feature flags. Opt in only when
@@ -18,7 +21,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: IS_CI,
   retries: IS_CI ? 2 : 0,
-  workers: IS_CI ? 2 : undefined,
+  // Real mode: the sqlite-backed test gateway chokes on too many concurrent real logins.
+  workers: IS_REAL_API ? 2 : IS_CI ? 2 : undefined,
 
   reporter: IS_CI
     ? [["github"], ["html", { open: "never", outputFolder: "playwright-report" }], ["list"]]
@@ -46,6 +50,7 @@ export default defineConfig({
     },
   ],
 
+  // e2e:docker sets PLAYWRIGHT_SKIP_WEBSERVER — it points at the already-running docker stack instead.
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {

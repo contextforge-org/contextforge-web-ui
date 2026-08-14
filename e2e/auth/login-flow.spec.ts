@@ -1,6 +1,11 @@
 import { test, expect } from "../fixtures/api-mock";
 import { APP, TOKEN_STORAGE_KEY } from "../utils/paths";
 
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
+// Only the "successful login" test needs a user that really exists.
+const VALID_EMAIL = IS_REAL_API ? (process.env.E2E_TEST_EMAIL ?? "") : "test@example.com";
+const VALID_PASSWORD = IS_REAL_API ? (process.env.E2E_TEST_PASSWORD ?? "") : "password123";
+
 test.describe("Login flow", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockSession({ authenticated: false });
@@ -13,12 +18,13 @@ test.describe("Login flow", () => {
     await apiMock.mockLogin();
 
     await page.goto(APP.LOGIN);
-    await page.getByLabel(/email address/i).fill("test@example.com");
-    await page.getByLabel(/password/i).fill("password123");
+    await page.getByLabel(/email address/i).fill(VALID_EMAIL);
+    await page.getByLabel(/password/i).fill(VALID_PASSWORD);
     await page.getByRole("button", { name: /^sign in$/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`${APP.ROOT}$`));
-    await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
+    // Not a heading match — that text is data-dependent. Home nav is the stable "landed, not bounced to /login" signal.
+    await expect(page.getByRole("button", { name: "Home" })).toBeVisible();
 
     const token = await page.evaluate(
       (key) => window.sessionStorage.getItem(key),
