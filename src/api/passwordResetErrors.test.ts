@@ -14,25 +14,18 @@ describe("classifyPasswordResetError", () => {
     });
   });
 
-  it("preserves actionable backend password-policy detail", () => {
-    const detail = "Password must contain at least 3 character types";
+  it("preserves 400 detail without guessing its meaning from wording", () => {
+    const detail = "El enlace ya no es válido";
     expect(classifyPasswordResetError(new ApiError(400, { detail }, "HTTP 400"))).toEqual({
-      kind: "validation",
+      kind: "badRequest",
       message: detail,
     });
   });
 
-  it("uses invalid fallback when a 400 has no safe detail", () => {
+  it("handles a 400 without detail", () => {
     expect(classifyPasswordResetError(new ApiError(400, null, "HTTP 400"))).toEqual({
-      kind: "invalid",
+      kind: "badRequest",
+      message: null,
     });
-  });
-
-  it("classifies token detail as an invalid link rather than password validation", () => {
-    expect(
-      classifyPasswordResetError(
-        new ApiError(400, { detail: "This reset link is invalid" }, "HTTP 400"),
-      ),
-    ).toEqual({ kind: "invalid" });
   });
 });

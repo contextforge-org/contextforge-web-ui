@@ -212,7 +212,7 @@ test.describe("Users page", () => {
 
       await page.getByRole("button", { name: "Create User" }).click();
 
-      await expect(page.getByText("Password must be at least 8 characters")).toBeVisible();
+      await expect(page.getByText("Password must be at least 12 characters")).toBeVisible();
     });
 
     test("passwords must match", async ({ page }) => {
@@ -330,7 +330,7 @@ test.describe("Users page", () => {
       await page.getByRole("button", { name: "Save Changes" }).click();
 
       await expect.poll(() => patchCalled).toBe(true);
-      await expect(page.getByText("Password must be at least 8 characters")).not.toBeVisible();
+      await expect(page.getByText("Password must be at least 12 characters")).not.toBeVisible();
     });
 
     test("passwords must match if password is filled", async ({ page }) => {

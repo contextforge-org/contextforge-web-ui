@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CircleCheck } from "lucide-react";
 import { useIntl } from "react-intl";
 import { resetPassword, validatePasswordResetToken } from "@/api/passwordReset";
-import { classifyPasswordResetError } from "@/api/passwordResetErrors";
+import { classifyPasswordResetError, type PasswordResetError } from "@/api/passwordResetErrors";
 import { PasswordInput } from "@/components/users/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
@@ -10,7 +10,18 @@ import { Loading } from "@/components/ui/loading";
 import { VALIDATION } from "@/lib/constants";
 import { useRouter } from "@/router";
 
-type TokenState = "validating" | "valid" | "invalid" | "expired" | "disabled";
+type TokenState =
+  "validating" | "valid" | "invalid" | "expired" | "disabled" | "rateLimited" | "failed";
+
+function tokenStateFromError(
+  error: PasswordResetError,
+): Exclude<TokenState, "validating" | "valid"> {
+  if (error.kind === "expired") return "expired";
+  if (error.kind === "disabled") return "disabled";
+  if (error.kind === "rateLimited") return "rateLimited";
+  if (error.kind === "badRequest") return "invalid";
+  return "failed";
+}
 
 export function ResetPassword({ token = "" }: { token?: string }) {
   const intl = useIntl();
@@ -37,10 +48,7 @@ export function ResetPassword({ token = "" }: { token?: string }) {
       .then((result) => setTokenState(result.valid ? "valid" : "invalid"))
       .catch((err) => {
         if (controller.signal.aborted) return;
-        const resetError = classifyPasswordResetError(err);
-        if (resetError.kind === "expired") setTokenState("expired");
-        else if (resetError.kind === "disabled") setTokenState("disabled");
-        else setTokenState("invalid");
+        setTokenState(tokenStateFromError(classifyPasswordResetError(err)));
       });
 
     return () => controller.abort();
@@ -82,21 +90,38 @@ export function ResetPassword({ token = "" }: { token?: string }) {
       const resetError = classifyPasswordResetError(err);
       if (resetError.kind === "expired") setTokenState("expired");
       else if (resetError.kind === "disabled") setTokenState("disabled");
-      else if (resetError.kind === "validation") setPasswordError(resetError.message);
-      else if (resetError.kind === "invalid")
-        setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.invalid" }));
-      else setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.failed" }));
+      else if (resetError.kind === "rateLimited")
+        setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.rateLimited" }));
+      else if (resetError.kind === "badRequest") {
+        // Backend uses HTTP 400 for both invalid tokens and password-policy failures.
+        // Revalidate instead of inspecting human-readable (and potentially localized) detail.
+        try {
+          const validation = await validatePasswordResetToken(token);
+          if (!validation.valid) setTokenState("invalid");
+          else if (resetError.message) setPasswordError(resetError.message);
+          else setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.failed" }));
+        } catch (validationError) {
+          setTokenState(tokenStateFromError(classifyPasswordResetError(validationError)));
+        }
+      } else setSubmitError(intl.formatMessage({ id: "auth.resetPassword.error.failed" }));
     } finally {
       setSubmitting(false);
     }
   }
 
-  const tokenErrorMessage =
-    tokenState === "expired"
-      ? intl.formatMessage({ id: "auth.resetPassword.error.expired" })
-      : tokenState === "disabled"
-        ? intl.formatMessage({ id: "auth.resetPassword.error.disabled" })
-        : intl.formatMessage({ id: "auth.resetPassword.error.invalid" });
+  const tokenErrorMessage = intl.formatMessage({
+    id:
+      tokenState === "expired"
+        ? "auth.resetPassword.error.expired"
+        : tokenState === "disabled"
+          ? "auth.resetPassword.error.disabled"
+          : tokenState === "rateLimited"
+            ? "auth.resetPassword.error.rateLimited"
+            : tokenState === "failed"
+              ? "auth.resetPassword.error.failed"
+              : "auth.resetPassword.error.invalid",
+  });
+  const canRequestNewLink = tokenState === "invalid" || tokenState === "expired";
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 px-4">
@@ -156,9 +181,15 @@ export function ResetPassword({ token = "" }: { token?: string }) {
                 <Button
                   type="button"
                   className="w-full"
-                  onClick={() => navigate("/app/forgot-password")}
+                  onClick={() =>
+                    navigate(canRequestNewLink ? "/app/forgot-password" : "/app/login")
+                  }
                 >
-                  {intl.formatMessage({ id: "auth.resetPassword.requestNewLink" })}
+                  {intl.formatMessage({
+                    id: canRequestNewLink
+                      ? "auth.resetPassword.requestNewLink"
+                      : "auth.resetPassword.returnToLogin",
+                  })}
                 </Button>
               </div>
             ) : (
@@ -169,6 +200,8 @@ export function ResetPassword({ token = "" }: { token?: string }) {
                   onChange={(value) => {
                     setPassword(value);
                     setPasswordError(null);
+                    setConfirmPasswordError(null);
+                    setSubmitError(null);
                   }}
                   label={intl.formatMessage({ id: "auth.resetPassword.password" })}
                   placeholder={intl.formatMessage({ id: "auth.resetPassword.password" })}
@@ -182,6 +215,7 @@ export function ResetPassword({ token = "" }: { token?: string }) {
                   onChange={(value) => {
                     setConfirmPassword(value);
                     setConfirmPasswordError(null);
+                    setSubmitError(null);
                   }}
                   label={intl.formatMessage({ id: "auth.resetPassword.confirmPassword" })}
                   placeholder={intl.formatMessage({ id: "auth.resetPassword.confirmPassword" })}

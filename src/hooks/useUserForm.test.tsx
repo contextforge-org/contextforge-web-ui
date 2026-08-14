@@ -13,7 +13,7 @@ vi.mock("@/hooks/useQuery", () => ({
 
 const messages = {
   "users.form.error.emailInvalid": "Invalid email address",
-  "users.form.error.passwordMinLength": "Password must be at least 8 characters",
+  "users.form.error.passwordMinLength": "Password must be at least 12 characters",
   "users.form.error.passwordsDoNotMatch": "Passwords do not match",
   "users.form.error.createFailed": "Failed to create user",
   "users.form.error.updateFailed": "Failed to update user",
@@ -293,7 +293,7 @@ describe("useUserForm", () => {
         vi.advanceTimersByTime(300);
       });
 
-      expect(result.current.errors.password).toBe("Password must be at least 8 characters");
+      expect(result.current.errors.password).toBe("Password must be at least 12 characters");
 
       act(() => {
         result.current.validateField("password", "LongEnoughPassword123!");
@@ -419,7 +419,7 @@ describe("useUserForm", () => {
       });
 
       expect(isValid).toBe(false);
-      expect(result.current.errors.password).toBe("Password must be at least 8 characters");
+      expect(result.current.errors.password).toBe("Password must be at least 12 characters");
     });
 
     it("should return false for mismatched passwords", () => {

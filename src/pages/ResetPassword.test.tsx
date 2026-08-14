@@ -59,6 +59,11 @@ describe("ResetPassword", () => {
 
     expect(await screen.findAllByText("Passwords do not match.")).not.toHaveLength(0);
     expect(resetPassword).not.toHaveBeenCalled();
+
+    fireEvent.change(document.getElementById("new-password")!, {
+      target: { value: "Password-two2" },
+    });
+    expect(screen.queryAllByText("Passwords do not match.")).toHaveLength(0);
   });
 
   it("shows persistent success and waits for explicit login navigation", async () => {
@@ -106,6 +111,27 @@ describe("ResetPassword", () => {
       await screen.findByText("Password must not be a commonly used password"),
     ).toBeInTheDocument();
     expect(screen.queryByText(/reset link is invalid/i)).not.toBeInTheDocument();
+    expect(validatePasswordResetToken).toHaveBeenCalledTimes(2);
+  });
+
+  it("revalidates a failed submission to distinguish an invalid token from policy errors", async () => {
+    vi.mocked(validatePasswordResetToken)
+      .mockResolvedValueOnce({ valid: true, message: "valid", expires_at: null })
+      .mockRejectedValueOnce(
+        new ApiError(400, { detail: "El enlace ya no es válido" }, "HTTP 400"),
+      );
+    vi.mocked(resetPassword).mockRejectedValue(
+      new ApiError(400, { detail: "Wording must not determine behavior" }, "HTTP 400"),
+    );
+    renderPage();
+    await fillPasswords("New-password1");
+    fireEvent.click(screen.getByRole("button", { name: "Reset Password" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This reset link is invalid or has already been used.",
+    );
+    expect(screen.getByRole("button", { name: "Request New Link" })).toBeInTheDocument();
+    expect(validatePasswordResetToken).toHaveBeenCalledTimes(2);
   });
 
   it("offers new link for expired token without exposing token", async () => {
@@ -118,5 +144,32 @@ describe("ResetPassword", () => {
     expect(screen.queryByText(/secret-reset-token/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Request New Link" }));
     expect(navigate).toHaveBeenCalledWith("/app/forgot-password");
+  });
+
+  it("does not encourage another reset request when token validation is rate limited", async () => {
+    vi.mocked(validatePasswordResetToken).mockRejectedValue(
+      new ApiError(429, { detail: "Too many requests" }, "HTTP 429"),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too many requests. Please try again later.",
+    );
+    expect(screen.queryByRole("button", { name: "Request New Link" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Return to login" }));
+    expect(navigate).toHaveBeenCalledWith("/app/login");
+  });
+
+  it("does not offer a dead-end reset request when password reset is disabled", async () => {
+    vi.mocked(validatePasswordResetToken).mockRejectedValue(
+      new ApiError(403, { detail: "Password reset is disabled" }, "HTTP 403"),
+    );
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Password reset is currently unavailable.",
+    );
+    expect(screen.queryByRole("button", { name: "Request New Link" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to login" })).toBeInTheDocument();
   });
 });
