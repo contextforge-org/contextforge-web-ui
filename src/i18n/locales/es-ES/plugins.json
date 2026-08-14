@@ -20,7 +20,6 @@
   "plugins.catalog.author": "Autor",
   "plugins.catalog.version": "Versión",
   "plugins.catalog.priority": "Prioridad",
-  "plugins.catalog.status": "Estado",
   "plugins.catalog.hooks": "Hooks",
   "plugins.catalog.configuration": "Configuración",
   "plugins.catalog.resultCount": "{count, plural, =0 {No hay plugins mostrados} one {# plugin mostrado} other {# plugins mostrados}}",

@@ -33,7 +33,7 @@ const logging: PluginSummary = {
   description: "Logs request and response payloads for auditing",
   author: "Community",
   version: "0.4.1",
-  mode: "permissive",
+  mode: "disabled",
   priority: 50,
   hooks: ["http_pre_request"],
   tags: ["observability"],
@@ -112,6 +112,9 @@ describe("Plugins", () => {
     expect(within(dialog).getByText("redact")).toBeInTheDocument();
     expect(within(dialog).getByText("true")).toBeInTheDocument();
     expect(within(dialog).getByText('["EMAIL","SSN"]')).toBeInTheDocument();
+    // Status is derived from mode (status === "disabled" iff mode === "disabled"),
+    // so the dialog shows mode only.
+    expect(within(dialog).queryByText("Status")).not.toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -139,6 +142,27 @@ describe("Plugins", () => {
     await waitFor(() => expect(window.location.search).toContain("mode=enforce"));
     expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Request Logger" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer 'disabled' as a mode option", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<Plugins />);
+
+    await user.click(screen.getByRole("button", { name: /^Filters$/ }));
+    await user.click(screen.getByRole("combobox", { name: "Mode" }));
+
+    expect(screen.getByRole("option", { name: "enforce" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "disabled" })).not.toBeInTheDocument();
+  });
+
+  it("ignores mode=disabled from the URL", () => {
+    renderWithRouter(<Plugins />, "/app/plugins?mode=disabled");
+
+    expect(screen.getByRole("heading", { name: "PII Guardrails" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Request Logger" })).toBeInTheDocument();
+    // Accessible name stays "Filters" (not "Filters, 1 active") — the ignored
+    // mode must not count towards the active filter badge.
+    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
   });
 
   it("filters by hook and tag, then clears filters", async () => {

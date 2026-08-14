@@ -183,11 +183,6 @@ export function PluginDetailsDialog({
             <DetailRow label={intl.formatMessage({ id: "plugins.catalog.priority" })}>
               {plugin.priority}
             </DetailRow>
-            <DetailRow label={intl.formatMessage({ id: "plugins.catalog.status" })}>
-              {isEnabled(plugin)
-                ? intl.formatMessage({ id: "plugins.catalog.enabled" })
-                : intl.formatMessage({ id: "plugins.catalog.disabled" })}
-            </DetailRow>
           </dl>
 
           {plugin.hooks && plugin.hooks.length > 0 && (
