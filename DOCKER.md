@@ -18,7 +18,9 @@ point `CONTEXTFORGE_URL` at.
 
 ```bash
 cp .env.example .env
-# edit .env: at minimum set CONTEXTFORGE_URL to your gateway's address
+# edit .env: CONTEXTFORGE_URL defaults to 0.0.0.0:8000, which is only
+# correct for native dev. If your gateway runs on the host, set:
+#   CONTEXTFORGE_URL=http://host.docker.internal:8000
 docker compose up --build
 ```
 
@@ -118,9 +120,15 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 
 ## Troubleshooting
 
-- **Every `/api/*` request fails / connection refused**: `CONTEXTFORGE_URL`
-  is unset or unreachable from inside the container. There's no boot-time
-  check for this — the app starts fine either way.
+- **Every `/api/*` request (including login) fails with `ECONNREFUSED`**:
+  `CONTEXTFORGE_URL` is unreachable from inside the container — most often
+  because it's still set to `.env.example`'s native-dev default
+  (`0.0.0.0:8000`/`127.0.0.1:...`), which inside a container points at the
+  container's own loopback, not the host. If your gateway runs on the
+  host, set `CONTEXTFORGE_URL=http://host.docker.internal:8000` instead
+  (`docker-compose.yml` maps that hostname to the host on both Docker
+  Desktop and Linux). There's no boot-time check for this — the app
+  starts fine either way.
 - **Container crash-loops on startup**: check `docker compose logs app` —
   `config.ts` throws a specific error for each fail-closed case
   (`memory://` Redis with `COOKIE_SECURE=true`, or `COOKIE_SECURE=true`

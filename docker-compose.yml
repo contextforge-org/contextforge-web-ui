@@ -10,6 +10,11 @@ services:
     environment:
       # Defaults to this compose's redis service; .env's REDIS_URL overrides if set.
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    extra_hosts:
+      # Lets CONTEXTFORGE_URL=http://host.docker.internal:<port> reach a
+      # gateway running on the host. Docker Desktop (mac/Windows) resolves
+      # this automatically; Linux needs this mapping explicitly.
+      - "host.docker.internal:host-gateway"
     depends_on:
       redis:
         condition: service_healthy
@@ -23,8 +28,8 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
-    # No volume by default — sessions are an ephemeral, opt-in cache (see
-    # .env.docker.example). Add persistence only if you actually need
-    # sessions to survive a `docker compose down`:
-    #   volumes: ["redis-data:/data"]
-    # and a top-level `volumes: { redis-data: {} }`.
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
