@@ -95,6 +95,10 @@
  * dropdowns, dialogs, sheets, slide-overs) keep literal shadow-md/lg in
  * both themes; they overlay the page and need the separation. Buttons,
  * switches, and other controls carry no shadow.
+ *
+ * elevation-control is the exception: the selected chip of a tab bar or
+ * segmented control sits raised above its track in both themes, which is
+ * what makes it read as selected.
  */
 @utility elevation-xs {
   --tw-shadow: var(--elevation-xs);
@@ -110,6 +114,12 @@
 }
 @utility elevation-panel {
   --tw-shadow: var(--elevation-panel);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+@utility elevation-control {
+  --tw-shadow: var(--elevation-control);
   box-shadow:
     var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
     var(--tw-ring-shadow), var(--tw-shadow);
@@ -181,6 +191,10 @@
   --elevation-xs: 0 0 #0000;
   --elevation-sm: 0 0 #0000;
   --elevation-panel: 0 0 #0000;
+
+  /* Raised in light too — the selected chip needs to lift off its track,
+     but only just; a heavier shadow reads as a floating layer. */
+  --elevation-control: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 /*
  ---break---
@@ -231,6 +245,7 @@
   --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --elevation-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --elevation-panel: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --elevation-control: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 /*
  ---break---

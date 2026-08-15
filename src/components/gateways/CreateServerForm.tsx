@@ -146,7 +146,7 @@ export function CreateServerForm({
                   />
                   <label
                     htmlFor={`server-visibility-${option.value}`}
-                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:ring-1 peer-checked:ring-border peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
+                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
                   >
                     {intl.formatMessage({ id: option.labelId })}
                   </label>

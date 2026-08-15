@@ -46,7 +46,7 @@ const TABS: Array<{ value: ComponentTab; label: string }> = [
 
 // Segmented-control styling for the Try it / Components tab triggers.
 const SEGMENTED_TRIGGER_CLASS =
-  "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:ring-1 data-[state=active]:ring-border";
+  "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:elevation-control";
 
 interface Tool {
   id: string;

@@ -73,7 +73,7 @@ function CatalogViewToggle({
         type="button"
         variant="ghost"
         aria-pressed={!installedOnly}
-        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border"
+        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:elevation-control"
         onClick={() => onChange(false)}
       >
         {intl.formatMessage({ id: "mcpServer.catalog.all" })}
@@ -82,7 +82,7 @@ function CatalogViewToggle({
         type="button"
         variant="ghost"
         aria-pressed={installedOnly}
-        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border"
+        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:elevation-control"
         onClick={() => onChange(true)}
       >
         {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
