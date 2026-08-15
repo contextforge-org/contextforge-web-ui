@@ -88,7 +88,7 @@ export function CreateServerForm({
 
   return (
     <form
-      className="rounded-xl border border-border bg-card px-7 py-7 elevation-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
+      className="rounded-xl border border-border bg-white px-7 py-7 elevation-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
       onSubmit={onSubmit}
       noValidate
     >

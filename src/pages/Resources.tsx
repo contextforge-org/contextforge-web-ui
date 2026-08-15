@@ -209,8 +209,8 @@ function AddResourcesCard({ onAddResource }: { onAddResource: () => void }) {
     >
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-neutral-200 elevation-sm dark:bg-white">
-            <Plus className="h-3.5 w-3.5 text-neutral-700 dark:text-neutral-900" />
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg elevation-sm">
+            <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
           <span className="text-sm font-semibold text-neutral-900 dark:text-white">
             {intl.formatMessage({ id: "resources.addResources.title" })}
