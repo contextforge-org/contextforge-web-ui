@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { CircleCheck, EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -80,8 +80,22 @@ function CatalogCard({
 }) {
   const intl = useIntl();
   const headingId = useId();
+  const addTriggerRef = useRef<HTMLButtonElement | null>(null);
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const pendingDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldTransferAddFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (server.is_registered && shouldTransferAddFocusRef.current) {
+      shouldTransferAddFocusRef.current = false;
+      actionsTriggerRef.current?.focus();
+      return;
+    }
+
+    if (!server.is_registered && !isAdding) {
+      shouldTransferAddFocusRef.current = false;
+    }
+  }, [isAdding, server.is_registered]);
 
   return (
     <li className="min-w-0">
@@ -122,7 +136,7 @@ function CatalogCard({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      align="start"
+                      align="end"
                       onCloseAutoFocus={(event) => {
                         const trigger = pendingDetailsTriggerRef.current;
                         if (!trigger) return;
@@ -144,11 +158,24 @@ function CatalogCard({
                 </>
               ) : (
                 <Button
+                  ref={addTriggerRef}
                   type="button"
                   variant="outline"
                   size="xs"
                   disabled={isAdding}
-                  onClick={onAdd}
+                  aria-label={intl.formatMessage(
+                    {
+                      id: isAdding
+                        ? "mcpServer.catalog.addingServer"
+                        : "mcpServer.catalog.addServer",
+                    },
+                    { name: server.name },
+                  )}
+                  onClick={() => {
+                    shouldTransferAddFocusRef.current =
+                      addTriggerRef.current?.ownerDocument.activeElement === addTriggerRef.current;
+                    onAdd();
+                  }}
                 >
                   <Plus className="size-3.5" aria-hidden="true" />
                   {isAdding

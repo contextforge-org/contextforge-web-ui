@@ -251,6 +251,66 @@ describe("useQuery", () => {
 
       await waitFor(() => expect(result.current.data?.count).toBe(2));
     });
+
+    it("keeps cached data visible while a refetch is pending and after it fails", async () => {
+      let callCount = 0;
+      let releaseRefresh!: () => void;
+      const refreshGate = new Promise<void>((resolve) => {
+        releaseRefresh = resolve;
+      });
+      server.use(
+        http.get("/api/test-refetch-stale", async () => {
+          callCount += 1;
+          if (callCount === 1) return HttpResponse.json({ value: "cached" });
+
+          await refreshGate;
+          return HttpResponse.json({ detail: "refresh failed" }, { status: 500 });
+        }),
+      );
+
+      const { result } = renderHook(() => useQuery<{ value: string }>("/api/test-refetch-stale"));
+      await waitFor(() => expect(result.current.data).toEqual({ value: "cached" }));
+
+      let refetchPromise!: Promise<{ value: string }>;
+      act(() => {
+        refetchPromise = result.current.refetch();
+      });
+      await waitFor(() => expect(result.current.isLoading).toBe(true));
+      expect(result.current.data).toEqual({ value: "cached" });
+
+      await act(async () => {
+        releaseRefresh();
+        await expect(refetchPromise).rejects.toMatchObject({ status: 500 });
+      });
+
+      expect(result.current.data).toEqual({ value: "cached" });
+      expect(result.current.error).toMatchObject({ status: 500 });
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it("replaces an optimistic cache update with later authoritative data", async () => {
+      server.use(
+        http.get("/api/test-refetch-authoritative", () =>
+          HttpResponse.json({ is_registered: false }),
+        ),
+      );
+
+      const { result } = renderHook(() =>
+        useQuery<{ is_registered: boolean }>("/api/test-refetch-authoritative"),
+      );
+      await waitFor(() => expect(result.current.data).toEqual({ is_registered: false }));
+
+      act(() => {
+        result.current.setData({ is_registered: true });
+      });
+      expect(result.current.data).toEqual({ is_registered: true });
+
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      expect(result.current.data).toEqual({ is_registered: false });
+    });
   });
 
   describe("execute with overrideBody", () => {

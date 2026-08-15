@@ -261,12 +261,12 @@ test.describe("Server catalog page", () => {
     await page.goto(APP.SERVER_CATALOG);
     await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("button", { name: "Add Public Notes" }).click();
 
     await expect.poll(() => registerCalls).toBe(1);
     const catalog = page.getByRole("list", { name: "Catalog servers" });
     await expect(catalog.getByText("Connected", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "View Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Actions for Public Notes" })).toBeVisible();
   });

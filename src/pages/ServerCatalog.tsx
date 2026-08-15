@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
 
 import { registerCatalogServer } from "@/api/catalog";
+import { ApiError } from "@/api/client";
 import {
   CatalogResults,
   CatalogServerDetailsDialog,
@@ -32,6 +33,11 @@ interface CatalogFilters {
   provider: string[];
   tags: string[];
   installedOnly: boolean;
+}
+
+interface RegistrationNotification {
+  type: "success" | "error";
+  message: string;
 }
 
 type QueryUpdateValue = string | string[] | boolean | null;
@@ -131,6 +137,39 @@ function sortedUnique(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))].sort();
 }
 
+function setCatalogServerRegistration(
+  catalog: CatalogListResponse | undefined,
+  serverId: string,
+  isRegistered: boolean,
+): CatalogListResponse | undefined {
+  if (!catalog) return catalog;
+
+  const serverIndex = catalog.servers.findIndex((server) => server.id === serverId);
+  if (serverIndex === -1 || catalog.servers[serverIndex].is_registered === isRegistered) {
+    return catalog;
+  }
+
+  const servers = [...catalog.servers];
+  servers[serverIndex] = { ...servers[serverIndex], is_registered: isRegistered };
+  return { ...catalog, servers };
+}
+
+function removeCatalogServer(
+  catalog: CatalogListResponse | undefined,
+  serverId: string,
+): CatalogListResponse | undefined {
+  if (!catalog) return catalog;
+
+  const servers = catalog.servers.filter((server) => server.id !== serverId);
+  if (servers.length === catalog.servers.length) return catalog;
+
+  return {
+    ...catalog,
+    servers,
+    total: Math.max(0, catalog.total - 1),
+  };
+}
+
 function CatalogPageLayout({ children }: { children: ReactNode }) {
   const intl = useIntl();
 
@@ -148,13 +187,11 @@ export function ServerCatalog() {
   const intl = useIntl();
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
   const [addingServerIds, setAddingServerIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [registeredServerIds, setRegisteredServerIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registrationNotification, setRegistrationNotification] =
+    useState<RegistrationNotification | null>(null);
   const addingServerIdsRef = useRef(new Set<string>());
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
-  const { data, error, isLoading, refetch } = useQuery<CatalogListResponse>(CATALOG_PATH);
+  const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const { filters, updateQuery, applyFilters } = useCatalogFilters();
   const [search, setSearch] = useState(filters.search);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -174,15 +211,7 @@ export function ServerCatalog() {
   // until Add filters is pressed, so an unapplied draft must never reach the grid.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
-  const openServers = useMemo(
-    () =>
-      getOpenServers(data?.servers ?? []).map((server) =>
-        registeredServerIds.has(server.id) && !server.is_registered
-          ? { ...server, is_registered: true }
-          : server,
-      ),
-    [data?.servers, registeredServerIds],
-  );
+  const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
   const servers = useMemo(
     () => filterOpenServers(openServers, activeFilters),
     [openServers, activeFilters],
@@ -213,38 +242,71 @@ export function ServerCatalog() {
     setSelectedServer(server);
   }, []);
 
+  const refreshCatalogSilently = useCallback(async () => {
+    try {
+      await refetch();
+    } catch {
+      // The mutation result remains reflected in the cached data. A later
+      // successful fetch will replace that optimistic value authoritatively.
+    }
+  }, [refetch]);
+
   const handleAdd = useCallback(
     async (server: CatalogServer) => {
       if (addingServerIdsRef.current.has(server.id)) return;
 
       addingServerIdsRef.current.add(server.id);
       setAddingServerIds(new Set(addingServerIdsRef.current));
-      setRegistrationError(null);
+      setRegistrationNotification(null);
       try {
         const result = await registerCatalogServer(server.id);
         if (!result.success) {
-          setRegistrationError(
-            result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
-          );
+          setRegistrationNotification({
+            type: "error",
+            message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
+          });
           return;
         }
 
-        setRegisteredServerIds((current) => new Set(current).add(server.id));
-
-        try {
-          await refetch();
-        } catch {
-          // Registration already succeeded. Keep optimistic connected state
-          // instead of misreporting a refresh failure as an add failure.
+        setData((current) => setCatalogServerRegistration(current, server.id, true));
+        await refreshCatalogSilently();
+      } catch (registrationError) {
+        if (registrationError instanceof ApiError && registrationError.status === 409) {
+          setData((current) => setCatalogServerRegistration(current, server.id, true));
+          setRegistrationNotification({
+            type: "success",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.alreadyConnected" },
+              { name: server.name },
+            ),
+          });
+          await refreshCatalogSilently();
+          return;
         }
-      } catch {
-        setRegistrationError(intl.formatMessage({ id: "mcpServer.catalog.addError" }));
+
+        if (registrationError instanceof ApiError && registrationError.status === 404) {
+          setData((current) => removeCatalogServer(current, server.id));
+          setRegistrationNotification({
+            type: "error",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.addNotFound" },
+              { name: server.name },
+            ),
+          });
+          await refreshCatalogSilently();
+          return;
+        }
+
+        setRegistrationNotification({
+          type: "error",
+          message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
+        });
       } finally {
         addingServerIdsRef.current.delete(server.id);
         setAddingServerIds(new Set(addingServerIdsRef.current));
       }
     },
-    [intl, refetch],
+    [intl, refreshCatalogSilently, setData],
   );
 
   const handleDetailsOpenChange = useCallback((open: boolean) => {
@@ -311,12 +373,12 @@ export function ServerCatalog() {
         onApply={applyFilters}
       />
 
-      {registrationError && (
+      {registrationNotification && (
         <div className="mb-4">
           <InlineNotification
-            type="error"
-            message={registrationError}
-            onDismiss={() => setRegistrationError(null)}
+            type={registrationNotification.type}
+            message={registrationNotification.message}
+            onDismiss={() => setRegistrationNotification(null)}
           />
         </div>
       )}
