@@ -213,7 +213,7 @@ export function CreateServerForm({
           type="button"
           variant="ghost"
           onClick={() => setOptionalOpen((current) => !current)}
-          className="flex h-12 w-full items-center gap-3 rounded-md border border-border px-4 text-left text-sm font-medium text-muted-foreground transition hover:bg-muted/40 hover:text-foreground dark:border-[#252529]"
+          className="flex h-12 w-full items-center gap-3 rounded-md border border-border bg-transparent px-4 text-left text-sm font-medium text-muted-foreground transition hover:bg-muted/40 hover:text-foreground aria-expanded:bg-transparent dark:border-[#252529]"
           aria-expanded={optionalOpen}
           aria-controls="optional-server-configuration"
         >
@@ -270,7 +270,7 @@ export function CreateServerForm({
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? "server-description-error" : undefined}
                 maxLength={500}
-                className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
+                className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
               />
               {errors.description && (
                 <p id="server-description-error" className="text-sm text-destructive">
