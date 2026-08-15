@@ -125,13 +125,7 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
             : "border-neutral-300 bg-transparent hover:border-neutral-400 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/40"
         }`}
       >
-        <Button
-          type="button"
-          onClick={handleClick}
-          variant="default"
-          size="sm"
-          className="h-7 gap-2 border border-neutral-700 bg-neutral-800 text-white hover:bg-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800"
-        >
+        <Button type="button" onClick={handleClick} variant="ghost" size="sm" className="h-7 gap-2">
           <Upload className="h-3 w-3" />
           Upload
         </Button>
