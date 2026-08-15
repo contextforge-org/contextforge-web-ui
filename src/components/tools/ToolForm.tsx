@@ -193,11 +193,11 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
     <div className="mx-auto w-full max-w-3xl">
       <BackButton onClick={onToggle} />
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 elevation-sm">
                 <Wrench className="h-4 w-4 text-black" />
               </div>
               <h2 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">

@@ -20,7 +20,7 @@ export function SystemStatsCard({ stats, loading }: SystemStatsCardProps) {
   const intl = useIntl();
 
   return (
-    <div className="rounded-lg bg-card px-5 py-4 shadow-xs ring-1 ring-foreground/10">
+    <div className="rounded-lg bg-card px-5 py-4 elevation-xs ring-1 ring-foreground/10">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatBlock
           label={intl.formatMessage({ id: "dashboard.home.system.executions" })}

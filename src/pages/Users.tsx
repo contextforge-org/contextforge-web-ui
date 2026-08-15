@@ -320,7 +320,7 @@ export function Users() {
                   </div>
                 </>
               ) : (
-                <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+                <div className="rounded-2xl border border-border bg-card p-8 elevation-sm">
                   <h2 className="text-xl font-semibold text-card-foreground">
                     {intl.formatMessage({ id: "users.empty.title" })}
                   </h2>

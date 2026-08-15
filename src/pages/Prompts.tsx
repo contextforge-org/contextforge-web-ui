@@ -217,7 +217,7 @@ function AddPromptsCard({
     >
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg elevation-sm">
             <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
           <span className="text-sm font-semibold text-neutral-900 dark:text-white">

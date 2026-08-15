@@ -295,7 +295,7 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
     <div className="mx-auto w-full max-w-3xl">
       <BackButton onClick={onCancel} />
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">

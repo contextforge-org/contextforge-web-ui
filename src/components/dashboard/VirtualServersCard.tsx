@@ -41,7 +41,7 @@ export function VirtualServersCard({
     : UNAVAILABLE;
 
   return (
-    <div className="flex h-full flex-col gap-4 rounded-lg bg-card px-5 py-4 shadow-xs ring-1 ring-foreground/10">
+    <div className="flex h-full flex-col gap-4 rounded-lg bg-card px-5 py-4 elevation-xs ring-1 ring-foreground/10">
       <h2 className="font-heading text-sm font-semibold leading-5 text-secondary-foreground">
         {intl.formatMessage({ id: "dashboard.home.system.virtualServers" })}
       </h2>

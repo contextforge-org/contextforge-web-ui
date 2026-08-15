@@ -277,7 +277,7 @@ export function ExposeComponentsForm({
 
   if (isLoading) {
     return (
-      <div className="mx-auto mt-6 w-full max-w-5xl rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="mx-auto mt-6 w-full max-w-5xl rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
         <div className="flex items-center justify-center p-12">
           <Loading />
         </div>
@@ -296,7 +296,7 @@ export function ExposeComponentsForm({
   const somePromptsSelected = selectedPrompts.size > 0 && selectedPrompts.size < prompts.length;
 
   return (
-    <div className="mx-auto mt-6 w-full max-w-5xl rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+    <div className="mx-auto mt-6 w-full max-w-5xl rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
       <div className="flex flex-col gap-8 p-6 sm:p-8">
         {oauthNotification && (
           <InlineNotification
@@ -319,7 +319,7 @@ export function ExposeComponentsForm({
         {/* Main content */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 text-neutral-950 shadow-sm">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 text-neutral-950 elevation-sm">
               <Server className="h-4 w-4" aria-hidden="true" />
             </div>
             <h2 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">

@@ -16,7 +16,7 @@ export function TokenIcon({ className }: TokenIconProps) {
   return (
     <span
       className={cn(
-        "flex h-6 w-6 shrink-0 items-center justify-center rounded bg-fuchsia-500 shadow-sm",
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded bg-fuchsia-500 elevation-sm",
         className,
       )}
       aria-hidden="true"

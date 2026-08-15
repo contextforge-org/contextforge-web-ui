@@ -75,12 +75,12 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
         {intl.formatMessage({ id: "common.button.back" })}
       </Button>
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           {/* Header */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-yellow-400 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-yellow-400 elevation-sm">
                 <Users className="h-4 w-4 text-neutral-900" />
               </div>
               <h2

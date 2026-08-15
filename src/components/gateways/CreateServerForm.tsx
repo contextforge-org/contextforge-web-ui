@@ -88,7 +88,7 @@ export function CreateServerForm({
 
   return (
     <form
-      className="rounded-xl border border-border bg-card px-7 py-7 shadow-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
+      className="rounded-xl border border-border bg-card px-7 py-7 elevation-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
       onSubmit={onSubmit}
       noValidate
     >
@@ -146,7 +146,7 @@ export function CreateServerForm({
                   />
                   <label
                     htmlFor={`server-visibility-${option.value}`}
-                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-xs peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
+                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:ring-1 peer-checked:ring-border peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
                   >
                     {intl.formatMessage({ id: option.labelId })}
                   </label>
