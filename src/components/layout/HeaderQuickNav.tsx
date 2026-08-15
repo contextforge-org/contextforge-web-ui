@@ -25,6 +25,7 @@ const BASE_SEARCH_ENTITY_TYPES: SearchEntityType[] = [
   "prompts",
   "agents",
   "teams",
+  "catalog",
 ];
 
 const ENTITY_ROUTE: Record<SearchEntityType, string> = {
@@ -36,6 +37,7 @@ const ENTITY_ROUTE: Record<SearchEntityType, string> = {
   agents: "/app/agents",
   teams: "/app/settings/teams",
   users: "/app/settings/users",
+  catalog: "/app/server-catalog",
 };
 
 const ENTITY_LABEL_KEY: Record<SearchEntityType, string> = {
@@ -47,6 +49,7 @@ const ENTITY_LABEL_KEY: Record<SearchEntityType, string> = {
   agents: "navigation.agents",
   teams: "navigation.teams",
   users: "navigation.users",
+  catalog: "navigation.serverCatalog",
 };
 
 type SearchStatus = "idle" | "loading" | "success" | "error";

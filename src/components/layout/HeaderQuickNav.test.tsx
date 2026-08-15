@@ -314,7 +314,16 @@ describe("HeaderQuickNav", () => {
       expect(searchEntities).toHaveBeenCalledWith(
         expect.objectContaining({
           query: "server",
-          entityTypes: ["servers", "gateways", "tools", "resources", "prompts", "agents", "teams"],
+          entityTypes: [
+            "servers",
+            "gateways",
+            "tools",
+            "resources",
+            "prompts",
+            "agents",
+            "teams",
+            "catalog",
+          ],
           limitPerType: 8,
           teamId: null,
         }),
@@ -390,6 +399,66 @@ describe("HeaderQuickNav", () => {
     await user.click(await screen.findByText("Weather Tool"));
 
     expect(mockNavigate).toHaveBeenCalledWith("/app/tools?selected=tool-1&search=tool");
+  });
+
+  it("groups catalog results under the server catalog label", async () => {
+    vi.mocked(searchEntities).mockResolvedValue({
+      query: "cloudflare",
+      entity_types: ["catalog"],
+      limit_per_type: 8,
+      results: {},
+      groups: [
+        {
+          entity_type: "catalog",
+          count: 1,
+          items: [
+            { id: "cloudflare-docs", name: "Cloudflare Docs", description: "Cloudflare docs MCP" },
+          ],
+        },
+      ],
+      items: [],
+      count: 1,
+    });
+
+    renderQuickNav();
+
+    const input = screen.getByRole("searchbox", { name: "Search" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "cloudflare" } });
+
+    expect(await screen.findByText("Server catalog")).toBeInTheDocument();
+    expect(screen.getByText("Cloudflare Docs")).toBeInTheDocument();
+    expect(screen.getByText("Cloudflare docs MCP")).toBeInTheDocument();
+  });
+
+  it("deep-links a selected catalog result into the catalog search", async () => {
+    const user = userEvent.setup();
+    vi.mocked(searchEntities).mockResolvedValue({
+      query: "cloudflare",
+      entity_types: ["catalog"],
+      limit_per_type: 8,
+      results: {},
+      groups: [
+        {
+          entity_type: "catalog",
+          count: 1,
+          items: [{ id: "cloudflare-docs", name: "Cloudflare Docs" }],
+        },
+      ],
+      items: [],
+      count: 1,
+    });
+
+    renderQuickNav();
+
+    const input = screen.getByRole("searchbox", { name: "Search" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "cloudflare" } });
+    await user.click(await screen.findByText("Cloudflare Docs"));
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/app/server-catalog?selected=cloudflare-docs&search=cloudflare",
+    );
   });
 
   it("navigates to the first result when the form is submitted", async () => {

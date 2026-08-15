@@ -1,7 +1,15 @@
 import { api } from "./client";
 
 export type SearchEntityType =
-  "servers" | "gateways" | "tools" | "resources" | "prompts" | "agents" | "teams" | "users";
+  | "servers"
+  | "gateways"
+  | "tools"
+  | "resources"
+  | "prompts"
+  | "agents"
+  | "teams"
+  | "users"
+  | "catalog";
 
 export interface GlobalSearchItem {
   id?: string;
