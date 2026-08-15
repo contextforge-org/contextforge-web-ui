@@ -146,7 +146,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
 
   return (
     <>
-      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
+      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-white p-0 elevation-panel dark:border-neutral-800 dark:bg-inherit">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Add MCP server name..."
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? "name-error" : undefined}
               />
@@ -258,7 +258,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="Add URL for a running MCP server..."
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
                 aria-invalid={!!errors.url}
                 aria-describedby={errors.url ? "url-error" : undefined}
               />
@@ -278,7 +278,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Add an optional description..."
-                className="min-h-28 focus-visible:ring-1 focus-visible:ring-offset-0"
+                className="min-h-28 placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-offset-0"
                 aria-invalid={!!errors.description}
                 aria-describedby={errors.description ? "description-error" : undefined}
               />
@@ -294,7 +294,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 type="button"
                 variant="ghost"
                 onClick={() => setAdvancedOpen((current) => !current)}
-                className="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-950 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
+                className="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-950 aria-expanded:bg-transparent dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
                 aria-expanded={advancedOpen}
               >
                 <ChevronDown className={`h-4 w-4 transition ${advancedOpen ? "rotate-180" : ""}`} />

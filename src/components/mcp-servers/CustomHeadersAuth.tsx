@@ -62,7 +62,7 @@ export function CustomHeadersAuth({
                 placeholder={
                   index === 0 && headers.length === 1 ? "e.g. X-API-Key..." : "Add header key..."
                 }
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
               />
             </div>
 
@@ -80,7 +80,7 @@ export function CustomHeadersAuth({
                 value={header.value}
                 onChange={(e) => updateHeader(index, "value", e.target.value)}
                 placeholder={"Add header value..."}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
               />
             </div>
 
