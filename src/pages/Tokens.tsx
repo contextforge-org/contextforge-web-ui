@@ -129,7 +129,7 @@ export function Tokens() {
           <p className="text-destructive">{error.message}</p>
         </div>
       ) : tokens.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-6 elevation-sm">
           <div className="flex items-center gap-3">
             <TokenIcon />
             <h2 className="text-lg font-semibold text-foreground">

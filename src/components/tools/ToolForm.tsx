@@ -193,11 +193,11 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
     <div className="mx-auto w-full max-w-3xl">
       <BackButton onClick={onToggle} />
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-purple-500 elevation-sm">
                 <Wrench className="h-4 w-4 text-black" />
               </div>
               <h2 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
@@ -224,7 +224,7 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                 <div
                   role="radiogroup"
                   aria-labelledby="request-type-label"
-                  className="flex gap-2 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                  className="flex gap-2 rounded-md bg-muted p-1"
                 >
                   {(["GET", "POST", "PUT", "PATCH", "DELETE"] as RequestType[]).map((type) => {
                     return (
@@ -240,7 +240,7 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                         />
                         <label
                           htmlFor={`request-${type}`}
-                          className="flex cursor-pointer items-center justify-center rounded-md px-4 py-1 text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                          className="flex cursor-pointer items-center justify-center rounded-md px-4 py-1 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
                         >
                           {type}
                         </label>

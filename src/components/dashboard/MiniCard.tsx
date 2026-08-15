@@ -30,7 +30,7 @@ export function MiniCard({ id, status, className }: MiniCardProps) {
       type="button"
       onClick={() => navigate(viewHref(meta.view))}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-lg bg-card px-4 py-3 text-left text-sm ring-1 ring-foreground/10 shadow-xs",
+        "flex w-full flex-col gap-2 rounded-lg bg-card px-4 py-3 text-left text-sm ring-1 ring-foreground/10 elevation-xs",
         "transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}

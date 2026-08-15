@@ -82,6 +82,49 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/**
+ * Theme-conditional elevation.
+ *
+ * Tailwind inlines shadow values at build time (only the color is a
+ * variable, and --tw-shadow-color is registered with inherits: false),
+ * so shadow-sm cannot be switched off per theme from one place. These
+ * utilities read a variable instead. Light mode is flat; dark mode
+ * keeps the raw Tailwind values, so nothing shifts there.
+ *
+ * Surfaces only: cards, panels, toolbars. Floating layers (popovers,
+ * dropdowns, dialogs, sheets, slide-overs) keep literal shadow-md/lg in
+ * both themes; they overlay the page and need the separation. Buttons,
+ * switches, and other controls carry no shadow.
+ *
+ * elevation-control is the exception: the selected chip of a tab bar or
+ * segmented control sits raised above its track in both themes, which is
+ * what makes it read as selected.
+ */
+@utility elevation-xs {
+  --tw-shadow: var(--elevation-xs);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+@utility elevation-sm {
+  --tw-shadow: var(--elevation-sm);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+@utility elevation-panel {
+  --tw-shadow: var(--elevation-panel);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+@utility elevation-control {
+  --tw-shadow: var(--elevation-control);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+
 /* Light theme */
 :root {
   --background: oklch(1 0 0);
@@ -141,6 +184,17 @@
 
   /* Selection accent — warm orange for selected/hovered surfaces */
   --selection: var(--color-orange-500);
+
+  /* Surfaces are flat in light mode. Tailwind's transparent-shadow sentinel
+     rather than `none`, so the value stays valid inside the box-shadow list
+     these utilities share with ring-*. */
+  --elevation-xs: 0 0 #0000;
+  --elevation-sm: 0 0 #0000;
+  --elevation-panel: 0 0 #0000;
+
+  /* Raised in light too — the selected chip needs to lift off its track,
+     but only just; a heavier shadow reads as a floating layer. */
+  --elevation-control: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 /*
  ---break---
@@ -185,6 +239,13 @@
   --selection: var(--color-orange-500);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
+
+  /* Tailwind's own shadow-xs / shadow-sm values, and the form-panel shadow
+     these utilities replace. */
+  --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --elevation-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --elevation-panel: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --elevation-control: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 /*
  ---break---

@@ -50,7 +50,7 @@ export function HeaderProfileMenu() {
               variant="ghost"
               size="icon-sm"
               onClick={() => setTheme("light")}
-              className={`rounded-full transition-colors ${theme === "light" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full transition-colors ${theme === "light" ? "bg-background text-foreground elevation-control" : "text-muted-foreground hover:text-foreground"}`}
               aria-label={intl.formatMessage({ id: "common.theme.light" })}
             >
               <Sun className="size-4" />
@@ -60,7 +60,7 @@ export function HeaderProfileMenu() {
               variant="ghost"
               size="icon-sm"
               onClick={() => setTheme("dark")}
-              className={`rounded-full transition-colors ${theme === "dark" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full transition-colors ${theme === "dark" ? "bg-background text-foreground elevation-control" : "text-muted-foreground hover:text-foreground"}`}
               aria-label={intl.formatMessage({ id: "common.theme.dark" })}
             >
               <Moon className="size-4" />
@@ -70,7 +70,7 @@ export function HeaderProfileMenu() {
               variant="ghost"
               size="icon-sm"
               onClick={() => setTheme("system")}
-              className={`rounded-full transition-colors ${theme === "system" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full transition-colors ${theme === "system" ? "bg-background text-foreground elevation-control" : "text-muted-foreground hover:text-foreground"}`}
               aria-label={intl.formatMessage({ id: "common.theme.system" })}
             >
               <Monitor className="size-4" />

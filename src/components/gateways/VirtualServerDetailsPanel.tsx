@@ -469,7 +469,7 @@ export function VirtualServerDetailsPanel({
                         className={cn(
                           "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
                           isSelected
-                            ? "bg-background text-foreground shadow-sm"
+                            ? "bg-background text-foreground elevation-control"
                             : "text-muted-foreground hover:text-foreground",
                         )}
                         onClick={() => setSourceFilter(source.id)}

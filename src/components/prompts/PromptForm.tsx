@@ -82,7 +82,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
     <div className="mx-auto w-full max-w-3xl">
       <BackButton onClick={onToggle} />
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit p-0 elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-6 p-6 sm:p-8">
           <div className="flex items-center gap-3">
             <div className="flex h-6 w-6 items-center justify-center rounded bg-prompt-icon-bg">

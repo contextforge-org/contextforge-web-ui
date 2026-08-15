@@ -75,12 +75,12 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
         {intl.formatMessage({ id: "common.button.back" })}
       </Button>
 
-      <div className="rounded-xl border border-neutral-200 bg-inherit shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="rounded-xl border border-neutral-200 bg-inherit elevation-panel dark:border-neutral-800">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           {/* Header */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-yellow-400 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-yellow-400 elevation-sm">
                 <Users className="h-4 w-4 text-neutral-900" />
               </div>
               <h2
@@ -141,7 +141,7 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
               <div
                 role="radiogroup"
                 aria-label={intl.formatMessage({ id: "teams.create.visibility" })}
-                className="flex w-full gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                className="flex w-full gap-1 rounded-md bg-muted p-1"
               >
                 {(["private", "public"] as const).map((v) => (
                   <div key={v} className="min-w-0 flex-1">
@@ -157,7 +157,7 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
                     />
                     <Label
                       htmlFor={`visibility-${v}`}
-                      className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                      className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
                     >
                       {intl.formatMessage({ id: `teams.create.visibility.${v}` })}
                     </Label>

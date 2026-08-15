@@ -146,11 +146,11 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
 
   return (
     <>
-      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+      <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-white p-0 elevation-panel dark:border-neutral-800 dark:bg-inherit">
         <div className="flex flex-col gap-8 p-6 sm:p-8">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-orange-500 text-neutral-950 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-orange-500 text-neutral-950 elevation-sm">
                 <MCPIcon className="h-4 w-4" />
               </div>
               <h2 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
@@ -193,7 +193,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               <div
                 role="radiogroup"
                 aria-label="Server transport type"
-                className="flex gap-2 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                className="flex gap-2 rounded-md bg-muted p-1"
               >
                 {(["STREAMABLEHTTP", "SSE"] as TransportType[]).map((type) => {
                   const label = type === "STREAMABLEHTTP" ? "Streamable HTTP" : "SSE";
@@ -210,7 +210,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                       />
                       <label
                         htmlFor={`transport-${type}`}
-                        className="flex cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                        className="flex cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
                       >
                         {label}
                       </label>
@@ -233,7 +233,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Add MCP server name..."
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? "name-error" : undefined}
               />
@@ -258,7 +258,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="Add URL for a running MCP server..."
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-muted-foreground dark:border-neutral-700 dark:text-neutral-100"
                 aria-invalid={!!errors.url}
                 aria-describedby={errors.url ? "url-error" : undefined}
               />
@@ -278,7 +278,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Add an optional description..."
-                className="min-h-28 focus-visible:ring-1 focus-visible:ring-offset-0"
+                className="min-h-28 placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-offset-0"
                 aria-invalid={!!errors.description}
                 aria-describedby={errors.description ? "description-error" : undefined}
               />
@@ -294,7 +294,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 type="button"
                 variant="ghost"
                 onClick={() => setAdvancedOpen((current) => !current)}
-                className="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-950 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
+                className="inline-flex w-full items-center gap-2 rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-950 aria-expanded:bg-transparent dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
                 aria-expanded={advancedOpen}
               >
                 <ChevronDown className={`h-4 w-4 transition ${advancedOpen ? "rotate-180" : ""}`} />

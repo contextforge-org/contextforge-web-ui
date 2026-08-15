@@ -54,7 +54,7 @@ function PluginViewToggle({
         type="button"
         variant="ghost"
         aria-pressed={!enabledOnly}
-        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs"
+        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:elevation-control"
         onClick={() => onChange(false)}
       >
         {intl.formatMessage({ id: "plugins.catalog.all" })}
@@ -63,7 +63,7 @@ function PluginViewToggle({
         type="button"
         variant="ghost"
         aria-pressed={enabledOnly}
-        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs"
+        className="h-8 flex-1 rounded-md font-medium aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:elevation-control"
         onClick={() => onChange(true)}
       >
         {intl.formatMessage({ id: "plugins.catalog.enabled" })}

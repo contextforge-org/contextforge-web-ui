@@ -209,8 +209,8 @@ function AddResourcesCard({ onAddResource }: { onAddResource: () => void }) {
     >
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-neutral-200 shadow-sm dark:bg-white">
-            <Plus className="h-3.5 w-3.5 text-neutral-700 dark:text-neutral-900" />
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg elevation-sm">
+            <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
           <span className="text-sm font-semibold text-neutral-900 dark:text-white">
             {intl.formatMessage({ id: "resources.addResources.title" })}
@@ -535,7 +535,7 @@ export function Resources() {
   return (
     <div className="p-6">
       {showForm && editingResource && isLoadingResourceContent ? (
-        <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-center rounded-xl border border-neutral-200 bg-inherit p-12 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+        <div className="mx-auto mt-6 flex w-full max-w-3xl items-center justify-center rounded-xl border border-neutral-200 bg-inherit p-12 elevation-panel dark:border-neutral-800">
           <span className="sr-only">
             {intl.formatMessage({ id: "resources.form.loadingContent" })}
           </span>
@@ -557,7 +557,7 @@ export function Resources() {
           </div>
         </div>
       ) : showForm && editingResource && isEditingBinaryResource ? (
-        <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-inherit p-6 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
+        <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-inherit p-6 elevation-panel dark:border-neutral-800">
           <h3 className="mb-1 font-semibold text-neutral-900 dark:text-white">
             {intl.formatMessage({ id: "resources.form.binaryUnsupported" })}
           </h3>

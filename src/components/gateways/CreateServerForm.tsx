@@ -88,19 +88,21 @@ export function CreateServerForm({
 
   return (
     <form
-      className="rounded-xl border border-border bg-card px-7 py-7 shadow-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
+      className="rounded-xl border border-neutral-200 bg-white p-6 elevation-panel sm:p-8 dark:border-neutral-800 dark:bg-inherit"
       onSubmit={onSubmit}
       noValidate
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[#f554ff] text-black">
-          <Server className="size-5" aria-hidden="true" />
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-[#f554ff] text-neutral-950 elevation-sm">
+          <Server className="size-4" aria-hidden="true" />
         </span>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">{resolvedTitle}</h1>
+        <h1 className="text-lg font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
+          {resolvedTitle}
+        </h1>
       </div>
 
       <div className="mt-5">
-        <p className="max-w-[48rem] text-sm leading-5 text-muted-foreground">
+        <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-400">
           {resolvedDescription}
         </p>
       </div>
@@ -146,7 +148,7 @@ export function CreateServerForm({
                   />
                   <label
                     htmlFor={`server-visibility-${option.value}`}
-                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-xs peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
+                    className="flex h-full cursor-pointer items-center justify-center rounded-sm px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background"
                   >
                     {intl.formatMessage({ id: option.labelId })}
                   </label>
@@ -159,10 +161,10 @@ export function CreateServerForm({
         <div className="space-y-3">
           <label
             htmlFor="server-name"
-            className="inline-flex items-center gap-0.5 text-sm font-medium text-foreground"
+            className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
           >
             {intl.formatMessage({ id: "gateways.createServer.name" })}
-            <span className="text-destructive">*</span>
+            <span className="text-red-500">*</span>
             <span className="sr-only">
               {intl.formatMessage({ id: "gateways.createServer.required" })}
             </span>
@@ -179,7 +181,7 @@ export function CreateServerForm({
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? "server-name-error" : undefined}
             maxLength={100}
-            className="h-10 rounded-md border-input bg-background px-3 text-sm shadow-none"
+            className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
           />
           {errors.name && (
             <p id="server-name-error" className="text-sm text-destructive">
@@ -189,7 +191,10 @@ export function CreateServerForm({
         </div>
 
         <div className="space-y-3">
-          <label htmlFor="oauth-enabled" className="text-sm font-medium text-foreground">
+          <label
+            htmlFor="oauth-enabled"
+            className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
+          >
             {intl.formatMessage({ id: "gateways.createServer.oauthLabel" })}
           </label>
           <div className="flex items-center gap-4">
@@ -201,7 +206,6 @@ export function CreateServerForm({
                 validateField("oauthEnabled", checked);
               }}
               aria-describedby="oauth-enabled-description"
-              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-[#343438]"
             />
             <p id="oauth-enabled-description" className="text-sm leading-5 text-muted-foreground">
               {intl.formatMessage({ id: "gateways.createServer.oauthDescription" })}
@@ -213,7 +217,7 @@ export function CreateServerForm({
           type="button"
           variant="ghost"
           onClick={() => setOptionalOpen((current) => !current)}
-          className="flex h-12 w-full items-center gap-3 rounded-md border border-border px-4 text-left text-sm font-medium text-muted-foreground transition hover:bg-muted/40 hover:text-foreground dark:border-[#252529]"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-950 aria-expanded:bg-transparent dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-300"
           aria-expanded={optionalOpen}
           aria-controls="optional-server-configuration"
         >
@@ -227,7 +231,10 @@ export function CreateServerForm({
         {optionalOpen && (
           <div id="optional-server-configuration" className="grid gap-7">
             <div className="space-y-3">
-              <label htmlFor="server-tags" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="server-tags"
+                className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
+              >
                 {intl.formatMessage({ id: "gateways.createServer.tags" })}
               </label>
               <TagInput
@@ -253,7 +260,10 @@ export function CreateServerForm({
             </div>
 
             <div className="space-y-3">
-              <label htmlFor="server-description" className="text-sm font-medium text-foreground">
+              <label
+                htmlFor="server-description"
+                className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
+              >
                 {intl.formatMessage({ id: "gateways.createServer.descriptionLabel" })}
               </label>
               <Textarea
@@ -270,7 +280,7 @@ export function CreateServerForm({
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? "server-description-error" : undefined}
                 maxLength={500}
-                className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
+                className="min-h-28 resize-y placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-offset-0"
               />
               {errors.description && (
                 <p id="server-description-error" className="text-sm text-destructive">
@@ -285,13 +295,18 @@ export function CreateServerForm({
       {children && <div className="mt-7">{children}</div>}
 
       <div className="mt-8 flex items-center justify-end gap-5">
-        <Button type="button" variant="ghost" onClick={onCancel} className="h-8 px-2 text-sm">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onCancel}
+          className="h-10 rounded-md px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+        >
           {intl.formatMessage({ id: "common.button.cancel" })}
         </Button>
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="h-8 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-white/90"
+          className="h-10 rounded-md bg-neutral-950 px-4 text-sm font-medium text-white hover:enabled:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:enabled:bg-neutral-200"
         >
           {resolvedSubmitLabel}
         </Button>

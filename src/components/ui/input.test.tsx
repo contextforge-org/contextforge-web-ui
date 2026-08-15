@@ -47,7 +47,9 @@ describe("Input", () => {
       expect(el).toHaveClass("px-2.5");
       expect(el).toHaveClass("py-1");
       expect(el).toHaveClass("text-base");
-      expect(el).toHaveClass("shadow-xs");
+      // Controls carry no shadow in either theme; see the elevation utilities
+      // in index.css.
+      expect(el).not.toHaveClass("shadow-xs");
     });
 
     it("should have outline-none class", () => {

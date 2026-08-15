@@ -277,7 +277,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
                     "text-muted-foreground hover:text-foreground",
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     "disabled:pointer-events-none disabled:opacity-50",
-                    "data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:shadow-sm",
+                    "data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:elevation-control",
                   )}
                 >
                   {m}
