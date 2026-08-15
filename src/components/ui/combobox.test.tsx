@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Combobox, type ComboboxOption } from "./combobox";
 
@@ -130,6 +130,23 @@ describe("Combobox", () => {
 
     await user.click(screen.getByRole("button", { name: "outside" }));
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  });
+
+  it("cancels pending blur work when unmounted", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = render(<Combobox options={OPTIONS} />);
+      const input = screen.getByRole("combobox");
+
+      fireEvent.focus(input);
+      fireEvent.blur(input);
+      expect(vi.getTimerCount()).toBe(1);
+
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("closes on Escape without selecting", async () => {

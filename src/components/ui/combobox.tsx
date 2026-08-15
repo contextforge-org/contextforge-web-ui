@@ -40,8 +40,18 @@ export function Combobox({
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const blurTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const listboxId = React.useId();
   const optionIdPrefix = React.useId();
+
+  const clearBlurTimeout = React.useCallback(() => {
+    if (blurTimeoutRef.current !== null) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => clearBlurTimeout, [clearBlurTimeout]);
 
   const selectedOption = options.find((opt) => opt.value === value);
   const displayLabel = selectedOption?.label || value || "";
@@ -87,6 +97,7 @@ export function Combobox({
   }, [activeIndex, open]);
 
   const handleOpen = () => {
+    clearBlurTimeout();
     if (!disabled) {
       setOpen(true);
       setSearchValue("");
@@ -151,7 +162,9 @@ export function Combobox({
   };
 
   const handleBlur = () => {
-    setTimeout(() => {
+    clearBlurTimeout();
+    blurTimeoutRef.current = setTimeout(() => {
+      blurTimeoutRef.current = null;
       if (!containerRef.current?.contains(document.activeElement)) {
         setOpen(false);
         setSearchValue("");

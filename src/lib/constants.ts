@@ -13,7 +13,7 @@ export const VALIDATION = {
   MAX_PASSWORD_LENGTH: 1000,
 
   /** Minimum password length requirement */
-  MIN_PASSWORD_LENGTH: 8,
+  MIN_PASSWORD_LENGTH: 12,
 
   /** Maximum length for name fields */
   MAX_NAME_LENGTH: 255,
