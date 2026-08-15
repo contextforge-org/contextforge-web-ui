@@ -193,7 +193,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               <div
                 role="radiogroup"
                 aria-label="Server transport type"
-                className="flex gap-2 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                className="flex gap-2 rounded-md bg-muted p-1"
               >
                 {(["STREAMABLEHTTP", "SSE"] as TransportType[]).map((type) => {
                   const label = type === "STREAMABLEHTTP" ? "Streamable HTTP" : "SSE";
@@ -210,7 +210,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                       />
                       <label
                         htmlFor={`transport-${type}`}
-                        className="flex cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                        className="flex cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
                       >
                         {label}
                       </label>
