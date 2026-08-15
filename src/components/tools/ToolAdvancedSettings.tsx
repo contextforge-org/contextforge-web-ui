@@ -161,7 +161,7 @@ export function ToolAdvancedSettings({
         <div
           role="radiogroup"
           aria-labelledby="auth-type-label"
-          className="flex w-full flex-nowrap gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+          className="flex w-full flex-nowrap gap-1 rounded-md bg-muted p-1"
         >
           {(["none", "basic", "bearer", "custom"] as AuthType[]).map((type) => {
             const label =
@@ -186,7 +186,7 @@ export function ToolAdvancedSettings({
                 />
                 <label
                   htmlFor={`auth-${type}`}
-                  className="flex cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-checked:px-4 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                  className="flex cursor-pointer items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-center text-sm font-medium text-muted-foreground transition hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:elevation-control peer-checked:px-4 peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
                 >
                   {label}
                 </label>
