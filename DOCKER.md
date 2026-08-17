@@ -5,6 +5,10 @@ built UI (root, Vite/React SPA) as static files and proxies `/api/*`, so
 the whole client stack — UI + BFF — is a single container. Redis is a
 separate service, wired in via `docker-compose.yml`.
 
+The image builds on Red Hat UBI9 Node.js 22
+(`registry.access.redhat.com/ubi9/nodejs-22`, public/no-auth) rather than
+`node:alpine` — enterprise-supportable, glibc-based, non-root by default.
+
 `.env`/`.env.example` are shared with native (non-Docker) dev — see the
 root README's Getting Started section. `docker-compose.yml` and
 `server`'s native `npm run dev`/`start` both read the same repo-root
@@ -13,6 +17,37 @@ root README's Getting Started section. `docker-compose.yml` and
 The upstream ContextForge/mcpgateway API is **not** part of this repo or
 this compose file — it's expected to already be running somewhere you
 point `CONTEXTFORGE_URL` at.
+
+## Published image
+
+Tagged releases (`vX.Y.Z`, matching the repo's git tags) are built and
+pushed to GHCR by `.github/workflows/docker-release.yml`:
+
+```bash
+docker pull ghcr.io/contextforge-org/contextforge-web-ui:vX.Y.Z
+```
+
+Also available: the `vX.Y` (minor) tag, and `latest` (stable releases
+only — prerelease/RC tags don't move it). Built for `linux/amd64` and
+`linux/arm64`. See the repo's **Releases** and **Packages** tabs for the
+full list of published tags, signatures, and SBOMs.
+
+To point `docker-compose.yml` at the published image instead of building
+locally, override the `app` service's `build:` key with `image:`:
+
+```yaml
+# docker-compose.override.yml
+services:
+  app:
+    image: ghcr.io/contextforge-org/contextforge-web-ui:vX.Y.Z
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up
+```
+
+For Helm/Kubernetes, point your chart's `image.repository` /
+`image.tag` (or equivalent values) at the same coordinates.
 
 ## Quick start
 
@@ -137,5 +172,6 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
 - **Multi-arch builds** (e.g. building on Apple Silicon for an amd64
   target): `docker buildx build --platform linux/amd64,linux/arm64 -t contextforge-web-ui .`
   — the UI stage's native dependency (`lightningcss`, via
-  `@tailwindcss/vite`) ships prebuilt musl binaries for both architectures,
-  so no Dockerfile changes should be needed.
+  `@tailwindcss/vite`) ships prebuilt glibc binaries for both architectures
+  (the base image is glibc-based UBI, not musl-based Alpine), so no
+  Dockerfile changes should be needed.
