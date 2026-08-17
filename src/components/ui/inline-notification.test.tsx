@@ -1,9 +1,20 @@
+import { createRef } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InlineNotification } from "./inline-notification";
 
 describe("InlineNotification", () => {
+  it("forwards its root ref and supports programmatic focus", () => {
+    const ref = createRef<HTMLDivElement>();
+    render(<InlineNotification ref={ref} type="error" message="Failed" tabIndex={-1} />);
+
+    ref.current?.focus();
+
+    expect(ref.current).toBe(screen.getByRole("alert"));
+    expect(ref.current).toHaveFocus();
+  });
+
   describe("success type", () => {
     it("renders with role='status'", () => {
       render(<InlineNotification type="success" message="All good" />);

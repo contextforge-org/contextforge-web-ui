@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { api } from "@/api/client";
 
@@ -137,6 +137,8 @@ export function useQuery<TData, TBody = unknown>(
   const [isLoading, setIsLoading] = useState<boolean>(
     path !== null && enabled && shouldFetchImmediately && initialData === undefined,
   );
+  // Concurrent calls share state, so only latest-issued request may publish it.
+  const latestRequestIdRef = useRef(0);
 
   const headersKey = useMemo(() => createHeadersKey(headers), [headers]);
   const bodyKey = useMemo(() => createBodyKey(body), [body]);
@@ -147,6 +149,7 @@ export function useQuery<TData, TBody = unknown>(
         throw new Error("useQuery: cannot execute a query without a path");
       }
 
+      const requestId = ++latestRequestIdRef.current;
       setIsLoading(true);
       setError(null);
 
@@ -158,14 +161,20 @@ export function useQuery<TData, TBody = unknown>(
           overrideBody === undefined ? body : overrideBody,
           timeout,
         );
-        setData(result);
+        if (requestId === latestRequestIdRef.current) {
+          setData(result);
+        }
         return result;
       } catch (err) {
         const sanitized = sanitizeError(err);
-        setError(sanitized);
+        if (requestId === latestRequestIdRef.current) {
+          setError(sanitized);
+        }
         throw sanitized;
       } finally {
-        setIsLoading(false);
+        if (requestId === latestRequestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     },
     // Using headersKey and bodyKey instead of headers/body to prevent unnecessary re-renders
@@ -176,27 +185,33 @@ export function useQuery<TData, TBody = unknown>(
 
   useEffect(() => {
     if (path === null || !enabled || !shouldFetchImmediately) {
+      latestRequestIdRef.current += 1;
       setIsLoading(false);
       return;
     }
 
     const controller = new AbortController();
+    const requestId = ++latestRequestIdRef.current;
 
     setIsLoading(initialData === undefined);
     setError(null);
 
     executeRequest<TData, TBody>(path, method, headers, body, timeout, controller.signal)
       .then((result) => {
-        setData(result);
+        if (requestId === latestRequestIdRef.current) {
+          setData(result);
+        }
       })
       .catch((err) => {
         // Don't set error state for aborted requests
-        if (err.name !== "AbortError") {
+        if (requestId === latestRequestIdRef.current && err.name !== "AbortError") {
           setError(sanitizeError(err));
         }
       })
       .finally(() => {
-        setIsLoading(false);
+        if (requestId === latestRequestIdRef.current) {
+          setIsLoading(false);
+        }
       });
 
     return () => {

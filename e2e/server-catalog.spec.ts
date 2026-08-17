@@ -223,11 +223,13 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("heading", { name: "Globalping" })).toBeVisible();
   });
 
-  test("adds an open server and refreshes its card to Connected", async ({ page }) => {
+  test("adds an open server without refetching its card", async ({ page }) => {
     let registered = false;
+    let catalogCalls = 0;
     let registerCalls = 0;
 
     await page.route(CATALOG_ROUTE, async (route) => {
+      catalogCalls += 1;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -260,6 +262,7 @@ test.describe("Server catalog page", () => {
 
     await page.goto(APP.SERVER_CATALOG);
     await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
+    const catalogCallsBeforeAdd = catalogCalls;
 
     await page.getByRole("button", { name: "Add Public Notes" }).click();
 
@@ -269,5 +272,41 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("button", { name: "Add Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "View Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Actions for Public Notes" })).toBeVisible();
+    expect(catalogCalls).toBe(catalogCallsBeforeAdd);
+  });
+
+  test("removes a stale server and moves focus to its 404 notification", async ({ page }) => {
+    let registrationAttempted = false;
+
+    await page.route(CATALOG_ROUTE, async (route) => {
+      const servers = registrationAttempted ? [] : [OPEN_SERVER];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers, total: servers.length }),
+      });
+    });
+
+    await page.route(REGISTER_ROUTE, async (route) => {
+      registrationAttempted = true;
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Catalog server not found" }),
+      });
+    });
+
+    await page.goto(APP.SERVER_CATALOG);
+    await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Add Public Notes" }).click();
+
+    const notification = page.getByRole("alert");
+    await expect(notification).toHaveText("Public Notes is no longer available in the catalog.");
+    await expect(notification).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Public Notes" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Dismiss notification" }).click();
+    await expect(page.getByRole("heading", { name: "Server catalog" })).toBeFocused();
   });
 });

@@ -252,6 +252,71 @@ describe("useQuery", () => {
       await waitFor(() => expect(result.current.data?.count).toBe(2));
     });
 
+    it("keeps the latest-issued result when an older refetch resolves last", async () => {
+      let callCount = 0;
+      let releaseOlder!: () => void;
+      let releaseNewer!: () => void;
+      let markOlderStarted!: () => void;
+      let markNewerStarted!: () => void;
+      const olderGate = new Promise<void>((resolve) => {
+        releaseOlder = resolve;
+      });
+      const newerGate = new Promise<void>((resolve) => {
+        releaseNewer = resolve;
+      });
+      const olderStarted = new Promise<void>((resolve) => {
+        markOlderStarted = resolve;
+      });
+      const newerStarted = new Promise<void>((resolve) => {
+        markNewerStarted = resolve;
+      });
+      server.use(
+        http.get("/api/test-refetch-order", async () => {
+          callCount += 1;
+          if (callCount === 1) return HttpResponse.json({ value: "initial" });
+          if (callCount === 2) {
+            markOlderStarted();
+            await olderGate;
+            return HttpResponse.json({ value: "older" });
+          }
+
+          markNewerStarted();
+          await newerGate;
+          return HttpResponse.json({ value: "newer" });
+        }),
+      );
+
+      const { result } = renderHook(() => useQuery<{ value: string }>("/api/test-refetch-order"));
+      await waitFor(() => expect(result.current.data).toEqual({ value: "initial" }));
+
+      let olderRefetch!: Promise<{ value: string }>;
+      act(() => {
+        olderRefetch = result.current.refetch();
+      });
+      await olderStarted;
+
+      let newerRefetch!: Promise<{ value: string }>;
+      act(() => {
+        newerRefetch = result.current.refetch();
+      });
+      await newerStarted;
+
+      await act(async () => {
+        releaseNewer();
+        await expect(newerRefetch).resolves.toEqual({ value: "newer" });
+      });
+      expect(result.current.data).toEqual({ value: "newer" });
+      expect(result.current.isLoading).toBe(false);
+
+      await act(async () => {
+        releaseOlder();
+        await expect(olderRefetch).resolves.toEqual({ value: "older" });
+      });
+      expect(result.current.data).toEqual({ value: "newer" });
+      expect(result.current.error).toBeNull();
+      expect(result.current.isLoading).toBe(false);
+    });
+
     it("keeps cached data visible while a refetch is pending and after it fails", async () => {
       let callCount = 0;
       let releaseRefresh!: () => void;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 
 import { registerCatalogServer } from "@/api/catalog";
@@ -170,12 +170,23 @@ function removeCatalogServer(
   };
 }
 
-function CatalogPageLayout({ children }: { children: ReactNode }) {
+function CatalogPageLayout({
+  children,
+  headingRef,
+}: {
+  children: ReactNode;
+  headingRef: Ref<HTMLHeadingElement>;
+}) {
   const intl = useIntl();
 
   return (
     <section className="p-6" aria-labelledby={PAGE_HEADING_ID}>
-      <h1 id={PAGE_HEADING_ID} className="text-base font-semibold text-foreground">
+      <h1
+        ref={headingRef}
+        id={PAGE_HEADING_ID}
+        tabIndex={-1}
+        className="text-base font-semibold text-foreground"
+      >
         {intl.formatMessage({ id: "mcpServer.catalog.title" })}
       </h1>
       {children}
@@ -191,6 +202,9 @@ export function ServerCatalog() {
     useState<RegistrationNotification | null>(null);
   const addingServerIdsRef = useRef(new Set<string>());
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
+  const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const registrationNotificationRef = useRef<HTMLDivElement | null>(null);
+  const shouldFocusRegistrationNotificationRef = useRef(false);
   const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const { filters, updateQuery, applyFilters } = useCatalogFilters();
   const [search, setSearch] = useState(filters.search);
@@ -205,6 +219,13 @@ export function ServerCatalog() {
       updateQuery({ search: debouncedSearch || null });
     }
   }, [debouncedSearch, filters.search, updateQuery]);
+
+  useEffect(() => {
+    if (!registrationNotification || !shouldFocusRegistrationNotificationRef.current) return;
+
+    shouldFocusRegistrationNotificationRef.current = false;
+    registrationNotificationRef.current?.focus();
+  }, [registrationNotification]);
 
   // Only the debounced search box filters ahead of the URL. Category, provider
   // and tag selections stay committed here: the dialog holds them as a draft
@@ -269,7 +290,6 @@ export function ServerCatalog() {
         }
 
         setData((current) => setCatalogServerRegistration(current, server.id, true));
-        await refreshCatalogSilently();
       } catch (registrationError) {
         if (registrationError instanceof ApiError && registrationError.status === 409) {
           setData((current) => setCatalogServerRegistration(current, server.id, true));
@@ -280,12 +300,12 @@ export function ServerCatalog() {
               { name: server.name },
             ),
           });
-          await refreshCatalogSilently();
           return;
         }
 
         if (registrationError instanceof ApiError && registrationError.status === 404) {
           setData((current) => removeCatalogServer(current, server.id));
+          shouldFocusRegistrationNotificationRef.current = true;
           setRegistrationNotification({
             type: "error",
             message: intl.formatMessage(
@@ -315,9 +335,18 @@ export function ServerCatalog() {
     window.setTimeout(() => lastViewTriggerRef.current?.focus(), 0);
   }, []);
 
+  const handleRegistrationNotificationDismiss = useCallback(() => {
+    const notification = registrationNotificationRef.current;
+    const shouldRestoreFocus = notification?.contains(notification.ownerDocument.activeElement);
+    setRegistrationNotification(null);
+    if (shouldRestoreFocus) {
+      window.setTimeout(() => pageHeadingRef.current?.focus(), 0);
+    }
+  }, []);
+
   if (isLoading && !data) {
     return (
-      <CatalogPageLayout>
+      <CatalogPageLayout headingRef={pageHeadingRef}>
         <div aria-busy="true">
           <Loading />
         </div>
@@ -327,7 +356,7 @@ export function ServerCatalog() {
 
   if (error?.status === 404 && !data) {
     return (
-      <CatalogPageLayout>
+      <CatalogPageLayout headingRef={pageHeadingRef}>
         <div role="status" aria-live="polite" className="mt-6">
           <EmptyStatePlaceholder messageId="mcpServer.catalog.disabled" />
         </div>
@@ -337,7 +366,7 @@ export function ServerCatalog() {
 
   if (error && !data) {
     return (
-      <CatalogPageLayout>
+      <CatalogPageLayout headingRef={pageHeadingRef}>
         <div className="mt-6">
           <InlineNotification
             type="error"
@@ -357,7 +386,7 @@ export function ServerCatalog() {
   }
 
   return (
-    <CatalogPageLayout>
+    <CatalogPageLayout headingRef={pageHeadingRef}>
       <CatalogToolbar
         search={search}
         installedOnly={filters.installedOnly}
@@ -376,9 +405,11 @@ export function ServerCatalog() {
       {registrationNotification && (
         <div className="mb-4">
           <InlineNotification
+            ref={registrationNotificationRef}
             type={registrationNotification.type}
             message={registrationNotification.message}
-            onDismiss={() => setRegistrationNotification(null)}
+            tabIndex={-1}
+            onDismiss={handleRegistrationNotificationDismiss}
           />
         </div>
       )}

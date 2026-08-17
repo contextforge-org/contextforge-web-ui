@@ -205,7 +205,7 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
   });
 
-  it("registers an available server and refreshes the catalog", async () => {
+  it("registers an available server without refetching the catalog", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -222,25 +222,10 @@ describe("ServerCatalog", () => {
     expect(
       updateCatalog(response)?.servers.find((server) => server.id === openAvailable.id),
     ).toMatchObject({ is_registered: true });
-    expect(refetch).toHaveBeenCalledOnce();
+    expect(refetch).not.toHaveBeenCalled();
   });
 
-  it("keeps successful registration when catalog refresh fails", async () => {
-    const user = userEvent.setup();
-    const refetch = vi.fn().mockRejectedValue(new Error("refresh failed"));
-    const setData = vi.fn();
-    mockUseQuery.mockReturnValue(queryResult({ refetch, setData }));
-    renderWithRouter(<ServerCatalog />);
-
-    const card = screen.getByRole("heading", { name: "Public Notes" }).closest("article")!;
-    await user.click(within(card).getByRole("button", { name: "Add Public Notes" }));
-
-    await waitFor(() => expect(refetch).toHaveBeenCalledOnce());
-    expect(setData).toHaveBeenCalledOnce();
-    expect(screen.queryByText("Unable to add this server. Try again.")).not.toBeInTheDocument();
-  });
-
-  it("treats an already-registered response as connected and refreshes", async () => {
+  it("treats an already-registered response as connected without refetching", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -254,7 +239,7 @@ describe("ServerCatalog", () => {
 
     expect(await screen.findByText("Public Notes is already connected.")).toBeInTheDocument();
     expect(setData).toHaveBeenCalledOnce();
-    expect(refetch).toHaveBeenCalledOnce();
+    expect(refetch).not.toHaveBeenCalled();
     expect(screen.queryByText("Server already registered")).not.toBeInTheDocument();
   });
 
@@ -270,9 +255,9 @@ describe("ServerCatalog", () => {
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Public Notes is no longer available in the catalog.",
-    );
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent("Public Notes is no longer available in the catalog.");
+    await waitFor(() => expect(notification).toHaveFocus());
     expect(setData).toHaveBeenCalledOnce();
     const updateCatalog = setData.mock.calls[0][0] as (
       current: CatalogListResponse | undefined,
@@ -281,6 +266,11 @@ describe("ServerCatalog", () => {
     expect(updateCatalog(response)?.total).toBe(2);
     expect(refetch).toHaveBeenCalledOnce();
     expect(screen.queryByText("Catalog server not found")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Server catalog" })).toHaveFocus(),
+    );
   });
 
   it("tracks concurrent registrations independently", async () => {
@@ -299,10 +289,12 @@ describe("ServerCatalog", () => {
           if (id === secondAvailable.id) resolveWeather = resolve;
         }),
     );
+    const refetch = vi.fn();
     const setData = vi.fn();
     mockUseQuery.mockReturnValue(
       queryResult({
         data: { ...response, servers: [openAvailable, secondAvailable], total: 2 },
+        refetch,
         setData,
       }),
     );
@@ -324,6 +316,7 @@ describe("ServerCatalog", () => {
 
     resolveNotes({ success: true, server_id: "notes", message: "Registered" });
     await waitFor(() => expect(setData).toHaveBeenCalledTimes(2));
+    expect(refetch).not.toHaveBeenCalled();
   });
 
   it("shows connected status in details opened from the action menu", async () => {
