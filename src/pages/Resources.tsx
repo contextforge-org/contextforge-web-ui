@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import { useIntl } from "react-intl";
 import { Plus, EllipsisVertical, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { resourcesApi } from "@/api/resources";
 import { ApiError } from "@/api/client";
@@ -228,6 +229,8 @@ function AddResourcesCard({ onAddResource }: { onAddResource: () => void }) {
 
 export function Resources() {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canCreateResource = !permissionsLoading && hasPermission("resources.create");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingResource, setEditingResource] = useState<NonNullable<ResourceRead> | null>(null);
@@ -617,7 +620,7 @@ export function Resources() {
 
           {!isLoading && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-              <AddResourcesCard onAddResource={() => setShowForm(true)} />
+              {canCreateResource && <AddResourcesCard onAddResource={() => setShowForm(true)} />}
               {groups.map((group) => (
                 <ResourceGroupCard
                   key={group.gatewaySlug}

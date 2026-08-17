@@ -15,6 +15,7 @@ import {
   updateVirtualServerTags,
 } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import type { VirtualServer, VirtualServersResponse } from "@/types/server";
@@ -35,6 +36,8 @@ function sortServersForLayout(servers: VirtualServer[]): VirtualServer[] {
 export function Gateways() {
   const intl = useIntl();
   const { navigate, path } = useRouter();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canCreateServer = !permissionsLoading && hasPermission("servers.create");
   const { data, error, isLoading, refetch, setData } =
     useQuery<VirtualServersResponse>(SERVERS_QUERY_PATH);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -286,7 +289,7 @@ export function Gateways() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ConnectSourceCard onAction={() => navigate(CREATE_SERVER_PATH)} />
+        {canCreateServer && <ConnectSourceCard onAction={() => navigate(CREATE_SERVER_PATH)} />}
         {layoutServers.map((server) => {
           const hasComponents = hasVirtualServerComponents(server);
 

@@ -76,6 +76,7 @@ const TOOL_B1 = makeTool("send_message", "slack-server");
 test.describe("Tools page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
 
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
@@ -98,6 +99,23 @@ test.describe("Tools page", () => {
     await expect(
       page.getByText(/Tools will appear automatically when you connect a MCP server/i),
     ).toBeVisible();
+  });
+
+  test("hides Add tools card when the caller lacks tools.create", async ({ page, apiMock }) => {
+    await apiMock.mockPermissions({ permissions: ["tools.read"] });
+    await page.route("**/tools?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "Tools" })).toBeVisible();
+    await expect(page.getByText("Add tools")).not.toBeVisible();
   });
 
   test("Add tools card opens the tool form", async ({ page }) => {

@@ -21,6 +21,7 @@ vi.mock("@/auth/AuthContext", () => ({
 }));
 
 const mockUseAuthContext = vi.mocked(useAuthContext);
+const mockHasPermission = vi.fn((_perm: string) => true);
 import type { PromptRead } from "@/generated/types";
 
 type Prompt = NonNullable<PromptRead>;
@@ -55,9 +56,12 @@ function getPromptCard(label: string): HTMLElement {
 describe("Prompts", () => {
   beforeEach(() => {
     server.resetHandlers();
-    mockUseAuthContext.mockReturnValue({ selectedTeamId: null } as ReturnType<
-      typeof useAuthContext
-    >);
+    mockHasPermission.mockReturnValue(true);
+    mockUseAuthContext.mockReturnValue({
+      selectedTeamId: null,
+      hasPermission: mockHasPermission,
+      permissionsLoading: false,
+    } as unknown as ReturnType<typeof useAuthContext>);
   });
 
   it("renders the add prompts card", async () => {
@@ -82,6 +86,18 @@ describe("Prompts", () => {
 
     expect(await screen.findByRole("button", { name: "Add prompts" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /More options for/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the add-prompt card when the caller lacks prompts.create", async () => {
+    mockHasPermission.mockReturnValue(false);
+    server.use(http.get("/api/prompts", () => HttpResponse.json([])));
+
+    renderWithProviders(<Prompts />);
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    });
+    expect(screen.queryByText("Add prompts")).not.toBeInTheDocument();
   });
 
   it("shows the prompt form when the add card is clicked", async () => {

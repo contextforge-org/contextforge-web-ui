@@ -20,6 +20,12 @@ import { AuthProvider } from "@/auth/AuthContext";
 import type { ReactElement } from "react";
 import type { Tool } from "@/types/tool";
 
+const mockHasPermission = vi.fn((_perm: string) => true);
+let mockPermissionsLoading = false;
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ hasPermission: mockHasPermission, permissionsLoading: mockPermissionsLoading }),
+}));
+
 // Helper to create mock tools
 function createMockTool(id: number, gatewaySlug: string, enabled = true, reachable = true): Tool {
   return {
@@ -68,6 +74,21 @@ describe("Tools", () => {
   beforeEach(() => {
     // Reset any runtime request handlers we add during tests
     server.resetHandlers();
+    mockPermissionsLoading = false;
+    mockHasPermission.mockReturnValue(true);
+  });
+
+  it("hides the add-tool card when the caller lacks tools.create", async () => {
+    mockHasPermission.mockReturnValue(false);
+    server.use(http.get("/api/tools", () => HttpResponse.json([])));
+
+    renderWithRouter(<Tools />);
+
+    // With no tools and no create permission, the grid renders no cards at all.
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    });
+    expect(screen.queryByText("Add tools")).not.toBeInTheDocument();
   });
 
   it("renders loading state initially", () => {

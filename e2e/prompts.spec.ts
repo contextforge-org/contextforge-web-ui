@@ -44,6 +44,7 @@ function makePrompt(id: string, gatewaySlug: string, overrides: Partial<Prompt> 
 test.describe("Prompts page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
     });
@@ -64,6 +65,26 @@ test.describe("Prompts page", () => {
     await expect(page.getByRole("heading", { name: "Prompts" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add prompts" })).toBeVisible();
     await expect(page.getByRole("button", { name: /More options for/ })).toHaveCount(0);
+  });
+
+  test("hides the add prompt card when the caller lacks prompts.create", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockPermissions({ permissions: ["prompts.read"] });
+    await page.route("**/prompts?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.goto(APP.PROMPTS);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "Prompts" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add prompts" })).not.toBeVisible();
   });
 
   test("shows an error state when the prompts API fails", async ({ page }) => {

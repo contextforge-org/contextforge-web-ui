@@ -31,6 +31,7 @@ test.describe("Resources page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     // Mock authentication
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
 
     // Set auth token in sessionStorage
     await page.addInitScript(() => {
@@ -54,6 +55,26 @@ test.describe("Resources page", () => {
     await expect(
       page.getByText(/Resources will appear automatically when you connect a MCP server/),
     ).toBeVisible();
+  });
+
+  test("hides add resources card when the caller lacks resources.create", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockPermissions({ permissions: ["resources.read"] });
+    await page.route("**/resources?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.goto(APP.RESOURCES);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
+    await expect(page.getByText("Add resources")).not.toBeVisible();
   });
 
   test("clicking add resources card opens form", async ({ page }) => {
