@@ -10,7 +10,14 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import { createSession, setSessionCookie, type SessionUser } from "../../lib/session-store.js";
+import {
+  clearSessionCookie,
+  createSession,
+  deleteSession,
+  setSessionCookie,
+  SESSION_COOKIE_NAME,
+  type SessionUser,
+} from "../../lib/session-store.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
 import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
@@ -62,6 +69,20 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
       }
 
       if (!upstreamResponse.ok) {
+        // A failed login must not leave a pre-existing bff_sid/CSRF cookie
+        // pair sitting in the browser — otherwise a stale-but-still-live
+        // session survives the failed attempt and a mutating request made
+        // right after can ride that leftover cookie into a confusing
+        // downstream 403 instead of a clean 401. Drop the Redis session (if
+        // any) and clear both cookies, same as an explicit /auth/logout.
+        // See contextforge-org/contextforge-web-ui#10.
+        const staleSessionId = request.cookies[SESSION_COOKIE_NAME];
+        if (staleSessionId) {
+          await deleteSession(fastify.redis, staleSessionId);
+        }
+        clearSessionCookie(reply);
+        reply.clearCookie(CSRF_COOKIE_NAME, { path: "/", domain: config.cookieDomain });
+
         // Upstream 401/403/429 pass through as-is; body may carry rate-limit or
         // lockout detail the SPA's login form wants to show.
         const detail = await upstreamResponse.text();

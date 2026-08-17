@@ -41,7 +41,15 @@ function TestComponent() {
     <div>
       <div data-testid="auth-status">{auth.isAuthenticated ? "authenticated" : "guest"}</div>
       {auth.user && <div data-testid="user-email">{auth.user.email}</div>}
-      <button onClick={() => auth.login("test@example.com", "pass")}>Login</button>
+      <button
+        onClick={() => {
+          // Real callers (Login.tsx) always catch this; swallow here too so a
+          // rejected login in tests doesn't surface as an unhandled rejection.
+          auth.login("test@example.com", "pass").catch(() => {});
+        }}
+      >
+        Login
+      </button>
       <button onClick={() => auth.logout()}>Logout</button>
     </div>
   );
@@ -218,6 +226,47 @@ describe("AuthContext", () => {
       { authenticated: false },
     );
     expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+  });
+
+  it("clears stale auth state and CSRF token when login fails", async () => {
+    // Simulate a client that still holds a previously-authenticated state
+    // (e.g. a stale session) when a login attempt is made and rejected.
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      authenticated: true,
+      user: mockUser,
+      csrfToken: "stale-csrf-token",
+    });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
+    });
+
+    vi.mocked(api.post).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+
+    screen.getByText("Login").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+    });
+
+    expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
+    expect(setCsrfToken).toHaveBeenLastCalledWith(null);
   });
 
   it("handles successful logout", async () => {
