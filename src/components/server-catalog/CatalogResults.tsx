@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { CircleCheck, EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
-import { StatusDot } from "@/components/dashboard/StatusDot";
 import { ServerIcon } from "@/components/servers/ServerIcon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,14 +15,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-function getSafeCatalogLogoUrl(logoUrl: string | null | undefined): string | null {
-  if (!logoUrl) return null;
+function getSafeExternalUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
 
   try {
-    const parsed = new URL(logoUrl);
+    const parsed = new URL(value);
     return parsed.protocol === "https:" && !parsed.username && !parsed.password
       ? parsed.href
       : null;
@@ -33,7 +39,7 @@ function getSafeCatalogLogoUrl(logoUrl: string | null | undefined): string | nul
 
 function CatalogLogo({ server }: { server: CatalogServer }) {
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
-  const logoUrl = getSafeCatalogLogoUrl(server.logo_url);
+  const logoUrl = getSafeExternalUrl(server.logo_url);
 
   if (!logoUrl || failedLogoUrl === logoUrl) {
     return (
@@ -64,12 +70,32 @@ function CatalogLogo({ server }: { server: CatalogServer }) {
 function CatalogCard({
   server,
   onView,
+  onAdd,
+  isAdding,
 }: {
   server: CatalogServer;
-  onView: (trigger: HTMLButtonElement) => void;
+  onView: (trigger: HTMLElement) => void;
+  onAdd: () => void;
+  isAdding: boolean;
 }) {
   const intl = useIntl();
   const headingId = useId();
+  const addTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const pendingDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldTransferAddFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (server.is_registered && shouldTransferAddFocusRef.current) {
+      shouldTransferAddFocusRef.current = false;
+      actionsTriggerRef.current?.focus();
+      return;
+    }
+
+    if (!server.is_registered && !isAdding) {
+      shouldTransferAddFocusRef.current = false;
+    }
+  }, [isAdding, server.is_registered]);
 
   return (
     <li className="min-w-0">
@@ -78,11 +104,6 @@ function CatalogCard({
           <CardContent className="flex flex-1 flex-col px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <CatalogLogo server={server} />
-              {server.is_registered && (
-                <StatusDot tone="success" className="text-sm text-muted-foreground">
-                  {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
-                </StatusDot>
-              )}
             </div>
 
             <h2 id={headingId} className="mt-4 truncate text-sm font-medium text-foreground">
@@ -92,19 +113,91 @@ function CatalogCard({
               {server.description}
             </p>
 
-            <div className="mt-auto pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                aria-label={intl.formatMessage(
-                  { id: "mcpServer.catalog.viewServer" },
-                  { name: server.name },
-                )}
-                onClick={(event) => onView(event.currentTarget)}
-              >
-                {intl.formatMessage({ id: "mcpServer.catalog.view" })}
-              </Button>
+            <div className="mt-auto flex min-h-6 items-center gap-3 pt-4">
+              {server.is_registered ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
+                    {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        ref={actionsTriggerRef}
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={intl.formatMessage(
+                          { id: "mcpServer.catalog.actionsFor" },
+                          { name: server.name },
+                        )}
+                      >
+                        <EllipsisVertical className="size-4" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      onCloseAutoFocus={(event) => {
+                        const trigger = pendingDetailsTriggerRef.current;
+                        if (!trigger) return;
+                        event.preventDefault();
+                        pendingDetailsTriggerRef.current = null;
+                        window.setTimeout(() => onView(trigger), 0);
+                      }}
+                    >
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          if (!actionsTriggerRef.current) return;
+                          pendingDetailsTriggerRef.current = actionsTriggerRef.current;
+                        }}
+                      >
+                        {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <Button
+                  ref={addTriggerRef}
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isAdding}
+                  aria-label={intl.formatMessage(
+                    {
+                      id: isAdding
+                        ? "mcpServer.catalog.addingServer"
+                        : "mcpServer.catalog.addServer",
+                    },
+                    { name: server.name },
+                  )}
+                  onClick={() => {
+                    shouldTransferAddFocusRef.current =
+                      addTriggerRef.current?.ownerDocument.activeElement === addTriggerRef.current;
+                    onAdd();
+                  }}
+                >
+                  <Plus className="size-3.5" aria-hidden="true" />
+                  {isAdding
+                    ? intl.formatMessage({ id: "mcpServer.catalog.adding" })
+                    : intl.formatMessage({ id: "mcpServer.catalog.add" })}
+                </Button>
+              )}
+
+              {!server.is_registered && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={intl.formatMessage(
+                    { id: "mcpServer.catalog.viewServer" },
+                    { name: server.name },
+                  )}
+                  onClick={(event) => onView(event.currentTarget)}
+                >
+                  <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </article>
@@ -190,10 +283,14 @@ export function CatalogResults({
   servers,
   emptyStateMessageId,
   onView,
+  onAdd,
+  addingServerIds,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
-  onView: (server: CatalogServer, trigger: HTMLButtonElement) => void;
+  onView: (server: CatalogServer, trigger: HTMLElement) => void;
+  onAdd: (server: CatalogServer) => void;
+  addingServerIds: ReadonlySet<string>;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -213,6 +310,8 @@ export function CatalogResults({
               key={server.id}
               server={server}
               onView={(trigger) => onView(server, trigger)}
+              onAdd={() => onAdd(server)}
+              isAdding={addingServerIds.has(server.id)}
             />
           ))}
         </ul>

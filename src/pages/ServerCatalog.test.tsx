@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { registerCatalogServer } from "@/api/catalog";
+import { ApiError } from "@/api/client";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
@@ -12,8 +14,12 @@ import { ServerCatalog } from "./ServerCatalog";
 vi.mock("@/hooks/useQuery", () => ({
   useQuery: vi.fn(),
 }));
+vi.mock("@/api/catalog", () => ({
+  registerCatalogServer: vi.fn(),
+}));
 
 const mockUseQuery = vi.mocked(useQuery);
+const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -98,19 +104,28 @@ async function selectSectionOption(user: UserEvent, section: string, option: str
   await user.click(within(getFilterSection(section)).getByRole("checkbox", { name: option }));
 }
 
-function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
-  window.history.pushState({}, "", path);
-  return render(
+function withProviders(ui: ReactElement) {
+  return (
     <RouterProvider>
       <I18nProvider>{ui}</I18nProvider>
-    </RouterProvider>,
+    </RouterProvider>
   );
+}
+
+function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
+  window.history.pushState({}, "", path);
+  return render(withProviders(ui));
 }
 
 describe("ServerCatalog", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
     mockUseQuery.mockReturnValue(queryResult());
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      server_id: "registered-server",
+      message: "Registered",
+    });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -120,6 +135,21 @@ describe("ServerCatalog", () => {
 
     expect(mockUseQuery).toHaveBeenCalledWith("/v1/catalog?limit=1000");
     expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+  });
+
+  it("keeps cached catalog data visible during refreshes and refresh failures", () => {
+    let currentQueryResult = queryResult({ isLoading: true });
+    mockUseQuery.mockImplementation(() => currentQueryResult);
+    const { rerender } = renderWithRouter(<ServerCatalog />);
+
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading..." })).not.toBeInTheDocument();
+
+    currentQueryResult = queryResult({ error: { message: "refresh failed", status: 500 } });
+    rerender(withProviders(<ServerCatalog />));
+
+    expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
+    expect(screen.queryByText("Unable to load server catalog. Try again.")).not.toBeInTheDocument();
   });
 
   it("renders only exact Open entries and marks registered servers connected", () => {
@@ -133,7 +163,9 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
     expect(within(catalogList).getByText("Connected")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2 servers shown");
-    expect(screen.getByRole("button", { name: "View Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actions for Globalping" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Public Notes" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View Globalping" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Public Notes" })).toBeInTheDocument();
     expect(screen.queryByText(/registration coming soon/i)).not.toBeInTheDocument();
   });
@@ -142,10 +174,11 @@ describe("ServerCatalog", () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
-    const viewButton = screen.getByRole("button", { name: "View Globalping" });
-    await user.click(viewButton);
+    const actionsButton = screen.getByRole("button", { name: "Actions for Globalping" });
+    await user.click(actionsButton);
+    await user.click(screen.getByRole("menuitem", { name: "View details" }));
 
-    const dialog = screen.getByRole("dialog");
+    const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(within(dialog).getByText("jsDelivr")).toBeInTheDocument();
     expect(within(dialog).getByText("STREAMABLEHTTP")).toBeInTheDocument();
@@ -153,10 +186,152 @@ describe("ServerCatalog", () => {
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    await waitFor(() => expect(viewButton).toHaveFocus());
+    await waitFor(() => expect(actionsButton).toHaveFocus());
 
-    await user.click(screen.getByRole("button", { name: "View Public Notes" }));
-    expect(within(screen.getByRole("dialog")).getByText("Not connected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available");
+  });
+
+  it("reports catalog registration failures", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to add this server. Try again.",
+    );
+    expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
+  });
+
+  it("registers an available server without refetching the catalog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    const setData = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ refetch, setData }));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    await waitFor(() => expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available"));
+    expect(setData).toHaveBeenCalledOnce();
+    const updateCatalog = setData.mock.calls[0][0] as (
+      current: CatalogListResponse | undefined,
+    ) => CatalogListResponse | undefined;
+    expect(
+      updateCatalog(response)?.servers.find((server) => server.id === openAvailable.id),
+    ).toMatchObject({ is_registered: true });
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it("treats an already-registered response as connected without refetching", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    const setData = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ refetch, setData }));
+    mockRegisterCatalogServer.mockRejectedValue(
+      new ApiError(409, { detail: "Server already registered" }, "HTTP 409"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    expect(await screen.findByText("Public Notes is already connected.")).toBeInTheDocument();
+    expect(setData).toHaveBeenCalledOnce();
+    expect(refetch).not.toHaveBeenCalled();
+    expect(screen.queryByText("Server already registered")).not.toBeInTheDocument();
+  });
+
+  it("removes a stale catalog entry after a registration 404 and refreshes", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    const setData = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ refetch, setData }));
+    mockRegisterCatalogServer.mockRejectedValue(
+      new ApiError(404, { detail: "Catalog server not found" }, "HTTP 404"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent("Public Notes is no longer available in the catalog.");
+    await waitFor(() => expect(notification).toHaveFocus());
+    expect(setData).toHaveBeenCalledOnce();
+    const updateCatalog = setData.mock.calls[0][0] as (
+      current: CatalogListResponse | undefined,
+    ) => CatalogListResponse | undefined;
+    expect(updateCatalog(response)?.servers).not.toContainEqual(openAvailable);
+    expect(updateCatalog(response)?.total).toBe(2);
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Catalog server not found")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Server catalog" })).toHaveFocus(),
+    );
+  });
+
+  it("tracks concurrent registrations independently", async () => {
+    const user = userEvent.setup();
+    const secondAvailable = {
+      ...openAvailable,
+      id: "open-weather",
+      name: "Public Weather",
+    };
+    let resolveNotes!: (value: Awaited<ReturnType<typeof registerCatalogServer>>) => void;
+    let resolveWeather!: (value: Awaited<ReturnType<typeof registerCatalogServer>>) => void;
+    mockRegisterCatalogServer.mockImplementation(
+      (id) =>
+        new Promise((resolve) => {
+          if (id === openAvailable.id) resolveNotes = resolve;
+          if (id === secondAvailable.id) resolveWeather = resolve;
+        }),
+    );
+    const refetch = vi.fn();
+    const setData = vi.fn();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [openAvailable, secondAvailable], total: 2 },
+        refetch,
+        setData,
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    const notesCard = screen.getByRole("heading", { name: "Public Notes" }).closest("article")!;
+    const weatherCard = screen.getByRole("heading", { name: "Public Weather" }).closest("article")!;
+    await user.click(within(notesCard).getByRole("button", { name: "Add Public Notes" }));
+    await user.click(within(weatherCard).getByRole("button", { name: "Add Public Weather" }));
+
+    expect(within(notesCard).getByRole("button", { name: "Adding Public Notes…" })).toBeDisabled();
+    expect(
+      within(weatherCard).getByRole("button", { name: "Adding Public Weather…" }),
+    ).toBeDisabled();
+
+    resolveWeather({ success: true, server_id: "weather", message: "Registered" });
+    await waitFor(() => expect(setData).toHaveBeenCalledTimes(1));
+    expect(within(notesCard).getByRole("button", { name: "Adding Public Notes…" })).toBeDisabled();
+
+    resolveNotes({ success: true, server_id: "notes", message: "Registered" });
+    await waitFor(() => expect(setData).toHaveBeenCalledTimes(2));
+    expect(refetch).not.toHaveBeenCalled();
+  });
+
+  it("shows connected status in details opened from the action menu", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [{ ...openAvailable, is_registered: true }] } }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    const actionsButton = screen.getByRole("button", { name: "Actions for Public Notes" });
+    await user.click(actionsButton);
+    await user.click(screen.getByRole("menuitem", { name: "View details" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Connected")).toBeInTheDocument();
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
   });
 
   it("renders safe remote logos and falls back when loading fails", () => {
