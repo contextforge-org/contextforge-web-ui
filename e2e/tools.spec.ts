@@ -225,7 +225,7 @@ test.describe("Tools page", () => {
 
     // And it remains functional.
     await kebab.click();
-    await expect(page.getByRole("menuitem", { name: "View Details" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
   });
 
   test("opens more options dropdown and shows View Details item", async ({ page }) => {
@@ -242,7 +242,7 @@ test.describe("Tools page", () => {
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
 
-    await expect(page.getByRole("menuitem", { name: "View Details" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
   });
 
   test("opens details panel when View Details is clicked", async ({ page }) => {
@@ -258,7 +258,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel).toBeVisible();
@@ -280,7 +280,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel).toBeVisible();
@@ -315,7 +315,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel).toBeVisible();
@@ -366,7 +366,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel).toBeVisible();
@@ -399,7 +399,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await panel.getByRole("button", { name: "More options" }).first().click();
@@ -438,7 +438,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for solo-gateway" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for solo-gateway/i });
     await expect(panel).toBeVisible();
@@ -485,7 +485,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for multi-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for multi-gw/i });
     await expect(panel).toBeVisible();
@@ -535,7 +535,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for rb-gateway" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for rb-gateway/i });
     await expect(panel).toBeVisible();
@@ -583,7 +583,7 @@ test.describe("Tools page", () => {
     await expect(page.getByText("github-server")).toBeVisible();
 
     await page.getByRole("button", { name: "More options for lone-gateway" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for lone-gateway/i });
     await expect(panel).toBeVisible();
@@ -845,7 +845,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for edit-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for edit-gw/i });
     await expect(panel).toBeVisible();
@@ -885,7 +885,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for schema-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for schema-gw/i });
     await expect(panel).toBeVisible();
@@ -936,7 +936,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for toggle-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for toggle-gw/i });
     await expect(panel).toBeVisible();
@@ -985,7 +985,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for activate-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for activate-gw/i });
     await expect(panel).toBeVisible();
@@ -1034,7 +1034,7 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for fail-gw" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for fail-gw/i });
     await expect(panel).toBeVisible();

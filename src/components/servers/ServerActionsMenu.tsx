@@ -1,4 +1,5 @@
 import { MoreVertical } from "lucide-react";
+import { useIntl } from "react-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,8 @@ export function ServerActionsMenu({
   onViewDetails,
   onToggleEnabled,
 }: ServerActionsMenuProps) {
+  const intl = useIntl();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,28 +33,37 @@ export function ServerActionsMenu({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          aria-label={`Actions for ${server.name}`}
+          aria-label={intl.formatMessage(
+            { id: "mcpServer.table.actions.label" },
+            { name: server.name },
+          )}
           aria-haspopup="menu"
         >
           <MoreVertical className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Open menu for {server.name}</span>
+          <span className="sr-only">
+            {intl.formatMessage({ id: "mcpServer.table.actions.openMenu" }, { name: server.name })}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" role="menu">
         {onViewDetails && (
           <DropdownMenuItem onClick={() => onViewDetails(server.id)} role="menuitem">
-            View Details
+            {intl.formatMessage({ id: "mcpServer.table.actions.viewDetails" })}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => onEdit(server.id)} role="menuitem">
-          Edit
+          {intl.formatMessage({ id: "mcpServer.table.actions.edit" })}
         </DropdownMenuItem>
         {onToggleEnabled && (
           <DropdownMenuItem
             onClick={() => onToggleEnabled(server.id, !server.enabled)}
             role="menuitem"
           >
-            {server.enabled ? "Deactivate" : "Activate"}
+            {intl.formatMessage({
+              id: server.enabled
+                ? "mcpServer.table.actions.deactivate"
+                : "mcpServer.table.actions.activate",
+            })}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
@@ -59,7 +71,7 @@ export function ServerActionsMenu({
           className="text-red-600 dark:text-red-400"
           role="menuitem"
         >
-          Delete
+          {intl.formatMessage({ id: "mcpServer.table.actions.delete" })}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

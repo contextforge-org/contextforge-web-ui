@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 import { NoneAuth } from "./NoneAuth";

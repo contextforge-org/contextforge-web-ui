@@ -173,7 +173,7 @@ test.describe("MCP Servers page", () => {
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
 
-    await expect(page.getByRole("menuitem", { name: "View Details" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Deactivate" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
@@ -336,7 +336,7 @@ test.describe("MCP Servers page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByRole("heading", { name: "GitHub MCP Server" })).toBeVisible();
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
     await expect(page.getByRole("button", { name: /close mcp server details/i })).not.toBeVisible();
@@ -402,7 +402,7 @@ test.describe("MCP Servers page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByRole("heading", { name: "GitHub MCP Server" })).toBeVisible();
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
     await expect(page.getByRole("button", { name: /close mcp server details/i })).not.toBeVisible();
@@ -469,7 +469,7 @@ test.describe("MCP Servers page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByRole("heading", { name: "GitHub MCP Server" })).toBeVisible();
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
     await expect(page.getByRole("button", { name: /close mcp server details/i })).not.toBeVisible();
@@ -484,7 +484,7 @@ test.describe("MCP Servers page", () => {
     await expect(page.getByRole("row").filter({ hasText: "Slack MCP Server" })).not.toBeVisible();
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
     await expect(page.getByRole("heading", { name: "GitHub MCP Server" })).toBeVisible();
   });
 
@@ -531,7 +531,7 @@ test.describe("MCP Servers page", () => {
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
-    await page.getByRole("menuitem", { name: "View Details" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
 
     // Wait for the details panel to open (heading "GitHub MCP Server" appears in the panel header)
     await expect(page.getByRole("heading", { name: "GitHub MCP Server" })).toBeVisible();

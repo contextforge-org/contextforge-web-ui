@@ -6,7 +6,7 @@
   "tools.card.toolCount": "{count, plural, one {# tool} other {# tools}}",
   "tools.card.moreToolsTitle": "{count, plural, one {# more tool} other {# more tools}}",
   "tools.card.moreOptionsFor": "More options for {name}",
-  "tools.card.viewDetails": "View Details",
+  "tools.card.viewDetails": "View details",
   "tools.add.title": "Add tools",
   "tools.add.description": "Tools will appear automatically when you connect a MCP server. Or, register a REST endpoint as a standalone tool.",
   "tools.delete.confirm.title": "Delete tool",

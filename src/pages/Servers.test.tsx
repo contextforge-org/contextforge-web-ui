@@ -211,7 +211,7 @@ describe("Servers", () => {
 
     renderWithRouter(<Servers />);
 
-    expect(screen.getByText("Loading servers, please wait...")).toBeInTheDocument();
+    expect(screen.getByText("Loading servers...")).toBeInTheDocument();
   });
 
   it("shows error alert when query fails", async () => {

@@ -1,3 +1,4 @@
+import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 
 interface BearerTokenAuthProps {
@@ -6,6 +7,8 @@ interface BearerTokenAuthProps {
 }
 
 export function BearerTokenAuth({ token, onTokenChange }: BearerTokenAuthProps) {
+  const intl = useIntl();
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -13,10 +16,10 @@ export function BearerTokenAuth({ token, onTokenChange }: BearerTokenAuthProps) 
           htmlFor="bearer-token"
           className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
-          Bearer token
+          {intl.formatMessage({ id: "mcpServer.auth.bearer.label" })}
         </label>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Add the API key or token issued by the server.
+          {intl.formatMessage({ id: "mcpServer.auth.bearer.description" })}
         </p>
       </div>
 
@@ -25,7 +28,7 @@ export function BearerTokenAuth({ token, onTokenChange }: BearerTokenAuthProps) 
         type="password"
         value={token}
         onChange={(e) => onTokenChange(e.target.value)}
-        placeholder="Paste bearer token..."
+        placeholder={intl.formatMessage({ id: "mcpServer.auth.bearer.placeholder" })}
         className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
     </div>
