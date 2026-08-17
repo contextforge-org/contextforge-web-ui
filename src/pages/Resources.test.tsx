@@ -7,6 +7,9 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const mockHasPermission = vi.fn((_perm: string) => true);
+let mockPermissionsLoading = false;
+
 vi.mock("@/auth/AuthContext", () => ({
   useAuthContext: () => ({
     user: {
@@ -24,6 +27,8 @@ vi.mock("@/auth/AuthContext", () => ({
     login: vi.fn(),
     logout: vi.fn(),
     setSelectedTeamId: vi.fn(),
+    hasPermission: mockHasPermission,
+    permissionsLoading: mockPermissionsLoading,
   }),
 }));
 
@@ -76,6 +81,8 @@ function renderWithRouter(ui: ReactElement) {
 describe("Resources", () => {
   beforeEach(() => {
     server.resetHandlers();
+    mockPermissionsLoading = false;
+    mockHasPermission.mockReturnValue(true);
     // Mock window.confirm for delete operations
     vi.stubGlobal(
       "confirm",
@@ -310,6 +317,18 @@ describe("Resources", () => {
 
     const cards = document.querySelectorAll('[data-slot="card"]');
     expect(cards).toHaveLength(1);
+  });
+
+  it("hides the add-resource card when the caller lacks resources.create", async () => {
+    mockHasPermission.mockReturnValue(false);
+    server.use(http.get("/api/resources", () => HttpResponse.json([])));
+
+    renderWithRouter(<Resources />);
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    });
+    expect(screen.queryByText("Add resources")).not.toBeInTheDocument();
   });
 
   it("uses correct grid layout classes", async () => {

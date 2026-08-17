@@ -2,8 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { renderWithProviders } from "@/test/test-utils";
 import { RouterProvider } from "@/router";
 
-// Dashboard is rendered here as a smoke test, without an AuthProvider; stub the
-// status hook (which reads auth/health) so it renders standalone.
+// These pages are rendered here as smoke tests, without an AuthProvider; stub
+// the auth-dependent hooks so they render standalone.
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ hasPermission: () => true, permissionsLoading: false }),
+}));
+
 vi.mock("@/hooks/useMiniCardStatuses", () => ({
   useMiniCardStatuses: () => {
     const offline = { kind: "dot", tone: "muted", labelId: "dashboard.home.status.offline" };
@@ -39,6 +43,7 @@ import { RestApi } from "./RestApi";
 import { ServerCatalog } from "./ServerCatalog";
 import { Teams } from "./Teams";
 import { Tokens } from "./Tokens";
+
 describe("Simple Page Components", () => {
   it("renders Agents page", () => {
     renderWithProviders(<Agents />);

@@ -14,6 +14,7 @@ import {
 import type { CursorPaginatedPromptsResponse, PromptRead } from "@/generated/types";
 import { PromptDetailsPanel } from "@/components/prompts";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { promptsApi } from "@/api/prompts";
 import { ApiError } from "@/api/client";
@@ -236,6 +237,8 @@ function AddPromptsCard({
 
 export function Prompts() {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canCreatePrompt = !permissionsLoading && hasPermission("prompts.create");
   const [activeGroup, setActiveGroup] = useState<PromptGroup<NonNullable<PromptRead>> | null>(null);
   // Keep the last-shown group populated through the drawer's slide-out
   // transition; clearing `activeGroup` immediately would otherwise blank the
@@ -516,7 +519,9 @@ export function Prompts() {
           ) : (
             <>
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-                <AddPromptsCard onActivate={handleAddPrompt} cardRef={addPromptsCardRef} />
+                {canCreatePrompt && (
+                  <AddPromptsCard onActivate={handleAddPrompt} cardRef={addPromptsCardRef} />
+                )}
                 {groups.map((group) => (
                   <PromptGroupCard
                     key={group.key}

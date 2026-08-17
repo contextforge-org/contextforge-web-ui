@@ -76,6 +76,7 @@ test.describe("Virtual Servers page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     // Mock authentication
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
 
     // Set auth token in sessionStorage
     await page.addInitScript(() => {
@@ -105,6 +106,28 @@ test.describe("Virtual Servers page", () => {
     await expect(page.getByRole("heading", { name: "Connect a source" })).toHaveCount(0);
     await expect(mainContent.getByText("MCP server", { exact: true })).toHaveCount(0);
     await expect(mainContent.getByText("Virtual Server", { exact: true })).toHaveCount(0);
+  });
+
+  test("hides connect source card when the caller lacks servers.create", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockPermissions({ permissions: ["servers.read"] });
+    await page.route("**/servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers: [] }),
+      });
+    });
+
+    await page.goto(APP.GATEWAYS);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "Virtual servers" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Create server Make external sources/i }),
+    ).not.toBeVisible();
   });
 
   test("navigates to create server UI when connect source card is clicked", async ({ page }) => {

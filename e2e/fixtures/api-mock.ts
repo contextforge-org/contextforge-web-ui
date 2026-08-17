@@ -40,6 +40,14 @@ export interface ApiMock {
    * a logged-in DEFAULT_TEST_USER.
    */
   mockSession(options?: { user?: MockUser; authenticated?: boolean }): Promise<void>;
+  /**
+   * Mocks GET /rbac/my/permissions, the caller's effective permission set
+   * (see client/src/auth/AuthContext.tsx). Defaults to the `*` wildcard
+   * (full access) so existing tests that don't care about RBAC keep working;
+   * pass a narrower list to exercise permission-gated UI (e.g. the create
+   * cards on Tools/Resources/Prompts/Gateways).
+   */
+  mockPermissions(options?: { permissions?: string[] }): Promise<void>;
   mockUnauthorized(urlPattern: string | RegExp): Promise<void>;
 }
 
@@ -80,6 +88,16 @@ export function createApiMock(page: Page): ApiMock {
               ? { authenticated: true, user, csrfToken: MOCK_CSRF_TOKEN }
               : { authenticated: false },
           ),
+        });
+      });
+    },
+
+    async mockPermissions({ permissions = ["*"] } = {}) {
+      await page.route("**/rbac/my/permissions*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(permissions),
         });
       });
     },

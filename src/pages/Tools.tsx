@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { useIntl } from "react-intl";
 import { Plus, EllipsisVertical, Wrench } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { toolsApi } from "@/api/tools";
 import { ApiError } from "@/api/client";
@@ -176,6 +177,8 @@ function AddToolsCard({ onAddTool }: { onAddTool: () => void }) {
 export function Tools() {
   const intl = useIntl();
   const { path } = useRouter();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canCreateTool = !permissionsLoading && hasPermission("tools.create");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<ToolGroup | null>(null);
@@ -453,7 +456,7 @@ export function Tools() {
 
           {!isLoading && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-              <AddToolsCard onAddTool={() => setIsFormOpen(true)} />
+              {canCreateTool && <AddToolsCard onAddTool={() => setIsFormOpen(true)} />}
               {groups.map((group) => (
                 <ToolGroupCard
                   key={group.gatewaySlug}

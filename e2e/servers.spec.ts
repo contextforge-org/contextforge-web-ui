@@ -39,6 +39,7 @@ const MOCK_SERVER_2: MCPServer = {
 test.describe("MCP Servers page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
 
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
@@ -62,6 +63,43 @@ test.describe("MCP Servers page", () => {
       page.getByText(/Register a MCP server to federate its tools, resources, and prompts/i),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: /Connect/i })).toBeVisible();
+  });
+
+  test("hides connect card when the caller lacks gateways.create", async ({ page, apiMock }) => {
+    await apiMock.mockPermissions({ permissions: ["gateways.read"] });
+    await page.route("**/gateways?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ gateways: [], nextCursor: null }),
+      });
+    });
+
+    await page.goto(APP.SERVERS);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Connect MCP server")).not.toBeVisible();
+    await expect(page.getByRole("button", { name: /Connect/i })).not.toBeVisible();
+  });
+
+  test("hides toolbar Connect button when the caller lacks gateways.create", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockPermissions({ permissions: ["gateways.read"] });
+    await page.route("**/gateways?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+      });
+    });
+
+    await page.goto(APP.SERVERS);
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByRole("heading", { name: "MCP Servers" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Connect/i })).not.toBeVisible();
   });
 
   test("shows servers list with title and Connect button when servers exist", async ({ page }) => {

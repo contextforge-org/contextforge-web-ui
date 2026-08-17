@@ -42,6 +42,12 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const mockHasPermission = vi.fn((_perm: string) => true);
+let mockPermissionsLoading = false;
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ hasPermission: mockHasPermission, permissionsLoading: mockPermissionsLoading }),
+}));
+
 const mockUseQuery = vi.mocked(useQuery);
 const mockDeleteVirtualServer = vi.mocked(deleteVirtualServer);
 const mockSetVirtualServerState = vi.mocked(setVirtualServerState);
@@ -115,6 +121,8 @@ describe("Gateways", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockToastError.mockClear();
+    mockPermissionsLoading = false;
+    mockHasPermission.mockReturnValue(true);
     mockDeleteVirtualServer.mockReset();
     mockDeleteVirtualServer.mockResolvedValue(undefined);
     mockSetVirtualServerState.mockReset();
@@ -138,6 +146,13 @@ describe("Gateways", () => {
       "/servers?limit=12&include_inactive=true&include_pagination=true",
     );
     expect(mockUseQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the connect-source card when the caller lacks servers.create", () => {
+    mockHasPermission.mockReturnValue(false);
+    renderWithProviders(<Gateways />);
+
+    expect(screen.queryByRole("button", { name: "Create server" })).not.toBeInTheDocument();
   });
 
   it("renders a loading status while virtual servers are loading", () => {
