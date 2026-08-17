@@ -136,7 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async (): Promise<void> => {
     try {
-      await api.post<{ ok: boolean }>("/auth/logout");
+      // Empty body would still send Content-Type: application/json, which Fastify's
+      // default JSON parser 400s on — send {} to keep the header/body honest.
+      await api.post<{ ok: boolean }>("/auth/logout", {});
     } catch {
       // Client-side logout should still complete if the server-side session is already gone
       // or the CSRF token has expired.

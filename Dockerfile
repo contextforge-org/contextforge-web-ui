@@ -18,7 +18,7 @@ RUN npm ci --no-audit --no-fund
 # outDir is "server/public", so output lands at /ui/server/public here.
 FROM ui-deps AS ui-build
 WORKDIR /ui
-COPY openapi.json orval.config.ts index.html vite.config.ts ./
+COPY openapi.json orval.config.ts index.html vite.config.ts build-constants.ts ./
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY public ./public
 COPY src ./src

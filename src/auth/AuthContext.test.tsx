@@ -256,7 +256,7 @@ describe("AuthContext", () => {
       expect(window.location.href).toBe("/app/login");
     });
 
-    expect(api.post).toHaveBeenCalledWith("/auth/logout");
+    expect(api.post).toHaveBeenCalledWith("/auth/logout", {});
     expect(setCsrfToken).toHaveBeenLastCalledWith(null);
   });
 
