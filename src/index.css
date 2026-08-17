@@ -186,6 +186,13 @@
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
 }
+/* A transparent track so the scrollbar doesn't paint a solid bar over the
+   rounded corners of the box it scrolls in. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
 /*
  ---break---
  */
