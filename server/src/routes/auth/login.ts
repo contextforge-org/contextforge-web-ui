@@ -27,6 +27,40 @@ interface LoginBody {
   password: string;
 }
 
+// A failed login must not leave a pre-existing bff_sid/CSRF cookie pair
+// sitting in the browser — otherwise a stale-but-still-live session survives
+// the failed attempt and a mutating request made right after can ride that
+// leftover cookie into a confusing downstream 403 instead of a clean 401.
+// Called from every same-origin failure exit below (missing credentials,
+// upstream unreachable, non-2xx upstream, malformed/incomplete 2xx body) so
+// the cleanup can't drift out of sync with the SPA's AuthContext.login(),
+// which resets its own state on any rejected login call.
+// Deliberately NOT called from the isForbiddenCrossOrigin() branch above —
+// that guards against a cross-site page silently POSTing to /auth/login to
+// mass-clear victims' legitimate sessions; only same-origin login attempts
+// should be able to invalidate the session they're layered on top of.
+// See contextforge-org/contextforge-web-ui#10.
+async function clearStaleSession(
+  fastify: FastifyInstance,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const staleSessionId = request.cookies[SESSION_COOKIE_NAME];
+  if (staleSessionId) {
+    try {
+      await deleteSession(fastify.redis, staleSessionId);
+    } catch (err) {
+      // Redis being unavailable must not block the cookie clear below (the
+      // browser-visible half of cleanup) or the login-failure response.
+      request.log.warn({ err }, "failed to drop stale Redis session on login failure");
+    }
+  }
+  // Clear cookies unconditionally, even with no session cookie on the
+  // request — cheap, idempotent, and covers a CSRF-only leftover cookie.
+  clearSessionCookie(reply);
+  reply.clearCookie(CSRF_COOKIE_NAME, { path: "/", domain: config.cookieDomain });
+}
+
 // Mirrors mcpgateway.schemas.AuthenticationResponse. `user` is forwarded to
 // the browser verbatim (see SessionUser) — the BFF only needs access_token
 // and expires_in.
@@ -48,6 +82,7 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
 
       const { email, password } = request.body ?? {};
       if (!email || !password) {
+        await clearStaleSession(fastify, request, reply);
         return reply.code(400).send({ error: "email and password are required" });
       }
 
@@ -65,24 +100,12 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         });
       } catch (err) {
         request.log.error({ err }, "upstream login request failed");
+        await clearStaleSession(fastify, request, reply);
         return reply.code(502).send({ error: "upstream_unavailable" });
       }
 
       if (!upstreamResponse.ok) {
-        // A failed login must not leave a pre-existing bff_sid/CSRF cookie
-        // pair sitting in the browser — otherwise a stale-but-still-live
-        // session survives the failed attempt and a mutating request made
-        // right after can ride that leftover cookie into a confusing
-        // downstream 403 instead of a clean 401. Drop the Redis session (if
-        // any) and clear both cookies, same as an explicit /auth/logout.
-        // See contextforge-org/contextforge-web-ui#10.
-        const staleSessionId = request.cookies[SESSION_COOKIE_NAME];
-        if (staleSessionId) {
-          await deleteSession(fastify.redis, staleSessionId);
-        }
-        clearSessionCookie(reply);
-        reply.clearCookie(CSRF_COOKIE_NAME, { path: "/", domain: config.cookieDomain });
-
+        await clearStaleSession(fastify, request, reply);
         // Upstream 401/403/429 pass through as-is; body may carry rate-limit or
         // lockout detail the SPA's login form wants to show.
         const detail = await upstreamResponse.text();
@@ -94,11 +117,13 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         auth = (await upstreamResponse.json()) as UpstreamAuthenticationResponse;
       } catch (err) {
         request.log.error({ err }, "upstream login returned a non-JSON 2xx body");
+        await clearStaleSession(fastify, request, reply);
         return reply.code(502).send({ error: "upstream_invalid_response" });
       }
 
       if (typeof auth.access_token !== "string" || !auth.access_token) {
         request.log.error({ auth }, "upstream login 2xx response missing access_token");
+        await clearStaleSession(fastify, request, reply);
         return reply.code(502).send({ error: "upstream_invalid_response" });
       }
 
