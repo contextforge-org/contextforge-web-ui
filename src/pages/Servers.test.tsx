@@ -26,6 +26,12 @@ vi.mock("sonner", () => ({
   },
 }));
 
+const mockHasPermission = vi.fn((_perm: string) => true);
+let mockPermissionsLoading = false;
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ hasPermission: mockHasPermission, permissionsLoading: mockPermissionsLoading }),
+}));
+
 import { api } from "@/api/client";
 
 const mockToastSuccess = vi.mocked(toast.success);
@@ -73,6 +79,8 @@ describe("Servers", () => {
   beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.clearAllMocks();
+    mockPermissionsLoading = false;
+    mockHasPermission.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -138,6 +146,33 @@ describe("Servers", () => {
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: /Connect/i }).length).toBeGreaterThan(0);
     });
+  });
+
+  it("hides the connect card when the caller lacks gateways.create", async () => {
+    mockHasPermission.mockReturnValue(false);
+    vi.mocked(api.get).mockResolvedValueOnce({ gateways: [], nextCursor: null });
+
+    renderWithRouter(<Servers />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Connect MCP server")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the toolbar Connect button when the caller lacks gateways.create", async () => {
+    mockHasPermission.mockReturnValue(false);
+    vi.mocked(api.get).mockResolvedValueOnce({
+      gateways: createMockServers(0, 1),
+      nextCursor: null,
+    });
+
+    renderWithRouter(<Servers />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
   });
 
   it("renders servers list when data is loaded", async () => {

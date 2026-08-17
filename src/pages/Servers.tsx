@@ -8,6 +8,7 @@ import { ServersTable } from "@/components/servers/ServersTable";
 import { ListSearch } from "@/components/ui/list-search";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { MCPServerDetailsPanel } from "@/components/servers/MCPServerDetailsPanel";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { ApiError, api } from "@/api/client";
@@ -25,6 +26,8 @@ const DEFAULT_PAGE_SIZE = 10;
 export function Servers() {
   const intl = useIntl();
   const { path } = useRouter();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canCreateServer = !permissionsLoading && hasPermission("gateways.create");
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [allServers, setAllServers] = useState<MCPServer[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -321,14 +324,16 @@ export function Servers() {
                     )}
                     placeholder={intl.formatMessage({ id: "common.search" })}
                   />
-                  <Button
-                    variant="default"
-                    className="h-7 rounded-sm px-4"
-                    onClick={() => setIsFormOpen(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {intl.formatMessage({ id: "mcpServer.connect" })}
-                  </Button>
+                  {canCreateServer && (
+                    <Button
+                      variant="default"
+                      className="h-7 rounded-sm px-4"
+                      onClick={() => setIsFormOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {intl.formatMessage({ id: "mcpServer.connect" })}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -387,30 +392,32 @@ export function Servers() {
               </div>
             </>
           ) : (
-            <div className="border border-border rounded-lg p-6 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-orange-500">
-                  <MCPIcon className="size-4 [&_path]:fill-black" />
+            canCreateServer && (
+              <div className="border border-border rounded-lg p-6 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-orange-500">
+                    <MCPIcon className="size-4 [&_path]:fill-black" />
+                  </div>
+                  <h2 className="text-base font-medium">
+                    {intl.formatMessage({ id: "mcpServer.empty.title" })}
+                  </h2>
                 </div>
-                <h2 className="text-base font-medium">
-                  {intl.formatMessage({ id: "mcpServer.empty.title" })}
-                </h2>
-              </div>
 
-              <div className="py-5">
-                <p className="text-sm text-foreground">
-                  {intl.formatMessage({ id: "mcpServer.empty.description" })}
-                </p>
-              </div>
+                <div className="py-5">
+                  <p className="text-sm text-foreground">
+                    {intl.formatMessage({ id: "mcpServer.empty.description" })}
+                  </p>
+                </div>
 
-              <Button
-                className="bg-foreground text-background hover:bg-foreground/90 h-8 w-38 rounded-sm px-2 gap-1.5 text-sm font-medium"
-                onClick={() => setIsFormOpen(true)}
-              >
-                <Plus className="size-3" />
-                {intl.formatMessage({ id: "mcpServer.connect" })}
-              </Button>
-            </div>
+                <Button
+                  className="bg-foreground text-background hover:bg-foreground/90 h-8 w-38 rounded-sm px-2 gap-1.5 text-sm font-medium"
+                  onClick={() => setIsFormOpen(true)}
+                >
+                  <Plus className="size-3" />
+                  {intl.formatMessage({ id: "mcpServer.connect" })}
+                </Button>
+              </div>
+            )
           )}
         </>
       )}
