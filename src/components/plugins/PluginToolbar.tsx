@@ -95,7 +95,7 @@ function PluginFiltersPopover({
           type="button"
           variant="ghost"
           size="sm"
-          className="w-fit gap-2 self-center text-xs text-secondary-foreground"
+          className="w-fit shrink-0 gap-2 text-xs text-secondary-foreground"
           aria-label={intl.formatMessage(
             { id: "plugins.catalog.filtersActive" },
             { count: activeFilterCount },
@@ -110,11 +110,11 @@ function PluginFiltersPopover({
           )}
         </Button>
       </PopoverTrigger>
-      {/* Start-aligned because the wrapped toolbar puts this trigger at the left
-          of the content area, where an end-aligned panel expands over the nav. */}
+      {/* End-aligned because the trigger sits at the toolbar's right edge, where a
+          start-aligned panel would expand past the viewport. */}
       <PopoverContent
-        align="start"
-        className="@container flex w-[calc(100vw-2rem)] flex-col gap-4 md:w-[26rem] lg:w-[32rem] xl:w-[40rem]"
+        align="end"
+        className="@container flex w-[calc(100vw-2rem)] flex-col gap-4 md:w-[18rem] lg:w-[24rem] xl:w-[32rem]"
         aria-labelledby={filtersTitleId}
       >
         <div className="flex shrink-0 items-center justify-between">
@@ -167,7 +167,7 @@ function PluginFiltersPopover({
             </span>
             {/* A grid rather than CSS columns: a height-capped multi-column box
                 overflows sideways into new columns instead of scrolling down. */}
-            <div className="scrollbar-thin grid max-h-140 min-h-0 flex-1 grid-cols-1 gap-x-4 overflow-y-auto rounded-md border p-2 @sm:grid-cols-2 @xl:grid-cols-3">
+            <div className="scrollbar-thin grid max-h-120 min-h-0 flex-1 grid-cols-1 gap-x-4 overflow-y-auto rounded-md border p-2 @sm:grid-cols-2 @xl:grid-cols-3">
               {availableTags.map((tag, index) => {
                 const checkboxId = `${id}-tag-${index}`;
                 return (
@@ -208,14 +208,14 @@ export function PluginToolbar({
     <div className="flex flex-col gap-4 py-6 lg:flex-row lg:items-center lg:justify-between">
       <PluginViewToggle enabledOnly={enabledOnly} onChange={onEnabledOnlyChange} />
 
-      <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+      <div className="flex w-full items-center justify-end gap-2 lg:w-auto">
         <ListSearch
           value={search}
           onChange={onSearchChange}
           ariaLabel={intl.formatMessage({ id: "plugins.catalog.searchLabel" })}
           placeholder={intl.formatMessage({ id: "plugins.catalog.searchPlaceholder" })}
-          className="w-full sm:w-auto"
-          expandedWidthClassName="w-full sm:w-[432px]"
+          className="min-w-0 flex-1 justify-end lg:flex-none"
+          expandedWidthClassName="min-w-0 flex-1 lg:w-[432px] lg:flex-none"
         />
 
         <PluginFiltersPopover {...filterProps} />
