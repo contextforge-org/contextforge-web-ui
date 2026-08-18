@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.7"
+    "version": "1.0.8"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -7117,7 +7117,7 @@
           "Search"
         ],
         "summary": "Unified Search",
-        "description": "Unified search across primary entities (versioned, non-admin route).\n\nSame behavior and response shape as ``GET /admin/search`` without the\n``admin.dashboard`` gate; delegates to\n:func:`mcpgateway.admin.perform_unified_search`.\n\nArgs:\n    request: Current request object.\n    q (str): Free-text search query.\n    tags (Optional[str]): Tag filter expression (comma=OR, plus=AND).\n    entity_types (Optional[str]): Optional comma-separated entity type list.\n        Supported values: servers, gateways, tools, resources, prompts,\n        agents, teams, users, roots.\n    include_inactive (bool): Whether to include inactive entities.\n    limit (int): Default per-entity limit for returned items.\n    limit_per_type (Optional[int]): Optional alias overriding ``limit``.\n    gateway_id (Optional[str]): Gateway filter for tools/resources/prompts.\n    team_id (Optional[str]): Team scope filter.\n    db (Session): Database session.\n    user: Authenticated user context.\n\nReturns:\n    dict[str, Any]: Grouped and flattened search results with metadata.",
+        "description": "Unified search across primary entities (versioned, non-admin route).\n\nSame behavior and response shape as ``GET /admin/search`` without the\n``admin.dashboard`` gate; delegates to\n:func:`mcpgateway.admin.perform_unified_search`.\n\nArgs:\n    request: Current request object.\n    q (str): Free-text search query.\n    tags (Optional[str]): Tag filter expression (comma=OR, plus=AND).\n    entity_types (Optional[str]): Optional comma-separated entity type list.\n        Supported values: servers, gateways, tools, resources, prompts,\n        agents, teams, users, roots, catalog. Catalog must be explicitly requested.\n    include_inactive (bool): Whether to include inactive entities.\n    limit (int): Default per-entity limit for returned items.\n    limit_per_type (Optional[int]): Optional alias overriding ``limit``.\n    gateway_id (Optional[str]): Gateway filter for tools/resources/prompts.\n    team_id (Optional[str]): Team scope filter.\n    db (Session): Database session.\n    user: Authenticated user context.\n\nReturns:\n    dict[str, Any]: Grouped and flattened search results with metadata.",
         "operationId": "unified_search_v1_search_get",
         "security": [
           {
@@ -10168,7 +10168,7 @@
           "Teams"
         ],
         "summary": "Create Team",
-        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException: If team creation fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
+        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    background_tasks: Response-scoped background task scheduler\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException: If team creation fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
         "operationId": "create_team_v1_teams__post",
         "security": [
           {
@@ -10990,7 +10990,7 @@
           "Teams"
         ],
         "summary": "Invite Team Member",
-        "description": "Invite a user to join a team.\n\nArgs:\n    team_id: Team UUID\n    request: Invitation request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamInvitationResponse: Created invitation data\n\nRaises:\n    HTTPException: If team not found, access denied, or invitation fails",
+        "description": "Invite a user to join a team.\n\nArgs:\n    team_id: Team UUID\n    request: Invitation request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamInvitationCreateResponse: Created invitation and email delivery data\n\nRaises:\n    HTTPException: If team not found, access denied, or invitation fails",
         "operationId": "invite_team_member_v1_teams__team_id__invitations_post",
         "security": [
           {
@@ -11040,7 +11040,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TeamInvitationResponse"
+                  "$ref": "#/components/schemas/TeamInvitationCreateResponse"
                 }
               }
             }
@@ -27696,7 +27696,7 @@
           "Admin UI"
         ],
         "summary": "Get Servers Section",
-        "description": "Get servers data filtered by team.\n\nArgs:\n    team_id: Optional team ID to filter by\n    include_inactive: Whether to include inactive servers\n    db: Database session\n    user: Current authenticated user context\n\nReturns:\n    JSONResponse: Servers data with team filtering applied",
+        "description": "Get servers data filtered by team.\n\nArgs:\n    request: FastAPI request, used to derive the caller's Layer-1 visibility scope\n    team_id: Optional team ID to filter by\n    include_inactive: Whether to include inactive servers\n    db: Database session\n    user: Current authenticated user context\n\nReturns:\n    JSONResponse: Servers data with team filtering applied",
         "operationId": "get_servers_section_v1_admin_sections_servers_get",
         "security": [
           {
@@ -27775,7 +27775,7 @@
           "Admin UI"
         ],
         "summary": "Get Gateways Section",
-        "description": "Get gateways data filtered by team.\n\nArgs:\n    team_id: Optional team ID to filter by\n    db: Database session\n    user: Current authenticated user context\n\nReturns:\n    JSONResponse: Gateways data with team filtering applied",
+        "description": "Get gateways data filtered by team.\n\nArgs:\n    request: FastAPI request, used to derive the caller's Layer-1 visibility scope\n    team_id: Optional team ID to filter by\n    db: Database session\n    user: Current authenticated user context\n\nReturns:\n    JSONResponse: Gateways data with team filtering applied",
         "operationId": "get_gateways_section_v1_admin_sections_gateways_get",
         "security": [
           {
@@ -35237,7 +35237,7 @@
           "oauth"
         ],
         "summary": "Fetch Tools After Oauth",
-        "description": "Fetch tools from MCP server after OAuth completion for Authorization Code flow.\n\nArgs:\n    gateway_id: ID of the gateway to fetch tools for\n    request: Incoming request used for token scope context\n    current_user: The authenticated user fetching tools\n    db: Database session\n\nReturns:\n    Dict containing success status and message with number of tools fetched\n\nRaises:\n    HTTPException: If fetching tools fails",
+        "description": "Fetch tools from the MCP server after OAuth completion (authorization_code) or via on-demand token exchange (token-exchange).\n\nArgs:\n    gateway_id: ID of the gateway to fetch tools for\n    request: Incoming request used for token scope context\n    current_user: The authenticated user fetching tools\n    db: Database session\n\nReturns:\n    Dict containing success status and message with number of tools fetched\n\nRaises:\n    HTTPException: If fetching tools fails",
         "operationId": "fetch_tools_after_oauth_oauth_fetch_tools__gateway_id__post",
         "security": [
           {
@@ -35303,7 +35303,7 @@
           "oauth"
         ],
         "summary": "List Registered Oauth Clients",
-        "description": "List all registered OAuth clients (created via DCR).\n\nThis endpoint shows OAuth clients that were dynamically registered with external\nAuthorization Servers using RFC 7591 Dynamic Client Registration.\n\nArgs:\n    request: The FastAPI request object.\n    current_user: The authenticated user (admin access required)\n    db: Database session\n\nReturns:\n    Dict containing list of registered OAuth clients with metadata\n\nRaises:\n    HTTPException: If user lacks permissions or database error occurs",
+        "description": "List all registered OAuth clients (created via DCR).\n\nThis endpoint shows OAuth clients that were dynamically registered with external\nAuthorization Servers using RFC 7591 Dynamic Client Registration.\n\nArgs:\n    request: The FastAPI request object.\n    current_user: The authenticated user (requires ``admin.oauth_clients:read`` and un-narrowed admin scope)\n    db: Database session\n\nReturns:\n    Dict containing list of registered OAuth clients with metadata\n\nRaises:\n    HTTPException: If user lacks permissions or database error occurs",
         "operationId": "list_registered_oauth_clients_oauth_registered_clients_get",
         "security": [
           {
@@ -35360,7 +35360,7 @@
           "oauth"
         ],
         "summary": "Get Registered Client For Gateway",
-        "description": "Get the registered OAuth client for a specific gateway.\n\nArgs:\n    gateway_id: The gateway ID to lookup\n    request: The FastAPI request object.\n    current_user: The authenticated user\n    db: Database session\n\nReturns:\n    Dict containing registered client information\n\nRaises:\n    HTTPException: If gateway or registered client not found",
+        "description": "Get the registered OAuth client for a specific gateway.\n\nArgs:\n    gateway_id: The gateway ID to lookup\n    request: The FastAPI request object.\n    current_user: The authenticated user (requires ``admin.oauth_clients:read`` and un-narrowed admin scope)\n    db: Database session\n\nReturns:\n    Dict containing registered client information\n\nRaises:\n    HTTPException: If gateway or registered client not found",
         "operationId": "get_registered_client_for_gateway_oauth_registered_clients__gateway_id__get",
         "security": [
           {
@@ -35426,7 +35426,7 @@
           "oauth"
         ],
         "summary": "Delete Registered Client",
-        "description": "Delete a registered OAuth client.\n\nThis will revoke the client registration locally. Note: This does not automatically\nrevoke the client at the Authorization Server. You may need to manually revoke the\nclient using the registration_client_uri if available.\n\nArgs:\n    client_id: The registered client ID to delete\n    request: The FastAPI request object.\n    current_user: The authenticated user (admin access required)\n    db: Database session\n\nReturns:\n    Dict containing success message\n\nRaises:\n    HTTPException: If client not found or deletion fails",
+        "description": "Delete a registered OAuth client.\n\nThis will revoke the client registration locally. Note: This does not automatically\nrevoke the client at the Authorization Server. You may need to manually revoke the\nclient using the registration_client_uri if available.\n\nArgs:\n    client_id: The registered client ID to delete\n    request: The FastAPI request object.\n    current_user: The authenticated user (requires ``admin.oauth_clients:delete`` and un-narrowed admin scope)\n    db: Database session\n\nReturns:\n    Dict containing success message\n\nRaises:\n    HTTPException: If client not found or deletion fails",
         "operationId": "delete_registered_client_oauth_registered_clients__client_id__delete",
         "security": [
           {
@@ -37088,11 +37088,21 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
-            "description": "Tags for categorizing the agent"
+            "description": "Tags for categorizing the agent (accepts plain strings, normalized to {id,label} dicts by validator)"
           },
           "team_id": {
             "anyOf": [
@@ -38252,7 +38262,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -39625,7 +39645,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -40837,6 +40867,16 @@
         ],
         "title": "DisconnectInput",
         "description": "Request model for terminating a chat session.\n\nSimple model containing only the user identifier for session cleanup.\n\nAttributes:\n    user_id: Unique identifier of the session to disconnect.\n\nExamples:\n    >>> disconnect = DisconnectInput(user_id='user123')\n    >>> disconnect.user_id\n    'user123'"
+      },
+      "EmailDeliveryStatus": {
+        "type": "string",
+        "enum": [
+          "sent",
+          "failed",
+          "disabled"
+        ],
+        "title": "EmailDeliveryStatus",
+        "description": "Outcome of a best-effort notification email delivery."
       },
       "EmailLoginRequest": {
         "properties": {
@@ -42996,7 +43036,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -43165,7 +43215,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -43354,7 +43414,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -45484,7 +45554,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -45815,7 +45895,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -45986,7 +46076,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -46585,7 +46685,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -46837,7 +46947,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -47106,7 +47226,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -47538,7 +47668,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -48379,7 +48519,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -48388,7 +48538,7 @@
               }
             ],
             "title": "Tags",
-            "description": "Tags for categorizing the server"
+            "description": "Tags for categorizing the server (accepts plain strings, normalized to {id,label} dicts by validator)"
           },
           "associated_tools": {
             "anyOf": [
@@ -49026,7 +49176,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -49567,6 +49727,106 @@
         ],
         "title": "TeamDiscoveryResponse",
         "description": "Schema for public team discovery response.\n\nProvides limited metadata about public teams for discovery purposes.\n\nAttributes:\n    id: Team ID\n    name: Team name\n    description: Team description\n    member_count: Number of members\n    created_at: Team creation timestamp\n    is_joinable: Whether the current user can join this team"
+      },
+      "TeamInvitationCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Invitation UUID"
+          },
+          "team_id": {
+            "type": "string",
+            "title": "Team Id",
+            "description": "Team UUID"
+          },
+          "team_name": {
+            "type": "string",
+            "title": "Team Name",
+            "description": "Team display name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Email address of invited user"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "description": "Role the user will have when they accept"
+          },
+          "invited_by": {
+            "type": "string",
+            "title": "Invited By",
+            "description": "Email of user who sent the invitation"
+          },
+          "invited_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Invited At",
+            "description": "When the invitation was sent"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At",
+            "description": "When the invitation expires"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Invitation token"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether the invitation is active"
+          },
+          "is_expired": {
+            "type": "boolean",
+            "title": "Is Expired",
+            "description": "Whether the invitation has expired"
+          },
+          "invitation_url": {
+            "type": "string",
+            "title": "Invitation Url",
+            "description": "Trusted frontend URL for accepting the invitation"
+          },
+          "email_delivery_status": {
+            "$ref": "#/components/schemas/EmailDeliveryStatus",
+            "description": "Invitation email delivery outcome"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning",
+            "description": "Safe client-facing delivery warning"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "team_id",
+          "team_name",
+          "email",
+          "role",
+          "invited_by",
+          "invited_at",
+          "expires_at",
+          "token",
+          "is_active",
+          "is_expired",
+          "invitation_url",
+          "email_delivery_status"
+        ],
+        "title": "TeamInvitationCreateResponse",
+        "description": "Schema for a newly created invitation and its email-delivery outcome."
       },
       "TeamInvitationResponse": {
         "properties": {
@@ -50158,7 +50418,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -50422,7 +50692,17 @@
           },
           "tags": {
             "items": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
             },
             "type": "array",
             "title": "Tags",
@@ -50556,7 +50836,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -50866,7 +51156,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -52147,7 +52447,17 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    }
+                  ]
                 },
                 "type": "array"
               },
