@@ -521,6 +521,21 @@ describe("ServerCatalog", () => {
     expect(within(getFilterSection("Categories")).queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
+  it("announces how many options a collapsed section has selected", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "jsDelivr");
+    await selectSectionOption(user, "Providers", "Example");
+
+    // Collapse Providers by expanding another section: its count badge is the
+    // only thing left on screen saying it is filtered.
+    await user.click(within(getFilterSection("Categories")).getByRole("radio", { name: "Select" }));
+    const select = within(getFilterSection("Providers")).getByRole("radio", { name: "Select" });
+    expect(select).toHaveAccessibleDescription("2 selected");
+  });
+
   it("supports repeatable OR tag filters", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);

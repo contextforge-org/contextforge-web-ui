@@ -79,6 +79,7 @@
   "mcpServer.catalog.selectProviders": "Selecionar",
   "mcpServer.catalog.allTagsOption": "Todas",
   "mcpServer.catalog.selectTags": "Selecionar",
+  "mcpServer.catalog.selectedCount": "{count, plural, one {# selecionado} other {# selecionados}}",
   "mcpServer.catalog.connected": "Conectado",
   "mcpServer.catalog.notConnected": "Não conectado",
   "mcpServer.catalog.viewServer": "Ver {name}",

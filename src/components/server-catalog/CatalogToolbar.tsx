@@ -112,6 +112,9 @@ function CatalogFilterSectionFields({
   onExpand: () => void;
   onToggle: (option: string, checked: boolean) => void;
 }) {
+  const intl = useIntl();
+  const countId = `${idPrefix}-selected-count`;
+
   return (
     // role=group rather than fieldset so the section heading can share a row with
     // the panel-level Clear all button, which a legend cannot do.
@@ -135,14 +138,31 @@ function CatalogFilterSectionFields({
               another one was opened, so onValueChange alone is not enough: Radix
               does not fire it when the already-checked radio is clicked again.
               The label forwards its click to this button, so it is covered too. */}
-          <RadioGroupItem id={`${idPrefix}-select`} value={SELECT_MODE} onClick={onExpand} />
+          <RadioGroupItem
+            id={`${idPrefix}-select`}
+            value={SELECT_MODE}
+            onClick={onExpand}
+            // The count badge is the only clue that a collapsed section is
+            // filtered, so it is described onto the radio rather than left as a
+            // visual-only glyph. A description rather than part of the name
+            // because "Select" is what the control does either way.
+            aria-describedby={selected.length > 0 ? countId : undefined}
+          />
           <Label htmlFor={`${idPrefix}-select`} className="cursor-pointer text-sm font-normal">
             {selectLabel}
           </Label>
           {selected.length > 0 && (
-            <CardTag variant="neutral" className="rounded-full" aria-hidden="true">
-              {selected.length}
-            </CardTag>
+            <>
+              <CardTag variant="neutral" className="rounded-full" aria-hidden="true">
+                {selected.length}
+              </CardTag>
+              <span id={countId} className="sr-only">
+                {intl.formatMessage(
+                  { id: "mcpServer.catalog.selectedCount" },
+                  { count: selected.length },
+                )}
+              </span>
+            </>
           )}
         </div>
       </RadioGroup>
