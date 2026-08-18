@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { getTagLabels } from "@/utils/tags";
 
 function getSafeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -224,6 +225,7 @@ export function CatalogServerDetailsDialog({
 }) {
   const intl = useIntl();
   const tagsHeadingId = useId();
+  const tagLabels = getTagLabels(server?.tags ?? []);
 
   return (
     <Dialog open={server !== null} onOpenChange={onOpenChange}>
@@ -259,13 +261,13 @@ export function CatalogServerDetailsDialog({
             </DetailRow>
           </dl>
 
-          {server.tags && server.tags.length > 0 && (
+          {tagLabels.length > 0 && (
             <section aria-labelledby={tagsHeadingId}>
               <h3 id={tagsHeadingId} className="mb-2 text-sm font-medium text-muted-foreground">
                 {intl.formatMessage({ id: "mcpServer.catalog.tags" })}
               </h3>
               <ul className="flex flex-wrap gap-2">
-                {server.tags.map((tag) => (
+                {tagLabels.map((tag) => (
                   <li key={tag}>
                     <CardTag variant="neutral">{tag}</CardTag>
                   </li>

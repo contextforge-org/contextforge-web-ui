@@ -13,6 +13,7 @@ import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { cn } from "@/lib/utils";
 import type { ResourceRead } from "@/generated/types";
 import { formatBytes, formatDateTime } from "@/utils/format";
+import { getTagLabels } from "@/utils/tags";
 import { ResourcesTable } from "@/components/resources/ResourcesTable";
 
 function DetailRow({
@@ -245,7 +246,7 @@ export function ResourceDetailsPanel({
                         </DetailRow>
                       )}
                       {(() => {
-                        const tagLabels = selectedResource.tags || [];
+                        const tagLabels = getTagLabels(selectedResource.tags || []);
                         return (
                           <InlineTagAdd
                             label={intl.formatMessage({ id: "resources.details.label.tags" })}

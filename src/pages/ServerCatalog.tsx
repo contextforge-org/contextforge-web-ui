@@ -20,6 +20,7 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
+import { getTagLabels } from "@/utils/tags";
 
 // TODO: Fetch subsequent pages when CatalogListResponse.total exceeds this MVP page limit.
 const CATALOG_PATH = "/v1/catalog?limit=1000";
@@ -124,7 +125,8 @@ function filterOpenServers(openServers: CatalogServer[], filters: CatalogFilters
       return false;
     }
     if (filters.installedOnly && !server.is_registered) return false;
-    if (filters.tags.length > 0 && !filters.tags.some((tag) => server.tags?.includes(tag))) {
+    const serverTags = getTagLabels(server.tags ?? []);
+    if (filters.tags.length > 0 && !filters.tags.some((tag) => serverTags.includes(tag))) {
       return false;
     }
 
@@ -246,7 +248,7 @@ export function ServerCatalog() {
     [openServers],
   );
   const tagOptions = useMemo(
-    () => sortedUnique(openServers.flatMap((server) => server.tags ?? [])),
+    () => sortedUnique(openServers.flatMap((server) => getTagLabels(server.tags ?? []))),
     [openServers],
   );
   const hasOpenServers = openServers.length > 0;

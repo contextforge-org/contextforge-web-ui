@@ -12,6 +12,7 @@ import type { PluginListResponse, PluginSummary } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
+import { getTagLabels } from "@/utils/tags";
 
 const PLUGINS_PATH = "/v1/plugins";
 const PAGE_PATH = "/app/plugins";
@@ -91,7 +92,8 @@ function filterPlugins(plugins: PluginSummary[], filters: PluginFilters): Plugin
 
   return plugins.filter((plugin) => {
     if (filters.hook && !plugin.hooks?.includes(filters.hook)) return false;
-    if (filters.tags.length > 0 && !filters.tags.some((tag) => plugin.tags?.includes(tag))) {
+    const pluginTags = getTagLabels(plugin.tags ?? []);
+    if (filters.tags.length > 0 && !filters.tags.some((tag) => pluginTags.includes(tag))) {
       return false;
     }
     if (filters.enabledOnly && plugin.status !== ENABLED_STATUS) return false;
@@ -149,7 +151,7 @@ export function Plugins() {
     [allPlugins],
   );
   const tagOptions = useMemo(
-    () => sortedUnique(allPlugins.flatMap((plugin) => plugin.tags ?? [])),
+    () => sortedUnique(allPlugins.flatMap((plugin) => getTagLabels(plugin.tags ?? []))),
     [allPlugins],
   );
   const hasPlugins = allPlugins.length > 0;
