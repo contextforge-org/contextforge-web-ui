@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import type { PluginSummary } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { getTagLabels } from "@/utils/tags";
 
 enum PluginIconColor {
   Red = "bg-red-500",
@@ -138,6 +139,7 @@ export function PluginDetailsDialog({
   const tagsHeadingId = useId();
   const configHeadingId = useId();
   const configEntries = Object.entries(plugin?.config_summary ?? {});
+  const tagLabels = getTagLabels(plugin?.tags ?? []);
 
   return (
     <Dialog open={plugin !== null} onOpenChange={onOpenChange}>
@@ -185,13 +187,13 @@ export function PluginDetailsDialog({
             </section>
           )}
 
-          {plugin.tags && plugin.tags.length > 0 && (
+          {tagLabels.length > 0 && (
             <section aria-labelledby={tagsHeadingId}>
               <h3 id={tagsHeadingId} className="mb-2 text-sm font-medium text-muted-foreground">
                 {intl.formatMessage({ id: "plugins.catalog.tags" })}
               </h3>
               <ul className="flex flex-wrap gap-2">
-                {plugin.tags.map((tag) => (
+                {tagLabels.map((tag) => (
                   <li key={tag}>
                     <CardTag variant="neutral">{tag}</CardTag>
                   </li>

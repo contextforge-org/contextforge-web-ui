@@ -21,7 +21,7 @@ import {
   type ResourceFormInitialValues,
 } from "@/hooks/useResourceForm";
 import { useTagSuggestions } from "@/hooks/useTagSuggestions";
-import { MAX_TAGS } from "@/utils/tags";
+import { MAX_TAGS, getTagLabels } from "@/utils/tags";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 import type { ResourceRead } from "@/generated/types";
@@ -43,7 +43,7 @@ function resourceToInitialValues(
     content: (resource as { content?: string }).content ?? "",
     description: resource.description ?? "",
     mimeType: (resource.mimeType as MimeType | null) ?? "",
-    tags: resource.tags ?? [],
+    tags: getTagLabels(resource.tags ?? []),
     visibility: (resource.visibility as Visibility) ?? "public",
   };
 }
