@@ -166,8 +166,14 @@ function PluginFiltersPopover({
               {intl.formatMessage({ id: "plugins.catalog.tags" })}
             </span>
             {/* A grid rather than CSS columns: a height-capped multi-column box
-                overflows sideways into new columns instead of scrolling down. */}
-            <div className="scrollbar-thin grid max-h-120 min-h-0 flex-1 grid-cols-1 gap-x-4 overflow-y-auto rounded-md border p-2 @sm:grid-cols-2 @xl:grid-cols-3">
+                overflows sideways into new columns instead of scrolling down.
+
+                Container queries measure the panel's content box, which is 2rem
+                of padding and 2px of border narrower than the widths set above:
+                18/24/32rem of panel leave 15.875/21.875/29.875rem to query. The
+                thresholds have to sit inside those, so they read a step lower
+                than the panel width that triggers them. */}
+            <div className="scrollbar-thin grid max-h-120 min-h-0 flex-1 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto rounded-md border p-2 pl-3 @xs:grid-cols-2 @md:grid-cols-3">
               {availableTags.map((tag, index) => {
                 const checkboxId = `${id}-tag-${index}`;
                 return (
