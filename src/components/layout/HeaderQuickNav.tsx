@@ -400,7 +400,7 @@ export function HeaderQuickNav() {
                 tabIndex={-1}
                 aria-selected={isFocused}
                 className={cn(
-                  "flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
+                  "flex h-auto w-full flex-col items-start justify-center gap-0.5 px-3 py-2 text-left whitespace-normal transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
                   isFocused ? "bg-muted" : "",
                 )}
                 onMouseDown={(event) => event.preventDefault()}
