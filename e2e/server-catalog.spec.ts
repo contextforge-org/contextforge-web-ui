@@ -108,22 +108,23 @@ test.describe("Server catalog page", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("search")).toBe("notes");
   });
 
-  test("filters servers by category through the filters dialog", async ({ page }) => {
+  test("filters servers by category through the filters popover", async ({ page }) => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Add filters" });
-    await expect(dialog).toBeVisible();
+    const popover = page.getByRole("dialog", { name: "Filters" });
+    await expect(popover).toBeVisible();
 
-    const categorySection = dialog.getByRole("group", { name: "Categories" });
-    await categorySection.getByRole("radio", { name: "Select..." }).click();
+    const categorySection = popover.getByRole("group", { name: "Categories" });
+    await categorySection.getByRole("radio", { name: "Select" }).click();
     await categorySection.getByRole("checkbox", { name: "Productivity" }).check();
-    await dialog.getByRole("button", { name: "Add filters" }).click();
 
-    await expect(dialog).toHaveCount(0);
+    // Filters commit as they are ticked, so the popover stays open over a grid
+    // that has already narrowed.
+    await expect(popover).toBeVisible();
     await expect.poll(() => new URL(page.url()).searchParams.get("category")).toBe("Productivity");
     await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Globalping" })).toHaveCount(0);

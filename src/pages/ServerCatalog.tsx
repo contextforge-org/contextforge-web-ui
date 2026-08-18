@@ -10,7 +10,7 @@ import {
 } from "@/components/server-catalog/CatalogResults";
 import {
   CatalogToolbar,
-  type CatalogFilterDraft,
+  type CatalogFilterSection,
 } from "@/components/server-catalog/CatalogToolbar";
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { Button } from "@/components/ui/button";
@@ -93,19 +93,29 @@ function useCatalogFilters() {
     [navigate, path],
   );
 
-  // Commits every dialog filter in a single navigation so applying filters adds
-  // exactly one history entry.
-  const applyFilters = useCallback(
-    (draft: CatalogFilterDraft) =>
+  const toggleFilterOption = useCallback(
+    (section: CatalogFilterSection, option: string, checked: boolean) => {
+      const current = filters[section];
       updateQuery({
-        category: draft.category,
-        provider: draft.provider,
-        tags: draft.tags,
-      }),
+        [section]: checked ? [...current, option] : current.filter((item) => item !== option),
+      });
+    },
+    [filters, updateQuery],
+  );
+
+  const clearFilterSection = useCallback(
+    (section: CatalogFilterSection) => updateQuery({ [section]: [] }),
     [updateQuery],
   );
 
-  return { filters, updateQuery, applyFilters };
+  // Drops the three popover sections in one navigation. The search box and the
+  // connected-only toggle live outside the popover and are left alone.
+  const clearAllFilters = useCallback(
+    () => updateQuery({ category: [], provider: [], tags: [] }),
+    [updateQuery],
+  );
+
+  return { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters };
 }
 
 function getOpenServers(servers: CatalogServer[]): CatalogServer[] {
@@ -206,7 +216,8 @@ export function ServerCatalog() {
   const registrationNotificationRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusRegistrationNotificationRef = useRef(false);
   const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
-  const { filters, updateQuery, applyFilters } = useCatalogFilters();
+  const { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters } =
+    useCatalogFilters();
   const [search, setSearch] = useState(filters.search);
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -227,9 +238,9 @@ export function ServerCatalog() {
     registrationNotificationRef.current?.focus();
   }, [registrationNotification]);
 
-  // Only the debounced search box filters ahead of the URL. Category, provider
-  // and tag selections stay committed here: the dialog holds them as a draft
-  // until Add filters is pressed, so an unapplied draft must never reach the grid.
+  // Only the search box filters ahead of the URL, so the grid can react to the
+  // debounced value. Category, provider and tag selections are committed to the
+  // URL the moment they are ticked in the filters popover.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
   const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
@@ -399,7 +410,9 @@ export function ServerCatalog() {
         activeFilterCount={activeFilterCount}
         onSearchChange={setSearch}
         onInstalledChange={(installedOnly) => updateQuery({ show_registered_only: installedOnly })}
-        onApply={applyFilters}
+        onToggleOption={toggleFilterOption}
+        onClearSection={clearFilterSection}
+        onClearAll={clearAllFilters}
       />
 
       {registrationNotification && (
