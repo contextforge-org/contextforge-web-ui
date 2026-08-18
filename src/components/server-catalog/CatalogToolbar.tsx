@@ -218,15 +218,16 @@ function CatalogFiltersPopover({
 
   // Seeded when the popover opens so a section the user collapsed during an
   // earlier visit does not stay collapsed over a selection made since. Providers
-  // always opens expanded, which is how the design draws the default state.
+  // keeps its previous mode instead: All and an empty Select both commit
+  // provider=[], so there is nothing to derive an explicit All back from.
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) return;
-      setModes({
+      setModes((previous) => ({
         category: category.length > 0 ? SELECT_MODE : ALL_MODE,
-        provider: SELECT_MODE,
+        provider: previous.provider,
         tags: selectedTags.length > 0 ? SELECT_MODE : ALL_MODE,
-      });
+      }));
       setExpanded("provider");
     },
     [category.length, selectedTags.length],

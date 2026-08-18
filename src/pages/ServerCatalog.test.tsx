@@ -452,6 +452,26 @@ describe("ServerCatalog", () => {
     expect(within(categories).queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
+  it("still shows Providers on All after reopening the popover", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Providers", "jsDelivr");
+
+    // All drops the provider filter, so what it commits is indistinguishable
+    // from never having chosen: only the section's own mode remembers.
+    await user.click(within(getFilterSection("Providers")).getByRole("radio", { name: "All" }));
+    await waitFor(() => expect(window.location.search).not.toContain("provider="));
+
+    await user.keyboard("{Escape}");
+    await openFilters(user);
+
+    const providers = getFilterSection("Providers");
+    expect(within(providers).getByRole("radio", { name: "All" })).toBeChecked();
+    expect(within(providers).queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
   it("keeps the popover open and the grid live while options are ticked", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
