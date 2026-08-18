@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ListSearch } from "@/components/ui/list-search";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 const ALL_MODE = "all";
 const SELECT_MODE = "select";
@@ -114,11 +115,19 @@ function CatalogFilterSectionFields({
 }) {
   const intl = useIntl();
   const countId = `${idPrefix}-selected-count`;
+  const showsOptions = mode === SELECT_MODE && expanded;
 
   return (
     // role=group rather than fieldset so the section heading can share a row with
     // the panel-level Clear all button, which a legend cannot do.
-    <div role="group" aria-labelledby={legendId} className="space-y-3">
+    //
+    // Only the open section yields when the panel runs out of room, so its grid
+    // takes the squeeze and scrolls instead of the panel scrolling too.
+    <div
+      role="group"
+      aria-labelledby={legendId}
+      className={cn("space-y-3", showsOptions ? "flex min-h-0 flex-col" : "shrink-0")}
+    >
       <div className="flex items-center justify-between gap-2">
         <span id={legendId} className="text-sm font-medium text-foreground">
           {legend}
@@ -167,7 +176,7 @@ function CatalogFilterSectionFields({
         </div>
       </RadioGroup>
 
-      {mode === SELECT_MODE && expanded && (
+      {showsOptions && (
         // A grid rather than CSS columns: a height-capped multi-column box
         // overflows sideways into new columns instead of scrolling down.
         <div className="scrollbar-thin grid max-h-52 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto rounded-md border p-2 pl-3 @sm:grid-cols-2 @lg:grid-cols-3">
