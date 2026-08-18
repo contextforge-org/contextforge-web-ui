@@ -41,8 +41,35 @@ function TestComponent() {
     <div>
       <div data-testid="auth-status">{auth.isAuthenticated ? "authenticated" : "guest"}</div>
       {auth.user && <div data-testid="user-email">{auth.user.email}</div>}
-      <button onClick={() => auth.login("test@example.com", "pass")}>Login</button>
+      <button
+        onClick={() => {
+          // Real callers (Login.tsx) always catch this; swallow here too so a
+          // rejected login in tests doesn't surface as an unhandled rejection.
+          auth.login("test@example.com", "pass").catch(() => {});
+        }}
+      >
+        Login
+      </button>
       <button onClick={() => auth.logout()}>Logout</button>
+    </div>
+  );
+}
+
+// Unlike TestComponent, doesn't gate the Login button behind isLoading — needed
+// to trigger login() while the initial /auth/session call is still pending.
+function RaceTestComponent() {
+  const auth = useAuthContext();
+  return (
+    <div>
+      <div data-testid="auth-status">{auth.isAuthenticated ? "authenticated" : "guest"}</div>
+      {auth.user && <div data-testid="user-email">{auth.user.email}</div>}
+      <button
+        onClick={() => {
+          auth.login("test@example.com", "pass").catch(() => {});
+        }}
+      >
+        Login
+      </button>
     </div>
   );
 }
@@ -218,6 +245,100 @@ describe("AuthContext", () => {
       { authenticated: false },
     );
     expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+  });
+
+  it("clears stale auth state and CSRF token when login fails", async () => {
+    // Simulate a client that still holds a previously-authenticated state
+    // (e.g. a stale session) when a login attempt is made and rejected.
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      authenticated: true,
+      user: mockUser,
+      csrfToken: "stale-csrf-token",
+    });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
+    });
+
+    vi.mocked(api.post).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+
+    screen.getByText("Login").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+    });
+
+    expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
+    expect(setCsrfToken).toHaveBeenLastCalledWith(null);
+  });
+
+  it("suppresses a stale pending /auth/session resolution after a failed login (authVersion race)", async () => {
+    // The initial /auth/session check is still in flight when login() is
+    // called and rejected; the session check's late resolution (reporting an
+    // old, now-irrelevant authenticated user) must not overwrite the
+    // failed-login state. The authVersion bump on login failure is what
+    // guards this — see AuthContext.tsx's initial effect.
+    const staleUser = {
+      email: "stale@example.com",
+      full_name: "Stale User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+    let resolveSession!: (data: {
+      authenticated: boolean;
+      user?: typeof staleUser;
+      csrfToken?: string;
+    }) => void;
+    const sessionPromise = new Promise<{
+      authenticated: boolean;
+      user?: typeof staleUser;
+      csrfToken?: string;
+    }>((resolve) => {
+      resolveSession = resolve;
+    });
+    vi.mocked(api.get).mockReturnValueOnce(sessionPromise);
+
+    render(
+      <AuthProvider>
+        <RaceTestComponent />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+
+    vi.mocked(api.post).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+    screen.getByText("Login").click();
+
+    // Wait for the failed login's cleanup (which bumps authVersion) to run
+    // before letting the still-pending initial session check resolve.
+    await waitFor(() => expect(setCsrfToken).toHaveBeenCalledWith(null));
+
+    resolveSession({ authenticated: true, user: staleUser, csrfToken: "stale-csrf-token" });
+
+    // Give the now-stale resolution a tick to (not) take effect.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+    expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
   });
 
   it("handles successful logout", async () => {

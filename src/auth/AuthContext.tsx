@@ -121,15 +121,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string,
       password: string, // pragma: allowlist secret
     ): Promise<void> => {
-      const data = await api.post<LoginResponse>(
-        "/auth/login",
-        { email, password },
-        { authenticated: false },
-      );
+      try {
+        const data = await api.post<LoginResponse>(
+          "/auth/login",
+          { email, password },
+          { authenticated: false },
+        );
 
-      setCsrfToken(data.csrfToken);
-      authVersion.current += 1;
-      setState({ user: data.user, isAuthenticated: true, isLoading: false, selectedTeamId: null });
+        setCsrfToken(data.csrfToken);
+        authVersion.current += 1;
+        setState({
+          user: data.user,
+          isAuthenticated: true,
+          isLoading: false,
+          selectedTeamId: null,
+        });
+      } catch (err) {
+        // A failed login must not leave a stale CSRF token or a previously
+        // "authenticated" state around — otherwise a still-mounted protected
+        // form (e.g. Connect MCP server) can fire its mutating request on
+        // whatever session state cookies currently hold, never having gone
+        // through a confirmed login. Every mutating call is gated on this
+        // state (via AuthGuard / setCsrfToken), so clearing it here is what
+        // actually blocks the reuse rather than relying on incidental redirects.
+        setCsrfToken(null);
+        authVersion.current += 1;
+        setState({ user: null, isAuthenticated: false, isLoading: false, selectedTeamId: null });
+        throw err;
+      }
     },
     [],
   );

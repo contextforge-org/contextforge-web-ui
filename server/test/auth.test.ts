@@ -109,7 +109,101 @@ describe("POST /auth/login", () => {
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.cookies.map((c) => c.name)).not.toContain("bff_sid");
+    // A defensive clear is issued either way (see the "clears a pre-existing
+    // session cookie" test below), so assert no *live* session cookie rather
+    // than no Set-Cookie at all.
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    expect(sessionCookie?.value ?? "").toBe("");
+  });
+
+  it("clears a pre-existing session cookie and drops its Redis session on login failure", async () => {
+    const app = await buildTestApp();
+    const { cookies } = await login(app);
+
+    mockUpstreamLogin(false, { detail: "Invalid email or password" }, 401);
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { cookie: cookies.join("; ") },
+      payload: { email: "user@example.com", password: "wrong" }, // pragma: allowlist secret
+    });
+
+    expect(response.statusCode).toBe(401);
+    const cleared = response.cookies.find((c) => c.name === "bff_sid");
+    expect(cleared?.value).toBe("");
+    // The production change clears both cookies, not just bff_sid — a path/domain
+    // mismatch on the CSRF clear could otherwise leave it live without failing
+    // the assertion above.
+    const clearedCsrf = response.cookies.find((c) => c.name === "bff_csrf");
+    expect(clearedCsrf?.value).toBe("");
+
+    // The old session is really gone, not just the cookie cleared client-side —
+    // otherwise a mutating request made right after the failed login could
+    // still ride the leftover session. See contextforge-web-ui#10.
+    const followUp = await app.fastify.inject({
+      method: "GET",
+      url: "/auth/session",
+      headers: { cookie: cookies.join("; ") },
+    });
+    expect(followUp.json()).toEqual({ authenticated: false });
+  });
+
+  it("still clears cookies and responds when dropping the stale Redis session fails", async () => {
+    const app = await buildTestApp();
+    const { cookies } = await login(app);
+    vi.spyOn(app.redis, "del").mockRejectedValueOnce(new Error("redis unavailable"));
+
+    mockUpstreamLogin(false, { detail: "Invalid email or password" }, 401);
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { cookie: cookies.join("; ") },
+      payload: { email: "user@example.com", password: "wrong" }, // pragma: allowlist secret
+    });
+
+    // A Redis failure must not surface as a 500 in place of the intended
+    // login-failure response, and must not skip the cookie clear.
+    expect(response.statusCode).toBe(401);
+    const cleared = response.cookies.find((c) => c.name === "bff_sid");
+    expect(cleared?.value).toBe("");
+  });
+
+  it("clears a pre-existing session cookie even when the request is missing credentials", async () => {
+    const app = await buildTestApp();
+    const { cookies } = await login(app);
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { cookie: cookies.join("; ") },
+      payload: { email: "user@example.com" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const cleared = response.cookies.find((c) => c.name === "bff_sid");
+    expect(cleared?.value).toBe("");
+  });
+
+  it("clears a pre-existing session cookie when upstream is unreachable", async () => {
+    const app = await buildTestApp();
+    const { cookies } = await login(app);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network unreachable");
+      }),
+    );
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/auth/login",
+      headers: { cookie: cookies.join("; ") },
+      payload: { email: "user@example.com", password: "secret" }, // pragma: allowlist secret
+    });
+
+    expect(response.statusCode).toBe(502);
+    const cleared = response.cookies.find((c) => c.name === "bff_sid");
+    expect(cleared?.value).toBe("");
   });
 
   it("rejects a request missing credentials before calling upstream", async () => {
@@ -253,7 +347,9 @@ describe("POST /auth/logout", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const revokeCall = fetchCalls.find((call) => call.url === `${config.contextforgeUrl}/auth/logout`);
+    const revokeCall = fetchCalls.find(
+      (call) => call.url === `${config.contextforgeUrl}/auth/logout`,
+    );
     expect(revokeCall).toBeTruthy();
     // The stored bearer token, minted at login — never a session/cookie value.
     expect(revokeCall?.authorization).toBe("Bearer upstream-jwt");
