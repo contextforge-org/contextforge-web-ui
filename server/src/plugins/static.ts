@@ -62,7 +62,8 @@ export default fp(
       // Anything under these prefixes that reaches here is a genuinely
       // missing build artifact; everything else is a client-router path and
       // gets the SPA shell.
-      const isKnownAssetPath = pathname.startsWith(ASSETS_URL_PREFIX) || pathname === "/favicon.ico";
+      const isKnownAssetPath =
+        pathname.startsWith(ASSETS_URL_PREFIX) || pathname === "/favicon.ico";
 
       if (
         request.method !== "GET" ||
