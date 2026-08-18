@@ -86,6 +86,7 @@ function PluginFiltersPopover({
   const id = useId();
   const filtersTitleId = `${id}-title`;
   const hookTriggerId = `${id}-hook`;
+  const tagsLabelId = `${id}-tags-label`;
 
   return (
     <Popover>
@@ -94,7 +95,7 @@ function PluginFiltersPopover({
           type="button"
           variant="ghost"
           size="sm"
-          className="w-fit gap-2 self-center text-xs text-secondary-foreground"
+          className="w-fit shrink-0 gap-2 text-xs text-secondary-foreground"
           aria-label={intl.formatMessage(
             { id: "plugins.catalog.filtersActive" },
             { count: activeFilterCount },
@@ -109,8 +110,14 @@ function PluginFiltersPopover({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-4" aria-labelledby={filtersTitleId}>
-        <div className="flex items-center justify-between">
+      {/* End-aligned because the trigger sits at the toolbar's right edge, where a
+          start-aligned panel would expand past the viewport. */}
+      <PopoverContent
+        align="end"
+        className="@container flex w-[calc(100vw-2rem)] flex-col gap-4 md:w-[18rem] lg:w-[24rem] xl:w-[32rem]"
+        aria-labelledby={filtersTitleId}
+      >
+        <div className="flex shrink-0 items-center justify-between">
           <h2 id={filtersTitleId} className="text-sm font-semibold">
             {intl.formatMessage({ id: "plugins.catalog.filters" })}
           </h2>
@@ -121,7 +128,7 @@ function PluginFiltersPopover({
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="shrink-0 space-y-2">
           <Label htmlFor={hookTriggerId} className="text-xs">
             {intl.formatMessage({ id: "plugins.catalog.hook" })}
           </Label>
@@ -148,28 +155,46 @@ function PluginFiltersPopover({
         </div>
 
         {availableTags.length > 0 && (
-          <fieldset className="space-y-2">
-            <legend className="text-xs font-medium">
+          // role=group rather than fieldset: a rendered legend is not subtracted
+          // from the height flex assigns its fieldset, so the box overflows it.
+          <div
+            role="group"
+            aria-labelledby={tagsLabelId}
+            className="flex min-h-0 flex-1 flex-col gap-2"
+          >
+            <span id={tagsLabelId} className="text-xs font-medium">
               {intl.formatMessage({ id: "plugins.catalog.tags" })}
-            </legend>
-            <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-2">
+            </span>
+            {/* A grid rather than CSS columns: a height-capped multi-column box
+                overflows sideways into new columns instead of scrolling down.
+
+                Container queries measure the panel's content box, which is 2rem
+                of padding and 2px of border narrower than the widths set above:
+                18/24/32rem of panel leave 15.875/21.875/29.875rem to query. The
+                thresholds have to sit inside those, so they read a step lower
+                than the panel width that triggers them. */}
+            <div className="scrollbar-thin grid max-h-120 min-h-0 flex-1 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto rounded-md border p-2 pl-3 @xs:grid-cols-2 @md:grid-cols-3">
               {availableTags.map((tag, index) => {
                 const checkboxId = `${id}-tag-${index}`;
                 return (
-                  <div key={tag} className="flex items-center gap-2">
+                  <div key={tag} className="flex min-w-0 items-center gap-2">
                     <Checkbox
                       id={checkboxId}
                       checked={selectedTags.includes(tag)}
                       onCheckedChange={(checked) => onToggleTag(tag, checked === true)}
                     />
-                    <Label htmlFor={checkboxId} className="cursor-pointer text-sm font-normal">
+                    {/* Full-height label so the tap target clears 44px on touch. */}
+                    <Label
+                      htmlFor={checkboxId}
+                      className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center break-words text-sm font-normal sm:min-h-8"
+                    >
                       {tag}
                     </Label>
                   </div>
                 );
               })}
             </div>
-          </fieldset>
+          </div>
         )}
       </PopoverContent>
     </Popover>
@@ -189,14 +214,14 @@ export function PluginToolbar({
     <div className="flex flex-col gap-4 py-6 lg:flex-row lg:items-center lg:justify-between">
       <PluginViewToggle enabledOnly={enabledOnly} onChange={onEnabledOnlyChange} />
 
-      <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+      <div className="flex w-full items-center justify-end gap-2 lg:w-auto">
         <ListSearch
           value={search}
           onChange={onSearchChange}
           ariaLabel={intl.formatMessage({ id: "plugins.catalog.searchLabel" })}
           placeholder={intl.formatMessage({ id: "plugins.catalog.searchPlaceholder" })}
-          className="w-full sm:w-auto"
-          expandedWidthClassName="w-full sm:w-[432px]"
+          className="min-w-0 flex-1 justify-end lg:flex-none"
+          expandedWidthClassName="min-w-0 flex-1 lg:w-[432px] lg:flex-none"
         />
 
         <PluginFiltersPopover {...filterProps} />

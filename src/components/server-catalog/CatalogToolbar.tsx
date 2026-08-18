@@ -229,7 +229,7 @@ function CatalogFiltersDialog({
           type="button"
           variant="ghost"
           size="sm"
-          className="w-fit gap-2 self-center text-xs text-secondary-foreground"
+          className="w-fit shrink-0 gap-2 text-xs text-secondary-foreground"
           aria-label={intl.formatMessage(
             { id: "mcpServer.catalog.filtersActive" },
             { count: activeFilterCount },
@@ -324,14 +324,14 @@ export function CatalogToolbar({
     <div className="flex flex-col gap-4 py-6 lg:flex-row lg:items-center lg:justify-between">
       <CatalogViewToggle installedOnly={installedOnly} onChange={onInstalledChange} />
 
-      <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+      <div className="flex w-full items-center justify-end gap-2 lg:w-auto">
         <ListSearch
           value={search}
           onChange={onSearchChange}
           ariaLabel={intl.formatMessage({ id: "mcpServer.catalog.searchLabel" })}
           placeholder={intl.formatMessage({ id: "mcpServer.catalog.searchPlaceholder" })}
-          className="w-full sm:w-auto"
-          expandedWidthClassName="w-full sm:w-[432px]"
+          className="min-w-0 flex-1 justify-end lg:flex-none"
+          expandedWidthClassName="min-w-0 flex-1 lg:w-[432px] lg:flex-none"
         />
 
         <CatalogFiltersDialog {...filterProps} />

@@ -84,6 +84,11 @@
 
 /* Light theme */
 :root {
+  /* Tells the browser which palette to paint native UI with — scrollbars, form
+     controls, the caret. Without it the .dark class swaps our custom properties
+     but leaves that chrome light. */
+  color-scheme: light;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
 
@@ -146,6 +151,8 @@
  ---break---
  */
 .dark {
+  color-scheme: dark;
+
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -186,6 +193,13 @@
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
 }
+/* A transparent track so the scrollbar doesn't paint a solid bar over the
+   rounded corners of the box it scrolls in. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+
 /*
  ---break---
  */
