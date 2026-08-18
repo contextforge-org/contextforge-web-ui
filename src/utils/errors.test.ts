@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { extractApiErrorDetail, sanitizeError, withErrorHandling } from "./errors";
+import {
+  extractApiErrorDetail,
+  extractUpstreamApiErrorDetail,
+  sanitizeError,
+  withErrorHandling,
+} from "./errors";
 
 describe("extractApiErrorDetail", () => {
   it("returns null for null", () => {
@@ -48,6 +53,36 @@ describe("extractApiErrorDetail", () => {
 
   it("returns null when the array item has no msg property", () => {
     expect(extractApiErrorDetail({ detail: [{ loc: ["body", "name"] }] })).toBeNull();
+  });
+});
+
+describe("extractUpstreamApiErrorDetail", () => {
+  it("unwraps a JSON-encoded detail string (BFF-owned auth routes forward raw upstream text)", () => {
+    const detail = JSON.stringify({
+      detail: "Password must be at least 22 characters long (privileged account)",
+    });
+    expect(extractUpstreamApiErrorDetail({ detail })).toBe(
+      "Password must be at least 22 characters long (privileged account)",
+    );
+  });
+
+  it("unwraps a JSON-encoded FastAPI validation-error array", () => {
+    const detail = JSON.stringify({ detail: [{ msg: "too short" }] });
+    expect(extractUpstreamApiErrorDetail({ detail })).toBe("too short");
+  });
+
+  it("falls back to the raw string when detail is plain text, not JSON", () => {
+    expect(extractUpstreamApiErrorDetail({ detail: "Too many requests" })).toBe(
+      "Too many requests",
+    );
+  });
+
+  it("returns null when detail is missing", () => {
+    expect(extractUpstreamApiErrorDetail({})).toBeNull();
+  });
+
+  it("returns null for a non-object body", () => {
+    expect(extractUpstreamApiErrorDetail(null)).toBeNull();
   });
 });
 

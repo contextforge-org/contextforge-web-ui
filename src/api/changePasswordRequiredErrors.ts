@@ -1,5 +1,5 @@
 import { ApiError } from "./client";
-import { extractApiErrorDetail } from "@/utils/errors";
+import { extractUpstreamApiErrorDetail } from "@/utils/errors";
 
 export type ChangePasswordRequiredError =
   | { kind: "invalidOldPassword" }
@@ -29,7 +29,7 @@ export function classifyChangePasswordRequiredError(error: unknown): ChangePassw
   if (error.status === 401 || error.status === 403) return { kind: "invalidOldPassword" };
 
   if (error.status === 400 || error.status === 422) {
-    return { kind: "policyViolation", message: extractApiErrorDetail(error.body) };
+    return { kind: "policyViolation", message: extractUpstreamApiErrorDetail(error.body) };
   }
 
   return { kind: "failed" };

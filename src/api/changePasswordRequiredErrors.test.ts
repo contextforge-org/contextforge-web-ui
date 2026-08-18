@@ -31,6 +31,22 @@ describe("classifyChangePasswordRequiredError", () => {
     });
   });
 
+  it("unwraps the double-JSON-encoded detail the BFF route actually forwards (raw upstream response text)", () => {
+    // server/src/routes/auth/change-password-required.ts sends
+    // { error: "change_password_failed", detail: await changeResponse.text() } —
+    // `detail` here is itself the raw JSON text of upstream's error body.
+    const body = {
+      error: "change_password_failed",
+      detail: JSON.stringify({
+        detail: "Password must be at least 22 characters long (privileged account)",
+      }),
+    };
+    expect(classifyChangePasswordRequiredError(new ApiError(400, body, "HTTP 400"))).toEqual({
+      kind: "policyViolation",
+      message: "Password must be at least 22 characters long (privileged account)",
+    });
+  });
+
   it("handles a 400 without detail", () => {
     expect(classifyChangePasswordRequiredError(new ApiError(400, null, "HTTP 400"))).toEqual({
       kind: "policyViolation",
