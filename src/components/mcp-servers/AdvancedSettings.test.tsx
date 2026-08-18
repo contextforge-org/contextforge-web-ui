@@ -19,6 +19,7 @@ const makeAuthContext = (selectedTeamId: string | null = null) =>
     isAuthenticated: false,
     isLoading: false,
     login: vi.fn(),
+    completePasswordChangeRequired: vi.fn(),
     logout: vi.fn(),
     setSelectedTeamId: vi.fn(),
     permissions: [],

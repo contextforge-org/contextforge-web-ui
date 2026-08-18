@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useIntl } from "react-intl";
 import { requestPasswordReset } from "@/api/passwordReset";
 import { classifyPasswordResetError } from "@/api/passwordResetErrors";
+import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
@@ -47,79 +48,72 @@ export function ForgotPassword() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 px-4">
-      <section
-        className="w-full max-w-sm bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 shadow-sm"
-        aria-labelledby="forgot-password-title"
+    <AuthCard titleId="forgot-password-title">
+      <h1
+        id="forgot-password-title"
+        className="text-xl font-semibold text-neutral-900 dark:text-neutral-100"
       >
-        <h1
-          id="forgot-password-title"
-          className="text-xl font-semibold text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "auth.forgotPassword.title" })}
-        </h1>
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-          {intl.formatMessage({ id: "auth.forgotPassword.description" })}
-        </p>
+        {intl.formatMessage({ id: "auth.forgotPassword.title" })}
+      </h1>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+        {intl.formatMessage({ id: "auth.forgotPassword.description" })}
+      </p>
 
-        {submitted ? (
-          <div className="mt-6 space-y-4">
-            <InlineNotification
-              type="success"
-              message={intl.formatMessage({ id: "auth.forgotPassword.success" })}
+      {submitted ? (
+        <div className="mt-6 space-y-4">
+          <InlineNotification
+            type="success"
+            message={intl.formatMessage({ id: "auth.forgotPassword.success" })}
+          />
+          <Button type="button" className="w-full" onClick={() => navigate("/app/login")}>
+            {intl.formatMessage({ id: "auth.forgotPassword.backToLogin" })}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <div className="space-y-1">
+            <Label htmlFor="email">{intl.formatMessage({ id: "auth.forgotPassword.email" })}</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setEmailError(null);
+              }}
+              aria-invalid={!!emailError}
+              aria-describedby={emailError ? "forgot-password-email-error" : undefined}
             />
-            <Button type="button" className="w-full" onClick={() => navigate("/app/login")}>
-              {intl.formatMessage({ id: "auth.forgotPassword.backToLogin" })}
-            </Button>
+            {emailError && (
+              <p
+                id="forgot-password-email-error"
+                role="alert"
+                className="text-sm text-red-600 dark:text-red-400"
+              >
+                {emailError}
+              </p>
+            )}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-            <div className="space-y-1">
-              <Label htmlFor="email">
-                {intl.formatMessage({ id: "auth.forgotPassword.email" })}
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                required
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  setEmailError(null);
-                }}
-                aria-invalid={!!emailError}
-                aria-describedby={emailError ? "forgot-password-email-error" : undefined}
-              />
-              {emailError && (
-                <p
-                  id="forgot-password-email-error"
-                  role="alert"
-                  className="text-sm text-red-600 dark:text-red-400"
-                >
-                  {emailError}
-                </p>
-              )}
-            </div>
-            {error && <InlineNotification type="error" message={error} />}
-            <Button type="submit" disabled={loading || !email.trim()} className="w-full">
-              {loading
-                ? intl.formatMessage({ id: "auth.forgotPassword.submitting" })
-                : intl.formatMessage({ id: "auth.forgotPassword.submit" })}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => navigate("/app/login")}
-            >
-              {intl.formatMessage({ id: "auth.forgotPassword.backToLogin" })}
-            </Button>
-          </form>
-        )}
-      </section>
-    </main>
+          {error && <InlineNotification type="error" message={error} />}
+          <Button type="submit" disabled={loading || !email.trim()} className="w-full">
+            {loading
+              ? intl.formatMessage({ id: "auth.forgotPassword.submitting" })
+              : intl.formatMessage({ id: "auth.forgotPassword.submit" })}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => navigate("/app/login")}
+          >
+            {intl.formatMessage({ id: "auth.forgotPassword.backToLogin" })}
+          </Button>
+        </form>
+      )}
+    </AuthCard>
   );
 }

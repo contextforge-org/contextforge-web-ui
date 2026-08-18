@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { useAuth } from "../auth/useAuth";
 import { useRouter, resolveNextParam } from "../router";
 import { ApiError } from "../api/client";
+import { classifyLoginError } from "../api/loginErrors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,12 +32,15 @@ export function Login() {
       await login(email, password);
       navigate(returnTo);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(
-          err.status === 401
-            ? intl.formatMessage({ id: "auth.login.error.invalidCredentials" })
-            : intl.formatMessage({ id: "auth.login.error.failed" }, { status: err.status }),
-        );
+      const loginError = classifyLoginError(err);
+      if (loginError.kind === "passwordChangeRequired") {
+        navigate(`/app/change-password-required?email=${encodeURIComponent(email)}`);
+        return;
+      }
+      if (loginError.kind === "invalidCredentials") {
+        setError(intl.formatMessage({ id: "auth.login.error.invalidCredentials" }));
+      } else if (err instanceof ApiError) {
+        setError(intl.formatMessage({ id: "auth.login.error.failed" }, { status: err.status }));
       } else {
         setError(intl.formatMessage({ id: "auth.login.error.unexpected" }));
       }

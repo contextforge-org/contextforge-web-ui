@@ -38,6 +38,17 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>; // pragma: allowlist secret
+  /**
+   * Completes the "password change required" flow: BFF re-authenticates with
+   * the old password, changes it, then logs in again with the new one and
+   * establishes a real session — same response shape as login(), so this
+   * updates auth state identically. See PasswordChangeRequired.tsx.
+   */
+  completePasswordChangeRequired: (
+    email: string,
+    oldPassword: string, // pragma: allowlist secret
+    newPassword: string, // pragma: allowlist secret
+  ) => Promise<void>;
   logout: () => Promise<void>;
   setSelectedTeamId: (teamId: string | null) => void;
   /** Caller's effective permissions from GET /rbac/my/permissions (in-memory only). */
@@ -153,6 +164,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const completePasswordChangeRequired = useCallback(
+    async (
+      email: string,
+      oldPassword: string, // pragma: allowlist secret
+      newPassword: string, // pragma: allowlist secret
+    ): Promise<void> => {
+      const data = await api.post<LoginResponse>(
+        "/auth/change-password-required",
+        { email, oldPassword, newPassword },
+        { authenticated: false },
+      );
+
+      setCsrfToken(data.csrfToken);
+      authVersion.current += 1;
+      setState({ user: data.user, isAuthenticated: true, isLoading: false, selectedTeamId: null });
+    },
+    [],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       // Empty body would still send Content-Type: application/json, which Fastify's
@@ -210,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         ...state,
         login,
+        completePasswordChangeRequired,
         logout,
         setSelectedTeamId,
         permissions: perms.permissions,

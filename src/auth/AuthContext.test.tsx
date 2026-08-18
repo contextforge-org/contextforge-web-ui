@@ -50,6 +50,15 @@ function TestComponent() {
       >
         Login
       </button>
+      <button
+        onClick={() => {
+          auth
+            .completePasswordChangeRequired("test@example.com", "old-pass", "new-pass")
+            .catch(() => {});
+        }}
+      >
+        CompletePasswordChangeRequired
+      </button>
       <button onClick={() => auth.logout()}>Logout</button>
     </div>
   );
@@ -339,6 +348,49 @@ describe("AuthContext", () => {
 
     expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
     expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
+  });
+
+  it("handles a successful completePasswordChangeRequired identically to login", async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading")).not.toBeInTheDocument();
+    });
+
+    const mockUser = {
+      email: "test@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
+    vi.mocked(api.post).mockResolvedValueOnce({
+      user: mockUser,
+      csrfToken: "test-csrf-token",
+    });
+
+    screen.getByText("CompletePasswordChangeRequired").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
+      expect(screen.getByTestId("user-email")).toHaveTextContent("test@example.com");
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/auth/change-password-required",
+      { email: "test@example.com", oldPassword: "old-pass", newPassword: "new-pass" },
+      { authenticated: false },
+    );
+    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
   });
 
   it("handles successful logout", async () => {

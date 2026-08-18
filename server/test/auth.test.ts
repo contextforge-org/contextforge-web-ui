@@ -2,7 +2,7 @@
 // Copyright contributors to the MCP-CONTEXT-FORGE project
 // SPDX-License-Identifier: Apache-2.0
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { config } from "../src/config.js";
 import { buildTestApp, type TestApp } from "./helpers/build-app.js";
@@ -216,6 +216,230 @@ describe("POST /auth/login", () => {
       url: "/auth/login",
       payload: { email: "a@b.com" },
     });
+
+    expect(response.statusCode).toBe(400);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /auth/change-password-required", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  interface UpstreamCall {
+    url: string;
+    authorization: string | undefined;
+  }
+
+  interface MockLegOptions {
+    ok?: boolean;
+    status?: number;
+    body?: unknown;
+  }
+
+  interface MockUpstreamOptions {
+    bypassLogin?: MockLegOptions; // POST /auth/login (old password)
+    changePassword?: MockLegOptions; // POST /auth/email/change-password
+    revoke?: MockLegOptions; // POST /auth/logout (bypass token)
+    realLogin?: MockLegOptions; // POST /auth/email/login (new password)
+  }
+
+  /** Mocks all four upstream legs the route can call, and records every call made. */
+  function mockUpstream(options: MockUpstreamOptions = {}): UpstreamCall[] {
+    const legs = {
+      bypassLogin: {
+        ok: true,
+        status: 200,
+        body: {
+          access_token: "bypass-jwt", // pragma: allowlist secret
+          user: { email: "user@example.com", password_change_required: true },
+        },
+        ...options.bypassLogin,
+      },
+      changePassword: { ok: true, status: 200, body: {}, ...options.changePassword },
+      revoke: { ok: true, status: 200, body: {}, ...options.revoke },
+      realLogin: {
+        ok: true,
+        status: 200,
+        body: {
+          access_token: "real-jwt", // pragma: allowlist secret
+          expires_in: 1200,
+          user: { email: "user@example.com" },
+        },
+        ...options.realLogin,
+      },
+    };
+
+    const calls: UpstreamCall[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const headers = init?.headers as Record<string, string> | undefined;
+        calls.push({ url: String(url), authorization: headers?.authorization });
+
+        const leg = String(url).endsWith("/auth/email/change-password")
+          ? legs.changePassword
+          : String(url).endsWith("/auth/email/login")
+            ? legs.realLogin
+            : String(url).endsWith("/auth/logout")
+              ? legs.revoke
+              : String(url).endsWith("/auth/login")
+                ? legs.bypassLogin
+                : null;
+        if (!leg) throw new Error(`unexpected upstream fetch: ${url}`);
+
+        return {
+          ok: leg.ok,
+          status: leg.status,
+          json: async () => leg.body,
+          text: async () => JSON.stringify(leg.body),
+        };
+      }),
+    );
+    return calls;
+  }
+
+  async function requestChange(payload?: Record<string, unknown>) {
+    return app!.fastify.inject({
+      method: "POST",
+      url: "/auth/change-password-required",
+      payload: payload ?? {
+        email: "user@example.com",
+        oldPassword: "old-secret", // pragma: allowlist secret
+        newPassword: "New-secret1", // pragma: allowlist secret
+      },
+    });
+  }
+
+  let app: TestApp | undefined;
+  beforeEach(async () => {
+    app = await buildTestApp();
+  });
+
+  it("re-authenticates with the old password, changes it, then establishes a real session with the new password", async () => {
+    mockUpstream();
+    const response = await requestChange();
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      user: { email: "user@example.com" },
+      csrfToken: expect.any(String),
+    });
+    const setCookieNames = response.cookies.map((c) => c.name);
+    expect(setCookieNames).toContain("bff_sid");
+    expect(setCookieNames).toContain("bff_csrf");
+  });
+
+  it("calls /auth/login (not /auth/email/login) for the bypass step, since the latter hard-blocks while the flag is set", async () => {
+    const calls = mockUpstream();
+    await requestChange();
+
+    const urls = calls.map((c) => c.url);
+    expect(urls).toContain(`${config.contextforgeUrl}/auth/login`);
+    expect(urls).toContain(`${config.contextforgeUrl}/auth/email/change-password`);
+    expect(urls).toContain(`${config.contextforgeUrl}/auth/email/login`);
+  });
+
+  it("revokes the bypass token upstream after a successful change", async () => {
+    const calls = mockUpstream();
+    await requestChange();
+
+    const revokeCall = calls.find((c) => c.url === `${config.contextforgeUrl}/auth/logout`);
+    expect(revokeCall?.authorization).toBe("Bearer bypass-jwt");
+  });
+
+  it("never leaks either upstream token (bypass or real) to the browser", async () => {
+    mockUpstream();
+    const response = await requestChange();
+
+    const raw = JSON.stringify(response.json());
+    expect(raw).not.toContain("bypass-jwt");
+    expect(raw).not.toContain("real-jwt");
+  });
+
+  it("passes through the bypass-login failure status when the old password is rejected, without touching later steps", async () => {
+    const calls = mockUpstream({
+      bypassLogin: { ok: false, status: 401, body: { detail: "Invalid email or password" } },
+    });
+    const response = await requestChange();
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error).toBe("change_password_failed");
+    expect(response.cookies.map((c) => c.name)).not.toContain("bff_sid");
+    expect(calls.map((c) => c.url)).toEqual([`${config.contextforgeUrl}/auth/login`]);
+  });
+
+  it("rejects the change when the account does not actually require a password change", async () => {
+    const calls = mockUpstream({
+      bypassLogin: {
+        body: {
+          access_token: "bypass-jwt", // pragma: allowlist secret
+          user: { email: "user@example.com", password_change_required: false },
+        },
+      },
+    });
+    const response = await requestChange();
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ error: "password_change_not_required" });
+    expect(response.cookies.map((c) => c.name)).not.toContain("bff_sid");
+    // The bypass token served no purpose — it must still be revoked.
+    const revokeCall = calls.find((c) => c.url === `${config.contextforgeUrl}/auth/logout`);
+    expect(revokeCall?.authorization).toBe("Bearer bypass-jwt");
+    // Never reaches the change-password step.
+    expect(calls.map((c) => c.url)).not.toContain(
+      `${config.contextforgeUrl}/auth/email/change-password`,
+    );
+  });
+
+  it("passes through the change-password failure status when the new password is rejected, and still revokes the bypass token", async () => {
+    const calls = mockUpstream({
+      changePassword: {
+        ok: false,
+        status: 400,
+        body: { detail: "Password must not be a commonly used password" },
+      },
+    });
+    const response = await requestChange();
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toBe("change_password_failed");
+    expect(response.cookies.map((c) => c.name)).not.toContain("bff_sid");
+    const revokeCall = calls.find((c) => c.url === `${config.contextforgeUrl}/auth/logout`);
+    expect(revokeCall?.authorization).toBe("Bearer bypass-jwt");
+  });
+
+  it("reports login_after_change_failed (not change_password_failed) when the password changed but the follow-up login fails", async () => {
+    const calls = mockUpstream({
+      realLogin: { ok: false, status: 401, body: { detail: "unexpected" } },
+    });
+    const response = await requestChange();
+
+    expect(response.statusCode).toBe(502);
+    expect(response.json()).toEqual({ error: "login_after_change_failed" });
+    expect(response.cookies.map((c) => c.name)).not.toContain("bff_sid");
+    // The password change itself did happen before the follow-up login failed.
+    expect(calls.map((c) => c.url)).toContain(
+      `${config.contextforgeUrl}/auth/email/change-password`,
+    );
+  });
+
+  it("returns 502 when upstream is unreachable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("upstream unreachable");
+      }),
+    );
+
+    const response = await requestChange();
+    expect(response.statusCode).toBe(502);
+  });
+
+  it("rejects a request missing fields before calling upstream", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const response = await requestChange({ email: "user@example.com", oldPassword: "old-secret" }); // pragma: allowlist secret
 
     expect(response.statusCode).toBe(400);
     expect(fetchSpy).not.toHaveBeenCalled();

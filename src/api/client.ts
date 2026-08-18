@@ -23,7 +23,12 @@
 const LOGIN_PATH = "/app/login";
 const API_PREFIX = "/api";
 const SESSION_CHECK_PATH = "/auth/session";
-const BFF_OWNED_AUTH_PATHS = new Set(["/auth/login", "/auth/logout", SESSION_CHECK_PATH]);
+const BFF_OWNED_AUTH_PATHS = new Set([
+  "/auth/login",
+  "/auth/logout",
+  "/auth/change-password-required",
+  SESSION_CHECK_PATH,
+]);
 
 export class ApiError extends Error {
   constructor(
