@@ -130,7 +130,7 @@ const RouterContext = createContext<RouterContextValue | null>(null);
 // Returns params or null when there is no match or a param is malformed.
 // ---------------------------------------------------------------------------
 
-function matchPath(pattern: string, path: string): Record<string, string> | null {
+export function matchPath(pattern: string, path: string): Record<string, string> | null {
   const patternParts = pattern.split("/").filter(Boolean);
   const pathParts = path.split("/").filter(Boolean);
 
