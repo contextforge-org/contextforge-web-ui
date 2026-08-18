@@ -150,7 +150,7 @@ function CatalogFilterSectionFields({
       {mode === SELECT_MODE && expanded && (
         // A grid rather than CSS columns: a height-capped multi-column box
         // overflows sideways into new columns instead of scrolling down.
-        <div className="scrollbar-thin grid max-h-52 grid-cols-1 gap-x-4 overflow-y-auto rounded-md border p-2 @sm:grid-cols-2 @lg:grid-cols-3">
+        <div className="scrollbar-thin grid max-h-52 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto rounded-md border p-2 pl-3 @sm:grid-cols-2 @lg:grid-cols-3">
           {options.map((option, index) => {
             const checkboxId = `${idPrefix}-option-${index}`;
             return (
@@ -263,7 +263,10 @@ function CatalogFiltersPopover({
           visible title, so it is named for assistive tech instead. */}
       <PopoverContent
         align="end"
-        className="@container flex w-[calc(100vw-2rem)] flex-col gap-6 md:w-[30rem] lg:w-[34rem]"
+        // 36rem rather than 34rem at lg: container queries measure the content
+        // box, so 34rem of panel leaves 31.875rem once padding and border come
+        // off, 2px short of the 32rem the third column needs.
+        className="@container flex w-[calc(100vw-2rem)] flex-col gap-6 md:w-[30rem] lg:w-[36rem]"
         aria-label={intl.formatMessage({ id: "mcpServer.catalog.filters" })}
       >
         <CatalogFilterSectionFields
