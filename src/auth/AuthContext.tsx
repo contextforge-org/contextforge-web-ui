@@ -178,15 +178,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       oldPassword: string, // pragma: allowlist secret
       newPassword: string, // pragma: allowlist secret
     ): Promise<void> => {
-      const data = await api.post<LoginResponse>(
-        "/auth/change-password-required",
-        { email, oldPassword, newPassword },
-        { authenticated: false },
-      );
+      try {
+        const data = await api.post<LoginResponse>(
+          "/auth/change-password-required",
+          { email, oldPassword, newPassword },
+          { authenticated: false },
+        );
 
-      setCsrfToken(data.csrfToken);
-      authVersion.current += 1;
-      setState({ user: data.user, isAuthenticated: true, isLoading: false, selectedTeamId: null });
+        setCsrfToken(data.csrfToken);
+        authVersion.current += 1;
+        setState({
+          user: data.user,
+          isAuthenticated: true,
+          isLoading: false,
+          selectedTeamId: null,
+        });
+      } catch (err) {
+        // Same reasoning as login()'s catch: don't leave a stale CSRF token
+        // or a previously "authenticated" state around on failure — a user
+        // who lands on this pre-auth page with an existing session (bookmark,
+        // still-open tab) must not keep that state if the BFF call fails.
+        setCsrfToken(null);
+        authVersion.current += 1;
+        setState({ user: null, isAuthenticated: false, isLoading: false, selectedTeamId: null });
+        throw err;
+      }
     },
     [],
   );
