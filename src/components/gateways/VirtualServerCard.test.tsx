@@ -77,19 +77,19 @@ describe("VirtualServerCard", () => {
     expect(onViewDetails).toHaveBeenCalledWith(expect.objectContaining({ id: "vs-1" }));
   });
 
-  it("shows a green enabled indicator for enabled server", () => {
+  it("shows an active enabled indicator for enabled server", () => {
     renderWithProviders(
       <VirtualServerCard server={makeServer({ enabled: true })} onViewDetails={vi.fn()} />,
     );
-    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-emerald-500");
+    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-tool-status-active");
     expect(screen.getByRole("img", { name: "Enabled" })).toBeTruthy();
   });
 
-  it("shows a red disabled indicator for disabled server", () => {
+  it("shows an inactive disabled indicator for disabled server", () => {
     renderWithProviders(
       <VirtualServerCard server={makeServer({ enabled: false })} onViewDetails={vi.fn()} />,
     );
-    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-red-500");
+    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-tool-status-inactive");
     expect(screen.getByRole("img", { name: "Disabled" })).toBeTruthy();
   });
 
@@ -231,13 +231,14 @@ describe("VirtualServerCard", () => {
     expect(document.querySelector(".custom-class")).toBeTruthy();
   });
 
-  it("shows upload button for non-empty server", () => {
+  it("shows only the actions menu in the card header", () => {
     renderWithProviders(
       <VirtualServerCard
         server={makeServer({ associatedTools: ["t1"] })}
         onViewDetails={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: /Open.*coming soon/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Open.*coming soon/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /Actions for/i })).toBeTruthy();
   });
 });

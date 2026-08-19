@@ -367,7 +367,7 @@ test.describe("Virtual Servers page", () => {
     await expect(page.getByText("testVS")).toBeVisible();
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-emerald-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-active/);
     await expect(card.getByLabel("Enabled")).toBeVisible();
 
     await expect(card.getByTestId("tool-count")).toHaveText("2");
@@ -435,7 +435,7 @@ test.describe("Virtual Servers page", () => {
     await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-red-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-inactive/);
     await expect(card.getByLabel("Disabled")).toBeVisible();
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
@@ -443,7 +443,7 @@ test.describe("Virtual Servers page", () => {
 
     await expect.poll(() => stateRequestCount).toBe(1);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-emerald-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-active/);
     await expect(card.getByLabel("Enabled")).toBeVisible();
     await expect(
       page.locator("[data-sonner-toast]").filter({ hasText: "testVS activated." }),
@@ -485,7 +485,7 @@ test.describe("Virtual Servers page", () => {
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
     expect(stateRequestCount).toBe(0);
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-emerald-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-active/);
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Deactivate" }).click();
@@ -496,7 +496,7 @@ test.describe("Virtual Servers page", () => {
 
     await expect.poll(() => stateRequestCount).toBe(1);
     await expect(dialog).toHaveCount(0);
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-red-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-inactive/);
     await expect(card.getByLabel("Disabled")).toBeVisible();
     await expect(
       page.locator("[data-sonner-toast]").filter({ hasText: "testVS deactivated." }),
@@ -1116,7 +1116,7 @@ test.describe("Virtual Servers page", () => {
     );
   });
 
-  test("disables the Upload action button on virtual server cards", async ({ page }) => {
+  test("shows only the actions menu in the virtual server card header", async ({ page }) => {
     await page.route("**/servers?*", async (route) => {
       await route.fulfill({
         status: 200,
@@ -1128,7 +1128,8 @@ test.describe("Virtual Servers page", () => {
     await page.goto(APP.GATEWAYS);
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByRole("button", { name: /Open testVS \(coming soon\)/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Open testVS \(coming soon\)/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Actions for testVS" })).toBeVisible();
   });
 
   test("navigates to create server UI from the create server card", async ({ page }) => {
@@ -1183,7 +1184,7 @@ test.describe("Virtual Servers page", () => {
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
 
-    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-red-500/);
+    await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-inactive/);
     await expect(card.getByRole("img", { name: "Disabled" })).toBeVisible();
 
     await expect(card.getByText("disabled")).toBeVisible();
@@ -1220,7 +1221,7 @@ test.describe("Virtual Servers page", () => {
     await expect(card2.getByText("private")).toBeVisible();
   });
 
-  test("places empty virtual servers after servers with components", async ({ page }) => {
+  test("renders virtual servers in the order the API returned them", async ({ page }) => {
     const emptyServer = {
       ...MOCK_VIRTUAL_SERVER,
       id: "empty-server-id",
@@ -1244,13 +1245,15 @@ test.describe("Virtual Servers page", () => {
     await page.goto(APP.GATEWAYS);
     await page.waitForLoadState("networkidle");
 
+    // Cards are uniform now, so empty servers are no longer sorted to the end
+    // to keep a full-width row from splitting the grid.
     const cards = page.getByTestId("virtual-server-card");
     await expect(cards).toHaveCount(2);
-    await expect(cards.nth(0)).toHaveAttribute("data-server-name", "testVS");
-    await expect(cards.nth(1)).toHaveAttribute("data-server-name", "peach-thistle-shark");
-    await expect(cards.nth(1)).toHaveClass(/col-span-full/);
+    await expect(cards.nth(0)).toHaveAttribute("data-server-name", "peach-thistle-shark");
+    await expect(cards.nth(1)).toHaveAttribute("data-server-name", "testVS");
+    await expect(cards.nth(0)).not.toHaveClass(/col-span-full/);
     await expect(
-      cards.nth(1).getByRole("button", { name: "Add sources and components" }),
+      cards.nth(0).getByRole("button", { name: "Add sources and components" }),
     ).toBeVisible();
   });
 
@@ -1322,7 +1325,7 @@ test.describe("Virtual Servers page", () => {
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
 
-    await expect(card).toHaveClass(/col-span-full/);
+    await expect(card).not.toHaveClass(/col-span-full/);
     await expect(card.getByRole("button", { name: "Add sources and components" })).toBeVisible();
     await expect(card.getByTestId("tool-count")).toHaveCount(0);
     await expect(card.getByTestId("resource-count")).toHaveCount(0);
