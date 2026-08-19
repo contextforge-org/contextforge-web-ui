@@ -637,7 +637,7 @@ export function VirtualServerDetailsPanel({
               </div>
             </div>
 
-            <aside className="relative border-t border-border bg-background lg:border-l lg:border-t-0">
+            <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
                 type="button"
