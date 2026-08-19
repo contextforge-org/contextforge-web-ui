@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { ConnectSourceCard } from "@/components/gateways/ConnectSourceCard";
 import { VirtualServerCard } from "@/components/gateways/VirtualServerCard";
 import { VirtualServerDetailsPanel } from "@/components/gateways/VirtualServerDetailsPanel";
-import { hasVirtualServerComponents } from "@/components/gateways/utils";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Loading } from "@/components/ui/loading";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,19 +18,12 @@ import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import type { VirtualServer, VirtualServersResponse } from "@/types/server";
-import { cn } from "@/lib/utils";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
 const DEFAULT_PAGE_SIZE = 12;
 const SERVERS_QUERY_PATH = `/servers?limit=${DEFAULT_PAGE_SIZE}&include_inactive=true&include_pagination=true`;
 const CREATE_SERVER_PATH = "/app/gateways/create-server";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
-
-function sortServersForLayout(servers: VirtualServer[]): VirtualServer[] {
-  return [...servers].sort(
-    (a, b) => Number(hasVirtualServerComponents(b)) - Number(hasVirtualServerComponents(a)),
-  );
-}
 
 export function Gateways() {
   const intl = useIntl();
@@ -57,7 +49,6 @@ export function Gateways() {
     () => (data?.servers ?? []).filter((server) => !deletedServerIds.has(server.id)),
     [data?.servers, deletedServerIds],
   );
-  const layoutServers = useMemo(() => sortServersForLayout(servers), [servers]);
   const selectedSearchServerId = useMemo(() => {
     const queryString = path.split("?")[1] ?? "";
     return new URLSearchParams(queryString).get("selected")?.trim() || null;
@@ -227,25 +218,7 @@ export function Gateways() {
     setIsDetailsPanelOpen(true);
   }, [selectedSearchServerId, servers]);
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-          className="flex items-center justify-center p-12"
-        >
-          <Loading />
-          <span className="sr-only">
-            {intl.formatMessage({ id: "gateways.loadingVirtualServers" })}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && servers.length === 0) {
+  if (error && !isLoading && servers.length === 0) {
     return (
       <div className="p-6">
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4" role="alert">
@@ -259,8 +232,8 @@ export function Gateways() {
   }
 
   return (
-    <div className="space-y-9 p-6">
-      <div className="flex items-center gap-2">
+    <div className="p-6">
+      <div className="mb-6 flex items-center gap-2">
         <h1 ref={headingRef} tabIndex={-1} className="text-base font-semibold text-foreground">
           {intl.formatMessage({ id: "gateways.title" })}
         </h1>
@@ -279,8 +252,25 @@ export function Gateways() {
         </TooltipProvider>
       </div>
 
+      {isLoading && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="flex items-center justify-center p-12"
+        >
+          <Loading />
+          <span className="sr-only">
+            {intl.formatMessage({ id: "gateways.loadingVirtualServers" })}
+          </span>
+        </div>
+      )}
+
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4" role="alert">
+        <div
+          className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-4"
+          role="alert"
+        >
           <h2 className="font-semibold text-destructive">
             {intl.formatMessage({ id: "gateways.errorLoadingVirtualServers" })}
           </h2>
@@ -288,12 +278,10 @@ export function Gateways() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {canCreateServer && <ConnectSourceCard onAction={() => navigate(CREATE_SERVER_PATH)} />}
-        {layoutServers.map((server) => {
-          const hasComponents = hasVirtualServerComponents(server);
-
-          return (
+      {!isLoading && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+          {canCreateServer && <ConnectSourceCard onAction={() => navigate(CREATE_SERVER_PATH)} />}
+          {servers.map((server) => (
             <VirtualServerCard
               key={server.id}
               server={server}
@@ -310,11 +298,10 @@ export function Gateways() {
               deleteDisabled={
                 isTogglePending || (isDeletePending && pendingDeleteServerId !== server.id)
               }
-              className={cn(!hasComponents && "col-span-full")}
             />
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {detailsServerId && (
         <VirtualServerDetailsPanelContainer

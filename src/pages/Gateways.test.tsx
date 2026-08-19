@@ -481,7 +481,7 @@ describe("Gateways", () => {
       expect(toast.error).toHaveBeenCalledWith("Failed to activate virtual server.");
     });
     expect(setData).not.toHaveBeenCalled();
-    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-red-500");
+    expect(screen.getByTestId("status-indicator")).toHaveClass("bg-tool-status-inactive");
   });
 
   it("shows API error detail when activation fails", async () => {
@@ -502,7 +502,7 @@ describe("Gateways", () => {
     });
   });
 
-  it("renders empty virtual servers as full-width add-components rows", () => {
+  it("renders empty virtual servers as ordinary grid cards with an add-components row", () => {
     const mockServer = makeServer({
       id: "gateway-empty",
       name: "peach-thistle-shark",
@@ -522,14 +522,14 @@ describe("Gateways", () => {
 
     renderWithProviders(<Gateways />);
 
-    expect(screen.getByTestId("virtual-server-card")).toHaveClass("col-span-full");
+    expect(screen.getByTestId("virtual-server-card")).not.toHaveClass("col-span-full");
     expect(screen.getByText("peach-thistle-shark")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add sources and components" })).toBeInTheDocument();
     expect(screen.queryByTestId("tool-count")).not.toBeInTheDocument();
     expect(screen.queryByTestId("last-updated")).not.toBeInTheDocument();
   });
 
-  it("renders empty virtual servers after servers with components", () => {
+  it("renders virtual servers in the order the API returned them", () => {
     const emptyServer = makeServer({
       id: "gateway-empty",
       name: "peach-thistle-shark",
@@ -556,11 +556,13 @@ describe("Gateways", () => {
 
     renderWithProviders(<Gateways />);
 
+    // Cards are uniform now, so empty servers are no longer sorted to the end
+    // to keep a full-width row from splitting the grid.
     const renderedCards = screen.getAllByTestId("virtual-server-card");
     expect(renderedCards).toHaveLength(2);
-    expect(renderedCards[0]).toHaveAttribute("data-server-name", "GH repo tasks");
-    expect(renderedCards[1]).toHaveAttribute("data-server-name", "peach-thistle-shark");
-    expect(renderedCards[1]).toHaveClass("col-span-full");
+    expect(renderedCards[0]).toHaveAttribute("data-server-name", "peach-thistle-shark");
+    expect(renderedCards[1]).toHaveAttribute("data-server-name", "GH repo tasks");
+    expect(renderedCards[0]).not.toHaveClass("col-span-full");
   });
 
   it("navigates to the create server UI when the create server card is clicked", async () => {
@@ -1161,7 +1163,7 @@ describe("Gateways", () => {
     expect(screen.getByText("Sparse server")).toBeInTheDocument();
     const card = screen.getByTestId("virtual-server-card");
     expect(card).toBeInTheDocument();
-    expect(card).toHaveClass("col-span-full");
+    expect(card).not.toHaveClass("col-span-full");
     expect(screen.getByRole("button", { name: "Add sources and components" })).toBeInTheDocument();
     expect(card.querySelector('[data-testid="tool-count"]')).not.toBeInTheDocument();
     expect(card.querySelector('[data-testid="resource-count"]')).not.toBeInTheDocument();
