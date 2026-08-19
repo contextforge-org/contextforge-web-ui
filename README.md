@@ -4,8 +4,8 @@ The web interface for ContextForge, the open source AI gateway that federates
 tools, agents, and APIs into one endpoint.
 
 The backing service is a separate process in a separate repository
-([IBM/mcp-context-forge](https://github.com/IBM/mcp-context-forge)). This
-repository holds the two pieces that sit in front of it:
+([IBM/mcp-context-forge](https://github.com/IBM/mcp-context-forge)). 
+This repository holds the BFF and client that sit in front of it. The table below also documents the API for naming reference, though it lives in a separate repo:
 
 | Component | Lives in | Role |
 | --------- | -------- | ---- |
