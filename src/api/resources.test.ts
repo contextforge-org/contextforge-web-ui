@@ -168,6 +168,50 @@ describe("resourcesApi", () => {
     });
   });
 
+  describe("test", () => {
+    it("GETs /v1/resources/test/:uri (slashes preserved) and returns content + status", async () => {
+      mockFetch.mockResolvedValueOnce(
+        okJson({ content: { mimeType: "text/plain", text: "hello" } }),
+      );
+
+      const result = await resourcesApi.test("file:///tmp/a.txt");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/v1/resources/test/file:///tmp/a.txt"),
+        expect.objectContaining({ method: "GET" }),
+      );
+      expect(result).toEqual({ content: { mimeType: "text/plain", text: "hello" }, status: 200 });
+    });
+
+    it("percent-encodes ? and # so the uri survives as a full path segment", async () => {
+      mockFetch.mockResolvedValueOnce(
+        okJson({ content: { mimeType: "text/plain", text: "hello" } }),
+      );
+
+      await resourcesApi.test("file:///a?b#c");
+
+      const requestedUrl = String(mockFetch.mock.calls[0][0]);
+      expect(requestedUrl).toContain("/v1/resources/test/file:///a%3Fb%23c");
+      // Unescaped, `?`/`#` would truncate the path here instead of reaching the backend.
+      expect(requestedUrl).not.toContain("/v1/resources/test/file:///a?b#c");
+    });
+
+    it("throws synchronously for an empty URI", () => {
+      expect(() => resourcesApi.test("")).toThrow("Invalid resource URI");
+    });
+
+    it("throws ApiError on a non-2xx response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: "Not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await expect(resourcesApi.test("resource://missing")).rejects.toThrow("HTTP 404");
+    });
+  });
+
   describe("validateResourceId (via delete)", () => {
     it("rejects an empty id", () => {
       expect(() => resourcesApi.delete("")).toThrow(/^Invalid resource ID$/);

@@ -658,6 +658,10 @@ describe("Resources", () => {
         ).toBeInTheDocument();
       });
 
+      // Row actions (Edit/Delete) live in the Definition tab; the panel
+      // opens on Try it by default.
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
+
       await user.click(screen.getByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Edit"));
 
@@ -736,6 +740,7 @@ describe("Resources", () => {
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
       await user.click(screen.getByLabelText("More options for test-gateway"));
       await user.click(await screen.findByText("View details"));
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       await user.click(await screen.findByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Edit"));
 
@@ -756,6 +761,7 @@ describe("Resources", () => {
       await waitFor(() => expect(screen.getByText("test-gateway")).toBeInTheDocument());
       await user.click(screen.getByLabelText("More options for test-gateway"));
       await user.click(await screen.findByText("View details"));
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       await user.click(await screen.findByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Edit"));
 
@@ -894,6 +900,9 @@ describe("Resources", () => {
           screen.getByRole("region", { name: new RegExp(`Resources for ${gatewaySlug}`, "i") }),
         ).toBeInTheDocument(),
       );
+      // Row actions (Edit/Delete) live in the Definition tab; the panel
+      // opens on Try it by default.
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       return { user };
     }
 
@@ -931,6 +940,7 @@ describe("Resources", () => {
           screen.getByRole("region", { name: /Resources for opt-gateway/i }),
         ).toBeInTheDocument(),
       );
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
 
       await user.click(screen.getByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Delete"));
@@ -967,6 +977,7 @@ describe("Resources", () => {
           screen.getByRole("region", { name: /Resources for rollback-gateway/i }),
         ).toBeInTheDocument(),
       );
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
 
       await user.click(screen.getByLabelText("More options for Resource 1"));
       await user.click(await screen.findByText("Delete"));

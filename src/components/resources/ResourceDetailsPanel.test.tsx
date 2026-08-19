@@ -5,6 +5,11 @@ import { renderWithProviders as render } from "@/test/test-utils";
 import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
 import type { ResourceRead } from "@/generated/types";
 
+vi.mock("@/api/resources", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/resources")>()),
+  resourcesApi: { test: vi.fn() },
+}));
+
 function mockResource(overrides?: Partial<NonNullable<ResourceRead>>): NonNullable<ResourceRead> {
   return {
     id: "42",
@@ -55,5 +60,44 @@ describe("ResourceDetailsPanel inline tag add", () => {
     );
 
     expect(screen.getByRole("button", { name: "Add tags" })).toBeDisabled();
+  });
+});
+
+describe("ResourceDetailsPanel tabs", () => {
+  it("opens on the Try it tab by default, with the preview snippet tabs visible", () => {
+    render(
+      <ResourceDetailsPanel
+        resources={[mockResource()]}
+        gatewaySlug="local"
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "curl" })).toBeInTheDocument();
+  });
+
+  it("shares resource selection between the Definition table and the Try it chip picker", async () => {
+    const user = userEvent.setup();
+    render(
+      <ResourceDetailsPanel
+        resources={[
+          mockResource({ id: "42", name: "a.txt" }),
+          mockResource({ id: "43", name: "b.txt" }),
+        ]}
+        gatewaySlug="local"
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Definition" }));
+    expect(screen.getByRole("columnheader", { name: "Resource" })).toBeInTheDocument();
+
+    await user.click(screen.getByText("b.txt"));
+
+    await user.click(screen.getByRole("tab", { name: "Try it" }));
+    expect(screen.getByRole("button", { name: "b.txt", pressed: true })).toBeInTheDocument();
   });
 });

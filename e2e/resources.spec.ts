@@ -266,6 +266,98 @@ test.describe("Resources page", () => {
     await expect(panel).not.toBeVisible();
   });
 
+  test.describe("Try it preview", () => {
+    test("renders a preview in the details panel Try it tab", async ({ page }) => {
+      await page.route("**/resources?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([RESOURCE_A1]),
+        });
+      });
+
+      let requestedUrl: string | null = null;
+      await page.route("**/v1/resources/test/**", async (route) => {
+        requestedUrl = route.request().url();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            content: { mimeType: "text/plain", text: "hello from document-txt" },
+          }),
+        });
+      });
+
+      await page.goto(APP.RESOURCES);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "More options for github-server" }).click();
+      await page.getByRole("menuitem", { name: "View details" }).click();
+
+      // Try it is the default tab, so Preview is available without switching tabs.
+      const panel = page.getByRole("region", { name: /Resources for github-server/i });
+      await expect(panel).toBeVisible();
+      await panel.getByRole("button", { name: "Preview" }).click();
+
+      await expect.poll(() => requestedUrl).not.toBeNull();
+      expect(requestedUrl).toContain(`/v1/resources/test/${encodeURI(RESOURCE_A1.uri)}`);
+
+      await expect(panel).toContainText("200 OK");
+      await expect(panel).toContainText("hello from document-txt");
+    });
+
+    test("disables Preview until every uriTemplate placeholder is filled, then sends the resolved uri", async ({
+      page,
+    }) => {
+      const TEMPLATED = makeResource("repo-contents", "github-server", {
+        uri: "github://repos/{owner}/{repo}",
+        uriTemplate: "github://repos/{owner}/{repo}",
+      });
+
+      await page.route("**/resources?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([TEMPLATED]),
+        });
+      });
+
+      let requestedUrl: string | null = null;
+      await page.route("**/v1/resources/test/**", async (route) => {
+        requestedUrl = route.request().url();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ content: { mimeType: "text/plain", text: "readme contents" } }),
+        });
+      });
+
+      await page.goto(APP.RESOURCES);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "More options for github-server" }).click();
+      await page.getByRole("menuitem", { name: "View details" }).click();
+
+      const panel = page.getByRole("region", { name: /Resources for github-server/i });
+      const previewButton = panel.getByRole("button", { name: "Preview" });
+      await expect(previewButton).toBeDisabled();
+
+      await panel.getByLabel(/owner/).fill("ibm");
+      await expect(previewButton).toBeDisabled();
+
+      await panel.getByLabel(/repo/).fill("mcp-context-forge");
+      await expect(previewButton).toBeEnabled();
+
+      await previewButton.click();
+
+      await expect.poll(() => requestedUrl).not.toBeNull();
+      expect(requestedUrl).toContain(
+        `/v1/resources/test/${encodeURI("github://repos/ibm/mcp-context-forge")}`,
+      );
+      await expect(panel).toContainText("readme contents");
+    });
+  });
+
   test.describe("Delete resource", () => {
     test("cancel in confirm dialog keeps resource visible", async ({ page }) => {
       await page.route("**/resources?*", async (route) => {
@@ -283,7 +375,8 @@ test.describe("Resources page", () => {
       await page.getByRole("menuitem", { name: "View details" }).click();
 
       const panel = page.getByRole("region", { name: /Resources for github-server/i });
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for document-txt" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
 
       const dialog = page.getByRole("dialog", { name: "Delete resource" });
@@ -329,7 +422,8 @@ test.describe("Resources page", () => {
       await expect(panel).toBeVisible();
       await expect(panel.getByText("document-txt").first()).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for document-txt" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
 
       const dialog = page.getByRole("dialog", { name: "Delete resource" });
@@ -376,7 +470,8 @@ test.describe("Resources page", () => {
       const panel = page.getByRole("region", { name: /Resources for github-server/i });
       await expect(panel).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for document-txt" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
 
       const dialog = page.getByRole("dialog", { name: "Delete resource" });
@@ -420,7 +515,8 @@ test.describe("Resources page", () => {
       const panel = page.getByRole("region", { name: /Resources for solo-gateway/i });
       await expect(panel).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for solo_resource" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
 
       await page
@@ -469,7 +565,8 @@ test.describe("Resources page", () => {
       await expect(panel.getByText("alpha_resource").first()).toBeVisible();
       await expect(panel.getByText("beta_resource").first()).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for alpha_resource" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
       await page
         .getByRole("dialog", { name: "Delete resource" })
@@ -517,7 +614,8 @@ test.describe("Resources page", () => {
       const panel = page.getByRole("region", { name: /Resources for lone-gateway/i });
       await expect(panel).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: "More options for lone_resource" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
       await page
         .getByRole("dialog", { name: "Delete resource" })
@@ -572,7 +670,8 @@ test.describe("Resources page", () => {
       const panel = page.getByRole("region", { name: /Resources for github-server/i });
       await expect(panel).toBeVisible();
 
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: `More options for ${RESOURCE_A1.name}` }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
 
       await expect(page.getByRole("heading", { name: "Edit resource" })).toBeVisible();
@@ -626,7 +725,8 @@ test.describe("Resources page", () => {
       await page.getByRole("menuitem", { name: "View details" }).click();
 
       const panel = page.getByRole("region", { name: /Resources for github-server/i });
-      await panel.getByRole("button", { name: "More options" }).first().click();
+      await panel.getByRole("tab", { name: "Definition" }).click();
+      await panel.getByRole("button", { name: `More options for ${RESOURCE_A1.name}` }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
 
       await expect(page.getByLabel(/Content/)).toHaveValue("original content");

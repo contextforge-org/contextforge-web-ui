@@ -37,13 +37,13 @@ export function ResourcesTable({
   const intl = useIntl();
 
   return (
-    <Table className="min-w-full border-separate border-spacing-y-1.5">
+    <Table className="min-w-full table-fixed border-separate border-spacing-y-1.5">
       <TableHeader>
         <TableRow className="border-none hover:bg-transparent">
-          <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
+          <TableHead className="h-9 w-[38%] border-b border-border px-4 py-2.5 text-xs font-medium">
             {intl.formatMessage({ id: "resources.table.resource" })}
           </TableHead>
-          <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
+          <TableHead className="h-9 w-[34%] border-b border-border px-4 py-2.5 text-xs font-medium">
             {intl.formatMessage({ id: "resources.table.uri" })}
           </TableHead>
           <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
@@ -68,7 +68,9 @@ export function ResourcesTable({
             className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-100 data-[state=selected]:bg-neutral-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-700/60 dark:data-[state=selected]:bg-neutral-700 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
-              <span className="line-clamp-1">{resource.title || resource.name}</span>
+              <span className="block truncate" title={resource.title || resource.name}>
+                {resource.title || resource.name}
+              </span>
             </TableCell>
 
             <TableCell className="px-4 py-3">
