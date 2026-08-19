@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { VirtualServer } from "@/types/server";
-import { Box, EllipsisVertical, MessageSquareCode, Plus, Upload, Wrench } from "lucide-react";
+import { Box, EllipsisVertical, MessageSquareCode, Plus, Wrench } from "lucide-react";
 import { useIntl } from "react-intl";
 
 export function VirtualServerCard({
@@ -52,26 +52,22 @@ export function VirtualServerCard({
   return (
     <Card
       size="sm"
-      className={cn(
-        isEmptyComposition ? "min-h-29 justify-center" : "min-h-35 justify-between",
-        "cursor-pointer transition-colors hover:bg-accent/50",
-        className,
-      )}
+      className={cn("cursor-pointer transition-colors hover:bg-accent/50", className)}
       data-testid="virtual-server-card"
       data-server-name={server.name}
       onClick={() => onViewDetails(server)}
     >
       <CardHeader className="gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-            <MCPIcon className="size-4 [&_path]:fill-current" />
+          <span className="flex size-6 shrink-0 items-center justify-center rounded bg-server-icon-bg text-black">
+            <MCPIcon className="size-3.5 [&_path]:fill-current" />
           </span>
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <CardTitle className="truncate">{server.name}</CardTitle>
+            <CardTitle className="truncate font-semibold">{server.name}</CardTitle>
             <span
               className={cn(
-                "size-1.5 rounded-full",
-                server.enabled ? "bg-emerald-500" : "bg-red-500",
+                "size-1.5 shrink-0 rounded-full",
+                server.enabled ? "bg-tool-status-active" : "bg-tool-status-inactive",
               )}
               data-testid="status-indicator"
               role="img"
@@ -81,16 +77,6 @@ export function VirtualServerCard({
             />
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {!isEmptyComposition && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Open ${server.name} (coming soon)`}
-                disabled
-              >
-                <Upload className="size-4" />
-              </Button>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

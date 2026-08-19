@@ -26,30 +26,8 @@ import {
   SESSION_COOKIE_NAME,
 } from "../../lib/session-store.js";
 import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
-import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
+import { revokeUpstreamToken } from "../../lib/revoke-upstream-token.js";
 import { setNoStore } from "../../lib/no-store.js";
-
-// The user is waiting on this request, so cap how long a hung (not refused)
-// upstream can hold it open.
-const UPSTREAM_REVOKE_TIMEOUT_MS = 3000;
-
-async function revokeUpstreamToken(request: FastifyRequest, bearerToken: string): Promise<void> {
-  try {
-    const response = await fetch(`${config.contextforgeUrl}/auth/logout`, {
-      method: "POST",
-      headers: upstreamAuthHeader(bearerToken),
-      signal: AbortSignal.timeout(UPSTREAM_REVOKE_TIMEOUT_MS),
-    });
-    if (!response.ok) {
-      request.log.warn(
-        { status: response.status },
-        "upstream token revocation returned a non-2xx status",
-      );
-    }
-  } catch (err) {
-    request.log.warn({ err }, "upstream token revocation failed");
-  }
-}
 
 export default async function logoutRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post(

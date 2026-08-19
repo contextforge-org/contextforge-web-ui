@@ -44,6 +44,42 @@ test.describe("Login flow", () => {
     expect(token).toBeNull();
   });
 
+  test("403 password-change-required response redirects to the change-password page", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockLogin({
+      status: 403,
+      detail: JSON.stringify({
+        detail: "Password change required. Please change your password before continuing.",
+      }),
+    });
+
+    await page.goto(APP.LOGIN);
+    await page.getByLabel(/email address/i).fill("test@example.com");
+    await page.getByLabel(/password/i).fill("old-password");
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+
+    await expect(page).toHaveURL(
+      new RegExp(`${APP.CHANGE_PASSWORD_REQUIRED}\\?email=test%40example\\.com$`),
+    );
+  });
+
+  test("403 response with unrelated detail keeps user on the login page", async ({
+    page,
+    apiMock,
+  }) => {
+    await apiMock.mockLogin({ status: 403, detail: JSON.stringify({ detail: "Forbidden" }) });
+
+    await page.goto(APP.LOGIN);
+    await page.getByLabel(/email address/i).fill("test@example.com");
+    await page.getByLabel(/password/i).fill("password123");
+    await page.getByRole("button", { name: /^sign in$/i }).click();
+
+    await expect(page).toHaveURL(new RegExp(`${APP.LOGIN}$`));
+    await expect(page.getByRole("alert")).toHaveText(/login failed/i);
+  });
+
   test("500 response surfaces generic failure message", async ({ page, apiMock }) => {
     await apiMock.mockLogin({ status: 500 });
 

@@ -87,7 +87,7 @@ export function UsersTable({ users, onDeleteClick, onEditClick }: UsersTableProp
               securityIconClass = "text-destructive";
             } else if (user.password_change_required) {
               securityLabel = intl.formatMessage({ id: "users.security.passwordReset" });
-              securityIconClass = "text-amber-400";
+              securityIconClass = "text-amber-600 dark:text-amber-400";
             } else if (user.email_verified) {
               securityLabel = intl.formatMessage({ id: "users.security.verified" });
               securityIconClass = "text-accent-foreground";
@@ -120,7 +120,9 @@ export function UsersTable({ users, onDeleteClick, onEditClick }: UsersTableProp
                   <div className="flex items-center gap-1.5 text-[13px] leading-4 text-muted-foreground">
                     <Check
                       className={
-                        user.is_active ? "h-3 w-3 text-emerald-400" : "h-3 w-3 text-neutral-500"
+                        user.is_active
+                          ? "h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                          : "h-3 w-3 text-neutral-500"
                       }
                       strokeWidth={1.5}
                       aria-hidden="true"

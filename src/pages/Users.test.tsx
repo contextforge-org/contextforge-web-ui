@@ -90,6 +90,7 @@ function makeAuthContext(email = "admin@example.com") {
     isLoading: false,
     selectedTeamId: null,
     login: vi.fn(),
+    completePasswordChangeRequired: vi.fn(),
     logout: vi.fn(),
     setSelectedTeamId: vi.fn(),
     permissions: [],

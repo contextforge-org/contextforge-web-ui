@@ -98,11 +98,11 @@ const ResourceGroupCard = memo(function ResourceGroupCard({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
               title={group.gatewaySlug}
-              className="min-w-0 truncate text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+              className="min-w-0 truncate text-sm font-semibold text-muted-foreground"
             >
               {group.gatewaySlug}
             </span>
-            <span className="whitespace-nowrap text-sm font-semibold text-neutral-900 dark:text-white">
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">
               {intl.formatMessage(
                 { id: "resources.card.resourceCount" },
                 { count: group.resources.length },
@@ -210,16 +210,16 @@ function AddResourcesCard({ onAddResource }: { onAddResource: () => void }) {
     >
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-neutral-200 shadow-sm dark:bg-white">
-            <Plus className="h-3.5 w-3.5 text-neutral-700 dark:text-neutral-900" />
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
+            <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
-          <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+          <span className="text-sm font-semibold text-foreground">
             {intl.formatMessage({ id: "resources.addResources.title" })}
           </span>
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {intl.formatMessage({ id: "resources.addResources.description" })}
         </p>
       </CardContent>
@@ -542,7 +542,7 @@ export function Resources() {
           <span className="sr-only">
             {intl.formatMessage({ id: "resources.form.loadingContent" })}
           </span>
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 dark:border-gray-700 dark:border-t-blue-400" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
         </div>
       ) : showForm && editingResource && resourceContentError ? (
         <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-800 dark:bg-red-900/20">
@@ -561,10 +561,10 @@ export function Resources() {
         </div>
       ) : showForm && editingResource && isEditingBinaryResource ? (
         <div className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-neutral-200 bg-inherit p-6 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
-          <h3 className="mb-1 font-semibold text-neutral-900 dark:text-white">
+          <h3 className="mb-1 font-semibold text-foreground">
             {intl.formatMessage({ id: "resources.form.binaryUnsupported" })}
           </h3>
-          <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="mb-4 text-sm text-muted-foreground">
             {intl.formatMessage({ id: "resources.form.binaryUnsupportedDescription" })}
           </p>
           <div className="flex justify-end">
@@ -588,7 +588,7 @@ export function Resources() {
           <h1
             ref={headingRef}
             tabIndex={-1}
-            className="mb-6 text-base font-semibold text-neutral-900 dark:text-white"
+            className="mb-6 text-base font-semibold text-foreground"
           >
             {intl.formatMessage({ id: "resources.title" })}
           </h1>
@@ -601,7 +601,7 @@ export function Resources() {
               className="flex items-center justify-center p-12"
             >
               <span className="sr-only">{intl.formatMessage({ id: "resources.loading" })}</span>
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 dark:border-gray-700 dark:border-t-blue-400" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
             </div>
           )}
 

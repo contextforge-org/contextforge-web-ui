@@ -1,17 +1,31 @@
-# ContextForge UI Client
+# ContextForge Web UI
 
-React-based admin UI for ContextForge MCP Gateway.
+The web interface for ContextForge, the open source AI gateway that federates
+tools, agents, and APIs into one endpoint.
+
+The backing service is a separate process in a separate repository
+([IBM/mcp-context-forge](https://github.com/IBM/mcp-context-forge)). 
+This repository holds the BFF and client that sit in front of it. The table below also documents the API for naming reference, though it lives in a separate repo:
+
+| Component | Lives in | Role |
+| --------- | -------- | ---- |
+| **ContextForge API** | separate repo | FastAPI service that owns auth and all business data |
+| **BFF** | `server/` | Fastify app holding the session/CSRF boundary in front of the API |
+| **Client** | `src/` | React SPA, served as static files by the BFF |
+
+Throughout this README, "the API", "the BFF", and "the client" refer to those
+three. The browser only ever talks to the BFF, never directly to the API.
 
 This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi.json) committed at repo root.
 
 ## Tech Stack
 
 - **React 18** with TypeScript
-- **Vite** - Build tool and dev server
-- **React Router** - Client-side routing
-- **React Intl** - Internationalization (i18n)
-- **Tailwind CSS** - Utility-first styling
-- **shadcn/ui** - Component library
+- **Vite**: build tool and dev server
+- **React Router**: client-side routing
+- **React Intl**: internationalization (i18n)
+- **Tailwind CSS**: utility-first styling
+- **shadcn/ui**: component library
 
 ## Getting Started
 
@@ -29,24 +43,25 @@ npm install
 
 ### Development
 
-The app is split into three pieces that all must run for local dev:
-
-- **ContextForge** (`mcpgateway`) — the upstream FastAPI gateway. It owns
-  auth and all business data.
-- **BFF** (`server/`) — a Fastify app that sits between the browser and
-  ContextForge. It holds the session cookie/CSRF boundary and keeps the
-  API's JWT off the browser (`server/src/index.ts`). The browser only ever
-  talks to the BFF, never directly to ContextForge.
-- **Client** (`src/`) — this React SPA, served as static files by the BFF
-  (same-origin — the API client always calls relative paths, see
-  `src/api/client.ts`).
+All three components must be running for local dev. Beyond the roles above:
+the BFF keeps the API's JWT off the browser (`server/src/index.ts`), and the
+client is served same-origin by the BFF, so its requests are always relative
+paths (`src/api/client.ts`).
 
 Bring them up in this order:
 
-1. **Start ContextForge** — the upstream `mcp-context-forge` repo. Follow
-   its own quick-start guide:
+1. **Start the ContextForge API** (terminal A). It is a separate service in
+   its own clone, not part of this repository. Follow its own quick-start
+   guide for first-time setup:
    https://github.com/IBM/mcp-context-forge/issues/2503
-   Note whatever port it ends up listening on for the next step.
+
+   ```bash
+   cd /path/to/mcp-context-forge
+   make dev   # listens on :8000, matching .env.example's default below
+   ```
+
+   (`make serve` runs it in production mode on `:4444` instead.) Note
+   whichever port yours ends up on; step 2 needs it.
 
 2. **Configure and start the BFF** (terminal B, from the repo root):
 
@@ -55,16 +70,17 @@ Bring them up in this order:
    ```
 
    Edit `.env`:
-   - `CONTEXTFORGE_URL` — point it at whatever host:port ContextForge is
-     listening on from step 1 (`.env.example`'s default is `0.0.0.0:8000`;
-     confirm against your ContextForge run rather than assuming).
-   - `COOKIE_SECURE=false` — needed for local HTTP; the default (`true`) is
+   - `CONTEXTFORGE_URL`: point it at whatever host:port the API is
+     listening on from step 1 (`.env.example`'s default is `0.0.0.0:8000`,
+     which matches `make dev`; confirm against your actual run rather than
+     assuming).
+   - `COOKIE_SECURE=false`: needed for local HTTP; the default (`true`) is
      for prod and silently drops the session cookie over plain HTTP.
 
    Other values (`PORT`, `REDIS_URL`, `SESSION_TTL_SECONDS`, etc.) have
-   dev-safe defaults — see comments in `.env.example`. `REDIS_URL` is left
+   dev-safe defaults; see comments in `.env.example`. `REDIS_URL` is left
    unset, which falls back to an in-process store (no Redis process needed
-   for local dev — state resets on restart).
+   for local dev; state resets on restart).
 
    ```bash
    cd server
@@ -80,29 +96,29 @@ Bring them up in this order:
    ```
 
    This builds the SPA into `server/public/`, which the already-running BFF
-   serves directly. Re-run `npm run build` after any frontend change —
+   serves directly. Re-run `npm run build` after any frontend change;
    there's no HMR dev server wired to the BFF, so this build step is the
    loop for local iteration against the real backend. (`npm run build:watch`
    reruns it automatically on file changes.)
 
-4. **Use it.** Visit `http://localhost:3000/` — redirects to `/app/login`
+4. **Use it.** Visit `http://localhost:3000/`: redirects to `/app/login`
    (unauthed) or `/app/` (authed). The login form posts through the BFF,
-   which holds the ContextForge JWT server-side and hands the browser only
+   which holds the API's JWT server-side and hands the browser only
    an opaque session cookie.
 
    Default seeded admin: `admin@example.com` / `changeme` (first login
    forces a password change unless `PASSWORD_CHANGE_ENFORCEMENT_ENABLED=false`
-   is set in ContextForge's `.env`).
+   is set in the API's `.env`).
 
 > `npm run dev` (plain Vite dev server at `:5173`, no BFF in front) still
 > works for UI-only iteration, but `/api/*` calls need the BFF — it won't
-> reach ContextForge on its own.
+> reach the ContextForge API on its own.
 
 #### Troubleshooting
 
-- **`EADDRINUSE` on `:3000`** — stale `tsx watch` process:
+- **`EADDRINUSE` on `:3000`**: stale `tsx watch` process:
   `lsof -ti:3000 | xargs kill`, then restart `npm run dev` in `server/`.
-- **401 mid-session** — expected; the ContextForge token hard-expires per
+- **401 mid-session**: expected; the API token hard-expires per
   `TOKEN_EXPIRY` (default 20 min). The BFF auto-revokes the session and
   redirects to login.
 
@@ -122,7 +138,7 @@ npm run preview
 
 ## API Types
 
-TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7 — not re-fetched at build time.
+TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7, not re-fetched at build time.
 
 ```bash
 npm run generate   # regenerate src/generated/ from ./openapi.json
@@ -171,9 +187,9 @@ npm run format:check
 
 ### Test Framework
 
-- **Vitest** - Fast unit test runner with jsdom environment
-- **React Testing Library** - Component testing utilities
-- **MSW (Mock Service Worker)** - API mocking
+- **Vitest**: Fast unit test runner with jsdom environment
+- **React Testing Library**: Component testing utilities
+- **MSW (Mock Service Worker)**: API mocking
 
 ### Running Tests
 
@@ -262,15 +278,15 @@ export const handlers = [
 
 Test-specific TypeScript configuration:
 
-- **[`tsconfig.app.json`](./tsconfig.app.json)** - Includes `vitest/globals` and `@testing-library/jest-dom` types
-- **[`src/vitest.d.ts`](./src/vitest.d.ts)** - Global type declarations for test utilities
-- **[`vitest.config.ts`](./vitest.config.ts)** - Vitest configuration with jsdom environment
+- **[`tsconfig.app.json`](./tsconfig.app.json)**: includes `vitest/globals` and `@testing-library/jest-dom` types
+- **[`src/vitest.d.ts`](./src/vitest.d.ts)**: global type declarations for test utilities
+- **[`vitest.config.ts`](./vitest.config.ts)**: Vitest configuration with jsdom environment
 
 ## End-to-End Testing
 
 End-to-end tests live in [`e2e/`](./e2e/) and are written in TypeScript with
 Playwright. They run against the Vite dev server and stub backend API calls
-with `page.route()`, so no Python gateway is required.
+with `page.route()`, so no running ContextForge API is required.
 
 ```bash
 npm run e2e:install   # Install Playwright browsers (one-time)
@@ -286,8 +302,8 @@ See [`e2e/README.md`](./e2e/README.md) for layout, fixtures, and guidelines.
 
 ### GitHub Actions
 
-Tests and linting run automatically on pull requests via [`.github/workflows/client-lint-test.yml`](../.github/workflows/client-lint-test.yml).
-E2E tests run via [`.github/workflows/client-e2e.yml`](../.github/workflows/client-e2e.yml).
+Tests and linting run automatically on pull requests via [`.github/workflows/client-lint-test.yml`](./.github/workflows/client-lint-test.yml).
+E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/workflows/client-e2e.yml).
 
 **Workflow Steps:**
 
@@ -304,7 +320,7 @@ E2E tests run via [`.github/workflows/client-e2e.yml`](../.github/workflows/clie
 ## Project Structure
 
 ```
-client/
+contextforge-web-ui/
 ├── src/
 │   ├── api/              # API client and types
 │   ├── auth/             # Authentication context and hooks
@@ -331,43 +347,43 @@ client/
 ├── .env.example          # Shared BFF config — copy to .env (see Getting Started)
 ├── .env.prod.example     # Production-ready template — copy to .env
 ├── Dockerfile / docker-compose.yml / DOCKER.md  # see DOCKER.md
-└── server/               # BFF (Fastify): session/CSRF boundary in front of ContextForge
+└── server/               # BFF (Fastify): session/CSRF boundary in front of the API
     ├── src/
     │   ├── index.ts       # Entrypoint
     │   ├── config.ts      # Env-driven config
     │   ├── plugins/       # cookie, redis, session, csrf, static
-    │   └── routes/        # auth/, proxy/ (catch-all to ContextForge), sse/
+    │   └── routes/        # auth/, proxy/ (catch-all to the API), sse/
     ├── public/            # Built SPA (npm run build output), served by BFF
     └── package.json
 ```
 
 ## Available Scripts
 
-| Script                  | Description                      |
-| ----------------------- | -------------------------------- |
-| `npm run dev`           | Start development server         |
-| `npm run build`         | Build for production             |
+| Script                  | Description                              |
+| ----------------------- | ---------------------------------------- |
+| `npm run dev`           | Start development server                 |
+| `npm run build`         | Build for production                     |
 | `npm run generate`      | Regenerate API types from `openapi.json` |
-| `npm run preview`       | Preview production build         |
-| `npm run lint`          | Check for linting errors         |
-| `npm run lint:fix`      | Auto-fix linting errors          |
-| `npm run format`        | Format all files with Prettier   |
-| `npm run format:check`  | Check formatting without changes |
-| `npm run test`          | Run tests in watch mode          |
-| `npm run test:run`      | Run tests once (CI mode)         |
-| `npm run test:ui`       | Run tests with UI                |
-| `npm run test:coverage` | Generate coverage report         |
-| `npm run e2e`           | Run Playwright E2E tests         |
-| `npm run e2e:ui`        | Playwright UI mode               |
-| `npm run e2e:debug`     | Playwright Inspector             |
-| `npm run e2e:install`   | Install Playwright browsers      |
-| `npm run e2e:report`    | Open last Playwright report      |
+| `npm run preview`       | Preview production build                 |
+| `npm run lint`          | Check for linting errors                 |
+| `npm run lint:fix`      | Auto-fix linting errors                  |
+| `npm run format`        | Format all files with Prettier           |
+| `npm run format:check`  | Check formatting without changes         |
+| `npm run test`          | Run tests in watch mode                  |
+| `npm run test:run`      | Run tests once (CI mode)                 |
+| `npm run test:ui`       | Run tests with UI                        |
+| `npm run test:coverage` | Generate coverage report                 |
+| `npm run e2e`           | Run Playwright E2E tests                 |
+| `npm run e2e:ui`        | Playwright UI mode                       |
+| `npm run e2e:debug`     | Playwright Inspector                     |
+| `npm run e2e:install`   | Install Playwright browsers              |
+| `npm run e2e:report`    | Open last Playwright report              |
 
 ## Internationalization (i18n)
 
 The app supports multiple languages via React Intl:
 
-- **English (en-US)** - Default
+- **English (en-US)** (default)
 - **Spanish (es-ES)**
 - **Portuguese (pt-BR)**
 

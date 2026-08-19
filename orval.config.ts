@@ -36,7 +36,7 @@ export default defineConfig({
       },
     },
     hooks: {
-      "afterAllFilesWrite": "prettier src/generated --write"
-    }
+      afterAllFilesWrite: "prettier src/generated --write",
+    },
   },
 });

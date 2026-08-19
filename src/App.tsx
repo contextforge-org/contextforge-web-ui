@@ -7,6 +7,7 @@ import { Login } from "./pages/Login";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { ChangePassword } from "./pages/ChangePassword";
+import { PasswordChangeRequired } from "./pages/PasswordChangeRequired";
 import { Dashboard } from "./pages/Dashboard";
 import { Gateways } from "./pages/Gateways";
 import { CreateServer } from "./pages/CreateServer";
@@ -46,6 +47,7 @@ function PublicRoutes() {
       <Route path="/app/login" component={Login} />
       <Route path="/app/forgot-password" component={ForgotPassword} />
       <Route path="/app/reset-password/:token" component={ResetPassword} />
+      <Route path="/app/change-password-required" component={PasswordChangeRequired} />
     </>
   );
 }

@@ -378,7 +378,7 @@ export function VirtualServerDetailsPanel({
         aria-hidden="true"
         onClick={onClose}
         className={cn(
-          "absolute inset-0 z-10 bg-black/10 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
+          "absolute inset-0 z-10 bg-black/50 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
           "data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none",
         )}
       />
@@ -637,7 +637,7 @@ export function VirtualServerDetailsPanel({
               </div>
             </div>
 
-            <aside className="relative border-t border-border bg-background lg:border-l lg:border-t-0">
+            <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
                 type="button"
@@ -658,7 +658,11 @@ export function VirtualServerDetailsPanel({
                 <dl className="space-y-4">
                   <DetailRow label={intl.formatMessage({ id: "gateways.details.status" })}>
                     <span className="flex items-center gap-2">
-                      <Activity className="size-3.5 text-emerald-400" />
+                      <Activity
+                        className={`size-3.5 ${
+                          server.enabled ? "text-tool-status-active" : "text-tool-status-inactive"
+                        }`}
+                      />
                       {server.enabled
                         ? intl.formatMessage({ id: "gateways.details.status.active" })
                         : intl.formatMessage({ id: "gateways.details.status.inactive" })}

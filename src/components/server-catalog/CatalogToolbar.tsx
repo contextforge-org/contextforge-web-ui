@@ -1,43 +1,29 @@
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useState, type ReactNode } from "react";
 import { Filter } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
 import { CardTag } from "@/components/ui/card-tag";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { ListSearch } from "@/components/ui/list-search";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 const ALL_MODE = "all";
 const SELECT_MODE = "select";
 
-export interface CatalogFilterDraft {
-  category: string[];
-  provider: string[];
-  tags: string[];
-}
+export type CatalogFilterSection = "category" | "provider" | "tags";
 
-type CatalogFilterSection = keyof CatalogFilterDraft;
 type CatalogSectionMode = typeof ALL_MODE | typeof SELECT_MODE;
 type CatalogSectionModes = Record<CatalogFilterSection, CatalogSectionMode>;
 
-function getSectionModes(draft: CatalogFilterDraft): CatalogSectionModes {
-  return {
-    category: draft.category.length > 0 ? SELECT_MODE : ALL_MODE,
-    provider: draft.provider.length > 0 ? SELECT_MODE : ALL_MODE,
-    tags: draft.tags.length > 0 ? SELECT_MODE : ALL_MODE,
-  };
-}
+const DEFAULT_MODES: CatalogSectionModes = {
+  category: ALL_MODE,
+  provider: SELECT_MODE,
+  tags: ALL_MODE,
+};
 
 interface CatalogToolbarProps {
   search: string;
@@ -51,8 +37,15 @@ interface CatalogToolbarProps {
   activeFilterCount: number;
   onSearchChange: (value: string) => void;
   onInstalledChange: (installedOnly: boolean) => void;
-  onApply: (draft: CatalogFilterDraft) => void;
+  onToggleOption: (section: CatalogFilterSection, option: string, checked: boolean) => void;
+  onClearSection: (section: CatalogFilterSection) => void;
+  onClearAll: () => void;
 }
+
+type CatalogFiltersPopoverProps = Omit<
+  CatalogToolbarProps,
+  "search" | "installedOnly" | "onSearchChange" | "onInstalledChange"
+>;
 
 function CatalogViewToggle({
   installedOnly,
@@ -98,9 +91,12 @@ function CatalogFilterSectionFields({
   options,
   selected,
   mode,
+  expanded,
   allLabel,
   selectLabel,
+  headerAction,
   onModeChange,
+  onExpand,
   onToggle,
 }: {
   idPrefix: string;
@@ -109,16 +105,35 @@ function CatalogFilterSectionFields({
   options: string[];
   selected: string[];
   mode: CatalogSectionMode;
+  expanded: boolean;
   allLabel: string;
   selectLabel: string;
+  headerAction?: ReactNode;
   onModeChange: (mode: string) => void;
+  onExpand: () => void;
   onToggle: (option: string, checked: boolean) => void;
 }) {
+  const intl = useIntl();
+  const countId = `${idPrefix}-selected-count`;
+  const showsOptions = mode === SELECT_MODE && expanded;
+
   return (
-    <fieldset className="space-y-3" aria-labelledby={legendId}>
-      <legend id={legendId} className="text-sm font-medium text-foreground">
-        {legend}
-      </legend>
+    // role=group rather than fieldset so the section heading can share a row with
+    // the panel-level Clear all button, which a legend cannot do.
+    //
+    // Only the open section yields when the panel runs out of room, so its grid
+    // takes the squeeze and scrolls instead of the panel scrolling too.
+    <div
+      role="group"
+      aria-labelledby={legendId}
+      className={cn("space-y-3", showsOptions ? "flex min-h-0 flex-col" : "shrink-0")}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span id={legendId} className="text-sm font-medium text-foreground">
+          {legend}
+        </span>
+        {headerAction}
+      </div>
 
       <RadioGroup value={mode} onValueChange={onModeChange} className="gap-2">
         <div className="flex items-center gap-2">
@@ -127,28 +142,58 @@ function CatalogFilterSectionFields({
             {allLabel}
           </Label>
         </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem id={`${idPrefix}-select`} value={SELECT_MODE} />
+        <div className="flex min-h-6 items-center gap-2">
+          {/* Clicking Select also re-expands a section that was collapsed when
+              another one was opened, so onValueChange alone is not enough: Radix
+              does not fire it when the already-checked radio is clicked again.
+              The label forwards its click to this button, so it is covered too. */}
+          <RadioGroupItem
+            id={`${idPrefix}-select`}
+            value={SELECT_MODE}
+            onClick={onExpand}
+            // The count badge is the only clue that a collapsed section is
+            // filtered, so it is described onto the radio rather than left as a
+            // visual-only glyph. A description rather than part of the name
+            // because "Select" is what the control does either way.
+            aria-describedby={selected.length > 0 ? countId : undefined}
+          />
           <Label htmlFor={`${idPrefix}-select`} className="cursor-pointer text-sm font-normal">
             {selectLabel}
           </Label>
+          {selected.length > 0 && (
+            <>
+              <CardTag variant="neutral" className="rounded-full" aria-hidden="true">
+                {selected.length}
+              </CardTag>
+              <span id={countId} className="sr-only">
+                {intl.formatMessage(
+                  { id: "mcpServer.catalog.selectedCount" },
+                  { count: selected.length },
+                )}
+              </span>
+            </>
+          )}
         </div>
       </RadioGroup>
 
-      {mode === SELECT_MODE && (
-        // Multi-column rather than a grid so options read alphabetically down
-        // each column, as the design lays them out.
-        <div className="columns-2 gap-x-4 pl-6 md:columns-4">
+      {showsOptions && (
+        // A grid rather than CSS columns: a height-capped multi-column box
+        // overflows sideways into new columns instead of scrolling down.
+        <div className="scrollbar-thin grid max-h-52 grid-cols-1 gap-x-4 gap-y-1 overflow-y-auto rounded-md border p-2 pl-3 @sm:grid-cols-2 @lg:grid-cols-3">
           {options.map((option, index) => {
             const checkboxId = `${idPrefix}-option-${index}`;
             return (
-              <div key={option} className="flex break-inside-avoid items-center gap-2 pb-2">
+              <div key={option} className="flex min-w-0 items-center gap-2">
                 <Checkbox
                   id={checkboxId}
                   checked={selected.includes(option)}
                   onCheckedChange={(checked) => onToggle(option, checked === true)}
                 />
-                <Label htmlFor={checkboxId} className="cursor-pointer text-sm font-normal">
+                {/* Full-height label so the tap target clears 44px on touch. */}
+                <Label
+                  htmlFor={checkboxId}
+                  className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center break-words text-sm font-normal sm:min-h-8"
+                >
                   {option}
                 </Label>
               </div>
@@ -156,11 +201,11 @@ function CatalogFilterSectionFields({
           })}
         </div>
       )}
-    </fieldset>
+    </div>
   );
 }
 
-function CatalogFiltersDialog({
+function CatalogFiltersPopover({
   category,
   provider,
   selectedTags,
@@ -168,63 +213,62 @@ function CatalogFiltersDialog({
   providers,
   availableTags,
   activeFilterCount,
-  onApply,
-}: Omit<CatalogToolbarProps, "search" | "installedOnly" | "onSearchChange" | "onInstalledChange">) {
+  onToggleOption,
+  onClearSection,
+  onClearAll,
+}: CatalogFiltersPopoverProps) {
   const intl = useIntl();
   const id = useId();
-  const [open, setOpen] = useState(false);
-  const initialDraft: CatalogFilterDraft = { category, provider, tags: selectedTags };
-  const [draft, setDraft] = useState<CatalogFilterDraft>(initialDraft);
-  const [modes, setModes] = useState<CatalogSectionModes>(() => getSectionModes(initialDraft));
+  const [modes, setModes] = useState<CatalogSectionModes>(DEFAULT_MODES);
+  // Only one section shows its options at a time; the rest collapse to their
+  // Select row and selection count, so every section stays reachable without
+  // scrolling the panel.
+  const [expanded, setExpanded] = useState<CatalogFilterSection | null>("provider");
 
-  // Seeded only when the dialog opens. The page re-renders on every debounced
-  // search keystroke, so syncing the draft in an effect would discard edits that
-  // are still in progress.
+  // Seeded when the popover opens so a section the user collapsed during an
+  // earlier visit does not stay collapsed over a selection made since. Providers
+  // keeps its previous mode instead: All and an empty Select both commit
+  // provider=[], so there is nothing to derive an explicit All back from.
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
-      if (nextOpen) {
-        const committed: CatalogFilterDraft = { category, provider, tags: selectedTags };
-        setDraft(committed);
-        setModes(getSectionModes(committed));
+      if (!nextOpen) return;
+      setModes((previous) => ({
+        category: category.length > 0 ? SELECT_MODE : ALL_MODE,
+        provider: previous.provider,
+        tags: selectedTags.length > 0 ? SELECT_MODE : ALL_MODE,
+      }));
+      setExpanded("provider");
+    },
+    [category.length, selectedTags.length],
+  );
+
+  const setSectionMode = useCallback(
+    (section: CatalogFilterSection, mode: string) => {
+      const nextMode: CatalogSectionMode = mode === SELECT_MODE ? SELECT_MODE : ALL_MODE;
+      setModes((previous) => ({ ...previous, [section]: nextMode }));
+      // Switching a section back to All drops that section's filter and leaves
+      // the others untouched.
+      if (nextMode === ALL_MODE) {
+        onClearSection(section);
+        setExpanded((previous) => (previous === section ? null : previous));
+        return;
       }
-      setOpen(nextOpen);
+      setExpanded(section);
     },
-    [category, provider, selectedTags],
+    [onClearSection],
   );
 
-  const setSectionMode = useCallback((section: CatalogFilterSection, mode: string) => {
-    const nextMode: CatalogSectionMode = mode === SELECT_MODE ? SELECT_MODE : ALL_MODE;
-    setModes((previous) => ({ ...previous, [section]: nextMode }));
-    // Switching a section back to All clears that section and leaves the others
-    // untouched. Switching to Select keeps whatever was already ticked.
-    if (nextMode === ALL_MODE) {
-      setDraft((previous) => ({ ...previous, [section]: [] }));
-    }
-  }, []);
-
-  const toggleSectionOption = useCallback(
-    (section: CatalogFilterSection, option: string, checked: boolean) => {
-      // Ticking a box always implies Select mode for that section.
-      if (checked) setModes((previous) => ({ ...previous, [section]: SELECT_MODE }));
-      setDraft((previous) => {
-        const current = previous[section];
-        return {
-          ...previous,
-          [section]: checked ? [...current, option] : current.filter((item) => item !== option),
-        };
-      });
-    },
-    [],
-  );
-
-  const handleApply = useCallback(() => {
-    onApply(draft);
-    setOpen(false);
-  }, [draft, onApply]);
+  // Clear all returns the panel to the state a fresh open would show rather than
+  // leaving every section collapsed behind an All radio.
+  const handleClearAll = useCallback(() => {
+    onClearAll();
+    setModes(DEFAULT_MODES);
+    setExpanded("provider");
+  }, [onClearAll]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <Popover onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -243,71 +287,75 @@ function CatalogFiltersDialog({
             </CardTag>
           )}
         </Button>
-      </DialogTrigger>
+      </PopoverTrigger>
+      {/* End-aligned because the trigger sits at the toolbar's right edge, where a
+          start-aligned panel would expand past the viewport. The panel carries no
+          visible title, so it is named for assistive tech instead. */}
+      <PopoverContent
+        align="end"
+        // 36rem rather than 34rem at lg: container queries measure the content
+        // box, so 34rem of panel leaves 31.875rem once padding and border come
+        // off, 2px short of the 32rem the third column needs.
+        className="@container flex w-[calc(100vw-2rem)] flex-col gap-6 md:w-[30rem] lg:w-[36rem]"
+        aria-label={intl.formatMessage({ id: "mcpServer.catalog.filters" })}
+      >
+        <CatalogFilterSectionFields
+          idPrefix={`${id}-provider`}
+          legendId={`${id}-provider-legend`}
+          legend={intl.formatMessage({ id: "mcpServer.catalog.providers" })}
+          options={providers}
+          selected={provider}
+          mode={modes.provider}
+          expanded={expanded === "provider"}
+          allLabel={intl.formatMessage({ id: "mcpServer.catalog.allProvidersOption" })}
+          selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectProviders" })}
+          // The panel has no visible title, so Clear all rides the first section's
+          // heading row, which is where the design places it.
+          headerAction={
+            activeFilterCount > 0 && (
+              <Button type="button" variant="outline" size="xs" onClick={handleClearAll}>
+                {intl.formatMessage({ id: "mcpServer.catalog.clearAllFilters" })}
+              </Button>
+            )
+          }
+          onModeChange={(mode) => setSectionMode("provider", mode)}
+          onExpand={() => setExpanded("provider")}
+          onToggle={(option, checked) => onToggleOption("provider", option, checked)}
+        />
 
-      <DialogContent className="sm:max-w-[696px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Filter className="size-4" aria-hidden="true" />
-            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
-          </DialogTitle>
-        </DialogHeader>
+        <CatalogFilterSectionFields
+          idPrefix={`${id}-category`}
+          legendId={`${id}-category-legend`}
+          legend={intl.formatMessage({ id: "mcpServer.catalog.categories" })}
+          options={categories}
+          selected={category}
+          mode={modes.category}
+          expanded={expanded === "category"}
+          allLabel={intl.formatMessage({ id: "mcpServer.catalog.allCategoriesOption" })}
+          selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectCategories" })}
+          onModeChange={(mode) => setSectionMode("category", mode)}
+          onExpand={() => setExpanded("category")}
+          onToggle={(option, checked) => onToggleOption("category", option, checked)}
+        />
 
-        <div className="space-y-6">
+        {availableTags.length > 0 && (
           <CatalogFilterSectionFields
-            idPrefix={`${id}-provider`}
-            legendId={`${id}-provider-legend`}
-            legend={intl.formatMessage({ id: "mcpServer.catalog.providers" })}
-            options={providers}
-            selected={draft.provider}
-            mode={modes.provider}
-            allLabel={intl.formatMessage({ id: "mcpServer.catalog.allProvidersOption" })}
-            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectProviders" })}
-            onModeChange={(mode) => setSectionMode("provider", mode)}
-            onToggle={(option, checked) => toggleSectionOption("provider", option, checked)}
+            idPrefix={`${id}-tags`}
+            legendId={`${id}-tags-legend`}
+            legend={intl.formatMessage({ id: "mcpServer.catalog.tags" })}
+            options={availableTags}
+            selected={selectedTags}
+            mode={modes.tags}
+            expanded={expanded === "tags"}
+            allLabel={intl.formatMessage({ id: "mcpServer.catalog.allTagsOption" })}
+            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectTags" })}
+            onModeChange={(mode) => setSectionMode("tags", mode)}
+            onExpand={() => setExpanded("tags")}
+            onToggle={(option, checked) => onToggleOption("tags", option, checked)}
           />
-
-          <CatalogFilterSectionFields
-            idPrefix={`${id}-category`}
-            legendId={`${id}-category-legend`}
-            legend={intl.formatMessage({ id: "mcpServer.catalog.categories" })}
-            options={categories}
-            selected={draft.category}
-            mode={modes.category}
-            allLabel={intl.formatMessage({ id: "mcpServer.catalog.allCategoriesOption" })}
-            selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectCategories" })}
-            onModeChange={(mode) => setSectionMode("category", mode)}
-            onToggle={(option, checked) => toggleSectionOption("category", option, checked)}
-          />
-
-          {availableTags.length > 0 && (
-            <CatalogFilterSectionFields
-              idPrefix={`${id}-tags`}
-              legendId={`${id}-tags-legend`}
-              legend={intl.formatMessage({ id: "mcpServer.catalog.tags" })}
-              options={availableTags}
-              selected={draft.tags}
-              mode={modes.tags}
-              allLabel={intl.formatMessage({ id: "mcpServer.catalog.allTagsOption" })}
-              selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectTags" })}
-              onModeChange={(mode) => setSectionMode("tags", mode)}
-              onToggle={(option, checked) => toggleSectionOption("tags", option, checked)}
-            />
-          )}
-        </div>
-
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="ghost">
-              {intl.formatMessage({ id: "common.button.cancel" })}
-            </Button>
-          </DialogClose>
-          <Button type="button" onClick={handleApply}>
-            {intl.formatMessage({ id: "mcpServer.catalog.addFilters" })}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -334,7 +382,7 @@ export function CatalogToolbar({
           expandedWidthClassName="min-w-0 flex-1 lg:w-[432px] lg:flex-none"
         />
 
-        <CatalogFiltersDialog {...filterProps} />
+        <CatalogFiltersPopover {...filterProps} />
       </div>
     </div>
   );

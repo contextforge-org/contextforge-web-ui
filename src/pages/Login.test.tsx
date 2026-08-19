@@ -97,6 +97,56 @@ describe("Login", () => {
     });
   });
 
+  it("redirects to the password-change-required page on a 403 password-change-required response", async () => {
+    const body = {
+      error: "login_failed",
+      detail: JSON.stringify({
+        detail: "Password change required. Please change your password before continuing.",
+      }),
+    };
+    const error = new ApiError(403, body, "HTTP 403");
+
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated: false,
+      login: mockLogin.mockRejectedValue(error),
+    } as unknown as ReturnType<typeof useAuth>);
+
+    renderWithI18n(<Login />);
+
+    fireEvent.change(screen.getByLabelText(/Email/i), { target: { value: "test@example.com" } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "oldpass" } });
+    fireEvent.submit(screen.getByRole("button", { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/app/change-password-required?email=test%40example.com",
+      );
+    });
+  });
+
+  it("displays the generic failed error for an unrelated 403", async () => {
+    const body = { error: "login_failed", detail: JSON.stringify({ detail: "Forbidden" }) };
+    const error = new ApiError(403, body, "HTTP 403");
+
+    vi.mocked(useAuth).mockReturnValue({
+      isAuthenticated: false,
+      login: mockLogin.mockRejectedValue(error),
+    } as unknown as ReturnType<typeof useAuth>);
+
+    renderWithI18n(<Login />);
+
+    fireEvent.change(screen.getByLabelText(/Email/i), { target: { value: "test@example.com" } });
+    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "pass" } });
+    fireEvent.submit(screen.getByRole("button", { name: /Sign in/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Login failed (403).");
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      expect.stringContaining("change-password-required"),
+    );
+  });
+
   it("displays generic failed error on non-401 ApiError", async () => {
     const error = new ApiError(500, "ApiError", "") as ApiError & { status?: number };
     error.status = 500;

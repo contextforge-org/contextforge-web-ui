@@ -241,7 +241,11 @@ export function Redirect({ to }: { to: string }) {
 // ---------------------------------------------------------------------------
 
 // Exact paths that are always public.
-const DEFAULT_PUBLIC_PATHS: readonly string[] = ["/app/login", "/app/forgot-password"];
+const DEFAULT_PUBLIC_PATHS: readonly string[] = [
+  "/app/login",
+  "/app/forgot-password",
+  "/app/change-password-required",
+];
 
 // Path prefixes whose subtrees are always public.
 const DEFAULT_PUBLIC_PREFIXES: readonly string[] = ["/app/reset-password/"];

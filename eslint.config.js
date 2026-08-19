@@ -9,20 +9,19 @@ import prettierConfig from "eslint-config-prettier";
 import globals from "globals";
 
 // Load .prettierrc explicitly instead of letting eslint-plugin-prettier
-// resolve it on its own — this repo has a second, differently-configured
-// prettier.config.js one directory up (repo root), and relying on the
-// plugin's own cosmiconfig search risks it picking that one up instead,
-// producing formatting eslint --fix disagrees with the prettier CLI on.
+// resolve it via its own cosmiconfig search, so eslint --fix always agrees
+// with the prettier CLI.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prettierOptions = JSON.parse(fs.readFileSync(path.join(__dirname, ".prettierrc"), "utf8"));
 
 export default tseslint.config(
   {
     ignores: [
-      "../mcpgateway/static/app",
       "src/generated",
       "dist",
       "build",
+      "server/dist",
+      "server/public",
       "playwright-report",
       "test-results",
     ],
@@ -88,6 +87,35 @@ export default tseslint.config(
       "no-eval": "error",
       "no-implied-eval": "error",
       "no-new-func": "error",
+    },
+  },
+  {
+    extends: [...tseslint.configs.recommended],
+    files: ["server/**/*.ts"],
+    languageOptions: {
+      globals: globals.node,
+    },
+    plugins: {
+      prettier: prettierPlugin,
+    },
+    rules: {
+      ...prettierConfig.rules,
+      "prettier/prettier": ["error", prettierOptions],
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-new-func": "error",
+
+      // Allow `_`-prefixed locals to signal intentional discard (destructured
+      // rest patterns that strip a key, unused catch bindings, etc).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
     },
   },
 );

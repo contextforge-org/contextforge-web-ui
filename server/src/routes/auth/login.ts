@@ -10,16 +10,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import {
-  clearSessionCookie,
-  createSession,
-  deleteSession,
-  setSessionCookie,
-  SESSION_COOKIE_NAME,
-  type SessionUser,
-} from "../../lib/session-store.js";
+import { clearSessionCookie, deleteSession, SESSION_COOKIE_NAME } from "../../lib/session-store.js";
+import { establishSession, PasswordChangeStillRequiredError } from "../../lib/establish-session.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
+import { upstreamLogin } from "../../lib/upstream-login.js";
 import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
 
 interface LoginBody {
@@ -32,9 +27,10 @@ interface LoginBody {
 // the failed attempt and a mutating request made right after can ride that
 // leftover cookie into a confusing downstream 403 instead of a clean 401.
 // Called from every same-origin failure exit below (missing credentials,
-// upstream unreachable, non-2xx upstream, malformed/incomplete 2xx body) so
-// the cleanup can't drift out of sync with the SPA's AuthContext.login(),
-// which resets its own state on any rejected login call.
+// upstream unreachable, non-2xx upstream, malformed/incomplete 2xx body,
+// still-flagged account) so the cleanup can't drift out of sync with the
+// SPA's AuthContext.login(), which resets its own state on any rejected
+// login call.
 // Deliberately NOT called from the isForbiddenCrossOrigin() branch above —
 // that guards against a cross-site page silently POSTing to /auth/login to
 // mass-clear victims' legitimate sessions; only same-origin login attempts
@@ -61,15 +57,6 @@ async function clearStaleSession(
   reply.clearCookie(CSRF_COOKIE_NAME, { path: "/", domain: config.cookieDomain });
 }
 
-// Mirrors mcpgateway.schemas.AuthenticationResponse. `user` is forwarded to
-// the browser verbatim (see SessionUser) — the BFF only needs access_token
-// and expires_in.
-interface UpstreamAuthenticationResponse {
-  access_token: string;
-  expires_in: number;
-  user: SessionUser;
-}
-
 export default async function loginRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: LoginBody }>(
     "/auth/login",
@@ -86,85 +73,44 @@ export default async function loginRoute(fastify: FastifyInstance): Promise<void
         return reply.code(400).send({ error: "email and password are required" });
       }
 
-      let upstreamResponse: Response;
-      try {
-        upstreamResponse = await fetch(`${config.contextforgeUrl}/auth/email/login`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            // Preserve real client IP for upstream audit logging.
-            "x-forwarded-for": request.ip,
-            "x-real-ip": request.ip,
-          },
-          body: JSON.stringify({ email, password }),
-        });
-      } catch (err) {
-        request.log.error({ err }, "upstream login request failed");
-        await clearStaleSession(fastify, request, reply);
-        return reply.code(502).send({ error: "upstream_unavailable" });
-      }
+      const result = await upstreamLogin(request, "/auth/email/login", email, password);
 
-      if (!upstreamResponse.ok) {
+      if (!result.ok) {
         await clearStaleSession(fastify, request, reply);
+        if (result.kind === "unavailable") {
+          return reply.code(502).send({ error: "upstream_unavailable" });
+        }
+        if (result.kind === "invalid_response") {
+          return reply.code(502).send({ error: "upstream_invalid_response" });
+        }
         // Upstream 401/403/429 pass through as-is; body may carry rate-limit or
         // lockout detail the SPA's login form wants to show.
-        const detail = await upstreamResponse.text();
-        return reply.code(upstreamResponse.status).send({ error: "login_failed", detail });
+        return reply.code(result.status).send({ error: "login_failed", detail: result.detail });
       }
 
-      let auth: UpstreamAuthenticationResponse; // pragma: allowlist secret
       try {
-        auth = (await upstreamResponse.json()) as UpstreamAuthenticationResponse;
+        const { user, csrfToken } = await establishSession(fastify, request, reply, result.auth);
+        return reply.send({ user, csrfToken });
       } catch (err) {
-        request.log.error({ err }, "upstream login returned a non-JSON 2xx body");
-        await clearStaleSession(fastify, request, reply);
-        return reply.code(502).send({ error: "upstream_invalid_response" });
+        if (err instanceof PasswordChangeStillRequiredError) {
+          // Defensive backstop (see establishSession's doc comment) — upstream
+          // returned 2xx but the account is still flagged. Respond exactly
+          // like the normal password-change-required block so the SPA's
+          // classifyLoginError still routes the user to the recovery page.
+          await clearStaleSession(fastify, request, reply);
+          request.log.error(
+            { email },
+            "upstream login 2xx but user still flagged password_change_required — refusing to establish a session",
+          );
+          return reply.code(403).send({
+            error: "login_failed",
+            detail: JSON.stringify({
+              detail: "Password change required. Please change your password before continuing.",
+            }),
+          });
+        }
+        throw err;
       }
-
-      if (typeof auth.access_token !== "string" || !auth.access_token) {
-        request.log.error({ auth }, "upstream login 2xx response missing access_token");
-        await clearStaleSession(fastify, request, reply);
-        return reply.code(502).send({ error: "upstream_invalid_response" });
-      }
-
-      // The BFF session/cookie must not outlive the bearer token it wraps —
-      // use the upstream JWT's own lifetime, not a fixed BFF-side default.
-      // See createSession's comment in lib/session-store.ts.
-      let ttlSeconds = config.sessionTtlSeconds;
-      if (Number.isFinite(auth.expires_in) && auth.expires_in > 0) {
-        ttlSeconds = auth.expires_in;
-      } else {
-        // Upstream returned a bogus expires_in — fall back, but log it: this
-        // means the BFF session can outlive the JWT it wraps until the
-        // proxy's revoke-on-401 catches up (see session-store.ts).
-        request.log.warn(
-          { expires_in: auth.expires_in },
-          "upstream login returned invalid expires_in, using BFF default session TTL",
-        );
-      }
-
-      const sessionId = await createSession(
-        fastify.redis,
-        {
-          bearerToken: auth.access_token,
-          user: auth.user,
-        },
-        ttlSeconds,
-      );
-
-      setSessionCookie(reply, sessionId, ttlSeconds);
-      // generateCsrf() only mints a fresh secret when request.cookies has no
-      // bff_csrf entry — reply.clearCookie() alone doesn't clear that (it
-      // only queues an outgoing Set-Cookie, request.cookies is untouched),
-      // so delete it directly to force rotation. Otherwise a secret planted
-      // before login (subdomain XSS, a plaintext hop with COOKIE_SECURE=false)
-      // survives into the authenticated session.
-      delete request.cookies[CSRF_COOKIE_NAME];
-      // Cookie holds the CSRF secret (HttpOnly); the SPA needs the derived
-      // token itself to echo back via X-CSRF-Token — see plugins/csrf.ts.
-      const csrfToken = await reply.generateCsrf();
-
-      return reply.send({ user: auth.user, csrfToken });
     },
   );
 }

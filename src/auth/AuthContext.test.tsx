@@ -50,6 +50,15 @@ function TestComponent() {
       >
         Login
       </button>
+      <button
+        onClick={() => {
+          auth
+            .completePasswordChangeRequired("test@example.com", "old-pass", "new-pass")
+            .catch(() => {});
+        }}
+      >
+        CompletePasswordChangeRequired
+      </button>
       <button onClick={() => auth.logout()}>Logout</button>
     </div>
   );
@@ -131,7 +140,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -149,7 +158,7 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
     expect(screen.getByTestId("user-email")).toHaveTextContent("user@example.com");
     expect(api.get).toHaveBeenCalledWith("/auth/session");
-    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+    expect(setCsrfToken).toHaveBeenCalledWith("session-csrf-token");
   });
 
   it("treats an unauthenticated session response as a guest", async () => {
@@ -229,7 +238,7 @@ describe("AuthContext", () => {
 
     vi.mocked(api.post).mockResolvedValueOnce({
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     screen.getByText("Login").click();
@@ -244,7 +253,7 @@ describe("AuthContext", () => {
       { email: "test@example.com", password: "pass" },
       { authenticated: false },
     );
-    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+    expect(setCsrfToken).toHaveBeenCalledWith("session-csrf-token");
   });
 
   it("clears stale auth state and CSRF token when login fails", async () => {
@@ -341,6 +350,91 @@ describe("AuthContext", () => {
     expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
   });
 
+  it("handles a successful completePasswordChangeRequired identically to login", async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("loading")).not.toBeInTheDocument();
+    });
+
+    const mockUser = {
+      email: "test@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
+    vi.mocked(api.post).mockResolvedValueOnce({
+      user: mockUser,
+      csrfToken: "test-csrf-token",
+    });
+
+    screen.getByText("CompletePasswordChangeRequired").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
+      expect(screen.getByTestId("user-email")).toHaveTextContent("test@example.com");
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      "/auth/change-password-required",
+      { email: "test@example.com", oldPassword: "old-pass", newPassword: "new-pass" },
+      { authenticated: false },
+    );
+    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+  });
+
+  it("clears stale auth state and CSRF token when completePasswordChangeRequired fails", async () => {
+    // Same scenario as login()'s equivalent test: a user reaches this
+    // pre-auth page (bookmark, still-open tab) while still holding a
+    // previously-authenticated state.
+    const mockUser = {
+      email: "user@example.com",
+      full_name: "Test User",
+      is_admin: false,
+      is_active: true,
+      auth_provider: "local",
+      email_verified: true,
+      password_change_required: false,
+    };
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      authenticated: true,
+      user: mockUser,
+      csrfToken: "stale-csrf-token",
+    });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
+    });
+
+    vi.mocked(api.post).mockRejectedValueOnce(new ApiError(401, "Unauthorized", ""));
+
+    screen.getByText("CompletePasswordChangeRequired").click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
+    });
+
+    expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();
+    expect(setCsrfToken).toHaveBeenLastCalledWith(null);
+  });
+
   it("handles successful logout", async () => {
     const mockUser = {
       email: "user@example.com",
@@ -355,7 +449,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -395,7 +489,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -428,11 +522,10 @@ describe("AuthContext", () => {
       email_verified: true,
       password_change_required: false,
     };
-
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     // Hold the permissions fetch open so we can observe the loading window.
@@ -470,7 +563,7 @@ describe("AuthContext", () => {
         email_verified: true,
         password_change_required: false,
       },
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(

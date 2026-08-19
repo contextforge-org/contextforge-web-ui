@@ -49,6 +49,18 @@ export interface ApiMock {
    */
   mockPermissions(options?: { permissions?: string[] }): Promise<void>;
   mockUnauthorized(urlPattern: string | RegExp): Promise<void>;
+  /**
+   * Mocks POST /auth/change-password-required, the BFF's route used by
+   * PasswordChangeRequired.tsx (client/src/pages/) after a "password change
+   * required" login failure. On success it returns the same { user,
+   * csrfToken } shape as /auth/login — the BFF re-authenticates with the new
+   * password and establishes a real session as part of this one call.
+   */
+  mockChangePasswordRequired(options?: {
+    user?: MockUser;
+    status?: number;
+    detail?: string;
+  }): Promise<void>;
 }
 
 export function createApiMock(page: Page): ApiMock {
@@ -98,6 +110,28 @@ export function createApiMock(page: Page): ApiMock {
           status: 200,
           contentType: "application/json",
           body: JSON.stringify(permissions),
+        });
+      });
+    },
+
+    async mockChangePasswordRequired({
+      user = DEFAULT_TEST_USER,
+      status = 200,
+      detail = "Invalid credentials",
+    } = {}) {
+      await page.route("**/auth/change-password-required", async (route) => {
+        if (status === 200) {
+          await route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify({ user, csrfToken: MOCK_CSRF_TOKEN }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "change_password_failed", detail }),
         });
       });
     },
