@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/useAuth";
 import { useTheme } from "../../hooks/useTheme";
 import { useRouter } from "../../router";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,14 +27,13 @@ export function HeaderProfileMenu() {
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        {/* TODO: User photo/avatar data is not currently available, using fallback for now. */}
         <Button
           variant="ghost"
           size="sm"
           className="h-8 gap-1.5 rounded-lg px-1.5 hover:bg-muted"
           aria-label={displayName}
         >
-          <span className="block size-6 overflow-hidden rounded-md bg-muted" aria-hidden="true" />
+          <UserAvatar />
           <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
