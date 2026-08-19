@@ -295,7 +295,7 @@ export function Users() {
                           id="users-limit-select"
                           value={limit}
                           onChange={(event) => handleLimitChange(Number(event.target.value))}
-                          className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
                         >
                           <option value={10}>10</option>
                           <option value={25}>25</option>

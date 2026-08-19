@@ -262,21 +262,18 @@ export function Teams() {
 
                   <div className="flex items-center justify-between mt-6">
                     <div className="flex items-center gap-4">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="text-sm text-muted-foreground">
                         {intl.formatMessage({ id: "teams.showing" }, { count: results.length })}
                       </div>
                       <div className="flex items-center gap-2">
-                        <label
-                          htmlFor="limit-select"
-                          className="text-sm text-gray-600 dark:text-gray-400"
-                        >
+                        <label htmlFor="limit-select" className="text-sm text-muted-foreground">
                           {intl.formatMessage({ id: "teams.perPage" })}
                         </label>
                         <select
                           id="limit-select"
                           value={limit}
                           onChange={(e) => handleLimitChange(Number(e.target.value))}
-                          className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                          className="rounded-md border border-border bg-background px-2 py-1 text-sm"
                         >
                           <option value={10}>10</option>
                           <option value={25}>25</option>
