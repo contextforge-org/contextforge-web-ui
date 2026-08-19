@@ -160,6 +160,31 @@ describe("useTeamScope", () => {
     expect(onTeamIdChange).not.toHaveBeenCalled();
   });
 
+  it("resolves afresh when visibility leaves team and comes back after a pick", async () => {
+    const onTeamIdChange = vi.fn();
+    const { result, rerender } = setup({ teamId: personalTeam.id, onTeamIdChange });
+
+    await waitFor(() => {
+      expect(result.current.teams).toHaveLength(2);
+    });
+    act(() => result.current.onTeamChange(sharedTeam.id));
+    onTeamIdChange.mockClear();
+
+    rerender({ visibility: "public", teamId: sharedTeam.id, onTeamIdChange });
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith("");
+    });
+    onTeamIdChange.mockClear();
+
+    // Without clearing the pick latch, teamId would stay empty for good — and a
+    // single-team caller has no selector to recover with.
+    rerender({ visibility: "team", teamId: "", onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+    });
+  });
+
   it("drops the team when visibility leaves team", async () => {
     const onTeamIdChange = vi.fn();
     const { rerender } = setup({ teamId: sharedTeam.id, onTeamIdChange });

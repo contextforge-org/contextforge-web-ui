@@ -313,6 +313,41 @@ describe("MCPServerForm", () => {
 
         expect(await screen.findByRole("combobox", { name: /^team/i })).toBeInTheDocument();
       });
+
+      it("keeps a team-scoped server on its own team when editing", async () => {
+        // The reviewer's scenario end to end: a fresh session (the sidebar
+        // starts on "All teams") opening a server scoped to a team that is not
+        // the caller's personal team.
+        server.use(
+          http.get("/api/teams", () =>
+            HttpResponse.json({
+              teams: [
+                { id: "team-personal", name: "Personal team", is_personal: true },
+                { id: "team-shared", name: "Shared team", is_personal: false },
+              ],
+            }),
+          ),
+          http.get("/api/gateways/:id", ({ params }) =>
+            HttpResponse.json({
+              id: params.id,
+              name: "Test Server",
+              url: "http://localhost:9000",
+              transport: "STREAMABLEHTTP",
+              visibility: "team",
+              teamId: "team-shared",
+              authType: "none",
+            }),
+          ),
+        );
+        renderWithRouter(<MCPServerForm {...defaultProps} serverId="edit-123" />);
+
+        // The panel expands itself once the server loads, since it carries auth.
+        const teamSelect = await screen.findByRole("combobox", { name: /^team/i });
+        // Resolving to "Personal team" here is the silent reassignment.
+        await waitFor(() => {
+          expect(teamSelect).toHaveTextContent("Shared team");
+        });
+      });
     });
   });
 

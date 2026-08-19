@@ -87,6 +87,10 @@ export function useTeamScope({
       // "All teams" is not a scope a record can live in, so a non-team
       // visibility drops the team rather than leaving a stale one attached.
       if (teamId) onTeamIdChange("");
+      // Dropping the team drops the choice that produced it, so returning to
+      // team visibility resolves afresh instead of leaving `teamId` empty
+      // behind a latch that nothing can clear.
+      if (pickedInForm) setPickedInForm(false);
       return;
     }
     if (pickedInForm) return;
