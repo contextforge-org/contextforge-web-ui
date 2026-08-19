@@ -63,6 +63,12 @@ describe("HeaderProfileMenu", () => {
     expect(screen.getByRole("button", { name: "Bobo Example" })).toBeInTheDocument();
   });
 
+  it("renders an avatar icon in the trigger", () => {
+    // Regression: the trigger used to hold an empty placeholder box.
+    const { container } = renderMenu();
+    expect(container.querySelector('[data-slot="avatar-fallback"] svg')).toBeInTheDocument();
+  });
+
   it("navigates to settings from the dropdown", async () => {
     const user = userEvent.setup();
     renderMenu();
