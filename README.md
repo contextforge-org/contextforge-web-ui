@@ -21,11 +21,11 @@ This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi
 ## Tech Stack
 
 - **React 18** with TypeScript
-- **Vite** - Build tool and dev server
-- **React Router** - Client-side routing
-- **React Intl** - Internationalization (i18n)
-- **Tailwind CSS** - Utility-first styling
-- **shadcn/ui** - Component library
+- **Vite**: build tool and dev server
+- **React Router**: client-side routing
+- **React Intl**: internationalization (i18n)
+- **Tailwind CSS**: utility-first styling
+- **shadcn/ui**: component library
 
 ## Getting Started
 
@@ -70,17 +70,17 @@ Bring them up in this order:
    ```
 
    Edit `.env`:
-   - `CONTEXTFORGE_URL` — point it at whatever host:port the API is
+   - `CONTEXTFORGE_URL`: point it at whatever host:port the API is
      listening on from step 1 (`.env.example`'s default is `0.0.0.0:8000`,
      which matches `make dev`; confirm against your actual run rather than
      assuming).
-   - `COOKIE_SECURE=false` — needed for local HTTP; the default (`true`) is
+   - `COOKIE_SECURE=false`: needed for local HTTP; the default (`true`) is
      for prod and silently drops the session cookie over plain HTTP.
 
    Other values (`PORT`, `REDIS_URL`, `SESSION_TTL_SECONDS`, etc.) have
-   dev-safe defaults — see comments in `.env.example`. `REDIS_URL` is left
+   dev-safe defaults; see comments in `.env.example`. `REDIS_URL` is left
    unset, which falls back to an in-process store (no Redis process needed
-   for local dev — state resets on restart).
+   for local dev; state resets on restart).
 
    ```bash
    cd server
@@ -96,12 +96,12 @@ Bring them up in this order:
    ```
 
    This builds the SPA into `server/public/`, which the already-running BFF
-   serves directly. Re-run `npm run build` after any frontend change —
+   serves directly. Re-run `npm run build` after any frontend change;
    there's no HMR dev server wired to the BFF, so this build step is the
    loop for local iteration against the real backend. (`npm run build:watch`
    reruns it automatically on file changes.)
 
-4. **Use it.** Visit `http://localhost:3000/` — redirects to `/app/login`
+4. **Use it.** Visit `http://localhost:3000/`: redirects to `/app/login`
    (unauthed) or `/app/` (authed). The login form posts through the BFF,
    which holds the API's JWT server-side and hands the browser only
    an opaque session cookie.
@@ -116,9 +116,9 @@ Bring them up in this order:
 
 #### Troubleshooting
 
-- **`EADDRINUSE` on `:3000`** — stale `tsx watch` process:
+- **`EADDRINUSE` on `:3000`**: stale `tsx watch` process:
   `lsof -ti:3000 | xargs kill`, then restart `npm run dev` in `server/`.
-- **401 mid-session** — expected; the API token hard-expires per
+- **401 mid-session**: expected; the API token hard-expires per
   `TOKEN_EXPIRY` (default 20 min). The BFF auto-revokes the session and
   redirects to login.
 
@@ -138,7 +138,7 @@ npm run preview
 
 ## API Types
 
-TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7 — not re-fetched at build time.
+TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7, not re-fetched at build time.
 
 ```bash
 npm run generate   # regenerate src/generated/ from ./openapi.json
@@ -187,9 +187,9 @@ npm run format:check
 
 ### Test Framework
 
-- **Vitest** - Fast unit test runner with jsdom environment
-- **React Testing Library** - Component testing utilities
-- **MSW (Mock Service Worker)** - API mocking
+- **Vitest**: Fast unit test runner with jsdom environment
+- **React Testing Library**: Component testing utilities
+- **MSW (Mock Service Worker)**: API mocking
 
 ### Running Tests
 
@@ -278,9 +278,9 @@ export const handlers = [
 
 Test-specific TypeScript configuration:
 
-- **[`tsconfig.app.json`](./tsconfig.app.json)** - Includes `vitest/globals` and `@testing-library/jest-dom` types
-- **[`src/vitest.d.ts`](./src/vitest.d.ts)** - Global type declarations for test utilities
-- **[`vitest.config.ts`](./vitest.config.ts)** - Vitest configuration with jsdom environment
+- **[`tsconfig.app.json`](./tsconfig.app.json)**: includes `vitest/globals` and `@testing-library/jest-dom` types
+- **[`src/vitest.d.ts`](./src/vitest.d.ts)**: global type declarations for test utilities
+- **[`vitest.config.ts`](./vitest.config.ts)**: Vitest configuration with jsdom environment
 
 ## End-to-End Testing
 
@@ -383,7 +383,7 @@ contextforge-web-ui/
 
 The app supports multiple languages via React Intl:
 
-- **English (en-US)** - Default
+- **English (en-US)** (default)
 - **Spanish (es-ES)**
 - **Portuguese (pt-BR)**
 
