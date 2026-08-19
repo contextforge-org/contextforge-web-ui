@@ -66,6 +66,44 @@ test.describe("Password change required flow", () => {
     await expect(page).toHaveURL(new RegExp(`${APP.FORGOT_PASSWORD}$`));
   });
 
+  test("account that doesn't need a change shows a distinct message and a return-to-login CTA", async ({
+    page,
+  }) => {
+    // Raw route, not the apiMock fixture — this case has its own error code
+    // ({ error: "password_change_not_required" }), distinct from the
+    // fixture's generic change_password_failed body for a wrong old password.
+    await page.route("**/auth/change-password-required", async (route) => {
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "password_change_not_required" }),
+      });
+    });
+
+    await page.goto(`${APP.CHANGE_PASSWORD_REQUIRED}?email=test%40example.com`);
+    await page.getByLabel(/current password/i).fill("correct-password");
+    await page.getByLabel(/^new password/i).fill("New-password1");
+    await page.getByLabel(/confirm new password/i).fill("New-password1");
+    await page.getByRole("button", { name: /change password/i }).click();
+
+    const alert = page.getByRole("alert");
+    await expect(alert).toHaveText(/doesn't need to be changed/i);
+    await expect(page.getByRole("button", { name: /forgot your password/i })).toHaveCount(0);
+    await page.getByRole("button", { name: /return to login/i }).click();
+    await expect(page).toHaveURL(new RegExp(`${APP.LOGIN}$`));
+  });
+
+  test("missing ?email= shows an error and a return-to-login CTA instead of a submittable form", async ({
+    page,
+  }) => {
+    await page.goto(APP.CHANGE_PASSWORD_REQUIRED);
+
+    await expect(page.getByRole("alert")).toHaveText(/couldn't tell which account/i);
+    await expect(page.getByLabel(/current password/i)).toHaveCount(0);
+    await page.getByRole("button", { name: /return to login/i }).click();
+    await expect(page).toHaveURL(new RegExp(`${APP.LOGIN}$`));
+  });
+
   test("mismatched new passwords are rejected client-side", async ({ page }) => {
     await page.goto(`${APP.CHANGE_PASSWORD_REQUIRED}?email=test%40example.com`);
     await page.getByLabel(/current password/i).fill("old-password");

@@ -4,26 +4,30 @@
 //
 // POST /auth/change-password-required: browser -> BFF only, pre-login. Used
 // when /auth/login rejected valid credentials with a "password change
-// required" 403 (see routes/auth/login.ts, which authenticates against
-// upstream's /auth/email/login — that endpoint hard-blocks with 403 for the
-// whole lifetime of the password_change_required flag, confirmed against a
-// live backend). This route instead:
+// required" 403 (see routes/auth/login.ts). This route:
 //
-//   A. authenticates against upstream's plain /auth/login ("Tier 1" session
-//      auth), which does NOT enforce that flag and still mints a token for a
-//      flagged account, using the OLD password; the response's
-//      user.password_change_required is then checked server-side — this is
-//      the ONLY gate before mutating state, so it must actually be true, or
-//      this route would just be an unauthenticated "change password with old
-//      password" endpoint for any account;
-//   B. uses that bypass token once to call the authenticated change-password
-//      endpoint;
-//   C. revokes the bypass token upstream (best-effort — it's served its one
-//      purpose and shouldn't linger);
-//   D. logs in again for real, via the same upstream /auth/email/login
+//   1. Verifies the precondition via the SAME endpoint/logic that produced
+//      the original block: upstream's /auth/email/login, with the OLD
+//      password. Deliberately NOT a check against a persisted flag — upstream
+//      computes "needs password change" from several independent sources
+//      (a persisted flag, password-age expiry, default-password detection),
+//      and only /auth/email/login's own 403 reflects all of them. A 403 here
+//      also proves the old password is correct (upstream validates
+//      credentials before deciding whether to block). A 200 here means the
+//      account does NOT currently need a change — reject without ever
+//      minting a bypass token.
+//   2. Mints a short-lived bypass token via upstream's plain /auth/login
+//      ("Tier 1" session auth), which does not enforce the block, using the
+//      same OLD password step 1 just validated.
+//   3. Uses that bypass token once to call the authenticated change-password
+//      endpoint.
+//   4. Revokes the bypass token upstream (best-effort, fire-and-forget — it's
+//      served its one purpose and shouldn't linger, but nothing downstream
+//      depends on the revoke actually completing).
+//   5. Logs in again for real, via the same upstream /auth/email/login
 //      login.ts uses, now with the NEW password (the block is gone once the
-//      password's been changed);
-//   E. establishes a normal BFF session from that — identical to a plain
+//      password's been changed).
+//   6. Establishes a normal BFF session from that — identical to a plain
 //      login, so a successful password change lands the user straight in
 //      the app.
 //
@@ -33,15 +37,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import {
-  establishSession,
-  type UpstreamAuthenticationResponse,
-} from "../../lib/establish-session.js";
+import { establishSession, PasswordChangeStillRequiredError } from "../../lib/establish-session.js";
 import { revokeUpstreamToken } from "../../lib/revoke-upstream-token.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
-import type { SessionUser } from "../../lib/session-store.js";
 import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
+import { upstreamLogin } from "../../lib/upstream-login.js";
 
 interface ChangePasswordRequiredBody {
   email: string;
@@ -49,32 +50,9 @@ interface ChangePasswordRequiredBody {
   newPassword: string;
 }
 
-interface UpstreamBypassLoginResponse {
-  access_token: string;
-  user: SessionUser;
-}
-
-// Caps each individual upstream leg — a hung (not refused) upstream must not
-// hold the request open indefinitely, same rationale as
-// revoke-upstream-token.ts's UPSTREAM_REVOKE_TIMEOUT_MS.
+// Caps the change-password call itself — the two login-shaped calls already
+// time out via upstreamLogin()'s own UPSTREAM_LOGIN_TIMEOUT_MS.
 const UPSTREAM_REQUEST_TIMEOUT_MS = 3000;
-
-async function upstreamLogin(
-  request: FastifyRequest,
-  email: string,
-  password: string,
-): Promise<Response> {
-  return fetch(`${config.contextforgeUrl}/auth/login`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-forwarded-for": request.ip,
-      "x-real-ip": request.ip,
-    },
-    body: JSON.stringify({ email, password }),
-    signal: AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS),
-  });
-}
 
 export default async function changePasswordRequiredRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: ChangePasswordRequiredBody }>(
@@ -91,66 +69,63 @@ export default async function changePasswordRequiredRoute(fastify: FastifyInstan
         return reply.code(400).send({ error: "email, oldPassword and newPassword are required" });
       }
 
-      // Step A: mint a bypass token using the old (still-valid) credentials.
-      // Deliberately /auth/login, not /auth/email/login — the latter
-      // hard-blocks while password_change_required is set, the former does
-      // not (verified against a live backend).
-      let bypassLoginResponse: Response;
-      try {
-        bypassLoginResponse = await upstreamLogin(request, email, oldPassword);
-      } catch (err) {
-        request.log.error({ err }, "upstream bypass login (change-password-required) failed");
-        return reply.code(502).send({ error: "upstream_unavailable" });
-      }
+      // Step 1: precondition + credential check, via the endpoint that
+      // actually computes "needs password change" (persisted flag, password
+      // age, default-password detection — see module comment above).
+      const precondition = await upstreamLogin(request, "/auth/email/login", email, oldPassword);
 
-      if (!bypassLoginResponse.ok) {
-        // Covers both "still password-change-blocked" and "old password
-        // wrong" — don't try to disambiguate via text; the SPA falls back to
-        // the forgot-password flow on any failure here.
-        const detail = await bypassLoginResponse.text();
-        return reply
-          .code(bypassLoginResponse.status)
-          .send({ error: "change_password_failed", detail });
-      }
-
-      let bypassAuth: UpstreamBypassLoginResponse; // pragma: allowlist secret
-      try {
-        bypassAuth = (await bypassLoginResponse.json()) as UpstreamBypassLoginResponse;
-      } catch (err) {
-        request.log.error({ err }, "upstream bypass login returned a non-JSON 2xx body");
-        return reply.code(502).send({ error: "upstream_invalid_response" });
-      }
-
-      if (typeof bypassAuth.access_token !== "string" || !bypassAuth.access_token) {
-        request.log.error(
-          { bypassAuth },
-          "upstream bypass login 2xx response missing access_token",
-        );
-        return reply.code(502).send({ error: "upstream_invalid_response" });
-      }
-      const bypassToken = bypassAuth.access_token;
-
-      // Precondition: this route only exists to unblock accounts upstream
-      // has actually flagged. Without this check, a valid old password alone
-      // would rotate ANY account's password through this pre-auth endpoint.
-      if (bypassAuth.user?.password_change_required !== true) {
-        request.log.warn(
-          { email },
-          "change-password-required called for an account that does not require a password change",
-        );
-        // Bypass token served no purpose — revoke it before replying, same
-        // as the change-password-failed branch below.
-        await revokeUpstreamToken(request, bypassToken);
+      if (precondition.ok) {
+        // Correct old password, but the account doesn't currently need a
+        // change (stale link, flag cleared elsewhere, etc.) — nothing to do,
+        // and no bypass token was ever minted. Revoke the token this
+        // legitimate login just handed us, since we're not using it.
+        void revokeUpstreamToken(request, precondition.auth.access_token);
         return reply.code(403).send({ error: "password_change_not_required" });
       }
 
-      // Step B: use the bypass token once, immediately, to change the password.
+      if (precondition.kind === "unavailable") {
+        return reply.code(502).send({ error: "upstream_unavailable" });
+      }
+      if (precondition.kind === "invalid_response") {
+        return reply.code(502).send({ error: "upstream_invalid_response" });
+      }
+      if (precondition.status !== 403) {
+        // 401 (wrong old password), 429 (rate-limited), etc. — pass through
+        // as-is; don't try to mint a bypass token for a credential the
+        // precondition check already told us is wrong or blocked.
+        return reply
+          .code(precondition.status)
+          .send({ error: "change_password_failed", detail: precondition.detail });
+      }
+
+      // Step 2: mint a bypass token using the same old credentials step 1
+      // just validated. Deliberately /auth/login, not /auth/email/login —
+      // the latter hard-blocks while the account needs a password change,
+      // the former does not (verified against a live backend).
+      const bypass = await upstreamLogin(request, "/auth/login", email, oldPassword);
+      if (!bypass.ok) {
+        if (bypass.kind === "unavailable") {
+          return reply.code(502).send({ error: "upstream_unavailable" });
+        }
+        if (bypass.kind === "invalid_response") {
+          return reply.code(502).send({ error: "upstream_invalid_response" });
+        }
+        return reply
+          .code(bypass.status)
+          .send({ error: "change_password_failed", detail: bypass.detail });
+      }
+      const bypassToken = bypass.auth.access_token;
+
+      // Step 3: use the bypass token once, immediately, to change the
+      // password. Same audit-IP headers as every other upstream call here.
       let changeResponse: Response;
       try {
         changeResponse = await fetch(`${config.contextforgeUrl}/auth/email/change-password`, {
           method: "POST",
           headers: {
             "content-type": "application/json",
+            "x-forwarded-for": request.ip,
+            "x-real-ip": request.ip,
             ...upstreamAuthHeader(bypassToken),
           },
           body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
@@ -163,64 +138,48 @@ export default async function changePasswordRequiredRoute(fastify: FastifyInstan
 
       if (!changeResponse.ok) {
         // Password change itself failed (e.g. new-password policy violation)
-        // — the bypass token served no purpose, revoke it before replying.
-        await revokeUpstreamToken(request, bypassToken);
+        // — the bypass token served no purpose. Fire-and-forget revoke: the
+        // reply doesn't depend on it, and revokeUpstreamToken never throws.
+        void revokeUpstreamToken(request, bypassToken);
         const detail = await changeResponse.text();
         return reply.code(changeResponse.status).send({ error: "change_password_failed", detail });
       }
 
-      // Step C: the bypass token has done its one job — revoke it upstream
-      // rather than let it float until its natural expiry. Best-effort.
-      await revokeUpstreamToken(request, bypassToken);
+      // Step 4: the bypass token has done its one job — revoke it upstream
+      // rather than let it float until its natural expiry. Best-effort,
+      // fire-and-forget: nothing below depends on this finishing first.
+      void revokeUpstreamToken(request, bypassToken);
 
-      // Step D: the password is changed — log in for real with the new
+      // Step 5: the password is changed — log in for real with the new
       // password, exactly like login.ts does, to get a full session.
-      let realLoginResponse: Response;
-      try {
-        realLoginResponse = await fetch(`${config.contextforgeUrl}/auth/email/login`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-forwarded-for": request.ip,
-            "x-real-ip": request.ip,
-          },
-          body: JSON.stringify({ email, password: newPassword }),
-          signal: AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS),
-        });
-      } catch (err) {
-        request.log.error({ err }, "post-change-password login failed");
-        return reply.code(502).send({ error: "login_after_change_failed" });
-      }
-
-      if (!realLoginResponse.ok) {
+      const realLogin = await upstreamLogin(request, "/auth/email/login", email, newPassword);
+      if (!realLogin.ok) {
         // The password WAS changed successfully — this is not a
         // change-password failure, it's a (rare) inability to establish a
         // session right after. Distinct error so the SPA doesn't show a
         // "wrong password"/policy-violation message for a change that
         // actually succeeded.
-        request.log.error(
-          { status: realLoginResponse.status },
-          "password changed but post-change login was rejected",
-        );
+        request.log.error({ realLogin }, "password changed but post-change login was rejected");
         return reply.code(502).send({ error: "login_after_change_failed" });
       }
 
-      let realAuth: UpstreamAuthenticationResponse; // pragma: allowlist secret
+      // Step 6: establish a normal BFF session, identical to login.ts.
       try {
-        realAuth = (await realLoginResponse.json()) as UpstreamAuthenticationResponse;
+        const { user, csrfToken } = await establishSession(fastify, request, reply, realLogin.auth);
+        return reply.send({ user, csrfToken });
       } catch (err) {
-        request.log.error({ err }, "post-change-password login returned a non-JSON 2xx body");
-        return reply.code(502).send({ error: "login_after_change_failed" });
+        if (err instanceof PasswordChangeStillRequiredError) {
+          // Password changed, but upstream still reports the account as
+          // flagged (flag not cleared, age not reset, ...) — same "changed
+          // but couldn't sign back in" story as the branches above.
+          request.log.error(
+            { email },
+            "password changed but post-change login still flagged password_change_required",
+          );
+          return reply.code(502).send({ error: "login_after_change_failed" });
+        }
+        throw err;
       }
-
-      if (typeof realAuth.access_token !== "string" || !realAuth.access_token) {
-        request.log.error({ realAuth }, "post-change-password login missing access_token");
-        return reply.code(502).send({ error: "login_after_change_failed" });
-      }
-
-      // Step E: establish a normal BFF session, identical to login.ts.
-      const { user, csrfToken } = await establishSession(fastify, request, reply, realAuth);
-      return reply.send({ user, csrfToken });
     },
   );
 }

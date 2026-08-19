@@ -130,6 +130,37 @@ describe("PasswordChangeRequired", () => {
     expect(screen.queryByRole("button", { name: /forgot your password/i })).not.toBeInTheDocument();
   });
 
+  it("shows a distinct message with a return-to-login fallback when the account doesn't need a change (correct credentials)", async () => {
+    completePasswordChangeRequired.mockRejectedValue(
+      new ApiError(403, { error: "password_change_not_required" }, "HTTP 403"),
+    );
+    renderPage();
+    await fillPasswords("old-pass", "New-password1");
+    fireEvent.click(screen.getByRole("button", { name: "Change Password" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/doesn't need to be changed/i);
+    // Not the "wrong password" copy, and no forgot-password offer — the
+    // credentials were correct.
+    expect(alert).not.toHaveTextContent(/current password is incorrect/i);
+    expect(screen.queryByRole("button", { name: /forgot your password/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Return to login" }));
+    expect(navigate).toHaveBeenCalledWith("/app/login");
+  });
+
+  it("shows an error and a return-to-login CTA instead of a submittable form when ?email= is missing", () => {
+    window.history.pushState({}, "", "/app/change-password-required");
+    renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/couldn't tell which account/i);
+    expect(document.getElementById("old-password")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change Password" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Return to login" }));
+    expect(navigate).toHaveBeenCalledWith("/app/login");
+  });
+
   it("shows the fallback success screen when the password changed but auto sign-in failed", async () => {
     completePasswordChangeRequired.mockRejectedValue(
       new ApiError(502, { error: "login_after_change_failed" }, "HTTP 502"),

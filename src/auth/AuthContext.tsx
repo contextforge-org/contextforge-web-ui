@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useState, useEffect, useRef } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { ReactNode } from "react";
 import { api, ApiError, setCsrfToken } from "../api/client";
 import { permissionsApi } from "../api/permissions";
@@ -235,23 +243,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [perms],
   );
 
-  return (
-    <AuthContext.Provider
-      value={{
-        ...state,
-        login,
-        completePasswordChangeRequired,
-        logout,
-        setSelectedTeamId,
-        permissions: perms.permissions,
-        permissionsLoading: perms.loading,
-        permissionsError: perms.error,
-        hasPermission,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      ...state,
+      login,
+      completePasswordChangeRequired,
+      logout,
+      setSelectedTeamId,
+      permissions: perms.permissions,
+      permissionsLoading: perms.loading,
+      permissionsError: perms.error,
+      hasPermission,
+    }),
+    [state, login, completePasswordChangeRequired, logout, setSelectedTeamId, perms, hasPermission],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // ---------------------------------------------------------------------------

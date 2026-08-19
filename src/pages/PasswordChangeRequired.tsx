@@ -38,7 +38,13 @@ export function PasswordChangeRequired() {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showForgotPasswordFallback, setShowForgotPasswordFallback] = useState(false);
+  const [showReturnToLoginFallback, setShowReturnToLoginFallback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Stale link / manual nav / bookmark with no ?email= — the read-only email
+  // field would otherwise be silently blank and submittable, and the BFF's
+  // generic 400 for a missing email gets misclassified as a new-password
+  // policy violation by the shared classifier.
+  const emailMissing = !email;
   // Only used for the rare "password changed but couldn't auto sign-in"
   // fallback (see classifyChangePasswordRequiredError's changedButLoginFailed)
   // — the happy path navigates straight into the app instead of showing this.
@@ -85,6 +91,7 @@ export function PasswordChangeRequired() {
     setConfirmPasswordError(null);
     setSubmitError(null);
     setShowForgotPasswordFallback(false);
+    setShowReturnToLoginFallback(false);
 
     if (!oldPassword) {
       setOldPasswordError(
@@ -130,6 +137,12 @@ export function PasswordChangeRequired() {
           intl.formatMessage({ id: "auth.passwordChangeRequired.error.invalidOldPassword" }),
         );
         setShowForgotPasswordFallback(true);
+      } else if (changeError.kind === "notRequired") {
+        // Credentials were correct — forgot-password would be the wrong
+        // fallback here, offer a way back to the (now-usable) login form
+        // instead.
+        setSubmitError(intl.formatMessage({ id: "auth.passwordChangeRequired.error.notRequired" }));
+        setShowReturnToLoginFallback(true);
       } else if (changeError.kind === "policyViolation") {
         setNewPasswordError(
           changeError.message ??
@@ -165,84 +178,108 @@ export function PasswordChangeRequired() {
             {intl.formatMessage({ id: "auth.passwordChangeRequired.description" })}
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-            <div className="space-y-1">
-              <Label htmlFor="email">
-                {intl.formatMessage({ id: "auth.passwordChangeRequired.email" })}
-              </Label>
-              <Input id="email" type="email" value={email} disabled readOnly />
-            </div>
-            <PasswordInput
-              ref={oldPasswordInputRef}
-              id="old-password"
-              value={oldPassword}
-              onChange={(value) => {
-                setOldPassword(value);
-                setOldPasswordError(null);
-                setSubmitError(null);
-                setShowForgotPasswordFallback(false);
-              }}
-              autoComplete="current-password"
-              label={intl.formatMessage({ id: "auth.passwordChangeRequired.oldPassword" })}
-              placeholder={intl.formatMessage({ id: "auth.passwordChangeRequired.oldPassword" })}
-              required
-              error={oldPasswordError ?? undefined}
-            />
-            <PasswordInput
-              ref={newPasswordInputRef}
-              id="new-password"
-              value={newPassword}
-              onChange={(value) => {
-                setNewPassword(value);
-                setNewPasswordError(null);
-                setConfirmPasswordError(null);
-              }}
-              label={intl.formatMessage({ id: "auth.passwordChangeRequired.newPassword" })}
-              placeholder={intl.formatMessage({ id: "auth.passwordChangeRequired.newPassword" })}
-              required
-              hint={intl.formatMessage({ id: "auth.passwordChangeRequired.passwordHint" })}
-              error={newPasswordError ?? undefined}
-            />
-            <PasswordInput
-              ref={confirmPasswordInputRef}
-              id="confirm-password"
-              value={confirmPassword}
-              onChange={(value) => {
-                setConfirmPassword(value);
-                setConfirmPasswordError(null);
-              }}
-              label={intl.formatMessage({ id: "auth.passwordChangeRequired.confirmPassword" })}
-              placeholder={intl.formatMessage({
-                id: "auth.passwordChangeRequired.confirmPassword",
-              })}
-              required
-              error={confirmPasswordError ?? undefined}
-            />
-            {submitError && (
-              <div ref={submitErrorRef} tabIndex={-1} className="outline-none">
-                <InlineNotification type="error" message={submitError} />
-              </div>
-            )}
-            <Button
-              type="submit"
-              disabled={submitting || !oldPassword || !newPassword || !confirmPassword}
-              className="w-full"
-            >
-              {submitting
-                ? intl.formatMessage({ id: "auth.passwordChangeRequired.submitting" })
-                : intl.formatMessage({ id: "auth.passwordChangeRequired.submit" })}
-            </Button>
-            {showForgotPasswordFallback && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => navigate("/app/forgot-password")}
-              >
-                {intl.formatMessage({ id: "auth.passwordChangeRequired.forgotPasswordFallback" })}
+          {emailMissing ? (
+            <div className="mt-6 space-y-4">
+              <InlineNotification
+                type="error"
+                message={intl.formatMessage({
+                  id: "auth.passwordChangeRequired.error.missingEmail",
+                })}
+              />
+              <Button type="button" className="w-full" onClick={() => navigate("/app/login")}>
+                {intl.formatMessage({ id: "auth.passwordChangeRequired.returnToLogin" })}
               </Button>
-            )}
-          </form>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+              <div className="space-y-1">
+                <Label htmlFor="email">
+                  {intl.formatMessage({ id: "auth.passwordChangeRequired.email" })}
+                </Label>
+                <Input id="email" type="email" value={email} disabled readOnly />
+              </div>
+              <PasswordInput
+                ref={oldPasswordInputRef}
+                id="old-password"
+                value={oldPassword}
+                onChange={(value) => {
+                  setOldPassword(value);
+                  setOldPasswordError(null);
+                  setSubmitError(null);
+                  setShowForgotPasswordFallback(false);
+                }}
+                autoComplete="current-password"
+                label={intl.formatMessage({ id: "auth.passwordChangeRequired.oldPassword" })}
+                placeholder={intl.formatMessage({ id: "auth.passwordChangeRequired.oldPassword" })}
+                required
+                error={oldPasswordError ?? undefined}
+              />
+              <PasswordInput
+                ref={newPasswordInputRef}
+                id="new-password"
+                value={newPassword}
+                onChange={(value) => {
+                  setNewPassword(value);
+                  setNewPasswordError(null);
+                  setConfirmPasswordError(null);
+                }}
+                label={intl.formatMessage({ id: "auth.passwordChangeRequired.newPassword" })}
+                placeholder={intl.formatMessage({ id: "auth.passwordChangeRequired.newPassword" })}
+                required
+                hint={intl.formatMessage({ id: "auth.passwordChangeRequired.passwordHint" })}
+                error={newPasswordError ?? undefined}
+              />
+              <PasswordInput
+                ref={confirmPasswordInputRef}
+                id="confirm-password"
+                value={confirmPassword}
+                onChange={(value) => {
+                  setConfirmPassword(value);
+                  setConfirmPasswordError(null);
+                }}
+                label={intl.formatMessage({ id: "auth.passwordChangeRequired.confirmPassword" })}
+                placeholder={intl.formatMessage({
+                  id: "auth.passwordChangeRequired.confirmPassword",
+                })}
+                required
+                error={confirmPasswordError ?? undefined}
+              />
+              {submitError && (
+                <div ref={submitErrorRef} tabIndex={-1} className="outline-none">
+                  <InlineNotification type="error" message={submitError} />
+                </div>
+              )}
+              <Button
+                type="submit"
+                disabled={submitting || !oldPassword || !newPassword || !confirmPassword}
+                className="w-full"
+              >
+                {submitting
+                  ? intl.formatMessage({ id: "auth.passwordChangeRequired.submitting" })
+                  : intl.formatMessage({ id: "auth.passwordChangeRequired.submit" })}
+              </Button>
+              {showForgotPasswordFallback && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => navigate("/app/forgot-password")}
+                >
+                  {intl.formatMessage({ id: "auth.passwordChangeRequired.forgotPasswordFallback" })}
+                </Button>
+              )}
+              {showReturnToLoginFallback && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => navigate("/app/login")}
+                >
+                  {intl.formatMessage({ id: "auth.passwordChangeRequired.returnToLogin" })}
+                </Button>
+              )}
+            </form>
+          )}
         </>
       )}
     </AuthCard>

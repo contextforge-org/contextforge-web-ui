@@ -61,6 +61,19 @@ describe("classifyChangePasswordRequiredError", () => {
     });
   });
 
+  it("maps a password_change_not_required body to notRequired, not invalidOldPassword, despite the shared 403 status", () => {
+    const body = { error: "password_change_not_required" };
+    expect(classifyChangePasswordRequiredError(new ApiError(403, body, "HTTP 403"))).toEqual({
+      kind: "notRequired",
+    });
+  });
+
+  it("falls back to invalidOldPassword for a 403 without the password_change_not_required body", () => {
+    expect(classifyChangePasswordRequiredError(new ApiError(403, null, "HTTP 403"))).toEqual({
+      kind: "invalidOldPassword",
+    });
+  });
+
   it("falls back to failed for a non-ApiError", () => {
     expect(classifyChangePasswordRequiredError(new Error("network"))).toEqual({ kind: "failed" });
   });
