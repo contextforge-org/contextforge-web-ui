@@ -25,9 +25,7 @@ export default defineConfig({
   base: "/",
 
   build: {
-    // BFF (server/) serves this directory as static files — see
-    // server/src/plugins/static.ts.
-    outDir: "server/public",
+    outDir: "dist",
     emptyOutDir: true,
     manifest: true,
     sourcemap: false,
@@ -48,7 +46,8 @@ export default defineConfig({
             id.includes("react-intl") ||
             id.includes("@formatjs") ||
             id.includes("/sonner/")
-          ) return "vendor-react";
+          )
+            return "vendor-react";
           if (id.includes("@radix-ui") || id.includes("radix-ui")) return "vendor-radix";
           if (id.includes("lucide-react")) return "vendor-lucide";
           return "vendor";

@@ -359,25 +359,25 @@ contextforge-web-ui/
 
 ## Available Scripts
 
-| Script                  | Description                      |
-| ----------------------- | -------------------------------- |
-| `npm run dev`           | Start development server         |
-| `npm run build`         | Build for production             |
+| Script                  | Description                              |
+| ----------------------- | ---------------------------------------- |
+| `npm run dev`           | Start development server                 |
+| `npm run build`         | Build for production                     |
 | `npm run generate`      | Regenerate API types from `openapi.json` |
-| `npm run preview`       | Preview production build         |
-| `npm run lint`          | Check for linting errors         |
-| `npm run lint:fix`      | Auto-fix linting errors          |
-| `npm run format`        | Format all files with Prettier   |
-| `npm run format:check`  | Check formatting without changes |
-| `npm run test`          | Run tests in watch mode          |
-| `npm run test:run`      | Run tests once (CI mode)         |
-| `npm run test:ui`       | Run tests with UI                |
-| `npm run test:coverage` | Generate coverage report         |
-| `npm run e2e`           | Run Playwright E2E tests         |
-| `npm run e2e:ui`        | Playwright UI mode               |
-| `npm run e2e:debug`     | Playwright Inspector             |
-| `npm run e2e:install`   | Install Playwright browsers      |
-| `npm run e2e:report`    | Open last Playwright report      |
+| `npm run preview`       | Preview production build                 |
+| `npm run lint`          | Check for linting errors                 |
+| `npm run lint:fix`      | Auto-fix linting errors                  |
+| `npm run format`        | Format all files with Prettier           |
+| `npm run format:check`  | Check formatting without changes         |
+| `npm run test`          | Run tests in watch mode                  |
+| `npm run test:run`      | Run tests once (CI mode)                 |
+| `npm run test:ui`       | Run tests with UI                        |
+| `npm run test:coverage` | Generate coverage report                 |
+| `npm run e2e`           | Run Playwright E2E tests                 |
+| `npm run e2e:ui`        | Playwright UI mode                       |
+| `npm run e2e:debug`     | Playwright Inspector                     |
+| `npm run e2e:install`   | Install Playwright browsers              |
+| `npm run e2e:report`    | Open last Playwright report              |
 
 ## Internationalization (i18n)
 

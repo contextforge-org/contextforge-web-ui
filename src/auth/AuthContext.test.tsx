@@ -140,7 +140,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -158,7 +158,7 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("auth-status")).toHaveTextContent("authenticated");
     expect(screen.getByTestId("user-email")).toHaveTextContent("user@example.com");
     expect(api.get).toHaveBeenCalledWith("/auth/session");
-    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+    expect(setCsrfToken).toHaveBeenCalledWith("session-csrf-token");
   });
 
   it("treats an unauthenticated session response as a guest", async () => {
@@ -238,7 +238,7 @@ describe("AuthContext", () => {
 
     vi.mocked(api.post).mockResolvedValueOnce({
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     screen.getByText("Login").click();
@@ -253,7 +253,7 @@ describe("AuthContext", () => {
       { email: "test@example.com", password: "pass" },
       { authenticated: false },
     );
-    expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");
+    expect(setCsrfToken).toHaveBeenCalledWith("session-csrf-token");
   });
 
   it("clears stale auth state and CSRF token when login fails", async () => {
@@ -449,7 +449,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -489,7 +489,7 @@ describe("AuthContext", () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(
@@ -522,11 +522,10 @@ describe("AuthContext", () => {
       email_verified: true,
       password_change_required: false,
     };
-
     vi.mocked(api.get).mockResolvedValueOnce({
       authenticated: true,
       user: mockUser,
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     // Hold the permissions fetch open so we can observe the loading window.
@@ -564,7 +563,7 @@ describe("AuthContext", () => {
         email_verified: true,
         password_change_required: false,
       },
-      csrfToken: "test-csrf-token",
+      csrfToken: "session-csrf-token",
     });
 
     render(

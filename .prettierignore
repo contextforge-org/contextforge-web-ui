@@ -1,7 +1,8 @@
 # Build outputs
 dist
 build
-../mcpgateway/static/app
+server/dist
+server/public
 
 # Dependencies
 node_modules
@@ -14,6 +15,9 @@ node_modules
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Committed API spec, not hand-formatted
+openapi.json
 
 # Coverage
 coverage
