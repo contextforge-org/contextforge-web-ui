@@ -142,7 +142,7 @@ export function PromptDetailsPanel({
         aria-hidden="true"
         onClick={onClose}
         className={cn(
-          "absolute inset-0 z-10 bg-black/10 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
+          "absolute inset-0 z-10 bg-black/50 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
           "data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none",
         )}
       />
@@ -161,13 +161,13 @@ export function PromptDetailsPanel({
         )}
       >
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 overflow-y-auto bg-background px-6 py-8 dark:bg-neutral-900 lg:px-12">
+          <div className="min-w-0 overflow-y-auto px-6 py-8 lg:px-12">
             <h2 id={headingId} className="sr-only">
               {intl.formatMessage({ id: "prompts.details.srHeading" }, { title })}
             </h2>
 
             <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-sm bg-emerald-300 text-neutral-950">
+              <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-sm bg-prompt-icon-bg text-neutral-950">
                 <MessageSquareCode className="size-4" />
               </span>
               <span aria-hidden="true" className="truncate text-xl font-semibold text-foreground">
@@ -263,7 +263,7 @@ export function PromptDetailsPanel({
             </Tabs>
           </div>
 
-          <aside className="relative overflow-y-auto border-t border-border bg-background lg:border-l lg:border-t-0 dark:bg-neutral-900">
+          <aside className="relative overflow-y-auto border-t border-border lg:border-l lg:border-t-0">
             <Button
               ref={closeButtonRef}
               type="button"
@@ -288,7 +288,9 @@ export function PromptDetailsPanel({
                       <span className="flex items-center gap-2">
                         <Activity
                           className={`size-3.5 ${
-                            selected.enabled ? "text-emerald-400" : "text-gray-400"
+                            selected.enabled
+                              ? "text-tool-status-active"
+                              : "text-tool-status-inactive"
                           }`}
                         />
                         {selected.enabled

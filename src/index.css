@@ -129,8 +129,9 @@
   --destructive: oklch(0.577 0.245 27.325);
   --tool-icon-bg: var(--color-fuchsia-400);
   --prompt-icon-bg: #6fff9f;
-  --tool-status-active: var(--color-emerald-500);
-  --tool-status-inactive: var(--color-gray-500);
+  /* emerald-400 falls under 3:1 on white; .dark restores it */
+  --tool-status-active: var(--color-emerald-600);
+  --tool-status-inactive: var(--color-neutral-500);
   --tool-badge-bg: var(--color-neutral-200);
   --tool-badge-fg: var(--color-neutral-800);
   --tool-add-icon-bg: var(--color-neutral-900);
@@ -189,6 +190,7 @@
   --tool-badge-fg: var(--color-white);
   --tool-add-icon-bg: var(--color-white);
   --tool-add-icon-fg: var(--color-neutral-900);
+  --tool-status-active: var(--color-emerald-400);
   --selection: var(--color-orange-500);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;

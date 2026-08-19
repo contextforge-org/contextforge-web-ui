@@ -74,11 +74,11 @@ function ToolGroupCard({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
               title={group.gatewaySlug}
-              className="min-w-0 truncate text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+              className="min-w-0 truncate text-sm font-semibold text-muted-foreground"
             >
               {group.gatewaySlug}
             </span>
-            <span className="whitespace-nowrap text-sm font-semibold text-neutral-900 dark:text-white">
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">
               {intl.formatMessage({ id: "tools.card.toolCount" }, { count: group.tools.length })}
             </span>
             <span
@@ -160,13 +160,13 @@ function AddToolsCard({ onAddTool }: { onAddTool: () => void }) {
           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
             <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
-          <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+          <span className="text-sm font-semibold text-foreground">
             {intl.formatMessage({ id: "tools.add.title" })}
           </span>
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {intl.formatMessage({ id: "tools.add.description" })}
         </p>
       </CardContent>
@@ -425,7 +425,7 @@ export function Tools() {
         />
       ) : (
         <>
-          <h1 className="mb-6 text-base font-semibold text-neutral-900 dark:text-white">
+          <h1 className="mb-6 text-base font-semibold text-foreground">
             {intl.formatMessage({ id: "tools.title" })}
           </h1>
 
@@ -437,7 +437,7 @@ export function Tools() {
               className="flex items-center justify-center p-12"
             >
               <span className="sr-only">{intl.formatMessage({ id: "tools.loading" })}</span>
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 dark:border-gray-700 dark:border-t-blue-400" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
             </div>
           )}
 

@@ -37,22 +37,22 @@ export function ResourcesTable({
   const intl = useIntl();
 
   return (
-    <Table>
+    <Table className="min-w-full border-separate border-spacing-y-1.5">
       <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="h-9 px-4 py-2.5 text-xs font-medium">
+        <TableRow className="border-none hover:bg-transparent">
+          <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
             {intl.formatMessage({ id: "resources.table.resource" })}
           </TableHead>
-          <TableHead className="h-9 px-4 py-2.5 text-xs font-medium">
+          <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
             {intl.formatMessage({ id: "resources.table.uri" })}
           </TableHead>
-          <TableHead className="h-9 px-4 py-2.5 text-xs font-medium">
+          <TableHead className="h-9 border-b border-border px-4 py-2.5 text-xs font-medium">
             {intl.formatMessage({ id: "resources.table.resourceId" })}
           </TableHead>
-          <TableHead className="h-9 w-[40px] px-4 py-2.5" />
+          <TableHead className="h-9 w-[40px] border-b border-border px-4 py-2.5" />
         </TableRow>
       </TableHeader>
-      <TableBody className="[&_tr]:border-0">
+      <TableBody>
         {resources.map((resource) => (
           <TableRow
             key={resource.id}
@@ -65,7 +65,7 @@ export function ResourcesTable({
                 onSelectResource(resource);
               }
             }}
-            className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+            className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
               <span className="line-clamp-1">{resource.title || resource.name}</span>
