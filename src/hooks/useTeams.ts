@@ -65,12 +65,12 @@ export interface UseTeamScopeResult {
  * team state as a `teamId`/`onTeamIdChange` pair (servers, tools). `usePromptForm`
  * derives its team instead, but resolves it the same way.
  *
- * The sidebar switcher is authoritative **only while creating** (#5077), and
- * only until the caller picks a team in the form. Editing an existing record
- * pins it to `recordTeamId`, so opening the edit form for a record scoped to a
- * team other than the caller's own no longer retargets it: the sidebar starts
- * every session on "All teams", which used to resolve to the caller's personal
- * team and overwrite the record's real team before they touched anything.
+ * Teams rank: an in-form pick beats the record's own team, which beats the
+ * sidebar switcher. So the sidebar is authoritative **only while creating**
+ * (#5077), and only until the caller picks. Editing pins to `recordTeamId`:
+ * the sidebar starts every session on "All teams", which used to resolve to
+ * the caller's personal team and overwrite the record's real team before they
+ * had touched anything.
  */
 export function useTeamScope({
   visibility,
@@ -80,30 +80,31 @@ export function useTeamScope({
 }: UseTeamScopeOptions): UseTeamScopeResult {
   const { selectedTeamId } = useAuthContext();
   const { teams } = useTeams();
-  const [pickedInForm, setPickedInForm] = useState(false);
+  const [pickedTeamId, setPickedTeamId] = useState<string | undefined>(undefined);
+
+  // Holding the pick itself rather than a "has picked" flag is what keeps the
+  // resolve idempotent: the pick outranks every default inside `resolveTeamId`,
+  // so it survives a round-trip through another visibility without the effect
+  // needing to know a pick ever happened.
+  const chosenTeamId = pickedTeamId ?? recordTeamId;
 
   useEffect(() => {
     if (visibility !== "team") {
       // "All teams" is not a scope a record can live in, so a non-team
       // visibility drops the team rather than leaving a stale one attached.
       if (teamId) onTeamIdChange("");
-      // Dropping the team drops the choice that produced it, so returning to
-      // team visibility resolves afresh instead of leaving `teamId` empty
-      // behind a latch that nothing can clear.
-      if (pickedInForm) setPickedInForm(false);
       return;
     }
-    if (pickedInForm) return;
 
-    const resolved = resolveTeamId(teams, selectedTeamId, recordTeamId);
+    const resolved = resolveTeamId(teams, selectedTeamId, chosenTeamId);
     if (resolved && resolved !== teamId) {
       onTeamIdChange(resolved);
     }
-  }, [visibility, selectedTeamId, teams, teamId, recordTeamId, pickedInForm, onTeamIdChange]);
+  }, [visibility, selectedTeamId, teams, teamId, chosenTeamId, onTeamIdChange]);
 
   const onTeamChange = useCallback(
     (nextTeamId: string) => {
-      setPickedInForm(true);
+      setPickedTeamId(nextTeamId);
       onTeamIdChange(nextTeamId);
     },
     [onTeamIdChange],

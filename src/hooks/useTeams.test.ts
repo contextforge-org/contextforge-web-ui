@@ -160,7 +160,7 @@ describe("useTeamScope", () => {
     expect(onTeamIdChange).not.toHaveBeenCalled();
   });
 
-  it("resolves afresh when visibility leaves team and comes back after a pick", async () => {
+  it("restores the caller's pick when visibility leaves team and comes back", async () => {
     const onTeamIdChange = vi.fn();
     const { result, rerender } = setup({ teamId: personalTeam.id, onTeamIdChange });
 
@@ -176,12 +176,38 @@ describe("useTeamScope", () => {
     });
     onTeamIdChange.mockClear();
 
-    // Without clearing the pick latch, teamId would stay empty for good — and a
-    // single-team caller has no selector to recover with.
+    // The pick outlives the detour: falling back to the personal team here
+    // would quietly discard a choice the caller made on purpose.
     rerender({ visibility: "team", teamId: "", onTeamIdChange });
 
     await waitFor(() => {
-      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+      expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
+    });
+  });
+
+  it("restores the record's own team over the same round-trip when nothing was picked", async () => {
+    const onTeamIdChange = vi.fn();
+    const { rerender } = setup({
+      teamId: sharedTeam.id,
+      recordTeamId: sharedTeam.id,
+      onTeamIdChange,
+    });
+
+    rerender({
+      visibility: "public",
+      teamId: sharedTeam.id,
+      recordTeamId: sharedTeam.id,
+      onTeamIdChange,
+    });
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith("");
+    });
+    onTeamIdChange.mockClear();
+
+    rerender({ visibility: "team", teamId: "", recordTeamId: sharedTeam.id, onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
     });
   });
 
