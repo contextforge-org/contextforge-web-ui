@@ -42,6 +42,7 @@ function mockAuth(selectedTeamId: string | null = null) {
     isAuthenticated: true,
     isLoading: false,
     login: vi.fn(),
+    completePasswordChangeRequired: vi.fn(),
     logout: vi.fn(),
     setSelectedTeamId: vi.fn(),
     permissions: [],

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useState, useEffect, useRef } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { ReactNode } from "react";
 import { api, ApiError, setCsrfToken } from "../api/client";
 import { permissionsApi } from "../api/permissions";
@@ -38,6 +46,17 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>; // pragma: allowlist secret
+  /**
+   * Completes the "password change required" flow: BFF re-authenticates with
+   * the old password, changes it, then logs in again with the new one and
+   * establishes a real session — same response shape as login(), so this
+   * updates auth state identically. See PasswordChangeRequired.tsx.
+   */
+  completePasswordChangeRequired: (
+    email: string,
+    oldPassword: string, // pragma: allowlist secret
+    newPassword: string, // pragma: allowlist secret
+  ) => Promise<void>;
   logout: () => Promise<void>;
   setSelectedTeamId: (teamId: string | null) => void;
   /** Caller's effective permissions from GET /rbac/my/permissions (in-memory only). */
@@ -153,6 +172,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const completePasswordChangeRequired = useCallback(
+    async (
+      email: string,
+      oldPassword: string, // pragma: allowlist secret
+      newPassword: string, // pragma: allowlist secret
+    ): Promise<void> => {
+      try {
+        const data = await api.post<LoginResponse>(
+          "/auth/change-password-required",
+          { email, oldPassword, newPassword },
+          { authenticated: false },
+        );
+
+        setCsrfToken(data.csrfToken);
+        authVersion.current += 1;
+        setState({
+          user: data.user,
+          isAuthenticated: true,
+          isLoading: false,
+          selectedTeamId: null,
+        });
+      } catch (err) {
+        // Same reasoning as login()'s catch: don't leave a stale CSRF token
+        // or a previously "authenticated" state around on failure — a user
+        // who lands on this pre-auth page with an existing session (bookmark,
+        // still-open tab) must not keep that state if the BFF call fails.
+        setCsrfToken(null);
+        authVersion.current += 1;
+        setState({ user: null, isAuthenticated: false, isLoading: false, selectedTeamId: null });
+        throw err;
+      }
+    },
+    [],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       // Empty body would still send Content-Type: application/json, which Fastify's
@@ -205,22 +259,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [perms],
   );
 
-  return (
-    <AuthContext.Provider
-      value={{
-        ...state,
-        login,
-        logout,
-        setSelectedTeamId,
-        permissions: perms.permissions,
-        permissionsLoading: perms.loading,
-        permissionsError: perms.error,
-        hasPermission,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      ...state,
+      login,
+      completePasswordChangeRequired,
+      logout,
+      setSelectedTeamId,
+      permissions: perms.permissions,
+      permissionsLoading: perms.loading,
+      permissionsError: perms.error,
+      hasPermission,
+    }),
+    [state, login, completePasswordChangeRequired, logout, setSelectedTeamId, perms, hasPermission],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // ---------------------------------------------------------------------------

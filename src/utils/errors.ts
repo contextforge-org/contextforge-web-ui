@@ -49,6 +49,34 @@ export function extractApiErrorDetail(body: unknown): string | null {
 }
 
 /**
+ * Extracts the real error message from a BFF-owned auth route's forwarded
+ * failure envelope. Routes like server/src/routes/auth/login.ts and
+ * change-password-required.ts forward a rejected upstream response as
+ * `{ error: <bff-error-code>, detail: <raw upstream response TEXT> }` — when
+ * upstream's body was JSON, `detail` here is itself a JSON-encoded string, so
+ * naively treating it as the message (extractApiErrorDetail's usual contract)
+ * renders the raw JSON text. Parse it defensively: other failures (e.g. a
+ * bare rate-limit string) may not be JSON at all, in which case `detail` IS
+ * already the message.
+ *
+ * @param body - The error body from a BFF-owned auth route's ApiError
+ * @returns Extracted error message or null if not found
+ */
+export function extractUpstreamApiErrorDetail(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const envelope = body as { detail?: string };
+  if (typeof envelope.detail !== "string") return null;
+
+  try {
+    const inner = extractApiErrorDetail(JSON.parse(envelope.detail));
+    if (inner) return inner;
+  } catch {
+    // Not JSON — upstream sent plain text, `detail` is already the message.
+  }
+  return envelope.detail;
+}
+
+/**
  * Sanitizes error messages to prevent information leakage
  *
  * @param err - The error object to sanitize

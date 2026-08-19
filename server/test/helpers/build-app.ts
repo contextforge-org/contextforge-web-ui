@@ -13,6 +13,7 @@ import { type Redis } from "ioredis";
 import cookiePlugin from "../../src/plugins/cookie.js";
 import csrfPlugin from "../../src/plugins/csrf.js";
 import sessionPlugin from "../../src/plugins/session.js";
+import changePasswordRequiredRoute from "../../src/routes/auth/change-password-required.js";
 import loginRoute from "../../src/routes/auth/login.js";
 import logoutRoute from "../../src/routes/auth/logout.js";
 import sessionRoute from "../../src/routes/auth/session.js";
@@ -58,6 +59,7 @@ export async function buildTestApp(opts: { withProxy?: boolean } = {}): Promise<
   await fastify.register(loginRoute);
   await fastify.register(logoutRoute);
   await fastify.register(sessionRoute);
+  await fastify.register(changePasswordRequiredRoute);
 
   if (opts.withProxy) {
     await fastify.register(catchAllProxyRoute);

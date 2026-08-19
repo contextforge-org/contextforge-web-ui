@@ -10,6 +10,7 @@ export const APP = {
   LOGIN: "/app/login",
   FORGOT_PASSWORD: "/app/forgot-password",
   CHANGE_PASSWORD: "/app/change-password", // pragma: allowlist secret
+  CHANGE_PASSWORD_REQUIRED: "/app/change-password-required", // pragma: allowlist secret
   GATEWAYS: "/app/gateways",
   SERVERS: "/app/servers",
   TOOLS: "/app/tools",
@@ -40,6 +41,7 @@ export const APP = {
 export const API = {
   LOGIN: "**/auth/login",
   SESSION: "**/auth/session",
+  CHANGE_PASSWORD_REQUIRED: "**/auth/change-password-required",
 } as const;
 
 /**
