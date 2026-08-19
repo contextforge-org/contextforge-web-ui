@@ -14,7 +14,18 @@ name: Docker Release
 
 on:
   push:
-    tags: ["v*"]
+    # Strict semver only (vX.Y.Z, vX.Y.Z-pre) — matches the type=semver
+    # patterns below. A looser "v*" would let non-semver tags (v1, v1.2,
+    # v2.0.0.1) through and produce empty derived tags.
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      nodejs_image:
+        description: "Override NODEJS_IMAGE build arg (e.g. internal mirror) — use if registry.access.redhat.com is unreachable. Leave blank for the Dockerfile default. Dispatch this run from the tag you want to (re)release."
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -73,6 +84,14 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
+      - name: ✅  Validate derived tags
+        run: |
+          set -euo pipefail
+          if [ -z "${{ steps.meta.outputs.tags }}" ]; then
+            echo "::error::No image tags derived from ref '${{ github.ref_name }}'. Expected strict semver (vX.Y.Z or vX.Y.Z-prerelease)."
+            exit 1
+          fi
+
       - name: 🏗️  Build & push image
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -87,6 +106,11 @@ jobs:
           sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Lets a maintainer re-dispatch this workflow (from the tag) with
+          # an internal mirror if registry.access.redhat.com is unreachable
+          # — see the workflow_dispatch input above.
+          build-args: |
+            ${{ github.event.inputs.nodejs_image && format('NODEJS_IMAGE={0}', github.event.inputs.nodejs_image) || '' }}
 
       - name: 🔏  Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
