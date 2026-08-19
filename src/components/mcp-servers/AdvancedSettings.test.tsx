@@ -108,7 +108,9 @@ describe("AdvancedSettings", () => {
     expect(screen.getByRole("button", { name: "About visibility levels" })).toBeInTheDocument();
   });
 
-  describe("team visibility — teamId sync (issue #5077)", () => {
+  // The sidebar switcher is authoritative while *creating* only. Edit mode is
+  // covered separately below: an existing server keeps its own team.
+  describe("team visibility — teamId sync while creating (issue #5077)", () => {
     it("syncs teamId with selectedTeamId on mount when visibility is team and teamId is unset", () => {
       mockUseAuthContext.mockReturnValue(makeAuthContext("team-A"));
       const onTeamIdChange = vi.fn();
@@ -120,7 +122,7 @@ describe("AdvancedSettings", () => {
       expect(onTeamIdChange).toHaveBeenCalledWith("team-A");
     });
 
-    it("propagates selectedTeamId change after teamId is already set (regression: was ignored by !teamId guard)", () => {
+    it("propagates a sidebar switch made after teamId is already resolved", () => {
       mockUseAuthContext.mockReturnValue(makeAuthContext("team-A"));
       const onTeamIdChange = vi.fn();
       const { rerender } = render(
@@ -234,6 +236,113 @@ describe("AdvancedSettings", () => {
         />,
       );
       expect(onTeamIdChange).toHaveBeenCalledWith("team-C");
+    });
+  });
+
+  describe("team visibility — teamId sync while editing", () => {
+    it("keeps the server's own team when the sidebar is on All teams", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+      const onTeamIdChange = vi.fn();
+
+      render(
+        <AdvancedSettings
+          {...makeProps({
+            visibility: "team",
+            teamId: sharedTeam.id,
+            initialTeamId: sharedTeam.id,
+            onTeamIdChange,
+          })}
+        />,
+      );
+
+      // Resolving to the personal team here would silently retarget the server.
+      await screen.findByRole("combobox", { name: /^team/i });
+      expect(onTeamIdChange).not.toHaveBeenCalled();
+    });
+
+    it("restores the server's own team once it loads after the fallback resolved", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+      const onTeamIdChange = vi.fn();
+
+      // The server request has not landed yet, so the form falls back.
+      const { rerender } = render(
+        <AdvancedSettings {...makeProps({ visibility: "team", teamId: "", onTeamIdChange })} />,
+      );
+      await waitFor(() => {
+        expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+      });
+      onTeamIdChange.mockClear();
+
+      rerender(
+        <AdvancedSettings
+          {...makeProps({
+            visibility: "team",
+            teamId: personalTeam.id,
+            initialTeamId: sharedTeam.id,
+            onTeamIdChange,
+          })}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
+      });
+    });
+
+    it("ignores a sidebar switch, unlike create mode", () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue(makeAuthContext(sharedTeam.id));
+      const onTeamIdChange = vi.fn();
+      const { rerender } = render(
+        <AdvancedSettings
+          {...makeProps({
+            visibility: "team",
+            teamId: sharedTeam.id,
+            initialTeamId: sharedTeam.id,
+            onTeamIdChange,
+          })}
+        />,
+      );
+      onTeamIdChange.mockClear();
+
+      mockUseAuthContext.mockReturnValue(makeAuthContext("team-B"));
+      rerender(
+        <AdvancedSettings
+          {...makeProps({
+            visibility: "team",
+            teamId: sharedTeam.id,
+            initialTeamId: sharedTeam.id,
+            onTeamIdChange,
+          })}
+        />,
+      );
+
+      expect(onTeamIdChange).not.toHaveBeenCalled();
+    });
+
+    it("still lets the caller retarget the server from the selector", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+      const onTeamIdChange = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <AdvancedSettings
+          {...makeProps({
+            visibility: "team",
+            teamId: sharedTeam.id,
+            initialTeamId: sharedTeam.id,
+            onTeamIdChange,
+          })}
+        />,
+      );
+
+      await user.click(await screen.findByRole("combobox", { name: /^team/i }));
+      await user.click(screen.getByRole("option", { name: personalTeam.name }));
+
+      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
     });
   });
 

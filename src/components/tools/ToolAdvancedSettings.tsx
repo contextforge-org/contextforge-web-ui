@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,8 +14,7 @@ import { MAX_TAGS } from "@/utils/tags";
 import { BasicAuth } from "@/components/mcp-servers/BasicAuth";
 import { ToolBearerTokenAuth } from "@/components/tools/ToolBearerTokenAuth";
 import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
-import { useAuthContext } from "@/auth/AuthContext";
-import { resolveTeamId, useTeams } from "@/hooks/useTeams";
+import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 import { TeamSelect } from "@/components/common/TeamSelect";
@@ -32,6 +30,8 @@ interface ToolAdvancedSettingsProps {
   onTeamIdChange: (value: string) => void;
   /** Validation message for the team field, shown on the selector. */
   teamError?: string;
+  /** The tool's own team, in edit mode. Pins the form to it. */
+  initialTeamId?: string;
   authType: AuthType;
   onAuthTypeChange: (value: AuthType) => void;
   basicAuthUsername: string;
@@ -56,6 +56,7 @@ export function ToolAdvancedSettings({
   teamId,
   onTeamIdChange,
   teamError,
+  initialTeamId,
   authType,
   onAuthTypeChange,
   basicAuthUsername,
@@ -74,32 +75,14 @@ export function ToolAdvancedSettings({
   onDescriptionChange,
 }: ToolAdvancedSettingsProps) {
   const intl = useIntl();
-  const { selectedTeamId } = useAuthContext();
-  const { teams } = useTeams();
   const tagSuggestions = useTagSuggestions();
+  const { teams, onTeamChange } = useTeamScope({
+    visibility,
+    teamId,
+    onTeamIdChange,
+    recordTeamId: initialTeamId,
+  });
 
-  const [pickedInForm, setPickedInForm] = useState(false);
-
-  // The sidebar switcher stays authoritative until the caller picks a team in
-  // the selector below. "All teams" is not a scope a tool can be created in, so
-  // it resolves to the caller's own team rather than leaving the tool unscoped.
-  useEffect(() => {
-    if (visibility !== "team") {
-      if (teamId) onTeamIdChange("");
-      return;
-    }
-    if (pickedInForm) return;
-
-    const resolved = resolveTeamId(teams, selectedTeamId);
-    if (resolved && resolved !== teamId) {
-      onTeamIdChange(resolved);
-    }
-  }, [visibility, selectedTeamId, teams, teamId, pickedInForm, onTeamIdChange]);
-
-  const handleTeamChange = (nextTeamId: string) => {
-    setPickedInForm(true);
-    onTeamIdChange(nextTeamId);
-  };
   const renderAuthContent = () => {
     switch (authType) {
       case "none":
@@ -167,7 +150,7 @@ export function ToolAdvancedSettings({
           id="tool-team"
           teams={teams}
           value={teamId || undefined}
-          onChange={handleTeamChange}
+          onChange={onTeamChange}
           error={teamError}
         />
       )}

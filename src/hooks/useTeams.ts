@@ -1,16 +1,12 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuthContext } from "@/auth/AuthContext";
 import { useQuery } from "@/hooks/useQuery";
 import type { Team, TeamsResponse } from "@/types/team";
+import type { Visibility } from "@/types/server";
 
 export interface UseTeamsResult {
   teams: Team[];
   isLoading: boolean;
-  /**
-   * Whether the caller has to choose a team explicitly. Every user belongs to
-   * at least their own personal team, so a single-team caller is never asked:
-   * forms scope to that team implicitly and render no selector.
-   */
-  requiresSelection: boolean;
 }
 
 /** The teams the caller belongs to, for scoping `team`-visibility records. */
@@ -18,7 +14,7 @@ export function useTeams(): UseTeamsResult {
   const { data, isLoading } = useQuery<TeamsResponse>("/teams");
   const teams = useMemo(() => data?.teams ?? [], [data?.teams]);
 
-  return { teams, isLoading, requiresSelection: teams.length > 1 };
+  return { teams, isLoading };
 }
 
 /**
@@ -44,4 +40,70 @@ export function resolveTeamId(
   if (teams.length === 0) return undefined;
 
   return (teams.find((team) => team.is_personal) ?? teams[0]).id;
+}
+
+export interface UseTeamScopeOptions {
+  visibility: Visibility;
+  /** The form's current team, owned by the form hook. */
+  teamId: string;
+  onTeamIdChange: (teamId: string) => void;
+  /**
+   * The team the record already belongs to, in edit mode. Undefined when
+   * creating, and while the record is still loading.
+   */
+  recordTeamId?: string;
+}
+
+export interface UseTeamScopeResult {
+  teams: Team[];
+  /** Wire to the in-form selector, not `onTeamIdChange` directly. */
+  onTeamChange: (teamId: string) => void;
+}
+
+/**
+ * Keeps a form's `teamId` in step with its visibility, for the forms that hold
+ * team state as a `teamId`/`onTeamIdChange` pair (servers, tools). `usePromptForm`
+ * derives its team instead, but resolves it the same way.
+ *
+ * The sidebar switcher is authoritative **only while creating** (#5077), and
+ * only until the caller picks a team in the form. Editing an existing record
+ * pins it to `recordTeamId`, so opening the edit form for a record scoped to a
+ * team other than the caller's own no longer retargets it: the sidebar starts
+ * every session on "All teams", which used to resolve to the caller's personal
+ * team and overwrite the record's real team before they touched anything.
+ */
+export function useTeamScope({
+  visibility,
+  teamId,
+  onTeamIdChange,
+  recordTeamId,
+}: UseTeamScopeOptions): UseTeamScopeResult {
+  const { selectedTeamId } = useAuthContext();
+  const { teams } = useTeams();
+  const [pickedInForm, setPickedInForm] = useState(false);
+
+  useEffect(() => {
+    if (visibility !== "team") {
+      // "All teams" is not a scope a record can live in, so a non-team
+      // visibility drops the team rather than leaving a stale one attached.
+      if (teamId) onTeamIdChange("");
+      return;
+    }
+    if (pickedInForm) return;
+
+    const resolved = resolveTeamId(teams, selectedTeamId, recordTeamId);
+    if (resolved && resolved !== teamId) {
+      onTeamIdChange(resolved);
+    }
+  }, [visibility, selectedTeamId, teams, teamId, recordTeamId, pickedInForm, onTeamIdChange]);
+
+  const onTeamChange = useCallback(
+    (nextTeamId: string) => {
+      setPickedInForm(true);
+      onTeamIdChange(nextTeamId);
+    },
+    [onTeamIdChange],
+  );
+
+  return { teams, onTeamChange };
 }

@@ -1,14 +1,23 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import * as AuthContextModule from "@/auth/AuthContext";
 import type { Team } from "@/types/team";
-import { resolveTeamId, useTeams } from "./useTeams";
+import { resolveTeamId, useTeams, useTeamScope, type UseTeamScopeOptions } from "./useTeams";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
 }));
 
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: vi.fn(),
+}));
+
 const mockGet = vi.mocked(api.get);
+const mockUseAuthContext = vi.mocked(AuthContextModule.useAuthContext);
+
+const makeAuthContext = (selectedTeamId: string | null) =>
+  ({ selectedTeamId }) as ReturnType<typeof AuthContextModule.useAuthContext>;
 
 const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true } as Team;
 const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false } as Team;
@@ -24,25 +33,6 @@ describe("useTeams", () => {
 
     await waitFor(() => {
       expect(result.current.teams).toEqual([personalTeam]);
-    });
-  });
-
-  it("requires no selection for a single team", async () => {
-    mockGet.mockResolvedValue({ teams: [personalTeam] });
-    const { result } = renderHook(() => useTeams());
-
-    await waitFor(() => {
-      expect(result.current.teams).toHaveLength(1);
-    });
-    expect(result.current.requiresSelection).toBe(false);
-  });
-
-  it("requires a selection beyond one team", async () => {
-    mockGet.mockResolvedValue({ teams: [personalTeam, sharedTeam] });
-    const { result } = renderHook(() => useTeams());
-
-    await waitFor(() => {
-      expect(result.current.requiresSelection).toBe(true);
     });
   });
 
@@ -78,5 +68,106 @@ describe("resolveTeamId", () => {
 
   it("resolves nothing without teams", () => {
     expect(resolveTeamId([], null)).toBeUndefined();
+  });
+});
+
+describe("useTeamScope", () => {
+  const baseOptions: UseTeamScopeOptions = {
+    visibility: "team",
+    teamId: "",
+    onTeamIdChange: vi.fn(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGet.mockResolvedValue({ teams: [personalTeam, sharedTeam] });
+    mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+  });
+
+  const setup = (options: Partial<UseTeamScopeOptions> = {}) =>
+    renderHook(
+      (props: Partial<UseTeamScopeOptions>) => useTeamScope({ ...baseOptions, ...props }),
+      {
+        initialProps: options,
+      },
+    );
+
+  it("resolves the sidebar's active team while creating", async () => {
+    mockUseAuthContext.mockReturnValue(makeAuthContext(sharedTeam.id));
+    const onTeamIdChange = vi.fn();
+    setup({ onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
+    });
+  });
+
+  it("falls back to the personal team on All teams", async () => {
+    const onTeamIdChange = vi.fn();
+    setup({ onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+    });
+  });
+
+  it("pins to the record's own team while editing, over the sidebar", async () => {
+    mockUseAuthContext.mockReturnValue(makeAuthContext(personalTeam.id));
+    const onTeamIdChange = vi.fn();
+    const { result } = setup({
+      teamId: sharedTeam.id,
+      recordTeamId: sharedTeam.id,
+      onTeamIdChange,
+    });
+
+    await waitFor(() => {
+      expect(result.current.teams).toHaveLength(2);
+    });
+    expect(onTeamIdChange).not.toHaveBeenCalled();
+  });
+
+  it("restores the record's team once it loads after the fallback resolved", async () => {
+    const onTeamIdChange = vi.fn();
+    const { rerender } = setup({ onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+    });
+    onTeamIdChange.mockClear();
+
+    // The record's own team arrives after its request lands.
+    rerender({ teamId: personalTeam.id, recordTeamId: sharedTeam.id, onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
+    });
+  });
+
+  it("keeps an in-form pick over a later sidebar switch", async () => {
+    const onTeamIdChange = vi.fn();
+    const { result, rerender } = setup({ teamId: personalTeam.id, onTeamIdChange });
+
+    await waitFor(() => {
+      expect(result.current.teams).toHaveLength(2);
+    });
+    act(() => result.current.onTeamChange(sharedTeam.id));
+    expect(onTeamIdChange).toHaveBeenCalledWith(sharedTeam.id);
+    onTeamIdChange.mockClear();
+
+    mockUseAuthContext.mockReturnValue(makeAuthContext(personalTeam.id));
+    rerender({ teamId: sharedTeam.id, onTeamIdChange });
+
+    expect(onTeamIdChange).not.toHaveBeenCalled();
+  });
+
+  it("drops the team when visibility leaves team", async () => {
+    const onTeamIdChange = vi.fn();
+    const { rerender } = setup({ teamId: sharedTeam.id, onTeamIdChange });
+
+    rerender({ visibility: "public", teamId: sharedTeam.id, onTeamIdChange });
+
+    await waitFor(() => {
+      expect(onTeamIdChange).toHaveBeenCalledWith("");
+    });
   });
 });

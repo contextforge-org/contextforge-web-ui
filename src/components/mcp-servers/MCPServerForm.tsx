@@ -36,6 +36,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     advancedOpen,
     visibility,
     teamId,
+    initialTeamId,
     authType,
     oneTimeAuth,
     passthroughHeaders,
@@ -321,6 +322,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   teamId={teamId}
                   onTeamIdChange={setTeamId}
                   teamError={errors.teamId}
+                  initialTeamId={initialTeamId}
                   authType={authType}
                   onAuthTypeChange={setAuthType}
                   basicAuthUsername={authUsername}
