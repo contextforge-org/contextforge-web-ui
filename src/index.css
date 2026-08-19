@@ -63,6 +63,7 @@
   /* Tool-specific semantic tokens */
   --color-tool-icon-bg: var(--tool-icon-bg);
   --color-prompt-icon-bg: var(--prompt-icon-bg);
+  --color-server-icon-bg: var(--server-icon-bg);
   --color-tool-status-active: var(--tool-status-active);
   --color-tool-status-inactive: var(--tool-status-inactive);
   --color-tool-badge-bg: var(--tool-badge-bg);
@@ -129,8 +130,13 @@
   --destructive: oklch(0.577 0.245 27.325);
   --tool-icon-bg: var(--color-fuchsia-400);
   --prompt-icon-bg: #6fff9f;
-  --tool-status-active: var(--color-emerald-500);
-  --tool-status-inactive: var(--color-gray-500);
+  /* Brand cyan. Like the two above it this is a chip *background* carrying a
+     black glyph, so it needs no `.dark` override — only `--status-icon`, which
+     paints a foreground, has to step down on white. */
+  --server-icon-bg: #70f9ff;
+  /* emerald-400 falls under 3:1 on white; .dark restores it */
+  --tool-status-active: var(--color-emerald-600);
+  --tool-status-inactive: var(--color-neutral-500);
   --tool-badge-bg: var(--color-neutral-200);
   --tool-badge-fg: var(--color-neutral-800);
   --tool-add-icon-bg: var(--color-neutral-900);
@@ -189,6 +195,7 @@
   --tool-badge-fg: var(--color-white);
   --tool-add-icon-bg: var(--color-white);
   --tool-add-icon-fg: var(--color-neutral-900);
+  --tool-status-active: var(--color-emerald-400);
   --selection: var(--color-orange-500);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;

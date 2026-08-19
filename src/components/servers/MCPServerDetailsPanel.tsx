@@ -306,7 +306,7 @@ export function MCPServerDetailsPanel({
         aria-hidden="true"
         onClick={onClose}
         className={cn(
-          "absolute inset-0 z-10 bg-black/10 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
+          "absolute inset-0 z-10 bg-black/50 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
           "data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none",
         )}
       />
@@ -531,7 +531,7 @@ export function MCPServerDetailsPanel({
               </Tabs>
             </div>
 
-            <aside className="relative border-t border-border bg-background lg:border-l lg:border-t-0">
+            <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
                 type="button"
@@ -552,7 +552,9 @@ export function MCPServerDetailsPanel({
                     <span className="flex items-center gap-2">
                       <Activity
                         className={`size-3.5 ${
-                          server.enabled && server.reachable ? "text-emerald-400" : "text-gray-400"
+                          server.enabled && server.reachable
+                            ? "text-tool-status-active"
+                            : "text-tool-status-inactive"
                         }`}
                       />
                       {server.enabled ? (server.reachable ? "Active" : "Unreachable") : "Inactive"}

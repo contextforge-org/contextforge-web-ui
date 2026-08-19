@@ -147,7 +147,7 @@ export function ToolDetailsPanel({
         aria-hidden="true"
         onClick={onClose}
         className={cn(
-          "absolute inset-0 z-10 bg-black/10 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
+          "absolute inset-0 z-10 bg-black/50 transition-opacity duration-150 supports-backdrop-filter:backdrop-blur-xs",
           "data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=closed]:pointer-events-none",
         )}
       />
@@ -167,7 +167,7 @@ export function ToolDetailsPanel({
       >
         {tools.length > 0 && (
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0 overflow-y-auto bg-background px-6 py-8 lg:px-12 dark:bg-neutral-900">
+            <div className="min-w-0 overflow-y-auto px-6 py-8 lg:px-12">
               <h2 id={headingId} className="sr-only">
                 {intl.formatMessage({ id: "tools.details.toolsFor" }, { name: gatewaySlug })}
               </h2>
@@ -197,7 +197,7 @@ export function ToolDetailsPanel({
               />
             </div>
 
-            <aside className="relative border-t border-border bg-background lg:border-l lg:border-t-0">
+            <aside className="relative border-t border-border lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
                 type="button"
@@ -223,8 +223,8 @@ export function ToolDetailsPanel({
                           <Activity
                             className={`size-3.5 ${
                               selectedTool.enabled && selectedTool.reachable
-                                ? "text-emerald-400"
-                                : "text-gray-400"
+                                ? "text-tool-status-active"
+                                : "text-tool-status-inactive"
                             }`}
                           />
                           {selectedTool.enabled

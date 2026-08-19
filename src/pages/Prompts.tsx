@@ -100,7 +100,7 @@ function PromptGroupCard({
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span
               title={group.label}
-              className="min-w-0 truncate text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+              className="min-w-0 truncate text-sm font-semibold text-muted-foreground"
             >
               {group.label}
             </span>
@@ -168,7 +168,7 @@ function PromptGroupCard({
                       : "prompts.details.status.inactive",
                   })}
                   className={`mr-1 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                    enabled ? "bg-emerald-400" : "bg-gray-400"
+                    enabled ? "bg-tool-status-active" : "bg-tool-status-inactive"
                   }`}
                 />
                 {getPromptLabel(prompt)}
@@ -221,13 +221,13 @@ function AddPromptsCard({
           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
             <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" />
           </div>
-          <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+          <span className="text-sm font-semibold text-foreground">
             {intl.formatMessage({ id: "prompts.add.title" })}
           </span>
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+        <p className="text-sm leading-relaxed text-muted-foreground">
           {intl.formatMessage({ id: "prompts.add.description" })}
         </p>
       </CardContent>
@@ -502,7 +502,7 @@ export function Prompts() {
         />
       ) : (
         <>
-          <h1 className="mb-6 text-base font-semibold text-neutral-900 dark:text-white">
+          <h1 className="mb-6 text-base font-semibold text-foreground">
             {intl.formatMessage({ id: "prompts.title" })}
           </h1>
 
@@ -514,7 +514,7 @@ export function Prompts() {
               className="flex items-center justify-center p-12"
             >
               <span className="sr-only">{intl.formatMessage({ id: "prompts.loading" })}</span>
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 dark:border-gray-700 dark:border-t-blue-400" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-foreground" />
             </div>
           ) : (
             <>
