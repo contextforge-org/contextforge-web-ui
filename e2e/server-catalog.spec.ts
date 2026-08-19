@@ -108,22 +108,23 @@ test.describe("Server catalog page", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("search")).toBe("notes");
   });
 
-  test("filters servers by category through the filters dialog", async ({ page }) => {
+  test("filters servers by category through the filters popover", async ({ page }) => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Add filters" });
-    await expect(dialog).toBeVisible();
+    const popover = page.getByRole("dialog", { name: "Filters" });
+    await expect(popover).toBeVisible();
 
-    const categorySection = dialog.getByRole("group", { name: "Categories" });
-    await categorySection.getByRole("radio", { name: "Select..." }).click();
+    const categorySection = popover.getByRole("group", { name: "Categories" });
+    await categorySection.getByRole("radio", { name: "Select" }).click();
     await categorySection.getByRole("checkbox", { name: "Productivity" }).check();
-    await dialog.getByRole("button", { name: "Add filters" }).click();
 
-    await expect(dialog).toHaveCount(0);
+    // Filters commit as they are ticked, so the popover stays open over a grid
+    // that has already narrowed.
+    await expect(popover).toBeVisible();
     await expect.poll(() => new URL(page.url()).searchParams.get("category")).toBe("Productivity");
     await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Globalping" })).toHaveCount(0);
@@ -308,5 +309,35 @@ test.describe("Server catalog page", () => {
 
     await page.getByRole("button", { name: "Dismiss notification" }).click();
     await expect(page.getByRole("heading", { name: "Server catalog" })).toBeFocused();
+  });
+
+  test("scrolls the filter options without also scrolling the panel", async ({ page }) => {
+    // 700px is where the panel used to start scrolling behind the already
+    // scrolling options grid, putting two scrollbars on screen at once.
+    await page.setViewportSize({ width: 1400, height: 700 });
+    await mockCatalog(
+      page,
+      Array.from({ length: 40 }, (_, index) => ({
+        ...OPEN_AVAILABLE,
+        id: `overflow-${index}`,
+        name: `Server ${index}`,
+        provider: `Provider ${String(index).padStart(2, "0")}`,
+      })),
+    );
+
+    await page.goto(APP.SERVER_CATALOG);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
+    await page.getByRole("group", { name: "Providers" }).waitFor();
+
+    const scrollState = await page.evaluate(() => {
+      const panel = document.querySelector("[data-slot=popover-content]") as HTMLElement;
+      const grid = panel.querySelector("[role=group] > div:last-child") as HTMLElement;
+      const scrolls = (el: HTMLElement) => el.scrollHeight > el.clientHeight;
+      return { panel: scrolls(panel), grid: scrolls(grid) };
+    });
+
+    expect(scrollState.grid).toBe(true);
+    expect(scrollState.panel).toBe(false);
   });
 });
