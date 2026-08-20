@@ -109,6 +109,7 @@ test.describe("Global search", () => {
 
     await expect(page).toHaveURL(/\/app\/tools\?selected=tool-weather&search=weather$/);
     await expect(page.getByRole("region", { name: /Tools for weather-server/i })).toBeVisible();
+    await page.getByRole("tab", { name: "Definition" }).click();
     await expect(page.locator('tr[data-state="selected"]')).toContainText("Weather Tool");
   });
 });

@@ -62,4 +62,61 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("Preview failed 422")).toBeInTheDocument();
     expect(screen.getByText("missing query")).toBeInTheDocument();
   });
+
+  it("renders fallback warning labels and string targets", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: {
+              target: "local",
+              warnings: [{ code: "schema_defaulted" }, {}],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("local")).toBeInTheDocument();
+    expect(screen.getByText("schema_defaulted")).toBeInTheDocument();
+    expect(screen.getByText("Preview returned a warning")).toBeInTheDocument();
+    expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+  });
+
+  it("renders generic failures without an HTTP status", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          error: { status: null, renderTimeMs: 0, message: "Network failed" },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Preview failed")).toBeInTheDocument();
+    expect(screen.getByText("0 ms")).toBeInTheDocument();
+    expect(screen.getByText("Network failed")).toBeInTheDocument();
+  });
+
+  it("formats object targets without a gateway name", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 3,
+            preview: {
+              target: { kind: "federated" },
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("federated")).toBeInTheDocument();
+  });
 });

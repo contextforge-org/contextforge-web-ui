@@ -69,6 +69,39 @@ describe("useToolPreview", () => {
     expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
+  it("captures generic Error failures without a status", async () => {
+    vi.mocked(toolsApi.preview).mockRejectedValue(new Error("Network failed"));
+    const { result } = setup();
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(result.current.error?.message).toBe("Network failed");
+    expect(result.current.error?.status).toBeNull();
+    expect(result.current.hasRun).toBe(true);
+  });
+
+  it("resets result and error state when the tool name changes", async () => {
+    vi.mocked(toolsApi.preview).mockResolvedValue({
+      preview: { target: "local" },
+      status: 200,
+    });
+    const { result, rerender } = renderHook(({ toolName }) => useToolPreview(toolName, {}, {}), {
+      initialProps: { toolName: "search" },
+      wrapper: ({ children }) => <I18nProvider>{children}</I18nProvider>,
+    });
+
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.result).not.toBeNull();
+
+    rerender({ toolName: "lookup" });
+    await waitFor(() => expect(result.current.result).toBeNull());
+    expect(result.current.error).toBeNull();
+  });
+
   it("resets state and aborts in-flight requests", async () => {
     let capturedSignal: AbortSignal | undefined;
     vi.mocked(toolsApi.preview).mockImplementation((_name, _args, _headers, opts) => {
@@ -89,5 +122,23 @@ describe("useToolPreview", () => {
     expect(capturedSignal?.aborted).toBe(true);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.hasRun).toBe(false);
+  });
+
+  it("aborts in-flight requests on unmount", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    vi.mocked(toolsApi.preview).mockImplementation((_name, _args, _headers, opts) => {
+      capturedSignal = opts?.signal;
+      return new Promise(() => {});
+    });
+    const { result, unmount } = setup();
+
+    act(() => {
+      void result.current.run();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+
+    unmount();
+
+    expect(capturedSignal?.aborted).toBe(true);
   });
 });
