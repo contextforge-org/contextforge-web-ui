@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolSchemaDialog } from "./ToolSchemaDialog";
 import * as gatewayUtils from "@/lib/clipboard";
 import type { Tool } from "@/types/tool";
@@ -45,7 +46,7 @@ describe("ToolSchemaDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(gatewayUtils, "copyToClipboard").mockImplementation(() => {});
+    vi.spyOn(gatewayUtils, "copyToClipboard").mockResolvedValue(true);
   });
 
   it("renders dialog when open is true", () => {

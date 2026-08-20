@@ -36,7 +36,7 @@ describe("ResourcesTable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOnSelectResource.mockClear();
-    vi.spyOn(clipboardUtils, "copyToClipboard").mockImplementation(() => {});
+    vi.spyOn(clipboardUtils, "copyToClipboard").mockResolvedValue(true);
   });
 
   it("renders table with correct headers", () => {

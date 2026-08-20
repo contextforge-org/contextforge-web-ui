@@ -47,7 +47,7 @@ describe("ToolsTable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOnSelectTool.mockClear();
-    vi.spyOn(gatewayUtils, "copyToClipboard").mockImplementation(() => {});
+    vi.spyOn(gatewayUtils, "copyToClipboard").mockResolvedValue(true);
   });
 
   it("renders table with correct headers", () => {

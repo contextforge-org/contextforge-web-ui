@@ -126,7 +126,6 @@
   "tools.form.outputSchema": "Output schema",
   "tools.form.copyInputSchema": "Copy input schema",
   "tools.form.copyOutputSchema": "Copy output schema",
-  "tools.form.copied": "Copied!",
   "tools.form.advancedSettings": "Advanced settings",
   "tools.form.cancel": "Cancel",
   "tools.form.button.add": "Add tool",

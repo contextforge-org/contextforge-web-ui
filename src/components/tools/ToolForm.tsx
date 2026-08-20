@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useIntl } from "react-intl";
-import { ChevronDown, Copy, RefreshCw, Wrench, Zap } from "lucide-react";
+import { ChevronDown, RefreshCw, Wrench, Zap } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ToolAdvancedSettings } from "@/components/tools/ToolAdvancedSettings";
@@ -63,8 +64,6 @@ interface ToolFormProps {
 
 export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
   const intl = useIntl();
-  const [copiedInput, setCopiedInput] = useState(false);
-  const [copiedOutput, setCopiedOutput] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
   const isEditMode = Boolean(tool);
@@ -145,13 +144,6 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
     setAdvancedOpen,
     setCustomHeaders,
   ]);
-
-  const handleCopy = (text: string, setCopied: (v: boolean) => void) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
 
   const handleCancel = () => {
     onToggle();
@@ -422,21 +414,12 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                           placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
                           spellCheck={false}
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          aria-label={intl.formatMessage({ id: "tools.form.copyInputSchema" })}
+                        <CopyButton
+                          value={inputSchema}
+                          label={intl.formatMessage({ id: "tools.form.copyInputSchema" })}
+                          iconClassName="h-3.5 w-3.5"
                           className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                          onClick={() => handleCopy(inputSchema, setCopiedInput)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          {copiedInput && (
-                            <span className="sr-only">
-                              {intl.formatMessage({ id: "tools.form.copied" })}
-                            </span>
-                          )}
-                        </Button>
+                        />
                       </div>
                     </div>
 
@@ -456,21 +439,12 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                           placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
                           spellCheck={false}
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          aria-label={intl.formatMessage({ id: "tools.form.copyOutputSchema" })}
+                        <CopyButton
+                          value={outputSchema}
+                          label={intl.formatMessage({ id: "tools.form.copyOutputSchema" })}
+                          iconClassName="h-3.5 w-3.5"
                           className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                          onClick={() => handleCopy(outputSchema, setCopiedOutput)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          {copiedOutput && (
-                            <span className="sr-only">
-                              {intl.formatMessage({ id: "tools.form.copied" })}
-                            </span>
-                          )}
-                        </Button>
+                        />
                       </div>
                     </div>
                   </div>

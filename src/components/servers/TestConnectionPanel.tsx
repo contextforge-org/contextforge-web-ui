@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { CircleCheck, CircleAlert, Copy, Info, Loader2 } from "lucide-react";
+import { CircleCheck, CircleAlert, Info, Loader2 } from "lucide-react";
 import { Button } from "../ui/button";
+import { CopyButton } from "../ui/copy-button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { JsonHighlighter } from "../ui/json-highlighter";
-import { copyToClipboard } from "@/lib/clipboard";
 import { serversApi } from "@/api/servers";
 import type { GatewayTestRequest, GatewayTestResponse } from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
@@ -439,16 +439,11 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
                 aria-live="polite"
               >
                 {responseBodyText && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Copy response body"
+                  <CopyButton
+                    value={responseBodyText}
+                    label="Copy response body"
                     className="absolute right-2 top-2 size-6 bg-background/80 text-muted-foreground backdrop-blur-sm hover:bg-muted hover:text-foreground"
-                    onClick={() => copyToClipboard(responseBodyText)}
-                  >
-                    <Copy className="size-3.5" />
-                  </Button>
+                  />
                 )}
 
                 <div className="flex items-start gap-2 pr-8">

@@ -1,6 +1,7 @@
 import { useIntl } from "react-intl";
-import { Copy, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ResourceRead } from "@/generated/types";
-import { copyToClipboard } from "@/lib/clipboard";
 import { truncateMiddle } from "@/components/gateways/utils";
 
 export function ResourcesTable({
@@ -78,22 +78,15 @@ export function ResourcesTable({
                 <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                   {truncateMiddle(resource.uriTemplate || resource.uri, 28)}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={intl.formatMessage(
+                <CopyButton
+                  value={resource.uriTemplate || resource.uri}
+                  label={intl.formatMessage(
                     { id: "resources.table.copyUri" },
                     { uri: resource.uriTemplate || resource.uri },
                   )}
+                  iconClassName="size-3"
                   className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(resource.uriTemplate || resource.uri);
-                  }}
-                >
-                  <Copy className="size-3" />
-                </Button>
+                />
               </div>
             </TableCell>
 
@@ -102,19 +95,12 @@ export function ResourcesTable({
                 <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                   {truncateMiddle(resource.id, 18)}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={intl.formatMessage({ id: "resources.table.copyResourceId" })}
+                <CopyButton
+                  value={resource.id}
+                  label={intl.formatMessage({ id: "resources.table.copyResourceId" })}
+                  iconClassName="size-3"
                   className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(resource.id);
-                  }}
-                >
-                  <Copy className="size-3" />
-                </Button>
+                />
               </div>
             </TableCell>
 

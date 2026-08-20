@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 
 const TEST_ENDPOINT = "*/v1/mcp-servers/test";

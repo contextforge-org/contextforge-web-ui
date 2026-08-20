@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { Copy, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Tool } from "@/types/tool";
-import { copyToClipboard } from "@/lib/clipboard";
 import { truncateMiddle } from "@/components/gateways/utils";
 import { ToolSchemaDialog } from "@/components/tools/ToolSchemaDialog";
 
@@ -94,22 +94,15 @@ export function ToolsTable({
                   <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                     {tool.customName || tool.originalName}
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={intl.formatMessage(
+                  <CopyButton
+                    value={tool.customName || tool.originalName}
+                    label={intl.formatMessage(
                       { id: "tools.table.copyName" },
                       { name: tool.customName || tool.originalName },
                     )}
+                    iconClassName="size-3"
                     className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(tool.customName || tool.originalName);
-                    }}
-                  >
-                    <Copy className="size-3" />
-                  </Button>
+                  />
                 </div>
               </TableCell>
 
@@ -118,19 +111,12 @@ export function ToolsTable({
                   <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                     {truncateMiddle(tool.id, 18)}
                   </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={intl.formatMessage({ id: "tools.table.copyToolId" })}
+                  <CopyButton
+                    value={tool.id}
+                    label={intl.formatMessage({ id: "tools.table.copyToolId" })}
+                    iconClassName="size-3"
                     className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyToClipboard(tool.id);
-                    }}
-                  >
-                    <Copy className="size-3" />
-                  </Button>
+                  />
                 </div>
               </TableCell>
 

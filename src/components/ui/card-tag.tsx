@@ -2,7 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const cardTagVariants = cva(
   "inline-flex items-center rounded px-1.5 py-1 text-[10px] font-medium leading-none",
@@ -44,14 +44,12 @@ export function CardTag({ className, variant, tooltip, children, ...props }: Car
   }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {tag}
-        </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {tag}
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   );
 }
 

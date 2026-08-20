@@ -7,7 +7,7 @@ import { VirtualServerCard } from "@/components/gateways/VirtualServerCard";
 import { VirtualServerDetailsPanel } from "@/components/gateways/VirtualServerDetailsPanel";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Loading } from "@/components/ui/loading";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   deleteVirtualServer,
   setVirtualServerState,
@@ -237,19 +237,17 @@ export function Gateways() {
         <h1 ref={headingRef} tabIndex={-1} className="text-base font-semibold text-foreground">
           {intl.formatMessage({ id: "gateways.title" })}
         </h1>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              aria-label={intl.formatMessage({ id: "gateways.titleTooltip.trigger" })}
-              className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Info className="size-4" aria-hidden="true" />
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {intl.formatMessage({ id: "gateways.titleTooltip" })}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            aria-label={intl.formatMessage({ id: "gateways.titleTooltip.trigger" })}
+            className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info className="size-4" aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {intl.formatMessage({ id: "gateways.titleTooltip" })}
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {isLoading && (

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { CodeBlock } from "./code-block";
 
 describe("CodeBlock", () => {
@@ -9,18 +10,10 @@ describe("CodeBlock", () => {
     expect(screen.getByText('"a"')).toBeInTheDocument();
   });
 
-  it("invokes onCopy with the raw code when the copy button is clicked", async () => {
-    const user = userEvent.setup();
-    const onCopy = vi.fn();
-    render(<CodeBlock code="hello world" language="bash" copyLabel="bash" onCopy={onCopy} />);
-    await user.click(screen.getByRole("button", { name: /bash/i }));
-    expect(onCopy).toHaveBeenCalledWith("hello world");
-  });
-
-  it("copies to the clipboard and shows a tooltip when copiedLabel is set", async () => {
+  it("copies the code to the clipboard and shows the copied tooltip when the copy button is clicked", async () => {
     const user = userEvent.setup();
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    render(<CodeBlock code="hello world" language="bash" copyLabel="bash" copiedLabel="Copied!" />);
+    render(<CodeBlock code="hello world" language="bash" copyLabel="bash" />);
     await user.click(screen.getByRole("button", { name: /bash/i }));
     expect(writeText).toHaveBeenCalledWith("hello world");
     expect(screen.getByRole("tooltip")).toHaveTextContent("Copied!");

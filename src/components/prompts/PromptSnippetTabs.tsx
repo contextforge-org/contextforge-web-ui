@@ -72,8 +72,6 @@ export function PromptSnippetTabs({
     [promptName, args],
   );
 
-  const copiedLabel = intl.formatMessage({ id: "prompts.details.code.copySuccess" });
-
   return (
     <Tabs value={value} onValueChange={onValueChange}>
       <div className="mb-2 flex items-center justify-between gap-4">
@@ -96,7 +94,6 @@ export function PromptSnippetTabs({
               { id: "prompts.details.code.copyAriaLabel" },
               { language: snippet.language },
             )}
-            copiedLabel={copiedLabel}
           />
         </TabsContent>
       ))}

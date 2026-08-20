@@ -17,6 +17,7 @@ import { Tools } from "./Tools";
 import { RouterProvider } from "@/router";
 import { I18nProvider } from "@/i18n";
 import { AuthProvider } from "@/auth/AuthContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ReactElement } from "react";
 import type { Tool } from "@/types/tool";
 
@@ -64,7 +65,9 @@ function renderWithRouter(ui: ReactElement, path = "/app/tools") {
   return render(
     <AuthProvider>
       <RouterProvider>
-        <I18nProvider>{ui}</I18nProvider>
+        <I18nProvider>
+          <TooltipProvider>{ui}</TooltipProvider>
+        </I18nProvider>
       </RouterProvider>
     </AuthProvider>,
   );

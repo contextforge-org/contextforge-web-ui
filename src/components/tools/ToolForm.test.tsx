@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
 import { I18nProvider } from "@/i18n";
 import { AuthProvider } from "@/auth/AuthContext";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToolForm } from "./ToolForm";
 import type { Tool } from "@/types/tool";
 
@@ -42,7 +43,9 @@ function renderForm(props: Partial<React.ComponentProps<typeof ToolForm>> = {}) 
   return render(
     <AuthProvider>
       <I18nProvider>
-        <ToolForm isOpen={true} onToggle={vi.fn()} onSuccess={vi.fn()} {...props} />
+        <TooltipProvider>
+          <ToolForm isOpen={true} onToggle={vi.fn()} onSuccess={vi.fn()} {...props} />
+        </TooltipProvider>
       </I18nProvider>
     </AuthProvider>,
   );
@@ -243,7 +246,9 @@ describe("ToolForm", () => {
       render(
         <AuthProvider>
           <I18nProvider>
-            <ToolForm isOpen={true} onToggle={onToggle} />
+            <TooltipProvider>
+              <ToolForm isOpen={true} onToggle={onToggle} />
+            </TooltipProvider>
           </I18nProvider>
         </AuthProvider>,
       );
@@ -655,19 +660,15 @@ describe("ToolForm", () => {
         }),
       });
 
-      // Find the second copy button (Output schema)
-      const copyButtons = screen.getAllByRole("button", { name: /Copy output schema/i });
-      const outputCopyBtn =
-        copyButtons.find((btn) => btn.getAttribute("aria-label")?.includes("Copy output schema")) ||
-        copyButtons[0];
+      const outputCopyBtn = screen.getByRole("button", { name: /Copy output schema/i });
 
-      await user.click(outputCopyBtn!);
+      await user.click(outputCopyBtn);
 
       expect(writeTextMock).toHaveBeenCalledWith('{\n  "type": "string"\n}');
 
-      // Wait for Check icon (aria-label="Copied!") to appear
+      // Wait for the copied confirmation to appear
       await waitFor(() => {
-        expect(screen.getByText(/copied/i)).toBeInTheDocument();
+        expect(screen.getByRole("status")).toHaveTextContent("Copied!");
       });
 
       // Restore clipboard

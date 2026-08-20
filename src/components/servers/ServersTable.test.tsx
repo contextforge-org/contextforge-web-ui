@@ -3,11 +3,16 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { ServersTable } from "./ServersTable";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { MCPServer } from "../../types/server";
 import type { ReactElement } from "react";
 
 function renderTable(ui: ReactElement) {
-  return render(<I18nProvider>{ui}</I18nProvider>);
+  return render(
+    <I18nProvider>
+      <TooltipProvider>{ui}</TooltipProvider>
+    </I18nProvider>,
+  );
 }
 
 // Minimal server factory
@@ -182,7 +187,7 @@ describe("ServersTable", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.getByText("Copied!")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Copied!");
 
     // A second copy before the timeout clears the pending timer first.
     fireEvent.click(copyBtn);
@@ -195,13 +200,12 @@ describe("ServersTable", () => {
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    expect(screen.queryByText("Copied!")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     vi.useRealTimers();
   });
 
-  it("logs an error when copying to the clipboard fails", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("shows a failed indicator instead of throwing when copying to the clipboard fails", async () => {
     const writeText = vi.fn().mockRejectedValue(new Error("denied"));
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -216,8 +220,9 @@ describe("ServersTable", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /copy uuid for test server/i }));
 
-    await waitFor(() => expect(consoleError).toHaveBeenCalled());
-    consoleError.mockRestore();
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("Copy failed");
+    });
   });
 
   // ── Visibility cell ─────────────────────────────────────────────────────────
