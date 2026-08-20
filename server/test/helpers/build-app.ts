@@ -18,6 +18,7 @@ import loginRoute from "../../src/routes/auth/login.js";
 import logoutRoute from "../../src/routes/auth/logout.js";
 import sessionRoute from "../../src/routes/auth/session.js";
 import catchAllProxyRoute from "../../src/routes/proxy/catch-all.js";
+import publicPasswordResetRoute from "../../src/routes/proxy/public-password-reset.js";
 
 export class FakeRedis {
   private store = new Map<string, string>();
@@ -60,6 +61,7 @@ export async function buildTestApp(opts: { withProxy?: boolean } = {}): Promise<
   await fastify.register(logoutRoute);
   await fastify.register(sessionRoute);
   await fastify.register(changePasswordRequiredRoute);
+  await fastify.register(publicPasswordResetRoute);
 
   if (opts.withProxy) {
     await fastify.register(catchAllProxyRoute);

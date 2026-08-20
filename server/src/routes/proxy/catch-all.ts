@@ -4,10 +4,10 @@
 //
 // Generic `/api/*` -> FastAPI proxy. Covers the bulk of the API surface
 // without mirroring routes: session lookup -> inject Authorization header ->
-// forward via @fastify/reply-from. Only BFF-owned auth routes and SSE routes
-// (registered separately, see routes/sse/) are excluded — find-my-way
-// resolves their static paths before this wildcard regardless of
-// registration order, so there's no risk of this route swallowing them.
+// forward via @fastify/reply-from. BFF-owned auth routes, narrowly allowlisted
+// public password-reset routes, and SSE routes are registered separately;
+// find-my-way resolves their static/parameterized paths before this wildcard
+// regardless of registration order, so this route cannot swallow them.
 //
 // SAFE_METHODS mirrors mcpgateway/middleware/csrf_middleware.py so the
 // browser<->BFF CSRF boundary matches the same-origin behavior it replaces.

@@ -33,6 +33,10 @@ export const config = {
   // Header mcpgateway reads the bearer token from — must match its own AUTH_HEADER_NAME.
   contextforgeAuthHeaderName: optional("CONTEXTFORGE_AUTH_HEADER_NAME", "Authorization"),
 
+  // Password-reset handlers can synchronously wait for SMTP (15s upstream
+  // default), so this must stay above the upstream email-delivery timeout.
+  passwordResetRequestTimeoutMs: Number(optional("PASSWORD_RESET_REQUEST_TIMEOUT_MS", "30000")),
+
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
   // local dev process. optionalUnset so REDIS_URL="" also falls through
@@ -91,6 +95,13 @@ if (!HTTP_TOKEN_RE.test(config.contextforgeAuthHeaderName)) {
   throw new Error(
     `CONTEXTFORGE_AUTH_HEADER_NAME "${config.contextforgeAuthHeaderName}" is not a valid HTTP header token`,
   );
+}
+
+if (
+  !Number.isSafeInteger(config.passwordResetRequestTimeoutMs) ||
+  config.passwordResetRequestTimeoutMs <= 0
+) {
+  throw new Error("PASSWORD_RESET_REQUEST_TIMEOUT_MS must be a positive integer");
 }
 
 // COOKIE_SECURE=true (prod default) with neither PUBLIC_ORIGIN nor TRUST_PROXY

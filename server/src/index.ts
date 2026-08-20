@@ -10,6 +10,7 @@
 import Fastify from "fastify";
 
 import { config } from "./config.js";
+import { createRequestLogController } from "./lib/request-logging.js";
 import cookiePlugin from "./plugins/cookie.js";
 import csrfPlugin from "./plugins/csrf.js";
 import redisPlugin from "./plugins/redis.js";
@@ -21,11 +22,16 @@ import loginRoute from "./routes/auth/login.js";
 import logoutRoute from "./routes/auth/logout.js";
 import sessionRoute from "./routes/auth/session.js";
 import catchAllProxyRoute from "./routes/proxy/catch-all.js";
+import publicPasswordResetRoute from "./routes/proxy/public-password-reset.js";
 import { startRevocationSubscriber } from "./routes/sse/revocation-subscriber.js";
 import sseRoutes from "./routes/sse/routes.js";
 import { sseUpstreamPool } from "./lib/upstream-http-client.js";
 
-const fastify = Fastify({ logger: { level: config.logLevel }, trustProxy: config.trustProxy });
+const fastify = Fastify({
+  logger: { level: config.logLevel },
+  logController: createRequestLogController(),
+  trustProxy: config.trustProxy,
+});
 
 await fastify.register(cookiePlugin);
 await fastify.register(redisPlugin);
@@ -40,6 +46,7 @@ await fastify.register(logoutRoute);
 await fastify.register(sessionRoute);
 await fastify.register(changePasswordRequiredRoute);
 await fastify.register(sseRoutes);
+await fastify.register(publicPasswordResetRoute);
 await fastify.register(catchAllProxyRoute);
 await fastify.register(appRoute);
 

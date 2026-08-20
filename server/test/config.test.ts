@@ -14,6 +14,7 @@ const ENV_KEYS = [
   "COOKIE_SECURE",
   "PUBLIC_ORIGIN",
   "TRUST_PROXY",
+  "PASSWORD_RESET_REQUEST_TIMEOUT_MS",
 ] as const;
 
 let savedEnv: Record<string, string | undefined>;
@@ -88,6 +89,25 @@ describe("config validation", () => {
 
     const { resetModules, run } = await freshImport();
     await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
+  it("defaults the password-reset timeout above the upstream SMTP timeout", async () => {
+    delete process.env.PASSWORD_RESET_REQUEST_TIMEOUT_MS;
+
+    const { resetModules, run } = await freshImport();
+    const loaded = (await run()) as { passwordResetRequestTimeoutMs: number };
+    expect(loaded.passwordResetRequestTimeoutMs).toBe(30_000);
+    resetModules();
+  });
+
+  it("rejects a non-positive password-reset timeout", async () => {
+    process.env.PASSWORD_RESET_REQUEST_TIMEOUT_MS = "0";
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).rejects.toThrow(
+      "PASSWORD_RESET_REQUEST_TIMEOUT_MS must be a positive integer",
+    );
     resetModules();
   });
 });

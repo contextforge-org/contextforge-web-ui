@@ -110,7 +110,11 @@ interface RequestOptions {
   body?: unknown;
   /** Extra headers merged on top of the defaults. */
   headers?: Record<string, string>;
-  /** Pass `false` for public endpoints that do not require auth or CSRF (e.g. login). */
+  /**
+   * Pass `false` for public endpoints handled by an unauthenticated BFF route.
+   * This suppresses the SPA's CSRF header and 401 redirect; it does not bypass
+   * authentication on the BFF's protected /api/* catch-all.
+   */
   authenticated?: boolean;
   /** AbortSignal for request cancellation/timeout. */
   signal?: AbortSignal;
