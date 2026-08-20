@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { Tool } from "../src/types/tool";
@@ -26,6 +26,10 @@ async function routeToolsList(page: Page, tools: Tool[]) {
       body: JSON.stringify(tools),
     });
   });
+}
+
+async function showDefinitionTab(panel: Locator) {
+  await panel.getByRole("tab", { name: "Definition" }).click();
 }
 
 async function openAddToolForm(page: Page) {
@@ -285,6 +289,111 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("create_issue").first()).toBeVisible();
   });
 
+  test("previews a tool with schema arguments and allowed passthrough headers", async ({
+    page,
+  }) => {
+    const previewTool = makeTool("search_issues", "github-server", {
+      description: "Search repository issues",
+      inputSchema: {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string", description: "Search query" },
+          limit: { type: "integer" },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    });
+    let previewBody: unknown = null;
+    let previewHeaders: Record<string, string> = {};
+
+    await routeToolsList(page, [previewTool]);
+    await page.route("**/tools/preview/search_issues", async (route) => {
+      previewBody = route.request().postDataJSON();
+      previewHeaders = route.request().headers();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          target: { kind: "local" },
+          resolved_arguments: { query: "cloudflare", limit: 5 },
+          annotations: { readOnlyHint: true },
+          pre_hooks_run: [],
+          warnings: [],
+        }),
+      });
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "More options for github-server" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const panel = page.getByRole("region", { name: /Tools for github-server/i });
+    await expect(panel.getByText("Tool preview")).toBeVisible();
+    await expect(panel.getByText("Read-only")).toBeVisible();
+
+    const previewButton = panel.getByRole("button", { name: "Preview" });
+    await expect(previewButton).toBeDisabled();
+
+    await panel.getByLabel("query").fill("cloudflare");
+    await panel.getByLabel("limit").fill("5");
+    await panel.getByRole("button", { name: "Add header" }).click();
+    await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
+    await panel.getByLabel("Header 1 value").fill("team-a");
+    await expect(previewButton).toBeEnabled();
+    await previewButton.click();
+
+    await expect(panel.getByText("Preview 200")).toBeVisible();
+    await expect(panel.getByText("Resolved arguments")).toBeVisible();
+    expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
+    expect(previewHeaders["x-tenant-id"]).toBe("team-a");
+  });
+
+  test("warns for denied passthrough headers and excludes them from preview", async ({ page }) => {
+    const previewTool = makeTool("search_issues", "github-server", {
+      inputSchema: {
+        type: "object",
+        required: ["query"],
+        properties: { query: { type: "string" } },
+      },
+    });
+    let previewHeaders: Record<string, string> = {};
+
+    await routeToolsList(page, [previewTool]);
+    await page.route("**/tools/preview/search_issues", async (route) => {
+      previewHeaders = route.request().headers();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ target: "local", resolved_arguments: { query: "cloudflare" } }),
+      });
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "More options for github-server" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const panel = page.getByRole("region", { name: /Tools for github-server/i });
+    await panel.getByLabel("query").fill("cloudflare");
+    await panel.getByRole("button", { name: "Add header" }).click();
+    await panel.getByLabel("Header 1 name").fill("Authorization");
+    await panel.getByLabel("Header 1 value").fill("Bearer typed-token");
+
+    await expect(panel.getByText("This header is not forwardable from the web UI.")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Preview" })).toBeDisabled();
+
+    await panel.getByLabel("Header 1 name").fill("X-Api-Key");
+    await panel.getByRole("button", { name: "Preview" }).click();
+
+    await expect(panel.getByText("Preview 200")).toBeVisible();
+    expect(previewHeaders.authorization).toBeUndefined();
+    expect(previewHeaders["x-api-key"]).toBe("Bearer typed-token");
+  });
+
   test("closes details panel via close button", async ({ page }) => {
     await page.route("**/tools?*", async (route) => {
       await route.fulfill({
@@ -339,6 +448,7 @@ test.describe("Tools page", () => {
     await expect(panel).toBeVisible();
 
     await expect(panel.getByText("get_issues").first()).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -388,6 +498,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -420,6 +531,7 @@ test.describe("Tools page", () => {
     await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
+    await showDefinitionTab(panel);
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
@@ -460,6 +572,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for solo-gateway/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -507,6 +620,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for multi-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
     await expect(panel.getByText("alpha_tool").first()).toBeVisible();
     await expect(panel.getByText("beta_tool").first()).toBeVisible();
 
@@ -557,6 +671,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for rb-gateway/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -605,6 +720,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for lone-gateway/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -867,6 +983,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for edit-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -907,6 +1024,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for schema-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "View schema" }).first().click();
 
@@ -958,6 +1076,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for toggle-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
     await expect(panel.getByText("Active", { exact: true })).toBeVisible();
 
     await panel.getByRole("button", { name: "More options" }).first().click();
@@ -1007,6 +1126,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for activate-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
     await expect(panel.getByText("Inactive", { exact: true })).toBeVisible();
 
     await panel.getByRole("button", { name: "More options" }).first().click();
@@ -1056,6 +1176,7 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for fail-gw/i });
     await expect(panel).toBeVisible();
+    await showDefinitionTab(panel);
 
     await panel.getByRole("button", { name: "More options" }).first().click();
     await page.getByRole("menuitem", { name: "Deactivate" }).click();

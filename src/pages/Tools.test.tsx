@@ -70,6 +70,10 @@ function renderWithRouter(ui: ReactElement, path = "/app/tools") {
   );
 }
 
+async function switchDetailsPanelToDefinition(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("tab", { name: "Definition" }));
+}
+
 describe("Tools", () => {
   beforeEach(() => {
     // Reset any runtime request handlers we add during tests
@@ -893,6 +897,7 @@ describe("Tools", () => {
           screen.getByRole("region", { name: new RegExp(`Tools for ${gatewaySlug}`, "i") }),
         ).toBeInTheDocument();
       });
+      await switchDetailsPanelToDefinition(user);
       return user;
     }
 
@@ -1030,6 +1035,7 @@ describe("Tools", () => {
           screen.getByRole("region", { name: new RegExp(`Tools for ${gatewaySlug}`, "i") }),
         ).toBeInTheDocument();
       });
+      await switchDetailsPanelToDefinition(user);
       return user;
     }
 
@@ -1244,6 +1250,7 @@ describe("Tools", () => {
           screen.getByRole("region", { name: new RegExp(`Tools for ${gatewaySlug}`, "i") }),
         ).toBeInTheDocument();
       });
+      await switchDetailsPanelToDefinition(user);
       return user;
     }
 
@@ -1586,6 +1593,7 @@ describe("Tools", () => {
           screen.getByRole("region", { name: new RegExp(`Tools for ${gatewaySlug}`, "i") }),
         ).toBeInTheDocument(),
       );
+      await switchDetailsPanelToDefinition(user);
       return { user };
     }
 
@@ -1621,6 +1629,7 @@ describe("Tools", () => {
       await waitFor(() =>
         expect(screen.getByRole("region", { name: /Tools for opt-gateway/i })).toBeInTheDocument(),
       );
+      await switchDetailsPanelToDefinition(user);
 
       await user.click(screen.getByLabelText("More options"));
       await user.click(await screen.findByText("Delete"));
@@ -1657,6 +1666,7 @@ describe("Tools", () => {
           screen.getByRole("region", { name: /Tools for rollback-gateway/i }),
         ).toBeInTheDocument(),
       );
+      await switchDetailsPanelToDefinition(user);
 
       await user.click(screen.getByLabelText("More options"));
       await user.click(await screen.findByText("Delete"));

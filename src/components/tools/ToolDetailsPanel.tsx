@@ -10,10 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { Tool } from "@/types/tool";
 import { formatDateTime } from "@/utils/format";
 import { ToolsTable } from "@/components/tools/ToolsTable";
+import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
+
+const SEGMENTED_TRIGGER_CLASS =
+  "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 function DetailRow({
   label,
@@ -62,6 +67,7 @@ export function ToolDetailsPanel({
 }) {
   const intl = useIntl();
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [activeTab, setActiveTab] = useState("tryIt");
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const headingId = useMemo(() => `tool-details-heading-${gatewaySlug}`, [gatewaySlug]);
@@ -82,6 +88,10 @@ export function ToolDetailsPanel({
     if (!open) {
       setSelectedTool(null);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (open) setActiveTab("tryIt");
   }, [open]);
 
   // Re-sync the selected tool when the tools list refreshes (e.g. after an
@@ -186,15 +196,40 @@ export function ToolDetailsPanel({
                 <p className="mb-8 text-sm text-muted-foreground">{gatewayDescription.trim()}</p>
               )}
 
-              {/* Table */}
-              <ToolsTable
-                tools={tools}
-                selectedToolId={selectedTool?.id}
-                onSelectTool={setSelectedTool}
-                onDeleteTool={onDeleteTool}
-                onEditTool={onEditTool}
-                onToggleTool={onToggleTool}
-              />
+              <div className="my-8 h-px bg-border" />
+
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
+                  <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "tools.details.tab.tryIt" })}
+                  </TabsTrigger>
+                  <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "tools.details.tab.definition" })}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="tryIt" className="mt-8">
+                  {selectedTool && (
+                    <ToolTryItTab
+                      key={selectedTool.id}
+                      tools={tools}
+                      selectedTool={selectedTool}
+                      onSelectTool={setSelectedTool}
+                    />
+                  )}
+                </TabsContent>
+
+                <TabsContent value="definition" className="mt-8">
+                  <ToolsTable
+                    tools={tools}
+                    selectedToolId={selectedTool?.id}
+                    onSelectTool={setSelectedTool}
+                    onDeleteTool={onDeleteTool}
+                    onEditTool={onEditTool}
+                    onToggleTool={onToggleTool}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
 
             <aside className="relative border-t border-border lg:border-l lg:border-t-0">
