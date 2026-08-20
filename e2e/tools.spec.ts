@@ -317,9 +317,14 @@ test.describe("Tools page", () => {
         body: JSON.stringify({
           target: { kind: "local" },
           resolved_arguments: { query: "cloudflare", limit: 5 },
+          content: [
+            { type: "text", text: "Found 2 matching issues", mimeType: "text/plain" },
+            { type: "text", text: '{"total":2}', mimeType: "application/json" },
+          ],
+          structured_output: { total: 2, query: "cloudflare" },
           annotations: { readOnlyHint: true },
           pre_hooks_run: [],
-          warnings: [],
+          warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
         }),
       });
     });
@@ -346,6 +351,13 @@ test.describe("Tools page", () => {
     await previewButton.click();
 
     await expect(panel.getByText("Preview 200")).toBeVisible();
+    await expect(panel.getByText("Warnings")).toBeVisible();
+    await expect(
+      panel.getByText("Live invocation may request user input; preview skipped approval_hook."),
+    ).toBeVisible();
+    await expect(panel.getByText("Tool result")).toBeVisible();
+    await expect(panel.getByText("Found 2 matching issues")).toBeVisible();
+    await expect(panel.getByText("Structured output")).toBeVisible();
     await expect(panel.getByText("Resolved arguments")).toBeVisible();
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
     expect(previewHeaders["x-tenant-id"]).toBe("team-a");

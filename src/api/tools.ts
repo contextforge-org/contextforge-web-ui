@@ -51,8 +51,35 @@ export interface ToolPreviewTarget {
   [key: string]: unknown;
 }
 
+export interface ToolResultResource {
+  uri?: string;
+  mimeType?: string;
+  mime_type?: string;
+  text?: string;
+  blob?: string;
+  data?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolResultContentBlock {
+  type?: string;
+  text?: string;
+  data?: string;
+  blob?: string;
+  mimeType?: string;
+  mime_type?: string;
+  uri?: string;
+  resource?: ToolResultResource;
+  [key: string]: unknown;
+}
+
 export interface ToolPreviewResponse {
+  content?: ToolResultContentBlock[];
   resolved_arguments?: Record<string, unknown>;
+  structured_output?: unknown;
+  structuredOutput?: unknown;
+  isError?: boolean;
+  is_error?: boolean;
   target?: "local" | "federated" | ToolPreviewTarget | null;
   annotations?: Record<string, unknown> | null;
   pre_hooks_run?: unknown[] | number | null;

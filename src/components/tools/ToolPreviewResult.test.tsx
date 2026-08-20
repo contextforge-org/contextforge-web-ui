@@ -33,6 +33,7 @@ describe("ToolPreviewResult", () => {
             preview: {
               target: { kind: "federated", gateway_name: "github" },
               resolved_arguments: { query: "cloudflare" },
+              content: [{ type: "text", text: "found issue", mimeType: "text/plain" }],
               warnings: [{ code: "elicitation_skipped", message: "approval skipped" }],
             },
           },
@@ -45,6 +46,8 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("federated: github")).toBeInTheDocument();
     expect(screen.getByText("Warnings")).toBeInTheDocument();
     expect(screen.getByText("approval skipped")).toBeInTheDocument();
+    expect(screen.getByText("Tool result")).toBeInTheDocument();
+    expect(screen.getByText("found issue")).toBeInTheDocument();
     expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
     expect(screen.getByText("Raw preview response")).toBeInTheDocument();
   });
@@ -84,6 +87,50 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("schema_defaulted")).toBeInTheDocument();
     expect(screen.getByText("Preview returned a warning")).toBeInTheDocument();
     expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+  });
+
+  it("renders elicitation skipped warnings without backend messages", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: {
+              target: "local",
+              warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Live invocation may request user input; preview skipped approval_hook."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders tool error results without treating the HTTP request as failed", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 5,
+            preview: {
+              content: [{ type: "text", text: "tool failed", mimeType: "text/plain" }],
+              isError: true,
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Preview 200")).toBeInTheDocument();
+    expect(screen.getByText("Error response")).toBeInTheDocument();
+    expect(screen.getByText("tool failed")).toBeInTheDocument();
   });
 
   it("renders generic failures without an HTTP status", () => {
