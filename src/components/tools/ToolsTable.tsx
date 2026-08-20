@@ -78,7 +78,7 @@ export function ToolsTable({
                   onSelectTool(tool);
                 }
               }}
-              className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-100 data-[state=selected]:bg-neutral-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-700/60 dark:data-[state=selected]:bg-neutral-700 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+              className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
             >
               <TableCell className="px-4 py-3 text-sm text-foreground">
                 <span className="line-clamp-1">{tool.displayName || tool.title || tool.name}</span>
