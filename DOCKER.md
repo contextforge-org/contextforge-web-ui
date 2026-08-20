@@ -20,14 +20,15 @@ point `CONTEXTFORGE_URL` at.
 
 ## Published image
 
-Tagged releases (`vX.Y.Z`, matching the repo's git tags) are built and
-pushed to GHCR by `.github/workflows/docker-release.yml`:
+Tagged releases are built and pushed to GHCR by
+`.github/workflows/docker-release.yml`. Note that the image tag drops the
+`v` the git tag carries — git `vX.Y.Z` publishes as image `X.Y.Z`:
 
 ```bash
-docker pull ghcr.io/contextforge-org/contextforge-web-ui:vX.Y.Z
+docker pull ghcr.io/contextforge-org/contextforge-web-ui:X.Y.Z
 ```
 
-Also available: the `vX.Y` (minor) tag, and `latest` (stable releases
+Also available: the `X.Y` (minor) tag, and `latest` (stable releases
 only — prerelease/RC tags don't move it). Built for `linux/amd64` and
 `linux/arm64`. See the repo's **Releases** and **Packages** tabs for the
 full list of published tags, signatures, and SBOMs.
@@ -39,7 +40,7 @@ locally, override the `app` service's `build:` key with `image:`:
 # docker-compose.override.yml
 services:
   app:
-    image: ghcr.io/contextforge-org/contextforge-web-ui:vX.Y.Z
+    image: ghcr.io/contextforge-org/contextforge-web-ui:X.Y.Z
 ```
 
 ```bash

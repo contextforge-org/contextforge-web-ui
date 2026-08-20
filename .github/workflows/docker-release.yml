@@ -143,7 +143,7 @@ jobs:
             ## Container image
 
             ```
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.ref_name }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ steps.meta.outputs.version }}
             ```
 
             Signed with [Cosign](https://docs.sigstore.dev/cosign/overview/) (keyless OIDC) — verify with:
