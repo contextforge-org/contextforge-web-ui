@@ -89,8 +89,12 @@ function validateToolId(id: string): string {
 const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_.\- ]+$/;
 
 function validateToolName(name: string): string {
-  if (!name || typeof name !== "string") {
+  if (!name || typeof name !== "string" || !name.trim()) {
     throw new Error("Invalid tool name");
+  }
+  const trimmed = name.trim();
+  if (trimmed === "." || trimmed === "..") {
+    throw new Error("Invalid tool name format");
   }
   if (!TOOL_NAME_PATTERN.test(name)) {
     throw new Error("Invalid tool name format");

@@ -28,6 +28,7 @@ export interface FieldSpec {
   label: string;
   description?: string;
   required: boolean;
+  parentRequired?: boolean;
   type: "string" | "number" | "integer" | "boolean" | "enum" | "array";
   enumValues?: string[];
   format?: string;
@@ -72,15 +73,18 @@ export function buildFormSpec(schema: Record<string, unknown> | null | undefined
       const nested = asRecord(child.properties);
       if (!nested || hasComplexKeys(child)) return { complex: true, fields: [] };
       const nestedRequired = new Set(asStringArray(child.required));
+      const parentRequired = required.has(name);
       for (const [nestedName, nestedSchema] of Object.entries(nested)) {
         const nestedChild = asRecord(nestedSchema);
         if (!nestedChild || hasComplexKeys(nestedChild)) return { complex: true, fields: [] };
-        const field = buildFieldSpec(nestedName, nestedChild, nestedRequired.has(nestedName), [
-          name,
+        const field = buildFieldSpec(
           nestedName,
-        ]);
+          nestedChild,
+          parentRequired && nestedRequired.has(nestedName),
+          [name, nestedName],
+        );
         if (!field) return { complex: true, fields: [] };
-        fields.push({ ...field, label: `${name}.${nestedName}` });
+        fields.push({ ...field, label: `${name}.${nestedName}`, parentRequired });
       }
       continue;
     }
@@ -115,7 +119,7 @@ export function validateToolArguments(
     if (field.type === "integer" && !Number.isInteger(current)) {
       errors[field.path.join(".")] = "integer";
     }
-    if (field.type === "number" && typeof current !== "number") {
+    if (field.type === "number" && (typeof current !== "number" || !Number.isFinite(current))) {
       errors[field.path.join(".")] = "number";
     }
   }
@@ -477,7 +481,9 @@ function stripEmptyOptionalValues(
       current === undefined ||
       current === null ||
       (Array.isArray(current) && current.length === 0);
-    if (empty) deletePathValue(next, field.path);
+    if (empty) {
+      deletePathValue(next, field.path, { pruneEmptyParents: field.parentRequired === false });
+    }
   }
   return next;
 }
@@ -537,14 +543,28 @@ function setPathValue(value: Record<string, unknown>, path: string[], nextValue:
   });
 }
 
-function deletePathValue(value: Record<string, unknown>, path: string[]): void {
+function deletePathValue(
+  value: Record<string, unknown>,
+  path: string[],
+  options: { pruneEmptyParents?: boolean } = {},
+): void {
   let current = value;
+  const parents: Array<{ parent: Record<string, unknown>; segment: string }> = [];
   for (const segment of path.slice(0, -1)) {
     const child = current[segment];
     if (!child || typeof child !== "object" || Array.isArray(child)) return;
+    parents.push({ parent: current, segment });
     current = child as Record<string, unknown>;
   }
   delete current[path[path.length - 1]];
+
+  if (!options.pruneEmptyParents) return;
+  for (const { parent, segment } of parents.reverse()) {
+    const child = parent[segment];
+    if (!child || typeof child !== "object" || Array.isArray(child)) return;
+    if (Object.keys(child).length > 0) return;
+    delete parent[segment];
+  }
 }
 
 function structuredCloneSafe(value: Record<string, unknown>): Record<string, unknown> {

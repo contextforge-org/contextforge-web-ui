@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
@@ -30,14 +30,17 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
   const annotationHints = getToolAnnotationHints(selectedTool.annotations);
   const preview = useToolPreview(selectedTool.name, args, forwardableHeaders);
   const resetPreview = preview.reset;
+  const previousToolIdRef = useRef(selectedTool.id);
 
   useEffect(() => {
+    if (previousToolIdRef.current === selectedTool.id) return;
+    previousToolIdRef.current = selectedTool.id;
     setArgs(seedToolArguments(selectedTool.inputSchema));
     setHeaders([]);
     setArgsValid(true);
     setHeadersValid(true);
     resetPreview();
-  }, [resetPreview, selectedTool.id, selectedTool.inputSchema]);
+  }, [resetPreview, selectedTool]);
 
   return (
     <div className="space-y-6">

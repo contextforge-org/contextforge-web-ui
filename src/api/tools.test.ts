@@ -100,6 +100,10 @@ describe("toolsApi", () => {
     it("throws synchronously for name with path traversal characters", () => {
       expect(() => toolsApi.preview("../etc/passwd")).toThrow("Invalid tool name format");
     });
+
+    it.each([".", "..", "   "])("throws synchronously for unsafe name %p", (name) => {
+      expect(() => toolsApi.preview(name)).toThrow();
+    });
   });
 
   describe("delete", () => {

@@ -26,8 +26,10 @@ describe("ToolHeadersEditor", () => {
 
   it("flags BFF-stripped and invalid header names", () => {
     expect(getHeaderNameError("Authorization")).toBe("denied");
+    expect(getHeaderNameError("Content-Type")).toBe("denied");
     expect(getHeaderNameError("Cookie")).toBe("denied");
     expect(getHeaderNameError("Forwarded")).toBe("denied");
+    expect(getHeaderNameError("X-Requested-With")).toBe("denied");
     expect(getHeaderNameError("X-Real-IP")).toBe("denied");
     expect(getHeaderNameError("X-CSRF-Token")).toBe("denied");
     expect(getHeaderNameError("X-Forwarded-For")).toBe("denied");

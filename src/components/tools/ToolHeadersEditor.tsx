@@ -22,8 +22,10 @@ export interface ToolHeadersEditorProps {
 const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 const DENIED_HEADERS = new Set([
   "authorization",
+  "content-type",
   "cookie",
   "forwarded",
+  "x-requested-with",
   "x-real-ip",
   "x-csrf-token",
 ]);

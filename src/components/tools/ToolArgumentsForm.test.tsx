@@ -72,7 +72,6 @@ describe("ToolArgumentsForm", () => {
     const spec = buildFormSpec(SCHEMA);
     expect(validateToolArguments(seedToolArguments(SCHEMA), spec.fields)).toEqual({
       query: "required",
-      "owner.email": "required",
     });
   });
 
@@ -88,6 +87,55 @@ describe("ToolArgumentsForm", () => {
     expect(validateToolArguments({ count: 1.5, score: "high" }, spec.fields)).toEqual({
       count: "integer",
       score: "number",
+    });
+    expect(validateToolArguments({ count: 1, score: Number.NaN }, spec.fields)).toEqual({
+      score: "number",
+    });
+  });
+
+  it("does not require nested fields when the parent object is optional", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        owner: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string" },
+          },
+        },
+      },
+    };
+    const spec = buildFormSpec(schema);
+
+    expect(spec.fields).toEqual([
+      expect.objectContaining({ label: "owner.email", required: false }),
+    ]);
+    expect(seedToolArguments(schema)).not.toHaveProperty("owner");
+    expect(validateToolArguments(seedToolArguments(schema), spec.fields)).toEqual({});
+  });
+
+  it("requires nested fields when the parent object is required", () => {
+    const schema = {
+      type: "object",
+      required: ["owner"],
+      properties: {
+        owner: {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string" },
+          },
+        },
+      },
+    };
+    const spec = buildFormSpec(schema);
+
+    expect(spec.fields).toEqual([
+      expect.objectContaining({ label: "owner.email", required: true }),
+    ]);
+    expect(validateToolArguments(seedToolArguments(schema), spec.fields)).toEqual({
+      "owner.email": "required",
     });
   });
 
