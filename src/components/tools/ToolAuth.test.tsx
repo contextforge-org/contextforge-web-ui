@@ -173,13 +173,6 @@ describe("ToolAdvancedSettings", () => {
     expect(onDescriptionChange).toHaveBeenCalledWith("My tool");
   });
 
-  it("shows team scope hint when visibility=team and selectedTeamId is set", () => {
-    renderWithProviders(<ToolAdvancedSettings {...defaultAdvancedProps} visibility="team" />);
-    expect(
-      screen.getByText(/This tool will be scoped to your currently selected team/i),
-    ).toBeTruthy();
-  });
-
   it("calls onTeamIdChange('') when visibility changes away from team", () => {
     const onTeamIdChange = vi.fn();
     renderWithProviders(

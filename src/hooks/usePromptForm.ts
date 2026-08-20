@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import { z } from "zod";
 import { useAuthContext } from "@/auth/AuthContext";
 import { useQuery } from "@/hooks/useQuery";
+import { resolveTeamId, useTeams } from "@/hooks/useTeams";
 import { promptsApi } from "@/api/prompts";
 import { parseApiError } from "@/lib/errorUtils";
 import { sanitizeString } from "@/lib/sanitize";
@@ -14,6 +15,7 @@ import type {
 } from "@/generated/types";
 import type { PromptFormErrors } from "@/types/prompts";
 import type { Visibility } from "@/types/server";
+import type { Team } from "@/types/team";
 
 interface PromptFormValues {
   name: string;
@@ -34,8 +36,8 @@ export interface PromptFormInitialValues {
   tags?: string[];
   /**
    * The prompt's existing team (edit mode). When set, a `team`-visibility edit
-   * keeps this team instead of forcing the caller to (re)select one in the
-   * sidebar, so editing a team prompt never silently reassigns or blocks it.
+   * keeps this team instead of resolving a default, so editing a team prompt
+   * never silently reassigns it.
    */
   teamId?: string | null;
 }
@@ -65,6 +67,8 @@ export interface UsePromptFormReturn {
   name: string;
   visibility: Visibility;
   teamId?: string;
+  /** Teams the caller belongs to, for the in-form selector. */
+  teams: Team[];
   template: string;
   arguments: string;
   description: string;
@@ -74,6 +78,7 @@ export interface UsePromptFormReturn {
   isSubmitting: boolean;
   setName: (value: string) => void;
   setVisibility: (value: Visibility) => void;
+  setTeamId: (value: string) => void;
   setTemplate: (value: string) => void;
   setArguments: (value: string) => void;
   setDescription: (value: string) => void;
@@ -142,7 +147,7 @@ const createPromptFormSchema = (intl: ReturnType<typeof useIntl>, templateRequir
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: intl.formatMessage({ id: "prompts.add.error.teamRequired" }),
-          path: ["visibility"],
+          path: ["teamId"],
         });
       }
     })
@@ -179,8 +184,14 @@ function getApiFieldError(error: unknown): PromptFormErrors | null {
   const body = (error as { body?: { field?: string; message?: string } | null }).body;
   if (!body?.field || !body.message) return null;
 
-  const field = body.field === "team_id" ? "visibility" : body.field;
-  if (field === "name" || field === "visibility" || field === "template" || field === "arguments") {
+  const field = body.field === "team_id" ? "teamId" : body.field;
+  if (
+    field === "name" ||
+    field === "visibility" ||
+    field === "teamId" ||
+    field === "template" ||
+    field === "arguments"
+  ) {
     return { [field]: body.message };
   }
 
@@ -212,12 +223,12 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
   const [tags, setTagsState] = useState<string[]>(initialValues?.tags ?? initialState.tags);
   const [errors, setErrors] = useState<PromptFormErrors>({});
   const [isUpdating, setIsUpdating] = useState(false);
-  // In edit mode, keep the prompt's own team; only fall back to the sidebar
-  // selection (create mode, or when switching a non-team prompt to team).
-  const initialTeamId = initialValues?.teamId ?? undefined;
-  const resolveTeamId = (vis: Visibility): string | undefined =>
-    vis === "team" ? (initialTeamId ?? selectedTeamId ?? undefined) : undefined;
-  const teamId = resolveTeamId(visibility);
+  const { teams } = useTeams();
+  // The prompt's own team in edit mode, or the caller's in-form choice; either
+  // one wins over the resolved default so an edit never reassigns the prompt.
+  const [chosenTeamId, setChosenTeamId] = useState(initialValues?.teamId ?? undefined);
+  const teamId =
+    visibility === "team" ? resolveTeamId(teams, selectedTeamId, chosenTeamId) : undefined;
   const { execute: createPrompt, isLoading: isCreating } = useQuery<
     PromptRead,
     CreatePromptPayload
@@ -252,7 +263,7 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
 
       if (field === "visibility") {
         nextValues.teamId =
-          value === "team" ? (initialTeamId ?? selectedTeamId ?? undefined) : undefined;
+          value === "team" ? resolveTeamId(teams, selectedTeamId, chosenTeamId) : undefined;
       }
 
       const result = schema.safeParse({
@@ -279,7 +290,7 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
         return nextErrors;
       });
     },
-    [getFormValues, schema, selectedTeamId, initialTeamId],
+    [getFormValues, schema, selectedTeamId, teams, chosenTeamId],
   );
 
   const updateField = useCallback(
@@ -308,19 +319,28 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
     (value: string) => updateField("name", value, setNameState),
     [updateField],
   );
-  const setVisibility = useCallback(
-    (value: Visibility) => {
-      setVisibilityState(value);
-      setErrors((current) => {
-        if (!current.submit) return current;
-        const nextErrors = { ...current };
-        delete nextErrors.submit;
-        return nextErrors;
-      });
-      validateField("visibility", value);
-    },
-    [validateField],
-  );
+  const setVisibility = useCallback((value: Visibility) => {
+    setVisibilityState(value);
+    setErrors((current) => {
+      const nextErrors = { ...current };
+      delete nextErrors.submit;
+      delete nextErrors.visibility;
+      // Choosing "team" is not itself a mistake — the team requirement is
+      // raised on submit, never as a reaction to picking the level.
+      delete nextErrors.teamId;
+      return nextErrors;
+    });
+  }, []);
+  const setTeamId = useCallback((value: string) => {
+    setChosenTeamId(value || undefined);
+    setErrors((current) => {
+      if (!current.submit && !current.teamId) return current;
+      const nextErrors = { ...current };
+      delete nextErrors.submit;
+      if (value) delete nextErrors.teamId;
+      return nextErrors;
+    });
+  }, []);
   const setTemplate = useCallback(
     (value: string) => updateField("template", value, setTemplateState),
     [updateField],
@@ -361,6 +381,7 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
     setArgumentsState(initialState.arguments);
     setDescriptionState(initialState.description);
     setTagsState(initialState.tags);
+    setChosenTeamId(undefined);
     setErrors({});
   }, []);
 
@@ -430,18 +451,13 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
     [createPrompt, getFormData, getUpdateData, intl, promptId, resetForm, validateForm],
   );
 
-  useEffect(() => {
-    if (visibility === "team") {
-      validateField("visibility", visibility);
-    }
-  }, [validateField, visibility]);
-
   const isValid = useMemo(() => schema.safeParse(getFormValues()).success, [getFormValues, schema]);
 
   return {
     name,
     visibility,
     teamId,
+    teams,
     template,
     arguments: argumentsValue,
     description,
@@ -451,6 +467,7 @@ export function usePromptForm(options: UsePromptFormOptions = {}): UsePromptForm
     isSubmitting,
     setName,
     setVisibility,
+    setTeamId,
     setTemplate,
     setArguments,
     setDescription,

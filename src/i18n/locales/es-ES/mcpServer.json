@@ -104,8 +104,6 @@
   "mcpServer.catalog.error": "No se pudo cargar el catálogo de servidores. Inténtalo de nuevo.",
   "mcpServer.catalog.retry": "Reintentar",
   "mcpServer.advanced.visibilityPlaceholder": "Selecciona la visibilidad",
-  "mcpServer.advanced.teamScoped": "Este servidor se limitará al equipo que tienes seleccionado",
-  "mcpServer.advanced.teamNotSelected": "Selecciona un equipo con el selector de equipos de la barra lateral",
   "mcpServer.advanced.authTypeLabel": "Tipo de autenticación",
   "mcpServer.advanced.authType.none": "Ninguna",
   "mcpServer.advanced.authType.basic": "Básica",
