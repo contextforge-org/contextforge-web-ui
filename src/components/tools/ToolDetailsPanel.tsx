@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isToolPreviewEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
 import type { Tool } from "@/types/tool";
 import { formatDateTime } from "@/utils/format";
@@ -71,6 +72,7 @@ export function ToolDetailsPanel({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const headingId = useMemo(() => `tool-details-heading-${gatewaySlug}`, [gatewaySlug]);
+  const toolPreviewEnabled = isToolPreviewEnabled();
 
   // Select the requested tool when opened from global search; otherwise use the first tool.
   useEffect(() => {
@@ -91,8 +93,8 @@ export function ToolDetailsPanel({
   }, [open]);
 
   useEffect(() => {
-    if (open) setActiveTab("tryIt");
-  }, [open]);
+    if (open) setActiveTab(toolPreviewEnabled ? "tryIt" : "definition");
+  }, [open, toolPreviewEnabled]);
 
   // Re-sync the selected tool when the tools list refreshes (e.g. after an
   // activate/deactivate or optimistic delete) so the details column reflects
@@ -198,28 +200,41 @@ export function ToolDetailsPanel({
 
               <div className="my-8 h-px bg-border" />
 
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
-                  <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
-                    {intl.formatMessage({ id: "tools.details.tab.tryIt" })}
-                  </TabsTrigger>
-                  <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
-                    {intl.formatMessage({ id: "tools.details.tab.definition" })}
-                  </TabsTrigger>
-                </TabsList>
+              {toolPreviewEnabled ? (
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
+                    <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
+                      {intl.formatMessage({ id: "tools.details.tab.tryIt" })}
+                    </TabsTrigger>
+                    <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
+                      {intl.formatMessage({ id: "tools.details.tab.definition" })}
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="tryIt" className="mt-8">
-                  {selectedTool && (
-                    <ToolTryItTab
-                      key={selectedTool.id}
+                  <TabsContent value="tryIt" className="mt-8">
+                    {selectedTool && (
+                      <ToolTryItTab
+                        key={selectedTool.id}
+                        tools={tools}
+                        selectedTool={selectedTool}
+                        onSelectTool={setSelectedTool}
+                      />
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="definition" className="mt-8">
+                    <ToolsTable
                       tools={tools}
-                      selectedTool={selectedTool}
+                      selectedToolId={selectedTool?.id}
                       onSelectTool={setSelectedTool}
+                      onDeleteTool={onDeleteTool}
+                      onEditTool={onEditTool}
+                      onToggleTool={onToggleTool}
                     />
-                  )}
-                </TabsContent>
-
-                <TabsContent value="definition" className="mt-8">
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="mt-8">
                   <ToolsTable
                     tools={tools}
                     selectedToolId={selectedTool?.id}
@@ -228,8 +243,8 @@ export function ToolDetailsPanel({
                     onEditTool={onEditTool}
                     onToggleTool={onToggleTool}
                   />
-                </TabsContent>
-              </Tabs>
+                </div>
+              )}
             </div>
 
             <aside className="relative border-t border-border lg:border-l lg:border-t-0">

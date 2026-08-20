@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
@@ -57,6 +57,11 @@ describe("ToolDetailsPanel", () => {
 
   beforeEach(() => {
     mockOnClose.mockClear();
+    vi.stubEnv("VITE_ENABLE_TOOL_PREVIEW", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("renders nothing when closed", () => {
@@ -122,6 +127,24 @@ describe("ToolDetailsPanel", () => {
     expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Definition", selected: false })).toBeInTheDocument();
     expect(screen.getByText("Tool preview")).toBeInTheDocument();
+  });
+
+  it("hides Try it and shows the definition table when tool preview is disabled", () => {
+    vi.stubEnv("VITE_ENABLE_TOOL_PREVIEW", "false");
+    const tools = [createMockTool(1)];
+    render(
+      <ToolDetailsPanel
+        tools={tools}
+        gatewaySlug="test-gateway"
+        open={true}
+        onClose={mockOnClose}
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Definition" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Tool preview")).not.toBeInTheDocument();
+    expect(screen.getByText("tool_1")).toBeInTheDocument();
   });
 
   it.each([undefined, "", "   "])(
