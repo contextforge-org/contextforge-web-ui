@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
 import { resourcesApi, type ResourceTestContent } from "@/api/resources";
 import { parseApiError } from "@/lib/errorUtils";
+
+// Rapid repeated triggers (double-clicking Preview, mashing Enter on the
+// focused button) collapse into a single fetch instead of one request per
+// click — trailing-edge debounce, so only the last call in a burst runs.
+const RUN_DEBOUNCE_MS = 300;
 
 export interface ResourcePreviewSuccess {
   content: ResourceTestContent;
@@ -43,30 +48,42 @@ export function useResourcePreview(uri: string): ResourcePreviewState {
   const [result, setResult] = useState<ResourcePreviewSuccess | null>(null);
   const [error, setError] = useState<ResourcePreviewFailure | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearDebounce = useCallback(() => {
+    if (debounceTimerRef.current !== null) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+  }, []);
 
   // Clear stale result/error when the caller switches to a different resource.
   useEffect(() => {
     setResult(null);
     setError(null);
-  }, [uri]);
+    clearDebounce();
+  }, [uri, clearDebounce]);
 
-  // Abort any in-flight preview when the hook unmounts (the host component
-  // is keyed by resource id, so this also fires on resource switch).
+  // Abort any in-flight preview / pending debounce when the hook unmounts
+  // (the host component is keyed by resource id, so this also fires on
+  // resource switch).
   useEffect(() => {
     return () => {
+      clearDebounce();
       abortRef.current?.abort();
     };
-  }, []);
+  }, [clearDebounce]);
 
   const reset = useCallback(() => {
+    clearDebounce();
     abortRef.current?.abort();
     abortRef.current = null;
     setResult(null);
     setError(null);
     setLoading(false);
-  }, []);
+  }, [clearDebounce]);
 
-  const run = useCallback(async () => {
+  const executeRun = useCallback(async () => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -93,6 +110,17 @@ export function useResourcePreview(uri: string): ResourcePreviewState {
       }
     }
   }, [uri, intl]);
+
+  const run = useMemo(() => {
+    return () =>
+      new Promise<void>((resolve) => {
+        clearDebounce();
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          resolve(executeRun());
+        }, RUN_DEBOUNCE_MS);
+      });
+  }, [executeRun, clearDebounce]);
 
   return {
     run,

@@ -262,6 +262,23 @@ describe("useResourcePreview", () => {
     expect(result.current.hasRun).toBe(false);
   });
 
+  it("collapses rapid repeated run() calls into a single request", async () => {
+    vi.mocked(resourcesApi.test).mockResolvedValue({
+      content: { mimeType: "text/plain", text: "hello" },
+      status: 200,
+    });
+    const { result } = setup();
+
+    act(() => {
+      void result.current.run();
+      void result.current.run();
+      void result.current.run();
+    });
+    await waitFor(() => expect(result.current.hasRun).toBe(true));
+
+    expect(resourcesApi.test).toHaveBeenCalledTimes(1);
+  });
+
   it("reset() aborts an in-flight request and clears isLoading", async () => {
     let capturedSignal: AbortSignal | undefined;
     let resolve: ((v: { content: { text: string }; status: number }) => void) | undefined;

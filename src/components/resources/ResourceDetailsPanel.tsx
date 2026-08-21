@@ -76,6 +76,8 @@ export function ResourceDetailsPanel({
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const tryItContentRef = useRef<HTMLDivElement>(null);
+  const definitionContentRef = useRef<HTMLDivElement>(null);
   const headingId = useMemo(() => `resource-details-heading-${gatewaySlug}`, [gatewaySlug]);
 
   // Manage selected resource state: select first on open, reset on close, and
@@ -104,6 +106,19 @@ export function ResourceDetailsPanel({
   useEffect(() => {
     if (open) setActiveTab(initialTab);
   }, [open, initialTab]);
+
+  // Fires only on a genuine trigger click/keypress (never on the
+  // open/initialTab reset above, which sets `activeTab` directly) — moves
+  // focus into the newly active panel so keyboard/screen-reader users
+  // aren't left on a trigger that now points at different content.
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+    requestAnimationFrame(() => {
+      const target =
+        value === "definition" ? definitionContentRef.current : tryItContentRef.current;
+      target?.focus();
+    });
+  }, []);
 
   const selectedResource = useMemo(
     () => resources.find((r) => r.id === selectedResourceId) ?? null,
@@ -187,7 +202,7 @@ export function ResourceDetailsPanel({
                 </div>
               </div>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList className="inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
                   <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
                     {intl.formatMessage({ id: "resources.details.tab.tryIt" })}
@@ -197,7 +212,7 @@ export function ResourceDetailsPanel({
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="tryIt" className="mt-8">
+                <TabsContent value="tryIt" className="mt-8" ref={tryItContentRef} tabIndex={-1}>
                   <ResourceTryItTab
                     resources={resources}
                     selectedResourceId={selectedResource?.id}
@@ -205,7 +220,12 @@ export function ResourceDetailsPanel({
                   />
                 </TabsContent>
 
-                <TabsContent value="definition" className="mt-8">
+                <TabsContent
+                  value="definition"
+                  className="mt-8"
+                  ref={definitionContentRef}
+                  tabIndex={-1}
+                >
                   <ResourceDefinitionTab
                     resources={resources}
                     selectedResourceId={selectedResource?.id}

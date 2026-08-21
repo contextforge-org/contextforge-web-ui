@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
@@ -99,5 +99,38 @@ describe("ResourceDetailsPanel tabs", () => {
 
     await user.click(screen.getByRole("tab", { name: "Try it" }));
     expect(screen.getByRole("button", { name: "b.txt", pressed: true })).toBeInTheDocument();
+  });
+
+  it("moves focus into the newly active panel when a tab is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <ResourceDetailsPanel
+        resources={[mockResource()]}
+        gatewaySlug="local"
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Definition" }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole("tabpanel", { name: "Definition" }));
+    });
+  });
+
+  it("leaves focus on the close button when the panel first opens (no tab-change yet)", () => {
+    render(
+      <ResourceDetailsPanel
+        resources={[mockResource()]}
+        gatewaySlug="local"
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close resource details" }),
+    );
   });
 });

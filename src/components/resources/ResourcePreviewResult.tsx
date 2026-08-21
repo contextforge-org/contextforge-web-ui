@@ -176,7 +176,10 @@ function ResourceContentPreview({
       <figure className="space-y-2">
         <img
           src={dataUrl}
-          alt=""
+          alt={intl.formatMessage(
+            { id: "resources.details.preview.imageAlt" },
+            { mimeType, size: sizeLabel },
+          )}
           className="max-h-[420px] max-w-full rounded-md border border-border object-contain"
         />
         <figcaption className="text-[12px] text-muted-foreground">

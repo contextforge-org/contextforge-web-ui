@@ -34,7 +34,7 @@ describe("ResourcePreviewResult", () => {
     expect(document.querySelector("pre")?.textContent).toBe('{"a":1}');
   });
 
-  it("renders an inline image for image/* content", () => {
+  it("renders an inline image for image/* content with descriptive alt text", () => {
     render(
       <ResourcePreviewResult
         preview={preview({
@@ -42,10 +42,9 @@ describe("ResourcePreviewResult", () => {
         })}
       />,
     );
-    // Decorative (empty-alt) images resolve to the "presentation" role, not
-    // "img" — query the element directly.
-    const img = document.querySelector("img");
+    const img = screen.getByRole("img");
     expect(img).toHaveAttribute("src", "data:image/png;base64,Zm9v");
+    expect(img).not.toHaveAttribute("alt", "");
   });
 
   it("renders MIME + size + a download link for an unknown binary type, never as text", () => {

@@ -97,6 +97,7 @@
   "resources.details.preview.viewAll": "Ver todo",
   "resources.details.preview.openInNewTab": "Abrir en una pestaña nueva",
   "resources.details.preview.downloadRaw": "Descargar sin procesar",
+  "resources.details.preview.imageAlt": "Imagen {mimeType} obtenida en la vista previa, {size}",
   "resources.details.label.status": "Estado",
   "resources.details.label.visibility": "Visibilidad",
   "resources.details.label.type": "Tipo",
