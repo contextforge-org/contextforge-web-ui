@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const COPY_FEEDBACK_DURATION_MS = 1500;
 
-export type CodeBlockLanguage = "bash" | "json" | "python" | "tsx";
+export type CodeBlockLanguage = "bash" | "json" | "python" | "tsx" | "markdown" | "xml" | "text";
 
 export interface CodeBlockProps {
   code: string;
@@ -34,6 +34,11 @@ const TOKEN_LANGUAGE: Record<CodeBlockLanguage, Language> = {
   json: "json",
   python: "python",
   tsx: "tsx",
+  markdown: "markdown",
+  xml: "xml",
+  // No "text" Prism grammar is registered — falls back to unhighlighted
+  // tokens, same as "bash" does today, which is what raw text content wants.
+  text: "text",
 };
 
 /**

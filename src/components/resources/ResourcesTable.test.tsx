@@ -80,6 +80,26 @@ describe("ResourcesTable", () => {
     expect(screen.getByText("Resource Name")).toBeInTheDocument();
   });
 
+  it("falls back to name in the more-options and toggle aria-labels when title is not available", async () => {
+    const user = userEvent.setup();
+    const resources = [
+      createMockResource(1, { title: null, name: "Resource Name", enabled: true }),
+    ];
+    render(
+      <ResourcesTable
+        resources={resources}
+        onSelectResource={mockOnSelectResource}
+        onDeleteResource={vi.fn()}
+        onToggleResource={vi.fn()}
+      />,
+    );
+
+    const moreButton = screen.getByLabelText("More options for Resource Name");
+    await user.click(moreButton);
+
+    expect(await screen.findByLabelText("Deactivate Resource Name")).toBeInTheDocument();
+  });
+
   it("displays the resource URI for each row", () => {
     const resources = [
       createMockResource(1, { uri: "resource://a" }),
@@ -210,19 +230,25 @@ describe("ResourcesTable", () => {
     expect(rows.length).toBeGreaterThan(1); // Header row + data rows
   });
 
-  it("handles very long resource names with line-clamp", () => {
-    const resources = [
-      createMockResource(1, {
-        title: "This is a very long resource title that should be clamped to one line",
-      }),
-    ];
+  it("truncates a very long resource name to a single line instead of overflowing the table", () => {
+    const longTitle =
+      "This is a very long resource title that should be truncated to one line, not wrapped or overflowed";
+    const resources = [createMockResource(1, { title: longTitle })];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const title = screen.getByText(
-      "This is a very long resource title that should be clamped to one line",
-    );
+    const title = screen.getByText(longTitle);
     const span = title.closest("span");
-    expect(span).toHaveClass("line-clamp-1");
+    expect(span).toHaveClass("truncate");
+    // The full name stays available (e.g. via native tooltip) even though
+    // it's visually clipped.
+    expect(span).toHaveAttribute("title", longTitle);
+
+    // table-fixed + a percentage column width is what actually stops an
+    // unbreakable long name from forcing the whole table to scroll — a
+    // single unbroken run of characters would otherwise expand an
+    // auto-layout column past the container regardless of `truncate`.
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("table-fixed");
   });
 
   describe("delete dropdown (onDeleteResource provided)", () => {
@@ -381,6 +407,126 @@ describe("ResourcesTable", () => {
 
       expect(await screen.findByText("Edit")).toBeInTheDocument();
       expect(screen.getByText("Delete")).toBeInTheDocument();
+    });
+  });
+
+  describe("keyboard selection", () => {
+    it("calls onSelectResource when Enter is pressed on a focused row", async () => {
+      const user = userEvent.setup();
+      const resources = [createMockResource(1)];
+      render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
+
+      const row = screen.getByText("Resource 1 Title").closest("tr")!;
+      row.focus();
+      await user.keyboard("{Enter}");
+
+      expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
+    });
+
+    it("calls onSelectResource when Space is pressed on a focused row", async () => {
+      const user = userEvent.setup();
+      const resources = [createMockResource(1)];
+      render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
+
+      const row = screen.getByText("Resource 1 Title").closest("tr")!;
+      row.focus();
+      await user.keyboard(" ");
+
+      expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
+    });
+
+    it("does not call onSelectResource for an unrelated key", async () => {
+      const user = userEvent.setup();
+      const resources = [createMockResource(1)];
+      render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
+
+      const row = screen.getByText("Resource 1 Title").closest("tr")!;
+      row.focus();
+      await user.keyboard("a");
+
+      expect(mockOnSelectResource).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("toggle dropdown (onToggleResource provided)", () => {
+    // The dropdown itself only renders when onEditResource or onDeleteResource
+    // is provided (see the `onEditResource || onDeleteResource` gate in
+    // ResourcesTable) — onToggleResource alone falls through to the
+    // non-interactive plain kebab button. Real callers (ResourceDefinitionTab)
+    // always pass all three, so these tests do too.
+    it("shows Deactivate for an enabled resource and calls onToggleResource(id, true)", async () => {
+      const user = userEvent.setup();
+      const mockOnToggleResource = vi.fn();
+      const resources = [createMockResource(1, { id: "resource-xyz", enabled: true })];
+      render(
+        <ResourcesTable
+          resources={resources}
+          onSelectResource={mockOnSelectResource}
+          onDeleteResource={vi.fn()}
+          onToggleResource={mockOnToggleResource}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("More options for Resource 1 Title"));
+      await user.click(await screen.findByText("Deactivate"));
+
+      expect(mockOnToggleResource).toHaveBeenCalledOnce();
+      expect(mockOnToggleResource).toHaveBeenCalledWith("resource-xyz", true);
+    });
+
+    it("shows Activate for a disabled resource and calls onToggleResource(id, false)", async () => {
+      const user = userEvent.setup();
+      const mockOnToggleResource = vi.fn();
+      const resources = [createMockResource(1, { id: "resource-xyz", enabled: false })];
+      render(
+        <ResourcesTable
+          resources={resources}
+          onSelectResource={mockOnSelectResource}
+          onDeleteResource={vi.fn()}
+          onToggleResource={mockOnToggleResource}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("More options for Resource 1 Title"));
+      await user.click(await screen.findByText("Activate"));
+
+      expect(mockOnToggleResource).toHaveBeenCalledOnce();
+      expect(mockOnToggleResource).toHaveBeenCalledWith("resource-xyz", false);
+    });
+
+    it("does not call onSelectResource when the toggle item is clicked", async () => {
+      const user = userEvent.setup();
+      const resources = [createMockResource(1, { enabled: true })];
+      render(
+        <ResourcesTable
+          resources={resources}
+          onSelectResource={mockOnSelectResource}
+          onDeleteResource={vi.fn()}
+          onToggleResource={vi.fn()}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("More options for Resource 1 Title"));
+      await user.click(await screen.findByText("Deactivate"));
+
+      expect(mockOnSelectResource).not.toHaveBeenCalled();
+    });
+
+    it("does not show a toggle item when onToggleResource is not provided", async () => {
+      const user = userEvent.setup();
+      const resources = [createMockResource(1, { enabled: true })];
+      render(
+        <ResourcesTable
+          resources={resources}
+          onSelectResource={mockOnSelectResource}
+          onDeleteResource={vi.fn()}
+        />,
+      );
+
+      await user.click(screen.getByLabelText("More options for Resource 1 Title"));
+
+      expect(screen.queryByText("Deactivate")).not.toBeInTheDocument();
+      expect(screen.queryByText("Activate")).not.toBeInTheDocument();
     });
   });
 

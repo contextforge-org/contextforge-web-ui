@@ -10,11 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { ResourceRead } from "@/generated/types";
 import { formatBytes, formatDateTime } from "@/utils/format";
 import { getTagLabels } from "@/utils/tags";
-import { ResourcesTable } from "@/components/resources/ResourcesTable";
+import { ResourceDefinitionTab } from "@/components/resources/ResourceDefinitionTab";
+import { ResourceTryItTab } from "@/components/resources/ResourceTryItTab";
+
+// Segmented-control styling for the Try it / Definition tab triggers.
+const SEGMENTED_TRIGGER_CLASS =
+  "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 function DetailRow({
   label,
@@ -36,6 +42,8 @@ function DetailRow({
 interface ResourceDetailsPanelProps {
   resources: NonNullable<ResourceRead>[];
   gatewaySlug: string;
+  /** Tab to select each time the panel opens. Defaults to "tryIt". */
+  initialTab?: "tryIt" | "definition";
   open: boolean;
   onClose: () => void;
   onEditResource?: (resource: NonNullable<ResourceRead>) => void;
@@ -52,6 +60,7 @@ interface ResourceDetailsPanelProps {
 export function ResourceDetailsPanel({
   resources,
   gatewaySlug,
+  initialTab = "tryIt",
   open,
   onClose,
   onEditResource,
@@ -60,33 +69,61 @@ export function ResourceDetailsPanel({
   onAddTag,
 }: ResourceDetailsPanelProps) {
   const intl = useIntl();
-  const [selectedResource, setSelectedResource] = useState<NonNullable<ResourceRead> | null>(null);
+  // Shared across the "Try it" chip picker, the "Definition" table, and the
+  // details sidebar — selecting a resource in either tab updates the same
+  // sidebar, matching PromptDetailsPanel's single `selectedId`.
+  const [selectedResourceId, setSelectedResourceId] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const tryItContentRef = useRef<HTMLDivElement>(null);
+  const definitionContentRef = useRef<HTMLDivElement>(null);
   const headingId = useMemo(() => `resource-details-heading-${gatewaySlug}`, [gatewaySlug]);
 
   // Manage selected resource state: select first on open, reset on close, and
   // re-sync when resources list refreshes to keep details column up-to-date.
   useEffect(() => {
     if (!open) {
-      setSelectedResource(null);
+      setSelectedResourceId(undefined);
       return;
     }
 
     // Select first resource when panel opens if none selected
-    if (resources.length > 0 && !selectedResource) {
-      setSelectedResource(resources[0]);
+    if (resources.length > 0 && !selectedResourceId) {
+      setSelectedResourceId(resources[0].id);
       return;
     }
 
     // Re-sync the selected resource when the resources list refreshes
-    if (selectedResource) {
-      const updated = resources.find((r) => r.id === selectedResource.id);
-      if (updated && updated !== selectedResource) {
-        setSelectedResource(updated);
-      }
+    if (selectedResourceId && !resources.some((r) => r.id === selectedResourceId)) {
+      setSelectedResourceId(resources[0]?.id);
     }
-  }, [open, resources, selectedResource]);
+  }, [open, resources, selectedResourceId]);
+
+  // Land on `initialTab` (default "Try it") each time the panel opens,
+  // regardless of which tab was active when it was last closed — mirrors
+  // PromptDetailsPanel.
+  useEffect(() => {
+    if (open) setActiveTab(initialTab);
+  }, [open, initialTab]);
+
+  // Fires only on a genuine trigger click/keypress (never on the
+  // open/initialTab reset above, which sets `activeTab` directly) — moves
+  // focus into the newly active panel so keyboard/screen-reader users
+  // aren't left on a trigger that now points at different content.
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+    requestAnimationFrame(() => {
+      const target =
+        value === "definition" ? definitionContentRef.current : tryItContentRef.current;
+      target?.focus();
+    });
+  }, []);
+
+  const selectedResource = useMemo(
+    () => resources.find((r) => r.id === selectedResourceId) ?? null,
+    [resources, selectedResourceId],
+  );
 
   // Focus close on open; restore focus on close/unmount.
   useEffect(() => {
@@ -165,15 +202,40 @@ export function ResourceDetailsPanel({
                 </div>
               </div>
 
-              {/* Table */}
-              <ResourcesTable
-                resources={resources}
-                selectedResourceId={selectedResource?.id}
-                onSelectResource={setSelectedResource}
-                onEditResource={onEditResource}
-                onDeleteResource={onDeleteResource}
-                onToggleResource={onToggleResource}
-              />
+              <Tabs value={activeTab} onValueChange={handleTabChange}>
+                <TabsList className="inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
+                  <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "resources.details.tab.tryIt" })}
+                  </TabsTrigger>
+                  <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "resources.details.tab.definition" })}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="tryIt" className="mt-8" ref={tryItContentRef} tabIndex={-1}>
+                  <ResourceTryItTab
+                    resources={resources}
+                    selectedResourceId={selectedResource?.id}
+                    onSelectResource={(r) => setSelectedResourceId(r.id)}
+                  />
+                </TabsContent>
+
+                <TabsContent
+                  value="definition"
+                  className="mt-8"
+                  ref={definitionContentRef}
+                  tabIndex={-1}
+                >
+                  <ResourceDefinitionTab
+                    resources={resources}
+                    selectedResourceId={selectedResource?.id}
+                    onSelectResource={(r) => setSelectedResourceId(r.id)}
+                    onEditResource={onEditResource}
+                    onDeleteResource={onDeleteResource}
+                    onToggleResource={onToggleResource}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
 
             <aside className="relative border-t border-border lg:border-l lg:border-t-0">

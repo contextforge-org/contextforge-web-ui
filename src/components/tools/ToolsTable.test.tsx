@@ -310,19 +310,21 @@ describe("ToolsTable", () => {
     expect(rows.length).toBeGreaterThan(1); // Header row + data rows
   });
 
-  it("handles very long tool names with line-clamp", () => {
-    const tools = [
-      createMockTool(1, {
-        displayName: "This is a very long tool name that should be clamped to one line",
-      }),
-    ];
+  it("truncates a very long tool name to a single line instead of overflowing the table", () => {
+    const longName =
+      "This is a very long tool name that should be truncated to one line, not wrapped or overflowed";
+    const tools = [createMockTool(1, { displayName: longName })];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
-    const displayName = screen.getByText(
-      "This is a very long tool name that should be clamped to one line",
-    );
+    const displayName = screen.getByText(longName);
     const span = displayName.closest("span");
-    expect(span).toHaveClass("line-clamp-1");
+    expect(span).toHaveClass("truncate");
+    expect(span).toHaveAttribute("title", longName);
+
+    // table-fixed + a percentage column width is what actually stops an
+    // unbreakable long name from forcing the whole table to scroll.
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("table-fixed");
   });
 
   describe("delete dropdown (onDeleteTool provided)", () => {

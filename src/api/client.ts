@@ -214,6 +214,13 @@ export const api = {
     return request<T>(path, { method: "GET", headers, signal, ...opts });
   },
 
+  getWithMeta<T>(
+    path: string,
+    opts?: Omit<RequestOptions, "method" | "body">,
+  ): Promise<ResponseWithMeta<T>> {
+    return requestWithMeta<T>(path, { method: "GET", ...opts });
+  },
+
   post<T>(
     path: string,
     body?: unknown,
