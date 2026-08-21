@@ -36803,6 +36803,89 @@
           }
         ]
       }
+    },
+    "/v1/mcp-servers/test-handshake": {
+      "post": {
+        "tags": [
+          "MCP Servers"
+        ],
+        "summary": "Check Mcp Server Handshake",
+        "description": "Test whether an MCP server URL speaks MCP via a protocol handshake.\n\nDelegates to ``test_gateway_handshake`` in\n``mcpgateway.services.gateway_service``, which tries the stateless\n``server/discover`` method first and falls back to a stateful SDK\n``initialize`` round-trip, classifying failures for actionable UI copy.\n\nArgs:\n    request (GatewayHandshakeRequest): The request object containing the server URL and optional headers.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nExamples:\n    >>> callable(check_mcp_server_handshake)\n    True\n    >>> check_mcp_server_handshake.__name__\n    'check_mcp_server_handshake'",
+        "operationId": "check_mcp_server_handshake_v1_mcp_servers_test_handshake_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by team ID",
+              "title": "Team Id"
+            },
+            "description": "Filter by team ID"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayHandshakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -52836,6 +52919,203 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "GatewayHandshakeRequest": {
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri",
+            "title": "Baseurl",
+            "description": "Base URL of the MCP server to test"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Optional path appended to the base URL"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers",
+            "description": "Optional headers (e.g. Authorization) sent with the handshake"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseUrl"
+        ],
+        "title": "GatewayHandshakeRequest",
+        "description": "Request to run an MCP handshake test against a server URL.",
+        "nullable": true
+      },
+      "GatewayHandshakeResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "latencyMs": {
+            "type": "integer",
+            "title": "Latencyms"
+          },
+          "negotiationPath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "server_discover",
+                  "initialize"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negotiationpath",
+            "description": "Which handshake path produced the result"
+          },
+          "protocolVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocolversion"
+          },
+          "serverName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servername"
+          },
+          "serverVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serverversion"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
+          },
+          "componentCounts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Componentcounts",
+            "description": "Counts for tools/resources/prompts; a key is absent when the capability is not advertised"
+          },
+          "countsPartial": {
+            "type": "boolean",
+            "title": "Countspartial",
+            "description": "True when any list result had a nextCursor (counts are first-page lower bounds)",
+            "default": false
+          },
+          "credentialSource": {
+            "type": "string",
+            "enum": [
+              "stored",
+              "form",
+              "none"
+            ],
+            "title": "Credentialsource",
+            "default": "none"
+          },
+          "failureClass": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "transport",
+                  "protocol",
+                  "auth",
+                  "invalid_response"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failureclass"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "rawPreview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rawpreview",
+            "description": "Size-capped JSON preview of the final handshake payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "latencyMs"
+        ],
+        "title": "GatewayHandshakeResponse",
+        "description": "Result of an MCP handshake test.",
+        "nullable": true
       }
     },
     "securitySchemes": {
