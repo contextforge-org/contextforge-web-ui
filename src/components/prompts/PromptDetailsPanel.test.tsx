@@ -327,7 +327,7 @@ describe("PromptDetailsPanel", () => {
     expect(screen.queryByText("Private")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: /definition/i }));
-    await user.click(screen.getByRole("cell", { name: "prompt_b" }));
+    await user.click(screen.getByRole("button", { name: "prompt_b" }));
 
     // Sidebar now reflects the row that was picked.
     expect(screen.getByText("Private")).toBeInTheDocument();

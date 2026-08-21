@@ -70,28 +70,22 @@ export function ToolsTable({
             <TableRow
               key={tool.id}
               data-state={selectedToolId === tool.id ? "selected" : undefined}
-              onClick={() => onSelectTool(tool)}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelectTool(tool);
-                }
-              }}
-              className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+              className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
             >
               <TableCell className="px-4 py-3 text-sm text-foreground">
-                <span
-                  className="block truncate"
+                <button
+                  type="button"
+                  onClick={() => onSelectTool(tool)}
+                  className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   title={tool.displayName || tool.title || tool.name}
                 >
                   {tool.displayName || tool.title || tool.name}
-                </span>
+                </button>
               </TableCell>
 
               <TableCell className="px-4 py-3">
-                <div className="flex min-w-0 items-center">
-                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                <div className="group flex min-w-0 items-center">
+                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                     {tool.customName || tool.originalName}
                   </span>
                   <CopyButton
@@ -101,21 +95,21 @@ export function ToolsTable({
                       { name: tool.customName || tool.originalName },
                     )}
                     iconClassName="size-3"
-                    className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
+                    className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                   />
                 </div>
               </TableCell>
 
               <TableCell className="px-4 py-3">
-                <div className="flex min-w-0 items-center">
-                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                <div className="group flex min-w-0 items-center">
+                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                     {truncateMiddle(tool.id, 18)}
                   </span>
                   <CopyButton
                     value={tool.id}
                     label={intl.formatMessage({ id: "tools.table.copyToolId" })}
                     iconClassName="size-3"
-                    className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
+                    className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                   />
                 </div>
               </TableCell>
@@ -126,11 +120,8 @@ export function ToolsTable({
                   variant="ghost"
                   size="icon-xs"
                   aria-label={intl.formatMessage({ id: "tools.table.viewSchema" })}
-                  className="size-5 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSchemaClick(tool);
-                  }}
+                  className="size-5 text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => handleSchemaClick(tool)}
                 >
                   <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -152,44 +143,26 @@ export function ToolsTable({
                         variant="ghost"
                         size="icon-xs"
                         aria-label={intl.formatMessage({ id: "tools.table.moreOptions" })}
-                        className="size-5 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
+                        className="size-5 text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {onEditTool && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditTool(tool);
-                          }}
-                        >
+                        <DropdownMenuItem onClick={() => onEditTool(tool)}>
                           {intl.formatMessage({ id: "tools.table.edit" })}
                         </DropdownMenuItem>
                       )}
                       {onToggleTool && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleTool(tool);
-                          }}
-                        >
+                        <DropdownMenuItem onClick={() => onToggleTool(tool)}>
                           {intl.formatMessage({
                             id: tool.enabled ? "tools.table.deactivate" : "tools.table.activate",
                           })}
                         </DropdownMenuItem>
                       )}
                       {onDeleteTool && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteTool(tool.id);
-                          }}
-                        >
+                        <DropdownMenuItem onClick={() => onDeleteTool(tool.id)}>
                           {intl.formatMessage({ id: "tools.table.delete" })}
                         </DropdownMenuItem>
                       )}
@@ -201,10 +174,7 @@ export function ToolsTable({
                     variant="ghost"
                     size="icon-xs"
                     aria-label="More options"
-                    className="size-5 text-muted-foreground hover:text-foreground"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    className="size-5 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <MoreHorizontal className="size-4" />
                   </Button>

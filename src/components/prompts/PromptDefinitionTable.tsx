@@ -64,28 +64,22 @@ export function PromptDefinitionTable({
           <TableRow
             key={prompt.id}
             data-state={selectedPromptId === prompt.id ? "selected" : undefined}
-            onClick={() => onSelectPrompt(prompt)}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              // Ignore keys bubbling up from in-row controls (copy / menu) so
-              // activating them doesn't also select the row.
-              if (e.target !== e.currentTarget) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelectPrompt(prompt);
-              }
-            }}
-            className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+            className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
-              <span className="block truncate" title={prompt.displayName || prompt.name}>
+              <button
+                type="button"
+                onClick={() => onSelectPrompt(prompt)}
+                className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                title={prompt.displayName || prompt.name}
+              >
                 {prompt.displayName || prompt.name}
-              </span>
+              </button>
             </TableCell>
 
             <TableCell className="px-4 py-3">
-              <div className="flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+              <div className="group flex min-w-0 items-center">
+                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                   {truncateMiddle(prompt.id, 40)}
                 </span>
                 <CopyButton
@@ -95,7 +89,7 @@ export function PromptDefinitionTable({
                     { name: prompt.name },
                   )}
                   iconClassName="size-3"
-                  className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
+                  className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                 />
               </div>
             </TableCell>
@@ -112,22 +106,14 @@ export function PromptDefinitionTable({
                         { id: "prompts.details.moreOptionsFor" },
                         { name: prompt.name },
                       )}
-                      className="size-5 text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
+                      className="size-5 text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <MoreHorizontal className="size-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {onEdit && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(prompt);
-                        }}
-                      >
+                      <DropdownMenuItem onClick={() => onEdit(prompt)}>
                         {intl.formatMessage({ id: "prompts.details.action.edit" })}
                       </DropdownMenuItem>
                     )}
@@ -136,10 +122,7 @@ export function PromptDefinitionTable({
                         const enabled = prompt.enabled ?? true;
                         return (
                           <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onTogglePrompt(prompt.id, enabled);
-                            }}
+                            onClick={() => onTogglePrompt(prompt.id, enabled)}
                             aria-label={intl.formatMessage(
                               {
                                 id: enabled
@@ -156,12 +139,7 @@ export function PromptDefinitionTable({
                         );
                       })()}
                     {onDelete && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(prompt);
-                        }}
-                      >
+                      <DropdownMenuItem onClick={() => onDelete(prompt)}>
                         {intl.formatMessage({ id: "prompts.details.action.delete" })}
                       </DropdownMenuItem>
                     )}
