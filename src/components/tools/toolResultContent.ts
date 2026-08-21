@@ -171,7 +171,7 @@ function getStringByteSize(value: string | undefined): number {
 }
 
 function inferType(value: Record<string, unknown>, resource: ToolResultResource | null): string {
-  if (pickString(value, "text") || pickString(resource, "text")) return "text";
+  if (pickString(value, "text", "content") || pickString(resource, "text")) return "text";
   if (pickString(value, "data", "blob") || pickString(resource, "data", "blob")) return "blob";
   if (resource) return "resource";
   return "unknown";

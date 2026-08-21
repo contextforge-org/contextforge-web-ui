@@ -66,6 +66,66 @@ describe("ToolResultRenderer", () => {
     );
   });
 
+  it("renders PDF content with open and download actions", () => {
+    render(
+      <ToolResultRenderer
+        response={{
+          content: [{ type: "blob", data: "JVBERi0=", mimeType: "application/pdf" }],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Open in new tab/i })).toHaveAttribute(
+      "href",
+      "data:application/pdf;base64,JVBERi0=",
+    );
+    expect(screen.getByRole("link", { name: /Download raw/i })).toHaveAttribute(
+      "download",
+      "tool-result-1.pdf",
+    );
+  });
+
+  it("renders URI-only resources without download actions", () => {
+    render(
+      <ToolResultRenderer
+        response={{
+          content: [{ type: "resource", uri: "file://reports/result.csv" }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Resource URI")).toBeInTheDocument();
+    expect(screen.getByText("file://reports/result.csv")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Download raw/i })).not.toBeInTheDocument();
+  });
+
+  it("falls back to raw JSON for unknown content blocks", () => {
+    const { container } = render(
+      <ToolResultRenderer
+        response={{
+          content: [{ type: "custom", metadata: { fallback: true } }],
+        }}
+      />,
+    );
+
+    expect(container.textContent).toContain('"fallback": true');
+  });
+
+  it("renders structured output even when content is empty", () => {
+    const { container } = render(
+      <ToolResultRenderer response={{ structuredOutput: { status: "ok" } }} />,
+    );
+
+    expect(screen.getByText("Structured output")).toBeInTheDocument();
+    expect(container.textContent).toContain('"status": "ok"');
+  });
+
+  it("returns nothing when the response has no renderable result", () => {
+    const { container } = render(<ToolResultRenderer response={{ pre_hooks_run: [] }} />);
+
+    expect(container.firstChild).toBeNull();
+  });
+
   it("keeps large text collapsed until requested", async () => {
     const user = userEvent.setup();
     const hiddenText = `${"x".repeat(TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES)} hidden payload`;
