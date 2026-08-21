@@ -68,6 +68,17 @@ interface AuthContextValue extends AuthState {
    * Presentational gate: true when the caller holds `perm` (or the `*` wildcard).
    * NOT a security boundary — endpoints enforce RBAC server-side. Fails closed
    * on error and on an empty permission set.
+   *
+   * Contract caveat: GET /rbac/my/permissions returns role-derived grants only;
+   * the backend's is_admin bypass (allow_admin_bypass in permission_service) is
+   * not reflected here. A DB is_admin user without the wildcard platform_admin
+   * role therefore fails these gates even though the API would serve the data.
+   * Bootstrap keeps role and flag in sync, so the gap only appears when that
+   * sync is bypassed (direct DB promotion, an SSO admin mapping, a failed
+   * bootstrap role assignment). It fails closed and is invisible to the
+   * 403-based PermissionDenied layer, since a fetch-gated card never fires the
+   * request. If a card is unexpectedly hidden for an admin, inspect
+   * GET /rbac/my/permissions before suspecting the gate.
    */
   hasPermission: (perm: string) => boolean;
 }
