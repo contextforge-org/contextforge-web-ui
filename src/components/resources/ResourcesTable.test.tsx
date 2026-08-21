@@ -133,18 +133,13 @@ describe("ResourcesTable", () => {
     expect(screen.getByText("very-lo...-middle")).toBeInTheDocument();
   });
 
-  it("calls onSelectResource when row is clicked", async () => {
+  it("calls onSelectResource when the name is clicked", async () => {
     const user = userEvent.setup();
     const resources = [createMockResource(1)];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const row = screen.getByText("Resource 1 Title").closest("tr");
-    expect(row).toBeInTheDocument();
-
-    if (row) {
-      await user.click(row);
-      expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
-    }
+    await user.click(screen.getByRole("button", { name: "Resource 1 Title" }));
+    expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
   });
 
   it("highlights selected resource row", () => {
@@ -208,12 +203,15 @@ describe("ResourcesTable", () => {
     expect(tbody.children).toHaveLength(0);
   });
 
-  it("applies cursor-pointer class to rows", () => {
+  it("underlines the name button on hover instead of the whole row being clickable", () => {
     const resources = [createMockResource(1)];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
+    const nameButton = screen.getByRole("button", { name: "Resource 1 Title" });
+    expect(nameButton).toHaveClass("hover:underline");
+
     const row = screen.getByText("Resource 1 Title").closest("tr");
-    expect(row).toHaveClass("cursor-pointer");
+    expect(row).not.toHaveClass("cursor-pointer");
   });
 
   it("renders table with proper ARIA structure", () => {
@@ -236,12 +234,11 @@ describe("ResourcesTable", () => {
     const resources = [createMockResource(1, { title: longTitle })];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const title = screen.getByText(longTitle);
-    const span = title.closest("span");
-    expect(span).toHaveClass("truncate");
+    const nameButton = screen.getByRole("button", { name: longTitle });
+    expect(nameButton).toHaveClass("truncate");
     // The full name stays available (e.g. via native tooltip) even though
     // it's visually clipped.
-    expect(span).toHaveAttribute("title", longTitle);
+    expect(nameButton).toHaveAttribute("title", longTitle);
 
     // table-fixed + a percentage column width is what actually stops an
     // unbreakable long name from forcing the whole table to scroll — a
@@ -411,40 +408,26 @@ describe("ResourcesTable", () => {
   });
 
   describe("keyboard selection", () => {
-    it("calls onSelectResource when Enter is pressed on a focused row", async () => {
+    it("calls onSelectResource when Enter is pressed on the focused name button", async () => {
       const user = userEvent.setup();
       const resources = [createMockResource(1)];
       render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-      const row = screen.getByText("Resource 1 Title").closest("tr")!;
-      row.focus();
+      screen.getByRole("button", { name: "Resource 1 Title" }).focus();
       await user.keyboard("{Enter}");
 
       expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
     });
 
-    it("calls onSelectResource when Space is pressed on a focused row", async () => {
+    it("calls onSelectResource when Space is pressed on the focused name button", async () => {
       const user = userEvent.setup();
       const resources = [createMockResource(1)];
       render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-      const row = screen.getByText("Resource 1 Title").closest("tr")!;
-      row.focus();
+      screen.getByRole("button", { name: "Resource 1 Title" }).focus();
       await user.keyboard(" ");
 
       expect(mockOnSelectResource).toHaveBeenCalledWith(resources[0]);
-    });
-
-    it("does not call onSelectResource for an unrelated key", async () => {
-      const user = userEvent.setup();
-      const resources = [createMockResource(1)];
-      render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
-
-      const row = screen.getByText("Resource 1 Title").closest("tr")!;
-      row.focus();
-      await user.keyboard("a");
-
-      expect(mockOnSelectResource).not.toHaveBeenCalled();
     });
   });
 

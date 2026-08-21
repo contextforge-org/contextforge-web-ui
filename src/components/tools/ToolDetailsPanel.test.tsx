@@ -515,18 +515,13 @@ describe("ToolDetailsPanel", () => {
       expect(screen.getByText("tool_1")).toBeInTheDocument();
     });
 
-    // Click on second tool
-    const tool2Row = screen.getByText("tool_2").closest("tr");
-    expect(tool2Row).toBeInTheDocument();
+    // Click on second tool's name button
+    await user.click(screen.getByRole("button", { name: "Display Name 2" }));
 
-    if (tool2Row) {
-      await user.click(tool2Row);
-
-      // Second tool details should now be shown
-      await waitFor(() => {
-        expect(screen.getByText("Display Name 2")).toBeInTheDocument();
-      });
-    }
+    // Second tool details should now be shown
+    await waitFor(() => {
+      expect(screen.getByText("Display Name 2")).toBeInTheDocument();
+    });
   });
 
   it("resets selected tool when panel closes", async () => {

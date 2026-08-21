@@ -48,14 +48,14 @@ describe("PromptDefinitionTable", () => {
     expect(screen.getByRole("cell", { name: "Greet User" })).toBeInTheDocument();
   });
 
-  it("calls onSelectPrompt with the row's prompt when the row is clicked", async () => {
+  it("calls onSelectPrompt with the row's prompt when the name button is clicked", async () => {
     const onSelectPrompt = vi.fn();
     const user = userEvent.setup();
     const a = mockPrompt({ id: "a", name: "prompt_a" });
     const b = mockPrompt({ id: "b", name: "prompt_b" });
     render(<PromptDefinitionTable prompts={[a, b]} onSelectPrompt={onSelectPrompt} />);
 
-    await user.click(screen.getByRole("cell", { name: "prompt_b" }));
+    await user.click(screen.getByRole("button", { name: "prompt_b" }));
     expect(onSelectPrompt).toHaveBeenCalledWith(b);
   });
 
@@ -68,19 +68,18 @@ describe("PromptDefinitionTable", () => {
     expect(onSelectPrompt).not.toHaveBeenCalled();
   });
 
-  it("selects the row via keyboard, but not when a key fires from an in-row control", async () => {
+  it("selects via keyboard on the name button, but not from the copy button", async () => {
     const onSelectPrompt = vi.fn();
     const user = userEvent.setup();
     render(<PromptDefinitionTable prompts={[mockPrompt()]} onSelectPrompt={onSelectPrompt} />);
 
-    // Enter from the copy button must not bubble up into a row selection.
+    // Enter on the copy button must not also select the row.
     screen.getByRole("button", { name: /copy prompt id/i }).focus();
     await user.keyboard("{Enter}");
     expect(onSelectPrompt).not.toHaveBeenCalled();
 
-    // Enter on the row itself does select it.
-    const dataRow = screen.getAllByRole("row")[1];
-    dataRow.focus();
+    // Enter on the name button does select it.
+    screen.getByRole("button", { name: "greet_user" }).focus();
     await user.keyboard("{Enter}");
     expect(onSelectPrompt).toHaveBeenCalledTimes(1);
   });
