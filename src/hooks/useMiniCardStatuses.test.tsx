@@ -41,7 +41,8 @@ function health(over: { data?: VersionInfo; error?: { message: string; status?: 
 
 function admin(isAdmin = true) {
   mockUseAuth.mockReturnValue({
-    hasPermission: (perm: string) => isAdmin && perm === "admin.system_config",
+    hasPermission: (perm: string) =>
+      isAdmin && (perm === "admin.system_config" || perm === "audit:read"),
   } as unknown as ReturnType<typeof useAuth>);
 }
 
@@ -99,6 +100,20 @@ describe("useMiniCardStatuses — /version gating", () => {
     mockUseSystemHealth.mockReturnValue(hr);
     const { result } = renderHook(() => useMiniCardStatuses());
     expect(result.current.systemHealth).toBe(hr);
+  });
+});
+
+describe("useMiniCardStatuses — activity gating", () => {
+  it("does not fetch activity for a caller without audit:read", () => {
+    admin(false);
+    renderHook(() => useMiniCardStatuses());
+    expect(mockUseRecentActivity).toHaveBeenCalledWith({ pollIntervalMs: 0, enabled: false });
+  });
+
+  it("fetches activity when the caller holds audit:read", () => {
+    admin(true);
+    renderHook(() => useMiniCardStatuses());
+    expect(mockUseRecentActivity).toHaveBeenCalledWith({ pollIntervalMs: 0, enabled: true });
   });
 });
 
