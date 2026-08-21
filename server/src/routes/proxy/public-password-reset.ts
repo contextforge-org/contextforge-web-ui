@@ -100,6 +100,22 @@ function rejectCrossOriginMutation(
 }
 
 export default async function publicPasswordResetRoute(fastify: FastifyInstance): Promise<void> {
+  // Fastify rejects an empty application/json body before route handlers run.
+  // Accept it here so public reset POSTs reach upstream and return the API's
+  // normal JSON response instead of Fastify's parser-specific error envelope.
+  fastify.addContentTypeParser("application/json", { parseAs: "string" }, (_req, rawBody, done) => {
+    const body = rawBody.toString();
+    if (!body) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(body));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   fastify.post(
     "/api/auth/email/forgot-password",
     async (request: FastifyRequest, reply: FastifyReply) => {

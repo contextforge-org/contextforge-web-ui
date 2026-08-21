@@ -14,7 +14,8 @@ const SENSITIVE_PASSWORD_RESET_PREFIXES = [
 ] as const;
 
 export function isSensitivePasswordResetUrl(url: string): boolean {
-  return SENSITIVE_PASSWORD_RESET_PREFIXES.some((prefix) => url.startsWith(prefix));
+  const normalizedUrl = url.toLowerCase();
+  return SENSITIVE_PASSWORD_RESET_PREFIXES.some((prefix) => normalizedUrl.startsWith(prefix));
 }
 
 export function createRequestLogController(): LogController {

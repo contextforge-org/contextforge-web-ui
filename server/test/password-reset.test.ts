@@ -108,6 +108,23 @@ describe("public password-reset proxy", () => {
     });
   });
 
+  it.each(["/api/auth/email/forgot-password", "/api/auth/email/reset-password/plaintext-token"])(
+    "accepts an empty JSON body on public reset POST: %s",
+    async (url) => {
+      const calls = mockUpstream({ success: true });
+
+      const response = await app.fastify.inject({
+        method: "POST",
+        url,
+        headers: { "content-type": "application/json" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.init.body).toBeUndefined();
+    },
+  );
+
   it("rejects cross-origin password-reset mutations before calling upstream", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);

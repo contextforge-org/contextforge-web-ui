@@ -16,8 +16,10 @@ describe("password-reset request logging", () => {
 
   it.each([
     "/app/reset-password/plaintext-token",
+    "/App/Reset-Password/plaintext-token",
     "/app/reset-password/token%2Fwith%20space?source=email",
     "/api/auth/email/reset-password/plaintext-token",
+    "/API/Auth/Email/Reset-Password/plaintext-token",
     "/api/auth/email/reset-password/plaintext-token?check=true",
   ])("marks token-bearing URL as sensitive: %s", (url) => {
     expect(isSensitivePasswordResetUrl(url)).toBe(true);
@@ -64,5 +66,27 @@ describe("password-reset request logging", () => {
     expect(output).toContain('"operation":"validate"');
     expect(output).toContain('"errorType":"TypeError"');
     expect(output).not.toContain(token);
+  });
+
+  it("keeps tokens out of automatic logs for case-varied reset URLs", async () => {
+    const token = "case-varied-plaintext-token"; // pragma: allowlist secret
+    const logs: string[] = [];
+    const app = Fastify({
+      logger: {
+        level: "info",
+        stream: { write: (message: string) => logs.push(message) },
+      },
+      logController: createRequestLogController(),
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/API/Auth/Email/Reset-Password/${token}`,
+    });
+    await app.close();
+
+    expect(response.statusCode).toBe(404);
+    expect(logs.join("\n")).not.toContain(token);
   });
 });
