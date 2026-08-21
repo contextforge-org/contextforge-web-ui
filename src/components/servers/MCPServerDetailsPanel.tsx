@@ -4,7 +4,6 @@ import { useIntl } from "react-intl";
 import {
   Activity,
   Box,
-  Copy,
   Globe,
   Loader2,
   MessageSquareCode,
@@ -20,12 +19,12 @@ import {
 } from "@/components/common/VisibilityInfoPopover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { CopyValue } from "@/components/ui/copy-value";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
-import { copyToClipboard } from "@/lib/clipboard";
 import { useQuery } from "@/hooks/useQuery";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -489,32 +488,28 @@ export function MCPServerDetailsPanel({
                                 </span>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
                                   <span className="truncate">{identifier}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    aria-label={`Copy ${title}`}
+                                  <CopyButton
+                                    value={identifier}
+                                    label={intl.formatMessage(
+                                      { id: "common.copyValue" },
+                                      { label: title },
+                                    )}
                                     className="size-5 text-muted-foreground"
-                                    onClick={() => copyToClipboard(identifier)}
-                                  >
-                                    <Copy className="size-3.5" />
-                                  </Button>
+                                  />
                                 </span>
                               </>
                             ) : (
                               <>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
                                   <span className="truncate">{identifier}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    aria-label={`Copy ${identifier}`}
+                                  <CopyButton
+                                    value={identifier}
+                                    label={intl.formatMessage(
+                                      { id: "common.copyValue" },
+                                      { label: identifier },
+                                    )}
                                     className="size-5 text-muted-foreground"
-                                    onClick={() => copyToClipboard(identifier)}
-                                  >
-                                    <Copy className="size-3.5" />
-                                  </Button>
+                                  />
                                 </span>
                                 <span aria-hidden="true" />
                               </>

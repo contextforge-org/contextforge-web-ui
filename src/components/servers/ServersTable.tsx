@@ -1,11 +1,8 @@
-import { useState, useRef, useEffect } from "react";
 import {
-  Copy,
   Building2,
   Lock,
   Users,
   TriangleAlert,
-  Check,
   Activity,
   CircleSlash,
   CircleDashed,
@@ -25,7 +22,7 @@ import { ServerActionsMenu } from "./ServerActionsMenu";
 import type { MCPServer, ServerStatus } from "../../types/server";
 import { Loading } from "../ui/loading";
 import { formatLocalDateTime } from "../../utils/formatDate";
-import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 
 function getLastSeenValue(server: MCPServer): string | undefined {
   return server.lastSeen;
@@ -93,8 +90,6 @@ function getStatusConfig(status: ServerStatus) {
   }
 }
 
-const COPY_FEEDBACK_DURATION_MS = 1500;
-
 interface ServersTableProps {
   servers: MCPServer[];
   isLoading: boolean;
@@ -113,34 +108,6 @@ export function ServersTable({
   onToggleEnabled,
 }: ServersTableProps) {
   const intl = useIntl();
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedId(value);
-
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = window.setTimeout(() => {
-        setCopiedId((current) => (current === value ? null : current));
-        timeoutRef.current = null;
-      }, COPY_FEEDBACK_DURATION_MS);
-    } catch (error) {
-      console.error("Failed to copy server id:", error);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -238,32 +205,17 @@ export function ServersTable({
                   {formatLocalDateTime(lastSeen, intl.formatMessage({ id: "mcpServer.neverUsed" }))}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopy(server.id)}
-                    className="inline-flex items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground"
-                    aria-label={intl.formatMessage(
-                      { id: "mcpServer.table.copyUuid" },
-                      { name: server.name },
-                    )}
-                  >
+                  <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="max-w-[180px] truncate">{server.id}</span>
-                    {copiedId === server.id ? (
-                      <>
-                        <Check
-                          className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
-                          aria-hidden="true"
-                        />
-                        <span className="sr-only">
-                          {intl.formatMessage({ id: "mcpServer.table.copied" })}
-                        </span>
-                      </>
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                    )}
-                  </Button>
+                    <CopyButton
+                      value={server.id}
+                      label={intl.formatMessage(
+                        { id: "mcpServer.table.copyUuid" },
+                        { name: server.name },
+                      )}
+                      iconClassName="h-3.5 w-3.5"
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -122,7 +122,6 @@ function ResourcePreviewPane({ resource }: { resource: NonNullable<ResourceRead>
     [preview],
   );
 
-  const copiedLabel = intl.formatMessage({ id: "resources.details.code.copySuccess" });
   const rendered = useMemo(
     () => RESOURCE_SNIPPETS.map((spec) => ({ ...spec, text: spec.build({ uri: resolvedUri }) })),
     [resolvedUri],
@@ -154,7 +153,6 @@ function ResourcePreviewPane({ resource }: { resource: NonNullable<ResourceRead>
                   { id: "resources.details.code.copyAriaLabel" },
                   { language: snippet.language },
                 )}
-                copiedLabel={copiedLabel}
               />
             </TabsContent>
           ))}

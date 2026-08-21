@@ -126,7 +126,6 @@
   "tools.form.outputSchema": "Esquema de salida",
   "tools.form.copyInputSchema": "Copiar esquema de entrada",
   "tools.form.copyOutputSchema": "Copiar esquema de salida",
-  "tools.form.copied": "¡Copiado!",
   "tools.form.advancedSettings": "Configuración avanzada",
   "tools.form.cancel": "Cancelar",
   "tools.form.button.add": "Añadir herramienta",

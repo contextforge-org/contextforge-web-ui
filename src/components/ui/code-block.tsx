@@ -1,25 +1,15 @@
-import { useEffect, useRef, useState } from "react";
 import { Highlight, themes, type Language } from "prism-react-renderer";
-import { Copy } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { copyToClipboard } from "@/lib/clipboard";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
-
-const COPY_FEEDBACK_DURATION_MS = 1500;
 
 export type CodeBlockLanguage = "bash" | "json" | "python" | "tsx" | "markdown" | "xml" | "text";
 
 export interface CodeBlockProps {
   code: string;
   language: CodeBlockLanguage;
-  /** aria-label for the Copy button. */
+  /** Label for the Copy button, used as both its aria-label and idle tooltip. */
   copyLabel?: string;
-  /** When set, clicking Copy writes to the clipboard and shows this label in a tooltip. */
-  copiedLabel?: string;
-  /** Invoked when the user clicks Copy. Ignored when `copiedLabel` is set. */
-  onCopy?: (code: string) => void;
   /** Hide the built-in Copy affordance. */
   hideCopy?: boolean;
   /** aria-label fallback when `copyLabel` is not supplied. */
@@ -49,49 +39,18 @@ const TOKEN_LANGUAGE: Record<CodeBlockLanguage, Language> = {
  *
  * Token coloring comes from the `vsDark` theme; that pairs reasonably well
  * with the rewrite's neutral-900/950 backgrounds without per-token overrides.
- *
- * This component is intentionally i18n-free — callers pass a translated
- * `copiedLabel` when they want tooltip feedback on copy.
  */
 export function CodeBlock({
   code,
   language,
   copyLabel,
-  copiedLabel,
-  onCopy,
   hideCopy = false,
   copyAriaLabel,
   className,
   padding = "p-4",
 }: CodeBlockProps) {
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
   const prismLanguage = TOKEN_LANGUAGE[language];
   const ariaLabel = copyLabel ?? copyAriaLabel ?? "Copy code";
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopy = () => {
-    if (copiedLabel) {
-      copyToClipboard(code);
-      setCopied(true);
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = window.setTimeout(() => {
-        setCopied(false);
-        timeoutRef.current = null;
-      }, COPY_FEEDBACK_DURATION_MS);
-      return;
-    }
-    onCopy?.(code);
-  };
 
   return (
     <div className={cn("relative", className)}>
@@ -126,29 +85,11 @@ export function CodeBlock({
       </Highlight>
       {!hideCopy && (
         <div className="absolute right-2 top-2">
-          {(() => {
-            const copyButton = (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="size-7 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-                aria-label={ariaLabel}
-                onClick={handleCopy}
-              >
-                <Copy className="size-3.5" />
-              </Button>
-            );
-            if (!copiedLabel) return copyButton;
-            return (
-              <TooltipProvider delayDuration={0}>
-                <Tooltip open={copied}>
-                  <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-                  <TooltipContent side="top">{copiedLabel}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
-          })()}
+          <CopyButton
+            value={code}
+            label={ariaLabel}
+            className="size-7 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          />
         </div>
       )}
     </div>

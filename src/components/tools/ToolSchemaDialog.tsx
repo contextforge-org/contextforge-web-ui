@@ -1,4 +1,6 @@
-import { Copy, Code } from "lucide-react";
+import { useRef } from "react";
+import { Code } from "lucide-react";
+import { useIntl } from "react-intl";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { copyToClipboard } from "@/lib/clipboard";
+import { CopyButton } from "@/components/ui/copy-button";
 import { JsonHighlighter } from "@/components/ui/json-highlighter";
 import type { Tool } from "@/types/tool";
 
@@ -25,6 +27,7 @@ function SchemaSection({
   title: string;
   schema: Record<string, unknown> | null | undefined;
 }) {
+  const intl = useIntl();
   const schemaText = schema ? JSON.stringify(schema, null, 2) : "{}";
 
   return (
@@ -36,25 +39,31 @@ function SchemaSection({
             <JsonHighlighter text={schemaText} />
           </code>
         </pre>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={`Copy ${title.toLowerCase()}`}
+        <CopyButton
+          value={schemaText}
+          label={intl.formatMessage({ id: "common.copyValue" }, { label: title.toLowerCase() })}
           className="absolute right-2 top-2 size-6 bg-neutral-800/80 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100"
-          onClick={() => copyToClipboard(schemaText)}
-        >
-          <Copy className="size-3.5" />
-        </Button>
+        />
       </div>
     </div>
   );
 }
 
 export function ToolSchemaDialog({ tool, open, onOpenChange }: ToolSchemaDialogProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        className="max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          // Radix would otherwise auto-focus the first focusable descendant,
+          // a schema copy button — whose tooltip opens on focus and would eat
+          // the first Escape press instead of the dialog. Focus Close instead.
+          event.preventDefault();
+          closeButtonRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div
@@ -76,7 +85,12 @@ export function ToolSchemaDialog({ tool, open, onOpenChange }: ToolSchemaDialogP
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            ref={closeButtonRef}
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
             Close
           </Button>
         </DialogFooter>

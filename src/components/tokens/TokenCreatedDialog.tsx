@@ -1,5 +1,4 @@
-import type { RefObject } from "react";
-import { Copy } from "lucide-react";
+import { useRef, type RefObject } from "react";
 import { useIntl } from "react-intl";
 
 import {
@@ -10,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { copyToClipboard } from "@/lib/clipboard";
+import { CopyButton } from "@/components/ui/copy-button";
 
 interface TokenCreatedDialogProps {
   /** The raw access token to reveal, or null when the dialog is closed. */
@@ -34,6 +33,7 @@ interface TokenCreatedDialogProps {
 export function TokenCreatedDialog({ token, onClose, returnFocusRef }: TokenCreatedDialogProps) {
   const intl = useIntl();
   const isOpen = token !== null;
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
     <Dialog
@@ -44,6 +44,13 @@ export function TokenCreatedDialog({ token, onClose, returnFocusRef }: TokenCrea
     >
       <DialogContent
         className="gap-6 sm:max-w-xl"
+        onOpenAutoFocus={(event) => {
+          // Radix would otherwise auto-focus the first focusable descendant,
+          // the copy button — whose tooltip opens on focus and would eat the
+          // first Escape press instead of the dialog. Focus Close instead.
+          event.preventDefault();
+          closeButtonRef.current?.focus();
+        }}
         onCloseAutoFocus={(event) => {
           const target = returnFocusRef?.current;
           if (!target) return; // No target: leave Radix's default restore alone.
@@ -62,23 +69,20 @@ export function TokenCreatedDialog({ token, onClose, returnFocusRef }: TokenCrea
           </p>
           <div className="flex w-full items-center gap-2 rounded-lg border border-input px-4 py-3">
             <span className="min-w-0 flex-1 truncate font-mono text-sm">{token ?? ""}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-5 shrink-0 text-muted-foreground"
-              aria-label={intl.formatMessage(
+            <CopyButton
+              value={token ?? ""}
+              label={intl.formatMessage(
                 { id: "common.copyValue" },
                 { label: intl.formatMessage({ id: "tokens.created.label" }) },
               )}
-              onClick={() => copyToClipboard(token ?? "")}
-            >
-              <Copy className="size-3.5" />
-            </Button>
+              className="size-5 shrink-0 text-muted-foreground"
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={onClose}>{intl.formatMessage({ id: "tokens.created.close" })}</Button>
+          <Button ref={closeButtonRef} onClick={onClose}>
+            {intl.formatMessage({ id: "tokens.created.close" })}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

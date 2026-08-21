@@ -1,8 +1,9 @@
-import { Copy, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import type { PromptRead } from "@/generated/types";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { copyToClipboard } from "@/lib/clipboard";
 import { truncateMiddle } from "@/components/gateways/utils";
 
 export interface PromptDefinitionTableProps {
@@ -88,22 +88,15 @@ export function PromptDefinitionTable({
                 <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                   {truncateMiddle(prompt.id, 40)}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={intl.formatMessage(
+                <CopyButton
+                  value={prompt.id}
+                  label={intl.formatMessage(
                     { id: "prompts.details.table.copyPromptId" },
                     { name: prompt.name },
                   )}
+                  iconClassName="size-3"
                   className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(prompt.id);
-                  }}
-                >
-                  <Copy className="size-3" />
-                </Button>
+                />
               </div>
             </TableCell>
 

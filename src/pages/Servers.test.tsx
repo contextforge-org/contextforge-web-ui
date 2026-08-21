@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Servers } from "./Servers";
 import { RouterProvider } from "@/router";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ReactElement } from "react";
 
 // Mock the api client to avoid AbortSignal issues with MSW in Node.js
@@ -70,7 +71,9 @@ function renderWithRouter(ui: ReactElement, path = "/app/servers") {
 
   return render(
     <RouterProvider>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <TooltipProvider>{ui}</TooltipProvider>
+      </I18nProvider>
     </RouterProvider>,
   );
 }

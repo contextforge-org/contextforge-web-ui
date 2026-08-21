@@ -43,7 +43,6 @@
   "mcpServer.table.components.resources": "{count, plural, one {# recurso} other {# recursos}}",
   "mcpServer.table.components.prompts": "{count, plural, one {# prompt} other {# prompts}}",
   "mcpServer.table.copyUuid": "Copiar UUID de {name}",
-  "mcpServer.table.copied": "Copiado!",
   "mcpServer.table.actions.label": "Ações para {name}",
   "mcpServer.table.actions.openMenu": "Abrir menu de {name}",
   "mcpServer.table.actions.viewDetails": "Ver detalhes",
@@ -176,5 +175,6 @@
   "mcpServer.caCert.hint": "Somente arquivos de certificado público (.pem, .crt, .cer, .cert)",
   "mcpServer.caCert.invalidFiles": "{count, plural, one {Tipo de arquivo inválido: {files}.} other {Tipos de arquivo inválidos: {files}.}} Somente arquivos .pem, .crt, .cer e .cert são permitidos.",
   "mcpServer.caCert.filesSelected": "{count, plural, one {# arquivo selecionado com sucesso.} other {# arquivos selecionados com sucesso.}}",
-  "mcpServer.caCert.selected": "Selecionados: {files}"
+  "mcpServer.caCert.selected": "Selecionados: {files}",
+  "mcpServer.testConnection.copyResponseBody": "Copiar corpo da resposta"
 }

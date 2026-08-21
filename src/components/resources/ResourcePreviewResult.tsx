@@ -159,13 +159,11 @@ function ResourceContentPreview({
   }
 
   if (kind === "code") {
-    const copiedLabel = intl.formatMessage({ id: "resources.details.code.copySuccess" });
     return (
       <CodeBlock
         code={content.text ?? ""}
         language={codeLanguageFor(mimeType)}
         copyLabel={mimeType || "content"}
-        copiedLabel={copiedLabel}
       />
     );
   }

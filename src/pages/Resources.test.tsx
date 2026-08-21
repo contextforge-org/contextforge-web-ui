@@ -41,6 +41,7 @@ import { server } from "@/test/mocks/server";
 import { Resources } from "./Resources";
 import { RouterProvider } from "@/router";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ReactElement } from "react";
 import type { ResourceRead } from "@/generated/types";
 
@@ -73,7 +74,9 @@ function renderWithRouter(ui: ReactElement) {
 
   return render(
     <RouterProvider>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <TooltipProvider>{ui}</TooltipProvider>
+      </I18nProvider>
     </RouterProvider>,
   );
 }
