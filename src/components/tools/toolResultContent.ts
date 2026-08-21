@@ -1,6 +1,10 @@
 import type { ToolPreviewResponse, ToolResultContentBlock, ToolResultResource } from "@/api/tools";
+import type { CodeBlockLanguage } from "@/components/ui/code-block";
 
 export const TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES = 256 * 1024;
+export const TOOL_RESULT_TOTAL_SIZE_LIMIT_BYTES = 512 * 1024;
+export const TOOL_RESULT_BLOCK_COUNT_LIMIT = 20;
+export const TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES = 256 * 1024;
 
 const DEFAULT_MIME_TYPE = "application/octet-stream";
 
@@ -15,7 +19,14 @@ export interface NormalizedToolContentBlock {
   isLarge: boolean;
 }
 
-export type ToolCodeLanguage = "bash" | "json" | "tsx";
+export type ToolCodeLanguage = CodeBlockLanguage;
+
+export interface ToolResultBlockWindow {
+  visibleBlocks: NormalizedToolContentBlock[];
+  hiddenBlockCount: number;
+  totalByteSize: number;
+  isLimited: boolean;
+}
 
 export function getToolResultContentBlocks(
   response: ToolPreviewResponse,
@@ -43,6 +54,7 @@ export function getToolResultIsError(response: ToolPreviewResponse): boolean {
 
 export function isTextualMime(mimeType: string): boolean {
   const normalized = mimeType.toLowerCase();
+  if (normalized.startsWith("image/")) return false;
   return (
     normalized.startsWith("text/") ||
     normalized.includes("json") ||
@@ -56,8 +68,9 @@ export function isTextualMime(mimeType: string): boolean {
 export function codeLanguageForMime(mimeType: string): ToolCodeLanguage {
   const normalized = mimeType.toLowerCase();
   if (normalized.includes("json")) return "json";
-  if (normalized.includes("xml")) return "tsx";
-  return "bash";
+  if (normalized.includes("xml")) return "xml";
+  if (normalized.includes("markdown") || normalized.includes("md")) return "markdown";
+  return "text";
 }
 
 export function formatToolResultBytes(bytes: number): string {
@@ -76,16 +89,109 @@ export function formatTextForMime(text: string, mimeType: string): string {
 }
 
 export function getDataUrl(block: NormalizedToolContentBlock): string | null {
-  if (block.data) {
+  if (block.data !== undefined) {
     if (block.data.startsWith("data:")) return block.data;
     return `data:${block.mimeType};base64,${block.data}`;
   }
 
-  if (block.text) {
+  if (block.text !== undefined) {
     return `data:${block.mimeType};charset=utf-8,${encodeURIComponent(block.text)}`;
   }
 
   return null;
+}
+
+export function getToolResultBlockWindow(
+  blocks: NormalizedToolContentBlock[],
+  limits: {
+    maxBlocks?: number;
+    maxTotalBytes?: number;
+  } = {},
+): ToolResultBlockWindow {
+  const maxBlocks = limits.maxBlocks ?? TOOL_RESULT_BLOCK_COUNT_LIMIT;
+  const maxTotalBytes = limits.maxTotalBytes ?? TOOL_RESULT_TOTAL_SIZE_LIMIT_BYTES;
+  const totalByteSize = blocks.reduce((total, block) => total + block.byteSize, 0);
+  const visibleBlocks: NormalizedToolContentBlock[] = [];
+  let visibleByteSize = 0;
+
+  for (const block of blocks) {
+    if (visibleBlocks.length >= maxBlocks) break;
+    if (visibleBlocks.length > 0 && visibleByteSize + block.byteSize > maxTotalBytes) break;
+    visibleBlocks.push(block);
+    visibleByteSize += block.byteSize;
+  }
+
+  return {
+    visibleBlocks,
+    hiddenBlockCount: blocks.length - visibleBlocks.length,
+    totalByteSize,
+    isLimited: visibleBlocks.length < blocks.length,
+  };
+}
+
+export function estimateJsonByteSize(value: unknown, byteLimit = Infinity): number {
+  const seen = new WeakSet<object>();
+  let total = 0;
+
+  function add(text: string) {
+    total += getStringByteSize(text);
+  }
+
+  function visit(current: unknown) {
+    if (total > byteLimit) return;
+
+    if (current === null) {
+      add("null");
+      return;
+    }
+
+    switch (typeof current) {
+      case "string":
+        add(JSON.stringify(current));
+        return;
+      case "number":
+      case "boolean":
+        add(String(current));
+        return;
+      case "undefined":
+      case "function":
+      case "symbol":
+        add("null");
+        return;
+      case "object":
+        break;
+    }
+
+    if (seen.has(current)) {
+      add('"[Circular]"');
+      return;
+    }
+    seen.add(current);
+
+    if (Array.isArray(current)) {
+      add("[");
+      current.forEach((item, index) => {
+        if (index > 0) add(",");
+        visit(item);
+      });
+      add("]");
+      return;
+    }
+
+    add("{");
+    let index = 0;
+    for (const [key, item] of Object.entries(current)) {
+      if (index > 0) add(",");
+      add(JSON.stringify(key));
+      add(":");
+      visit(item);
+      index += 1;
+    }
+    add("}");
+  }
+
+  visit(value);
+  return total;
 }
 
 function getToolResultPayload(response: ToolPreviewResponse): Record<string, unknown> {
@@ -161,13 +267,44 @@ function getBlockByteSize(input: {
   raw: ToolResultContentBlock | string;
 }): number {
   if (input.text !== undefined) return getStringByteSize(input.text);
-  if (input.data !== undefined) return getStringByteSize(input.data);
+  if (input.data !== undefined) return getDataByteSize(input.data);
   return getStringByteSize(JSON.stringify(input.raw));
 }
 
 function getStringByteSize(value: string | undefined): number {
   if (!value) return 0;
   return new Blob([value]).size;
+}
+
+function getDataByteSize(value: string): number {
+  if (value.startsWith("data:")) {
+    const commaIndex = value.indexOf(",");
+    if (commaIndex === -1) return getStringByteSize(value);
+
+    const metadata = value.slice(5, commaIndex).toLowerCase();
+    const payload = value.slice(commaIndex + 1);
+    if (metadata.split(";").includes("base64")) {
+      return getBase64ByteSize(payload) ?? getStringByteSize(payload);
+    }
+
+    try {
+      return getStringByteSize(decodeURIComponent(payload));
+    } catch {
+      return getStringByteSize(payload);
+    }
+  }
+
+  return getBase64ByteSize(value) ?? getStringByteSize(value);
+}
+
+function getBase64ByteSize(value: string): number | null {
+  const normalized = value.replace(/\s/g, "");
+  if (normalized.length === 0) return 0;
+  if (normalized.length % 4 === 1) return null;
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)) return null;
+
+  const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
 }
 
 function inferType(value: Record<string, unknown>, resource: ToolResultResource | null): string {

@@ -320,6 +320,11 @@ test.describe("Tools page", () => {
           content: [
             { type: "text", text: "Found 2 matching issues", mimeType: "text/plain" },
             { type: "text", text: '{"total":2}', mimeType: "application/json" },
+            {
+              type: "image",
+              text: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>',
+              mimeType: "image/svg+xml",
+            },
           ],
           structured_output: { total: 2, query: "cloudflare" },
           annotations: { readOnlyHint: true },
@@ -351,12 +356,13 @@ test.describe("Tools page", () => {
     await previewButton.click();
 
     await expect(panel.getByText("Preview 200")).toBeVisible();
-    await expect(panel.getByText("Warnings")).toBeVisible();
+    await expect(panel.getByText("Warnings", { exact: true }).first()).toBeVisible();
     await expect(
       panel.getByText("Live invocation may request user input; preview skipped approval_hook."),
     ).toBeVisible();
     await expect(panel.getByText("Tool result")).toBeVisible();
-    await expect(panel.getByText("Found 2 matching issues")).toBeVisible();
+    await expect(panel.getByText("Found 2 matching issues").first()).toBeVisible();
+    await expect(panel.getByRole("img", { name: "Tool result image 3" })).toBeVisible();
     await expect(panel.getByText("Structured output")).toBeVisible();
     await expect(panel.getByText("Resolved arguments")).toBeVisible();
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });

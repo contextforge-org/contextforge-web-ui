@@ -14,13 +14,16 @@ import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
 import {
   codeLanguageForMime,
+  estimateJsonByteSize,
   formatTextForMime,
   formatToolResultBytes,
   getDataUrl,
+  getToolResultBlockWindow,
   getToolResultContentBlocks,
   getToolResultIsError,
   getToolStructuredOutput,
   isTextualMime,
+  TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES,
   type NormalizedToolContentBlock,
 } from "./toolResultContent";
 
@@ -28,12 +31,16 @@ export interface ToolResultRendererProps {
   response: ToolPreviewResponse;
 }
 
+const resultRenderKeys = new WeakMap<object, number>();
+let nextResultRenderKey = 1;
+
 export function ToolResultRenderer({ response }: ToolResultRendererProps) {
   const intl = useIntl();
   const blocks = getToolResultContentBlocks(response);
   const structuredOutput = getToolStructuredOutput(response);
   const hasStructuredOutput = structuredOutput !== undefined;
   const isError = getToolResultIsError(response);
+  const resultKey = getResultRenderKey(response);
 
   if (blocks.length === 0 && !hasStructuredOutput) return null;
 
@@ -50,38 +57,55 @@ export function ToolResultRenderer({ response }: ToolResultRendererProps) {
         )}
       </div>
 
-      {blocks.map((block, index) => (
+      <ToolResultBlocks key={`blocks-${resultKey}`} blocks={blocks} resultKey={resultKey} />
+
+      {hasStructuredOutput && (
+        <StructuredOutput key={`structured-${resultKey}`} value={structuredOutput} />
+      )}
+    </section>
+  );
+}
+
+function ToolResultBlocks({
+  blocks,
+  resultKey,
+}: {
+  blocks: NormalizedToolContentBlock[];
+  resultKey: string;
+}) {
+  const intl = useIntl();
+  const [showAll, setShowAll] = useState(false);
+  const blockWindow = getToolResultBlockWindow(blocks);
+  const visibleBlocks = showAll ? blocks : blockWindow.visibleBlocks;
+
+  return (
+    <>
+      {visibleBlocks.map((block, index) => (
         <ToolResultBlock
-          key={`${block.type}-${block.mimeType}-${index}`}
+          key={`${resultKey}-${block.type}-${block.mimeType}-${index}`}
           block={block}
           index={index}
         />
       ))}
 
-      {hasStructuredOutput && (
-        <Accordion
-          type="single"
-          collapsible
-          defaultValue="structured-output"
-          className="rounded-md border border-border"
-        >
-          <AccordionItem value="structured-output" className="border-b-0 px-3">
-            <AccordionTrigger className="py-3 hover:no-underline">
-              {intl.formatMessage({ id: "tools.details.preview.result.structuredOutput" })}
-            </AccordionTrigger>
-            <AccordionContent>
-              <CodeBlock
-                code={stringifyJson(structuredOutput)}
-                language="json"
-                copyLabel={intl.formatMessage({
-                  id: "tools.details.preview.result.copyStructuredOutput",
-                })}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+      {!showAll && blockWindow.isLimited && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background p-3 text-[13px]">
+          <span className="text-muted-foreground">
+            {intl.formatMessage(
+              { id: "tools.details.preview.result.aggregateContent" },
+              {
+                visible: blockWindow.visibleBlocks.length,
+                total: blocks.length,
+                size: formatToolResultBytes(blockWindow.totalByteSize),
+              },
+            )}
+          </span>
+          <Button type="button" variant="outline" size="xs" onClick={() => setShowAll(true)}>
+            {intl.formatMessage({ id: "tools.details.preview.result.viewAll" })}
+          </Button>
+        </div>
       )}
-    </section>
+    </>
   );
 }
 
@@ -141,16 +165,6 @@ function RenderedBlock({ block, index }: { block: NormalizedToolContentBlock; in
   const intl = useIntl();
   const downloadHref = getDataUrl(block);
 
-  if (block.text !== undefined && isTextualMime(block.mimeType)) {
-    return (
-      <CodeBlock
-        code={formatTextForMime(block.text, block.mimeType)}
-        language={codeLanguageForMime(block.mimeType)}
-        copyLabel={intl.formatMessage({ id: "tools.details.preview.result.copyBlock" })}
-      />
-    );
-  }
-
   if (block.mimeType.toLowerCase().startsWith("image/") && downloadHref) {
     return (
       <figure className="space-y-2">
@@ -166,6 +180,16 @@ function RenderedBlock({ block, index }: { block: NormalizedToolContentBlock; in
           {block.mimeType} - {formatToolResultBytes(block.byteSize)}
         </figcaption>
       </figure>
+    );
+  }
+
+  if (block.text !== undefined && isTextualMime(block.mimeType)) {
+    return (
+      <CodeBlock
+        code={formatTextForMime(block.text, block.mimeType)}
+        language={codeLanguageForMime(block.mimeType)}
+        copyLabel={intl.formatMessage({ id: "tools.details.preview.result.copyBlock" })}
+      />
     );
   }
 
@@ -208,6 +232,64 @@ function RenderedBlock({ block, index }: { block: NormalizedToolContentBlock; in
       copyLabel={intl.formatMessage({ id: "tools.details.preview.result.copyBlock" })}
     />
   );
+}
+
+function StructuredOutput({ value }: { value: unknown }) {
+  const intl = useIntl();
+  const byteSize = estimateJsonByteSize(value, TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES + 1);
+  const isLarge = byteSize > TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES;
+  const [expanded, setExpanded] = useState(!isLarge);
+  const sizeLabel = isLarge
+    ? `>${formatToolResultBytes(TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES)}`
+    : formatToolResultBytes(byteSize);
+
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue="structured-output"
+      className="rounded-md border border-border"
+    >
+      <AccordionItem value="structured-output" className="border-b-0 px-3">
+        <AccordionTrigger className="py-3 hover:no-underline">
+          {intl.formatMessage({ id: "tools.details.preview.result.structuredOutput" })}
+        </AccordionTrigger>
+        <AccordionContent>
+          {isLarge && !expanded ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background p-3 text-[13px]">
+              <span className="text-muted-foreground">
+                {intl.formatMessage(
+                  { id: "tools.details.preview.result.largeContent" },
+                  { size: sizeLabel },
+                )}
+              </span>
+              <Button type="button" variant="outline" size="xs" onClick={() => setExpanded(true)}>
+                {intl.formatMessage({ id: "tools.details.preview.result.viewAll" })}
+              </Button>
+            </div>
+          ) : (
+            <CodeBlock
+              code={stringifyJson(value)}
+              language="json"
+              copyLabel={intl.formatMessage({
+                id: "tools.details.preview.result.copyStructuredOutput",
+              })}
+            />
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
+function getResultRenderKey(response: ToolPreviewResponse): string {
+  const cached = resultRenderKeys.get(response);
+  if (cached !== undefined) return String(cached);
+
+  const nextKey = nextResultRenderKey;
+  nextResultRenderKey += 1;
+  resultRenderKeys.set(response, nextKey);
+  return String(nextKey);
 }
 
 function BinaryActions({

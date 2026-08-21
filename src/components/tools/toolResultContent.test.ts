@@ -3,15 +3,35 @@ import { describe, expect, it } from "vitest";
 import type { ToolPreviewResponse } from "@/api/tools";
 import {
   codeLanguageForMime,
+  estimateJsonByteSize,
   formatTextForMime,
   formatToolResultBytes,
   getDataUrl,
+  getToolResultBlockWindow,
   getToolResultContentBlocks,
   getToolResultIsError,
   getToolStructuredOutput,
   isTextualMime,
+  type NormalizedToolContentBlock,
   TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES,
+  TOOL_RESULT_BLOCK_COUNT_LIMIT,
 } from "./toolResultContent";
+
+function makeBlock(
+  id: number,
+  byteSize: number,
+  overrides: Partial<NormalizedToolContentBlock> = {},
+): NormalizedToolContentBlock {
+  return {
+    type: "text",
+    mimeType: "text/plain",
+    text: `block ${id}`,
+    raw: `block ${id}`,
+    byteSize,
+    isLarge: byteSize > TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES,
+    ...overrides,
+  };
+}
 
 describe("toolResultContent", () => {
   it("normalizes direct content blocks", () => {
@@ -104,6 +124,24 @@ describe("toolResultContent", () => {
     expect(formatToolResultBytes(2 * 1024 * 1024)).toBe("2.0 MB");
   });
 
+  it("uses decoded binary sizes for data blocks", () => {
+    const [base64Block] = getToolResultContentBlocks({
+      content: [{ type: "blob", data: "AAECAw==", mimeType: "application/octet-stream" }],
+    });
+    const [dataUrlBlock] = getToolResultContentBlocks({
+      content: [
+        {
+          type: "image",
+          data: "data:image/png;base64,AAECAw==",
+          mimeType: "image/png",
+        },
+      ],
+    });
+
+    expect(base64Block?.byteSize).toBe(4);
+    expect(dataUrlBlock?.byteSize).toBe(4);
+  });
+
   it("builds data URLs and pretty-prints JSON text", () => {
     const [imageBlock] = getToolResultContentBlocks({
       content: [{ type: "image", data: "abc", mimeType: "image/png" }],
@@ -111,11 +149,41 @@ describe("toolResultContent", () => {
     const [textBlock] = getToolResultContentBlocks({
       content: [{ type: "text", text: "plain" }],
     });
+    const [emptyDataBlock] = getToolResultContentBlocks({
+      content: [{ type: "blob", data: "", mimeType: "application/octet-stream" }],
+    });
 
     expect(imageBlock ? getDataUrl(imageBlock) : null).toBe("data:image/png;base64,abc");
     expect(textBlock ? getDataUrl(textBlock) : null).toBe("data:text/plain;charset=utf-8,plain");
+    expect(emptyDataBlock ? getDataUrl(emptyDataBlock) : null).toBe(
+      "data:application/octet-stream;base64,",
+    );
     expect(formatTextForMime('{"ok":true}', "application/json")).toBe('{\n  "ok": true\n}');
     expect(formatTextForMime("{bad", "application/json")).toBe("{bad");
+  });
+
+  it("limits visible blocks by count and aggregate size", () => {
+    const countLimited = getToolResultBlockWindow(
+      Array.from({ length: TOOL_RESULT_BLOCK_COUNT_LIMIT + 2 }, (_, index) => makeBlock(index, 1)),
+    );
+    const sizeLimited = getToolResultBlockWindow(
+      [makeBlock(1, 120), makeBlock(2, 120), makeBlock(3, 120)],
+      { maxTotalBytes: 250 },
+    );
+
+    expect(countLimited.visibleBlocks).toHaveLength(TOOL_RESULT_BLOCK_COUNT_LIMIT);
+    expect(countLimited.hiddenBlockCount).toBe(2);
+    expect(countLimited.isLimited).toBe(true);
+    expect(sizeLimited.visibleBlocks).toHaveLength(2);
+    expect(sizeLimited.hiddenBlockCount).toBe(1);
+    expect(sizeLimited.totalByteSize).toBe(360);
+  });
+
+  it("estimates JSON byte size with a cap", () => {
+    const value = { rows: ["alpha", "beta", "gamma"] };
+
+    expect(estimateJsonByteSize(value)).toBe(new Blob([JSON.stringify(value)]).size);
+    expect(estimateJsonByteSize({ value: "x".repeat(100) }, 10)).toBeGreaterThan(10);
   });
 
   it("classifies textual MIME types and code languages", () => {
@@ -126,9 +194,11 @@ describe("toolResultContent", () => {
     expect(isTextualMime("application/x-yaml")).toBe(true);
     expect(isTextualMime("application/yaml")).toBe(true);
     expect(isTextualMime("image/png")).toBe(false);
+    expect(isTextualMime("image/svg+xml")).toBe(false);
 
     expect(codeLanguageForMime("application/json")).toBe("json");
-    expect(codeLanguageForMime("application/xml")).toBe("tsx");
-    expect(codeLanguageForMime("text/plain")).toBe("bash");
+    expect(codeLanguageForMime("application/xml")).toBe("xml");
+    expect(codeLanguageForMime("text/markdown")).toBe("markdown");
+    expect(codeLanguageForMime("text/plain")).toBe("text");
   });
 });

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
 import {
   Accordion,
@@ -11,9 +13,14 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
-import type { ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
+import type { ToolPreviewResponse, ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
 import { ToolResultRenderer } from "./ToolResultRenderer";
-import { getToolResultIsError } from "./toolResultContent";
+import {
+  estimateJsonByteSize,
+  formatToolResultBytes,
+  getToolResultIsError,
+  TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES,
+} from "./toolResultContent";
 
 export interface ToolPreviewResultProps {
   preview: Pick<ToolPreviewState, "result" | "error" | "hasRun">;
@@ -103,17 +110,18 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
       )}
 
       {response && (
-        <Accordion type="single" collapsible className="rounded-md border border-border">
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue="raw-response"
+          className="rounded-md border border-border"
+        >
           <AccordionItem value="raw-response" className="border-b-0 px-3">
             <AccordionTrigger className="py-3 hover:no-underline">
               {intl.formatMessage({ id: "tools.details.preview.rawResponse" })}
             </AccordionTrigger>
             <AccordionContent>
-              <CodeBlock
-                code={JSON.stringify(response, null, 2)}
-                language="json"
-                copyLabel={intl.formatMessage({ id: "tools.details.preview.copyRawResponse" })}
-              />
+              <RawPreviewResponse response={response} />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -128,12 +136,49 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
   );
 }
 
+function RawPreviewResponse({ response }: { response: ToolPreviewResponse }) {
+  const intl = useIntl();
+  const byteSize = estimateJsonByteSize(
+    response,
+    TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES + 1,
+  );
+  const isLarge = byteSize > TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES;
+  const [expanded, setExpanded] = useState(!isLarge);
+  const sizeLabel = isLarge
+    ? `>${formatToolResultBytes(TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES)}`
+    : formatToolResultBytes(byteSize);
+
+  if (isLarge && !expanded) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background p-3 text-[13px]">
+        <span className="text-muted-foreground">
+          {intl.formatMessage(
+            { id: "tools.details.preview.result.largeContent" },
+            { size: sizeLabel },
+          )}
+        </span>
+        <Button type="button" variant="outline" size="xs" onClick={() => setExpanded(true)}>
+          {intl.formatMessage({ id: "tools.details.preview.result.viewAll" })}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <CodeBlock
+      code={JSON.stringify(response, null, 2)}
+      language="json"
+      copyLabel={intl.formatMessage({ id: "tools.details.preview.copyRawResponse" })}
+    />
+  );
+}
+
 function formatWarning(
   warning: ToolPreviewWarning,
   formatMessage: (descriptor: { id: string }, values?: Record<string, string>) => string,
 ) {
   if (warning.code === "elicitation_skipped") {
-    const hooks = formatWarningHooks(warning);
+    const hooks = formatWarningHooks(warning, formatMessage);
     return (
       warning.message ??
       formatMessage({ id: "tools.details.preview.warnings.elicitationSkipped" }, { hooks })
@@ -147,13 +192,18 @@ function formatWarning(
   );
 }
 
-function formatWarningHooks(warning: ToolPreviewWarning) {
+function formatWarningHooks(
+  warning: ToolPreviewWarning,
+  formatMessage: (descriptor: { id: string }) => string,
+) {
   const hooks = [
     typeof warning.hook === "string" ? warning.hook : null,
     ...(Array.isArray(warning.hooks) ? warning.hooks : []),
   ].filter((hook): hook is string => typeof hook === "string" && hook.length > 0);
 
-  return hooks.length > 0 ? hooks.join(", ") : "one or more hooks";
+  return hooks.length > 0
+    ? hooks.join(", ")
+    : formatMessage({ id: "tools.details.preview.warnings.unspecifiedHooks" });
 }
 
 function formatTarget(target: ToolPreviewTarget | "local" | "federated" | null | undefined) {

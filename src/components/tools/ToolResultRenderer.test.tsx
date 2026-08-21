@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolResultRenderer } from "./ToolResultRenderer";
-import { TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES } from "./toolResultContent";
+import {
+  TOOL_RESULT_BLOCK_COUNT_LIMIT,
+  TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES,
+  TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES,
+} from "./toolResultContent";
 
 describe("ToolResultRenderer", () => {
   it("renders text, JSON, structured output, and error badges", () => {
@@ -49,6 +53,28 @@ describe("ToolResultRenderer", () => {
     const image = screen.getByRole("img", { name: "Tool result image 1" });
     expect(image).toHaveAttribute("src", "data:image/png;base64,iVBORw0KGgo=");
     expect(screen.getAllByText(/image\/png/).length).toBeGreaterThan(0);
+  });
+
+  it("renders SVG text content inline as an image", () => {
+    render(
+      <ToolResultRenderer
+        response={{
+          content: [
+            {
+              type: "image",
+              text: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+              mimeType: "image/svg+xml",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Tool result image 1" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("data:image/svg+xml;charset=utf-8,"),
+    );
+    expect(screen.queryByText(/<svg/)).not.toBeInTheDocument();
   });
 
   it("renders binary content as a download action", () => {
@@ -126,6 +152,47 @@ describe("ToolResultRenderer", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("limits aggregate block rendering until requested", async () => {
+    const user = userEvent.setup();
+    const blocks = Array.from({ length: TOOL_RESULT_BLOCK_COUNT_LIMIT + 2 }, (_, index) => ({
+      type: "text",
+      text: `aggregate block ${index + 1}`,
+      mimeType: "text/plain",
+    }));
+    const { container } = render(<ToolResultRenderer response={{ content: blocks }} />);
+
+    expect(container.textContent).toContain(`aggregate block ${TOOL_RESULT_BLOCK_COUNT_LIMIT}`);
+    expect(container.textContent).not.toContain(
+      `aggregate block ${TOOL_RESULT_BLOCK_COUNT_LIMIT + 1}`,
+    );
+    expect(screen.getByText(/Showing 20 of 22 content blocks/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "View all" }));
+
+    expect(container.textContent).toContain(`aggregate block ${TOOL_RESULT_BLOCK_COUNT_LIMIT + 2}`);
+  });
+
+  it("keeps large structured output collapsed until requested", async () => {
+    const user = userEvent.setup();
+    const marker = "hidden structured marker";
+    const { container } = render(
+      <ToolResultRenderer
+        response={{
+          structuredOutput: {
+            payload: `${"x".repeat(TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES)} ${marker}`,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/Large content hidden/)).toBeInTheDocument();
+    expect(container.textContent).not.toContain(marker);
+
+    await user.click(screen.getByRole("button", { name: "View all" }));
+
+    expect(container.textContent).toContain(marker);
+  });
+
   it("keeps large text collapsed until requested", async () => {
     const user = userEvent.setup();
     const hiddenText = `${"x".repeat(TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES)} hidden payload`;
@@ -141,5 +208,28 @@ describe("ToolResultRenderer", () => {
     await user.click(screen.getByRole("button", { name: "View all" }));
 
     expect(container.textContent).toContain("hidden payload");
+  });
+
+  it("resets block expansion state when a new preview response renders", () => {
+    const smallResponse = {
+      content: [{ type: "text", text: "small payload", mimeType: "text/plain" }],
+    };
+    const largeResponse = {
+      content: [
+        {
+          type: "text",
+          text: `${"x".repeat(TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES)} rerun hidden payload`,
+          mimeType: "text/plain",
+        },
+      ],
+    };
+    const { container, rerender } = render(<ToolResultRenderer response={smallResponse} />);
+
+    expect(container.textContent).toContain("small payload");
+
+    rerender(<ToolResultRenderer response={largeResponse} />);
+
+    expect(screen.getByText(/Large content hidden/)).toBeInTheDocument();
+    expect(container.textContent).not.toContain("rerun hidden payload");
   });
 });
