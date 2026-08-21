@@ -77,12 +77,12 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}
-          # Skip the "latest" tag for prerelease refs (e.g. v1.0.0-RC-3) so
-          # they never clobber the stable tag.
+          # latest=auto emits "latest" for stable semver and skips prereleases.
+          flavor: |
+            latest=auto
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - name: ✅  Validate derived tags
         run: |
@@ -143,7 +143,7 @@ jobs:
             ## Container image
 
             ```
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ github.ref_name }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ steps.meta.outputs.version }}
             ```
 
             Signed with [Cosign](https://docs.sigstore.dev/cosign/overview/) (keyless OIDC) — verify with:
