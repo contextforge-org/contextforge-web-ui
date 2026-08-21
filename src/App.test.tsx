@@ -104,7 +104,7 @@ describe("App", () => {
     await user.click(screen.getByText(/forgot password/i));
 
     // Login's chunk unmounts and ForgotPassword's chunk loads in its place.
-    await screen.findByRole("heading", { name: /forgot password/i });
+    await screen.findByRole("heading", { name: /reset password/i });
     expect(screen.queryByRole("heading", { name: /sign in/i })).not.toBeInTheDocument();
   });
 
