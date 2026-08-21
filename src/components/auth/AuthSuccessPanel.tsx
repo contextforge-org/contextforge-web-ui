@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
-import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { STATUS_ICON } from "@/lib/status";
 
 /**
  * Shared success state for ResetPassword / PasswordChangeRequired: a
- * CircleCheck heading (focus-managed for screen-reader/keyboard users),
+ * success-icon heading (focus-managed for screen-reader/keyboard users),
  * body copy, and a single CTA. Not used by ForgotPassword, which shows its
  * success state as an InlineNotification instead of this pattern.
  */
@@ -37,10 +37,7 @@ export function AuthSuccessPanel({
           tabIndex={-1}
           className="flex items-center gap-2 text-base font-semibold leading-6 text-neutral-900 dark:text-neutral-100 outline-none"
         >
-          <CircleCheck
-            className="size-6 shrink-0 text-emerald-500 dark:text-emerald-400"
-            aria-hidden="true"
-          />
+          <STATUS_ICON.success className="size-6 shrink-0 text-success" aria-hidden="true" />
           {title}
         </h1>
         <p className="text-[13px] leading-4 text-neutral-500 dark:text-neutral-400">{body}</p>

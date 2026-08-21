@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
 export type StatusTone = "success" | "error" | "warning" | "muted";
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  success: "bg-green-500",
+  success: "bg-success",
   error: "bg-destructive",
-  warning: "bg-yellow-500",
+  warning: "bg-warning",
   muted: "bg-muted-foreground",
 };
 

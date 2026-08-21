@@ -67,13 +67,13 @@ function getStatusConfig(status: ServerStatus) {
       return {
         labelId: "mcpServer.status.active",
         Icon: Activity,
-        className: "text-emerald-600 dark:text-emerald-400",
+        className: "text-success",
       };
     case "warning":
       return {
         labelId: "mcpServer.status.warning",
         Icon: TriangleAlert,
-        className: "text-amber-600 dark:text-amber-400",
+        className: "text-warning",
       };
     case "offline":
       return {

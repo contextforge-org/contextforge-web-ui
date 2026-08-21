@@ -1,7 +1,7 @@
-import { AlertTriangle } from "lucide-react";
 import { useIntl } from "react-intl";
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
+import { STATUS_ICON } from "@/lib/status";
 
 interface QueryParameterAuthProps {
   parameterName: string;
@@ -22,7 +22,7 @@ export function QueryParameterAuth({
     <div className="space-y-4">
       {/* Security Warning */}
       <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
-        <AlertTriangle className="h-5 w-5 shrink-0 text-yellow-600 dark:text-yellow-500" />
+        <STATUS_ICON.warning className="h-5 w-5 shrink-0 text-warning" />
         <p className="text-sm text-neutral-700 dark:text-neutral-300">
           {intl.formatMessage(
             { id: "mcpServer.auth.query.warning" },
@@ -40,7 +40,7 @@ export function QueryParameterAuth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.query.nameLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -60,7 +60,7 @@ export function QueryParameterAuth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.query.apiKeyLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
