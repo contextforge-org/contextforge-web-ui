@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { Code } from "lucide-react";
+import { useIntl } from "react-intl";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ function SchemaSection({
   title: string;
   schema: Record<string, unknown> | null | undefined;
 }) {
+  const intl = useIntl();
   const schemaText = schema ? JSON.stringify(schema, null, 2) : "{}";
 
   return (
@@ -39,7 +41,7 @@ function SchemaSection({
         </pre>
         <CopyButton
           value={schemaText}
-          label={`Copy ${title.toLowerCase()}`}
+          label={intl.formatMessage({ id: "common.copyValue" }, { label: title.toLowerCase() })}
           className="absolute right-2 top-2 size-6 bg-neutral-800/80 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100"
         />
       </div>

@@ -12,17 +12,28 @@ export type CopyStatus = "idle" | "copied" | "error";
 export function useCopyToClipboard(resetDelayMs = 1500) {
   const [status, setStatus] = useState<CopyStatus>("idle");
   const timeoutRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const copy = useCallback(
     async (value: string) => {
+      const requestId = ++requestIdRef.current;
       const ok = await copyToClipboard(value);
+
+      // Ignore this result if a later copy() has since been fired (so an
+      // older request resolving out of order can't clobber newer feedback)
+      // or the component has unmounted (so we don't set state or schedule
+      // an uncleared timer after teardown).
+      if (!mountedRef.current || requestId !== requestIdRef.current) return ok;
+
       setStatus(ok ? "copied" : "error");
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
       timeoutRef.current = window.setTimeout(() => {

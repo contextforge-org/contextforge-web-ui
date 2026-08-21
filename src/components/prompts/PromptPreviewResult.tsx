@@ -60,7 +60,7 @@ export function PromptPreviewResult({ preview }: PromptPreviewResultProps) {
         <CodeBlock
           code={JSON.stringify({ messages: result.rendered.messages ?? [] }, null, 2)}
           language="json"
-          copyLabel="JSON"
+          copyLabel={intl.formatMessage({ id: "common.copyValue" }, { label: "JSON" })}
         />
       )}
 

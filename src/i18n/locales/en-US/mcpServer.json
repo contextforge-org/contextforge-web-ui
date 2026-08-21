@@ -175,5 +175,6 @@
   "mcpServer.caCert.hint": "Public certificate files only (.pem, .crt, .cer, .cert)",
   "mcpServer.caCert.invalidFiles": "{count, plural, one {Invalid file type: {files}.} other {Invalid file types: {files}.}} Only .pem, .crt, .cer, .cert files are allowed.",
   "mcpServer.caCert.filesSelected": "{count, plural, one {# file selected successfully.} other {# files selected successfully.}}",
-  "mcpServer.caCert.selected": "Selected: {files}"
+  "mcpServer.caCert.selected": "Selected: {files}",
+  "mcpServer.testConnection.copyResponseBody": "Copy response body"
 }

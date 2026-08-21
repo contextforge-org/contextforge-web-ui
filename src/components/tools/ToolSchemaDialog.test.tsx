@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolSchemaDialog } from "./ToolSchemaDialog";
@@ -259,6 +259,37 @@ describe("ToolSchemaDialog", () => {
     expect(screen.getByText(/nested/)).toBeInTheDocument();
     expect(screen.getByText(/deep/)).toBeInTheDocument();
     expect(screen.getByText(/array/)).toBeInTheDocument();
+  });
+
+  it("moves initial focus to the footer Close button, not a schema copy button", async () => {
+    const tool = createMockTool();
+    render(<ToolSchemaDialog tool={tool} open={true} onOpenChange={mockOnOpenChange} />);
+
+    await waitFor(() => {
+      const allClose = screen.getAllByRole("button", { name: /close/i });
+      const footerClose = allClose.find((btn) => !btn.querySelector("svg"))!;
+      expect(footerClose).toHaveFocus();
+    });
+  });
+
+  it("closes on a single Escape press instead of dismissing a copy button tooltip first", async () => {
+    const user = userEvent.setup();
+    const tool = createMockTool();
+    render(<ToolSchemaDialog tool={tool} open={true} onOpenChange={mockOnOpenChange} />);
+
+    // Wait for the auto-focus redirect to land on Close before pressing Escape,
+    // otherwise focus may still be mid-transition from the default (a copy
+    // button), which is exactly the regression this guards against.
+    await waitFor(() => {
+      const allClose = screen.getAllByRole("button", { name: /close/i });
+      const footerClose = allClose.find((btn) => !btn.querySelector("svg"))!;
+      expect(footerClose).toHaveFocus();
+    });
+
+    await user.keyboard("{Escape}");
+
+    expect(mockOnOpenChange).toHaveBeenCalledTimes(1);
+    expect(mockOnOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("handles schemas with long text values", () => {

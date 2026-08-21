@@ -587,7 +587,10 @@ export function VirtualServerDetailsPanel({
                               <span className="truncate">{identifier}</span>
                               <CopyButton
                                 value={identifier}
-                                label={`Copy ${title}`}
+                                label={intl.formatMessage(
+                                  { id: "common.copyValue" },
+                                  { label: title },
+                                )}
                                 className="size-5 text-muted-foreground"
                               />
                             </span>
@@ -598,7 +601,10 @@ export function VirtualServerDetailsPanel({
                               <span className="truncate">{identifier}</span>
                               <CopyButton
                                 value={identifier}
-                                label={`Copy ${identifier}`}
+                                label={intl.formatMessage(
+                                  { id: "common.copyValue" },
+                                  { label: identifier },
+                                )}
                                 className="size-5 text-muted-foreground"
                               />
                             </span>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
 import { CircleCheck, CircleAlert, Info, Loader2 } from "lucide-react";
+import { useIntl } from "react-intl";
 import { Button } from "../ui/button";
 import { CopyButton } from "../ui/copy-button";
 import { Input } from "../ui/input";
@@ -123,6 +124,7 @@ function FieldLabel({
 }
 
 export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
+  const intl = useIntl();
   const [status, setStatus] = useState<TestStatus>("idle");
   const [method, setMethod] = useState<string>("Get");
   const [url, setUrl] = useState<string>(serverUrl);
@@ -441,7 +443,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
                 {responseBodyText && (
                   <CopyButton
                     value={responseBodyText}
-                    label="Copy response body"
+                    label={intl.formatMessage({ id: "mcpServer.testConnection.copyResponseBody" })}
                     className="absolute right-2 top-2 size-6 bg-background/80 text-muted-foreground backdrop-blur-sm hover:bg-muted hover:text-foreground"
                   />
                 )}
