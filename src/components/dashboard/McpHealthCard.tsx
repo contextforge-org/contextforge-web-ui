@@ -42,7 +42,7 @@ import {
   type RosterHeaderKind,
   type SummarySegment,
 } from "./mcpServerRoster";
-import { PermissionDenied } from "./PermissionDenied";
+import { isPermissionDenied, PermissionDenied } from "./PermissionDenied";
 import { ServerRosterRow, ServerRosterRowStacked } from "./ServerRosterRow";
 import { StatusDot } from "./StatusDot";
 
@@ -151,7 +151,7 @@ export function McpHealthCard({ health: sharedHealth }: { health?: SystemHealthR
 
   // No gateways.read -> 403 -> precise permission gate (authoritative even with
   // a previously-loaded roster: a lost permission should not keep showing data).
-  if (error?.status === 403) {
+  if (isPermissionDenied(error)) {
     return <PermissionDenied />;
   }
 

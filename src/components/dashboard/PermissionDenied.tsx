@@ -8,12 +8,16 @@
 import { Lock } from "lucide-react";
 import { useIntl } from "react-intl";
 
-import { ApiError } from "@/api/client";
 import { cn } from "@/lib/utils";
 
-/** True when an error is a 403 from the API (insufficient permissions). */
+/**
+ * True when an error is a 403 from the API. Structural on purpose: useQuery
+ * sanitizes thrown ApiErrors into plain `{ message, status, ... }` objects
+ * (sanitizeError in src/hooks/useQuery.ts), so an instanceof test would never
+ * match a query error. Matches both shapes.
+ */
 export function isPermissionDenied(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 403;
+  return typeof err === "object" && err !== null && "status" in err && err.status === 403;
 }
 
 interface PermissionDeniedProps {
