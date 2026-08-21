@@ -203,9 +203,7 @@ describe("OAuth2Auth", () => {
   });
 
   it("only offers the password grant option when already selected (legacy)", () => {
-    const { rerender } = render(
-      <OAuth2Auth {...defaultProps} grantType="client_credentials" />,
-    );
+    const { rerender } = render(<OAuth2Auth {...defaultProps} grantType="client_credentials" />);
     expect(screen.queryByText(/Password grant is deprecated/i)).not.toBeInTheDocument();
 
     rerender(<OAuth2Auth {...defaultProps} grantType="password" />);
