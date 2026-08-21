@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
@@ -57,6 +57,11 @@ describe("ToolDetailsPanel", () => {
 
   beforeEach(() => {
     mockOnClose.mockClear();
+    vi.stubEnv("VITE_ENABLE_TOOL_PREVIEW", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("renders nothing when closed", () => {
@@ -108,6 +113,40 @@ describe("ToolDetailsPanel", () => {
     expect(screen.getByText("MCP Server")).toBeInTheDocument();
   });
 
+  it("shows Try it and Definition tabs with Try it active by default", () => {
+    const tools = [createMockTool(1)];
+    render(
+      <ToolDetailsPanel
+        tools={tools}
+        gatewaySlug="test-gateway"
+        open={true}
+        onClose={mockOnClose}
+      />,
+    );
+
+    expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Definition", selected: false })).toBeInTheDocument();
+    expect(screen.getByText("Tool preview")).toBeInTheDocument();
+  });
+
+  it("hides Try it and shows the definition table when tool preview is disabled", () => {
+    vi.stubEnv("VITE_ENABLE_TOOL_PREVIEW", "false");
+    const tools = [createMockTool(1)];
+    render(
+      <ToolDetailsPanel
+        tools={tools}
+        gatewaySlug="test-gateway"
+        open={true}
+        onClose={mockOnClose}
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Definition" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Tool preview")).not.toBeInTheDocument();
+    expect(screen.getByText("tool_1")).toBeInTheDocument();
+  });
+
   it.each([undefined, "", "   "])(
     "does not render a subtitle when gateway description is %p",
     (gatewayDescription) => {
@@ -131,7 +170,8 @@ describe("ToolDetailsPanel", () => {
     },
   );
 
-  it("displays all tools in table", () => {
+  it("displays all tools in table on the Definition tab", async () => {
+    const user = userEvent.setup();
     const tools = [createMockTool(1), createMockTool(2), createMockTool(3)];
     render(
       <ToolDetailsPanel
@@ -141,6 +181,8 @@ describe("ToolDetailsPanel", () => {
         onClose={mockOnClose}
       />,
     );
+
+    await user.click(screen.getByRole("tab", { name: "Definition" }));
 
     expect(screen.getByText("tool_1")).toBeInTheDocument();
     expect(screen.getByText("tool_2")).toBeInTheDocument();
@@ -162,8 +204,7 @@ describe("ToolDetailsPanel", () => {
       expect(screen.getByText("Component details")).toBeInTheDocument();
     });
 
-    // First tool should be selected and its details shown
-    expect(screen.getByText("Display Name 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tool 1", pressed: true })).toBeInTheDocument();
   });
 
   it("calls onClose when close button is clicked", async () => {
@@ -468,6 +509,8 @@ describe("ToolDetailsPanel", () => {
       />,
     );
 
+    await user.click(screen.getByRole("tab", { name: "Definition" }));
+
     await waitFor(() => {
       expect(screen.getByText("tool_1")).toBeInTheDocument();
     });
@@ -498,7 +541,7 @@ describe("ToolDetailsPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Display Name 1")).toBeInTheDocument();
+      expect(screen.getByText("Description for tool 1")).toBeInTheDocument();
     });
 
     // Close panel
@@ -521,9 +564,8 @@ describe("ToolDetailsPanel", () => {
       />,
     );
 
-    // First tool should be selected again
     await waitFor(() => {
-      expect(screen.getByText("Display Name 1")).toBeInTheDocument();
+      expect(screen.getByText("Description for tool 1")).toBeInTheDocument();
     });
   });
 
@@ -610,6 +652,7 @@ describe("ToolDetailsPanel", () => {
         />,
       );
 
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       await user.click(screen.getByLabelText("More options"));
       expect(await screen.findByText("Delete")).toBeInTheDocument();
     });
@@ -628,6 +671,7 @@ describe("ToolDetailsPanel", () => {
         />,
       );
 
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       await user.click(screen.getByLabelText("More options"));
       await user.click(await screen.findByText("Delete"));
 
@@ -647,6 +691,7 @@ describe("ToolDetailsPanel", () => {
         />,
       );
 
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
       await user.click(screen.getByLabelText("More options"));
 
       expect(screen.queryByText("Delete")).not.toBeInTheDocument();

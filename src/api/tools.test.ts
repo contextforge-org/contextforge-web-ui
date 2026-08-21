@@ -43,6 +43,69 @@ describe("toolsApi", () => {
     });
   });
 
+  describe("preview", () => {
+    it("POSTs arguments to /tools/preview/:name with passthrough headers", async () => {
+      const body = {
+        resolved_arguments: { query: "cloudflare" },
+        target: "local",
+        annotations: { readOnlyHint: true },
+        pre_hooks_run: [],
+        warnings: [],
+      };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await toolsApi.preview(
+        "search.issues",
+        { query: "cloudflare" },
+        { "X-Api-Key": "session-key" },
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/tools/preview/search.issues"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ arguments: { query: "cloudflare" } }),
+          headers: expect.objectContaining({
+            "X-CSRF-Token": "test-csrf-token",
+            "X-Api-Key": "session-key",
+          }),
+          credentials: "same-origin", // pragma: allowlist secret
+        }),
+      );
+      expect(result).toEqual({ preview: body, status: 200 });
+    });
+
+    it("accepts prompt-style MCP names with spaces, dots, hyphens, and underscores", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ target: "local" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await expect(toolsApi.preview("my tool.v2_test-name")).resolves.toMatchObject({
+        status: 200,
+      });
+    });
+
+    it("throws synchronously for an empty name", () => {
+      expect(() => toolsApi.preview("")).toThrow("Invalid tool name");
+    });
+
+    it("throws synchronously for name with path traversal characters", () => {
+      expect(() => toolsApi.preview("../etc/passwd")).toThrow("Invalid tool name format");
+    });
+
+    it.each([".", "..", "   "])("throws synchronously for unsafe name %p", (name) => {
+      expect(() => toolsApi.preview(name)).toThrow();
+    });
+  });
+
   describe("delete", () => {
     it("calls DELETE /tools/:id with CSRF token and same-origin credentials", async () => {
       mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));

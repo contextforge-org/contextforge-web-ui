@@ -31,6 +31,40 @@ export interface GenerateSchemasFromOpenapiResult {
   requires_auth?: boolean;
 }
 
+export interface ToolPreviewRequest {
+  arguments: Record<string, unknown>;
+}
+
+export interface ToolPreviewWarning {
+  code?: string;
+  message?: string;
+  hook?: string;
+  hooks?: string[];
+  [key: string]: unknown;
+}
+
+export interface ToolPreviewTarget {
+  kind?: "local" | "federated" | string;
+  gateway_name?: string | null;
+  gatewayName?: string | null;
+  name?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ToolPreviewResponse {
+  resolved_arguments?: Record<string, unknown>;
+  target?: "local" | "federated" | ToolPreviewTarget | null;
+  annotations?: Record<string, unknown> | null;
+  pre_hooks_run?: unknown[] | number | null;
+  warnings?: ToolPreviewWarning[];
+  [key: string]: unknown;
+}
+
+export interface ToolPreviewResult {
+  preview: ToolPreviewResponse;
+  status: number;
+}
+
 /**
  * Validates tool ID to prevent path traversal and injection attacks
  * @param id - The tool ID to validate
@@ -48,6 +82,24 @@ function validateToolId(id: string): string {
   }
 
   return id;
+}
+
+// Mirrors the prompt preview name validator: tools are addressed by their MCP
+// name on preview/call surfaces, not by the database ID used by CRUD routes.
+const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_.\- ]+$/;
+
+function validateToolName(name: string): string {
+  if (!name || typeof name !== "string" || !name.trim()) {
+    throw new Error("Invalid tool name");
+  }
+  const trimmed = name.trim();
+  if (trimmed === "." || trimmed === "..") {
+    throw new Error("Invalid tool name format");
+  }
+  if (!TOOL_NAME_PATTERN.test(name)) {
+    throw new Error("Invalid tool name format");
+  }
+  return name;
 }
 
 export const toolsApi = {
@@ -104,6 +156,29 @@ export const toolsApi = {
   deactivate: (id: string): Promise<void> => {
     const validId = validateToolId(id);
     return api.post(`/tools/${validId}/state?activate=false`);
+  },
+
+  /**
+   * Dry-run a tool invocation without contacting federated upstream servers.
+   *
+   * Uses the MCP tool name as the wire identifier, matching snippet output and
+   * the future `Mcp-Name` routing header. This intentionally does not use
+   * `validateToolId`, because valid tool names may contain spaces and dots.
+   */
+  preview: (
+    name: string,
+    args: Record<string, unknown> = {},
+    passthroughHeaders: Record<string, string> = {},
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ToolPreviewResult> => {
+    const validName = validateToolName(name);
+    return api
+      .postWithMeta<ToolPreviewResponse>(
+        `/tools/preview/${encodeURIComponent(validName)}`,
+        { arguments: args } satisfies ToolPreviewRequest,
+        { headers: passthroughHeaders, signal: options.signal },
+      )
+      .then(({ data, status }) => ({ preview: data, status }));
   },
 
   /**
