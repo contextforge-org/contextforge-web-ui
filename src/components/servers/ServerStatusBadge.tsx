@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { CheckCircle2, XCircle, AlertCircle, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { STATUS_ICON } from "@/lib/status";
 import type { MCPServer, ServerStatus } from "../../types/server";
 
 // Warning threshold: 5 minutes in milliseconds
@@ -41,17 +42,17 @@ const STATUS_CONFIG: Record<ServerStatus, StatusConfig> = {
   },
   active: {
     label: "Active",
-    icon: CheckCircle2,
+    icon: STATUS_ICON.success,
     variant: BadgeVariant.Success,
   },
   offline: {
     label: "Offline",
-    icon: XCircle,
+    icon: STATUS_ICON.error,
     variant: BadgeVariant.Destructive,
   },
   warning: {
     label: "Warning",
-    icon: AlertCircle,
+    icon: STATUS_ICON.warning,
     variant: BadgeVariant.Warning,
   },
 };

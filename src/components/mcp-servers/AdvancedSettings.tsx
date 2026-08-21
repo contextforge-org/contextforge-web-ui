@@ -309,7 +309,7 @@ export function AdvancedSettings({
         </div>
         {oneTimeAuth && (
           <div className="mt-3 flex items-start gap-3 rounded-md bg-neutral-50 p-3 dark:bg-neutral-800">
-            <TriangleAlert className="text-yellow-300 mt-0.5 h-4 w-4 shrink-0" />
+            <TriangleAlert className="text-warning mt-0.5 h-4 w-4 shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthWarning" })}
             </p>

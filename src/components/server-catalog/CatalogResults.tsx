@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { CircleCheck, EllipsisVertical, FileText, Plus } from "lucide-react";
+import { EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
+import { STATUS_ICON } from "@/lib/status";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { ServerIcon } from "@/components/servers/ServerIcon";
@@ -145,7 +146,7 @@ function CatalogCard({
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
+                      <STATUS_ICON.success className="size-4 text-success" aria-hidden="true" />
                       {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
                     </span>
                   )}

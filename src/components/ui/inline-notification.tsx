@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
-import { CircleAlert, CircleCheck, Info, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
 
 interface InlineNotificationProps {
   type: "success" | "error" | "info";
@@ -19,8 +20,9 @@ export const InlineNotification = forwardRef<HTMLDivElement, InlineNotificationP
     { type, message, action, onDismiss, dismissLabel = "Dismiss notification", tabIndex },
     ref,
   ) {
-    const isSuccess = type === "success";
     const isError = type === "error";
+    const Icon = STATUS_ICON[type];
+    const toneClass = STATUS_TONE_CLASS[type];
 
     return (
       <div
@@ -30,24 +32,8 @@ export const InlineNotification = forwardRef<HTMLDivElement, InlineNotificationP
         className="flex items-center justify-between rounded-md border border-neutral-200 bg-background p-3 dark:border-neutral-800"
       >
         <div className="flex items-center gap-2">
-          {isSuccess ? (
-            <CircleCheck className="h-4 w-4 shrink-0 text-green-500" aria-hidden="true" />
-          ) : isError ? (
-            <CircleAlert className="h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />
-          ) : (
-            <Info className="h-4 w-4 shrink-0 text-blue-500" aria-hidden="true" />
-          )}
-          <p
-            className={`text-sm ${
-              isSuccess
-                ? "text-green-500"
-                : isError
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-blue-600 dark:text-blue-400"
-            }`}
-          >
-            {message}
-          </p>
+          <Icon className={`h-4 w-4 shrink-0 ${toneClass}`} aria-hidden="true" />
+          <p className={`text-sm ${toneClass}`}>{message}</p>
         </div>
         {(action || onDismiss) && (
           <div className="ml-2 flex shrink-0 items-center gap-1">

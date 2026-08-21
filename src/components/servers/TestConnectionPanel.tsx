@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { CircleCheck, CircleAlert, Info, Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
+import { STATUS_ICON } from "@/lib/status";
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
 import { CopyButton } from "../ui/copy-button";
@@ -405,7 +406,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
             className="bg-transparent dark:bg-transparent"
           />
           {errors.url && (
-            <p id="url-error" className="text-sm text-red-500">
+            <p id="url-error" className="text-sm text-destructive">
               {errors.url}
             </p>
           )}
@@ -461,7 +462,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
             className="bg-transparent dark:bg-transparent"
           />
           {errors.path && (
-            <p id="path-error" className="text-sm text-red-500">
+            <p id="path-error" className="text-sm text-destructive">
               {errors.path}
             </p>
           )}
@@ -515,7 +516,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
             }
           />
           {errors.headers && (
-            <p id="headers-error" className="text-sm text-red-500">
+            <p id="headers-error" className="text-sm text-destructive">
               {errors.headers}
             </p>
           )}
@@ -552,7 +553,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
               aria-describedby={errors.body ? "body-error" : undefined}
             />
             {errors.body && (
-              <p id="body-error" className="text-sm text-red-500">
+              <p id="body-error" className="text-sm text-destructive">
                 {errors.body}
               </p>
             )}
@@ -614,9 +615,9 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
               )}
               <div className="flex items-start gap-2 pr-8">
                 {status === "success" ? (
-                  <CircleCheck className="mt-0.5 size-4 shrink-0 text-green-500" />
+                  <STATUS_ICON.success className="mt-0.5 size-4 shrink-0 text-success" />
                 ) : (
-                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  <STATUS_ICON.error className="mt-0.5 size-4 shrink-0 text-destructive" />
                 )}
                 <span className="text-sm font-medium break-words text-foreground">{headline}</span>
               </div>
