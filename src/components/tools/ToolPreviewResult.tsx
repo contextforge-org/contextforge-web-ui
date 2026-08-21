@@ -113,7 +113,6 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
                 code={JSON.stringify(response, null, 2)}
                 language="json"
                 copyLabel={intl.formatMessage({ id: "tools.details.preview.copyRawResponse" })}
-                copiedLabel={intl.formatMessage({ id: "tools.details.preview.copied" })}
               />
             </AccordionContent>
           </AccordionItem>

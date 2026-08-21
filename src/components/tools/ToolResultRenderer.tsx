@@ -76,7 +76,6 @@ export function ToolResultRenderer({ response }: ToolResultRendererProps) {
                 copyLabel={intl.formatMessage({
                   id: "tools.details.preview.result.copyStructuredOutput",
                 })}
-                copiedLabel={intl.formatMessage({ id: "tools.details.preview.copied" })}
               />
             </AccordionContent>
           </AccordionItem>
@@ -148,7 +147,6 @@ function RenderedBlock({ block, index }: { block: NormalizedToolContentBlock; in
         code={formatTextForMime(block.text, block.mimeType)}
         language={codeLanguageForMime(block.mimeType)}
         copyLabel={intl.formatMessage({ id: "tools.details.preview.result.copyBlock" })}
-        copiedLabel={intl.formatMessage({ id: "tools.details.preview.copied" })}
       />
     );
   }
@@ -208,7 +206,6 @@ function RenderedBlock({ block, index }: { block: NormalizedToolContentBlock; in
       code={stringifyJson(block.raw)}
       language="json"
       copyLabel={intl.formatMessage({ id: "tools.details.preview.result.copyBlock" })}
-      copiedLabel={intl.formatMessage({ id: "tools.details.preview.copied" })}
     />
   );
 }
