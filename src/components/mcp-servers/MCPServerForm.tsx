@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { ChevronDown, CircleAlert } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
 import { ExposeComponentsForm } from "@/components/gateways/ExposeComponentsForm";
 import { useRouter } from "@/router";
 import { useMCPServerForm, type TransportType } from "@/hooks/useMCPServerForm";
+import { STATUS_ICON } from "@/lib/status";
 
 interface MCPServerFormProps {
   isOpen: boolean;
@@ -192,8 +193,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
           </div>
 
           {fetchError && serverId && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/50">
-              <p className="text-sm text-red-600 dark:text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+              <p className="text-sm text-destructive">
                 {intl.formatMessage({ id: "mcpServer.form.fetchError" }, { error: fetchError })}
               </p>
             </div>
@@ -240,7 +241,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "mcpServer.form.nameLabel" })}
-                <span className="text-red-500">*</span>
+                <span className="text-destructive">*</span>
                 <span className="sr-only">
                   {intl.formatMessage({ id: "mcpServer.form.required" })}
                 </span>
@@ -255,7 +256,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 aria-describedby={errors.name ? "name-error" : undefined}
               />
               {errors.name && (
-                <p id="name-error" className="text-sm text-red-500">
+                <p id="name-error" className="text-sm text-destructive">
                   {errors.name}
                 </p>
               )}
@@ -267,11 +268,11 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "mcpServer.form.urlLabel" })}
-                <span className="text-red-500">*</span>
+                <span className="text-destructive">*</span>
                 <span className="sr-only">
                   {intl.formatMessage({ id: "mcpServer.form.required" })}
                 </span>
-                <CircleAlert className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
+                <STATUS_ICON.info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
               </label>
               <Input
                 id="server-url"
@@ -283,7 +284,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 aria-describedby={errors.url ? "url-error" : undefined}
               />
               {errors.url && (
-                <p id="url-error" className="text-sm text-red-500">
+                <p id="url-error" className="text-sm text-destructive">
                   {errors.url}
                 </p>
               )}
@@ -303,7 +304,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                 aria-describedby={errors.description ? "description-error" : undefined}
               />
               {errors.description && (
-                <p id="description-error" className="text-sm text-red-500">
+                <p id="description-error" className="text-sm text-destructive">
                   {errors.description}
                 </p>
               )}
@@ -380,8 +381,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               )}
 
               {errors.submit && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/50">
-                  <p className="text-sm text-red-600 dark:text-red-400">{errors.submit}</p>
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                  <p className="text-sm text-destructive">{errors.submit}</p>
                 </div>
               )}
 

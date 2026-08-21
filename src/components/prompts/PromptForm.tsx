@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useIntl } from "react-intl";
-import { CircleAlert, Info, MessageSquareCode } from "lucide-react";
+import { Info, MessageSquareCode } from "lucide-react";
+import { STATUS_ICON } from "@/lib/status";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,7 +117,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                 role="alert"
                 aria-live="assertive"
               >
-                <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <STATUS_ICON.error className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <p>{form.errors.submit}</p>
               </div>
             )}

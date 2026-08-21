@@ -71,13 +71,13 @@ function getStatusConfig(status: ServerStatus) {
       return {
         Icon: Activity,
         labelId: "gateways.source.status.active",
-        className: "text-emerald-400",
+        className: "text-success",
       };
     case "warning":
       return {
         Icon: TriangleAlert,
         labelId: "gateways.source.status.warning",
-        className: "text-amber-400",
+        className: "text-warning",
       };
     case "offline":
       return {

@@ -43,8 +43,8 @@ describe("Badge", () => {
         secondary: "bg-secondary",
         destructive: "bg-destructive",
         outline: "text-foreground",
-        success: "bg-green-100",
-        warning: "bg-yellow-100",
+        success: "bg-success/15",
+        warning: "bg-warning/15",
         draft: "bg-gray-100",
       };
 
@@ -70,7 +70,7 @@ describe("Badge", () => {
 
       // success
       rerender(<Badge variant="success">Toggle</Badge>);
-      expect(getByText("Toggle").className).toContain("bg-green-100");
+      expect(getByText("Toggle").className).toContain("bg-success/15");
 
       // destructive
       rerender(<Badge variant="destructive">Toggle</Badge>);
@@ -177,7 +177,7 @@ describe("Badge", () => {
       expect(getByText("Keep")).toHaveClass("added");
 
       rerender(<Badge variant="warning">Keep</Badge>);
-      expect(getByText("Keep")).toHaveClass("bg-yellow-100");
+      expect(getByText("Keep")).toHaveClass("bg-warning/15");
       expect(getByText("Keep")).toHaveClass("inline-flex");
     });
   });
