@@ -26,6 +26,8 @@ interface UseRecentActivityOptions {
   limit?: number;
   /** Polling cadence override. Pass 0 to disable. */
   pollIntervalMs?: number;
+  /** When false, no request is made and the feed stays empty. */
+  enabled?: boolean;
 }
 
 function isMockEnabled(): boolean {
@@ -33,7 +35,7 @@ function isMockEnabled(): boolean {
 }
 
 export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRecentActivityResult {
-  const { limit = 10, pollIntervalMs = RECENT_ACTIVITY_POLL_INTERVAL_MS } = options;
+  const { limit = 10, pollIntervalMs = RECENT_ACTIVITY_POLL_INTERVAL_MS, enabled = true } = options;
   const mock = isMockEnabled();
 
   const [items, setItems] = useState<ActivityItem[]>([]);
@@ -68,6 +70,13 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setItems([]);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     void fetchOnce(controller.signal);
 
@@ -83,12 +92,13 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
       controller.abort();
       window.clearInterval(intervalId);
     };
-  }, [fetchOnce, mock, pollIntervalMs]);
+  }, [fetchOnce, mock, pollIntervalMs, enabled]);
 
   const refetch = useCallback(async (): Promise<void> => {
+    if (!enabled) return;
     setIsLoading(true);
     await fetchOnce();
-  }, [fetchOnce]);
+  }, [fetchOnce, enabled]);
 
   return { items, isLoading, error, refetch };
 }

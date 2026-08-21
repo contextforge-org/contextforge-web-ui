@@ -12,7 +12,8 @@
  * `/version` is admin-only, so it is fetched only when the caller can view
  * system diagnostics (`admin.system_config`); non-admins never poll a guaranteed
  * 403. It is polled once here (the hook is resolved at the page level) and feeds
- * both the mini cards and the headline.
+ * both the mini cards and the headline. Activity is gated the same way on
+ * `audit:read`.
  */
 
 import { useMemo } from "react";
@@ -75,7 +76,11 @@ export function useMiniCardStatuses(): HomeStatus {
   const { data: health, error: healthError } = systemHealth;
   const { data: mcpServers, error: mcpServersError } = useQuery<ServersResponse>(MCP_REACH_PATH);
   const { data: a2aAgents, error: a2aError } = useQuery<Activatable[]>(A2A_REACH_PATH);
-  const { items } = useRecentActivity({ pollIntervalMs: 0 });
+  // /api/logs/activity requires audit:read, which no default non-admin role
+  // holds. security:read is not checked: that half of the feed is additive
+  // server-side, so an audit:read-only caller gets a narrower feed, not an error.
+  const canViewActivity = hasPermission("audit:read");
+  const { items } = useRecentActivity({ pollIntervalMs: 0, enabled: canViewActivity });
 
   const derived = useMemo(() => {
     const healthy = safeHealthy(health);

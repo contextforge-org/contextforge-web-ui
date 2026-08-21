@@ -41,6 +41,30 @@ describe("useRecentActivity", () => {
     expect(result.current.items).toEqual([]);
   });
 
+  it("makes no request while disabled and fetches once enabled", async () => {
+    let callCount = 0;
+    server.use(
+      http.get("*/api/logs/activity", () => {
+        callCount += 1;
+        return HttpResponse.json({ items: RECENT_ACTIVITY_FIXTURE.slice(0, 2) });
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useRecentActivity({ pollIntervalMs: 0, enabled }),
+      { initialProps: { enabled: false } },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(callCount).toBe(0);
+    expect(result.current.items).toEqual([]);
+
+    rerender({ enabled: true });
+
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    expect(callCount).toBe(1);
+  });
+
   it("refetch re-hits the endpoint and clears the error", async () => {
     let callCount = 0;
     server.use(
