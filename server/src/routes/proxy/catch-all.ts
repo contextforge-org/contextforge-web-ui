@@ -26,6 +26,19 @@ import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
+// mcpgateway mounts every router at the root except log_search, which declares
+// `prefix="/api/logs"`. Stripping this route's own `/api` for those paths would
+// forward /api/logs/* to /logs/* upstream, which 404s. Keep the prefix instead.
+// Verified against mcpgateway: /api/logs is the only such router.
+const UPSTREAM_API_PREFIXES = ["logs/"];
+
+/** Browser `/api/<wildcard>` -> the path FastAPI actually serves. */
+function toUpstreamPath(wildcard: string): string {
+  return UPSTREAM_API_PREFIXES.some((prefix) => wildcard.startsWith(prefix))
+    ? `/api/${wildcard}`
+    : `/${wildcard}`;
+}
+
 // Inbound headers that must never reach upstream verbatim: bff_sid/bff_csrf
 // (Cookie) are BFF-only secrets; the rest are infra/auth headers mcpgateway
 // trusts for request-URL construction (Forwarded/X-Forwarded-*, including
@@ -125,10 +138,9 @@ export default async function catchAllProxyRoute(fastify: FastifyInstance): Prom
     "/api/*",
     { preHandler: [fastify.sessionAuth, csrfIfUnsafe] },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      // Wildcard capture excludes the leading '/api/'; FastAPI routes are
-      // mounted at root, so reattach a single leading slash.
+      // Wildcard capture excludes the leading '/api/'; see toUpstreamPath.
       const wildcard = (request.params as Record<string, string>)["*"] ?? "";
-      const upstreamPath = `/${wildcard}`;
+      const upstreamPath = toUpstreamPath(wildcard);
       const bearerToken = request.session!.bearerToken;
 
       const sessionId = request.session!.sessionId;
