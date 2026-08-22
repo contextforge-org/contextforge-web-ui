@@ -399,3 +399,149 @@ describe("VirtualServerDetailsPanel render variants", () => {
     expect(allTab).toHaveAttribute("aria-selected", "true");
   });
 });
+
+describe("VirtualServerDetailsPanel test connection tab", () => {
+  const HANDSHAKE_ENDPOINT = "*/v1/mcp-servers/test-handshake";
+
+  beforeEach(() => {
+    mswServer.use(
+      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })),
+      http.get("*/servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+    );
+  });
+
+  it("renders the Components and Test connection top-level tabs", async () => {
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("tab", { name: "Components" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Test connection" })).toBeInTheDocument();
+  });
+
+  it("switches to the test panel and shows the handshake form", async () => {
+    const user = userEvent.setup();
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+
+    expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
+    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
+  });
+
+  it("runs a handshake and displays a successful result", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 42,
+          serverName: "Test MCP",
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/latency: 42 ms/i)).toBeInTheDocument();
+  });
+
+  it("flags a component-count mismatch using the panel's own aggregated counts", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/servers/:id/tools", () =>
+        HttpResponse.json({ tools: [{ id: "t1", name: "tool-1", originalName: "tool-1" }] }),
+      ),
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 10,
+          componentCounts: { tools: 0 },
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+    expect(
+      await screen.findByText(/counts don.t match the virtual server.s aggregate/i),
+    ).toBeInTheDocument();
+  });
+
+  it("resets to the components tab when a new server is selected", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "s1" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
+
+    // Simulate opening a different server — the panel resets to Components.
+    rerender(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "s2" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Components" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+  });
+});
