@@ -47,9 +47,13 @@ export function ActivityFilters({
       <Tabs value={filter} onValueChange={(value) => onFilterChange(value as ActivityFilter)}>
         <TabsList>
           {ACTIVITY_FILTERS.map((id) => (
-            <TabsTrigger key={id} value={id} className="gap-1.5">
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="inline-flex items-center gap-1.5 text-xs font-medium"
+            >
               {intl.formatMessage({ id: FILTER_LABEL[id] })}
-              <span className="text-xs text-muted-foreground">{counts[id]}</span>
+              {id !== "all" && <span>{counts[id]}</span>}
             </TabsTrigger>
           ))}
         </TabsList>

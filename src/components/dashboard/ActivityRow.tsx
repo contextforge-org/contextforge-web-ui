@@ -28,14 +28,14 @@ export function ActivityRow({ item }: { item: ActivityItem }) {
       <Icon className={cn("mt-0.5 size-4 shrink-0", className)} aria-hidden />
       <span className="sr-only">{intl.formatMessage({ id: labelId })}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{item.title}</p>
-        <p className="text-sm text-muted-foreground">{item.description}</p>
+        <p className="text-xs text-foreground">{item.title}</p>
+        <p className="text-xxs font-medium text-muted-foreground">{item.description}</p>
       </div>
       {relative && (
         <time
           dateTime={item.timestamp}
           title={item.timestamp}
-          className="shrink-0 pt-0.5 text-xs text-muted-foreground"
+          className="shrink-0 text-xxs font-medium text-muted-foreground"
         >
           {relative}
         </time>

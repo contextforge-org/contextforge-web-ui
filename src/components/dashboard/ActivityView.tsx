@@ -83,19 +83,23 @@ export function ActivityView() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <ActivityFilters
-        filter={filter}
-        onFilterChange={setFilter}
-        counts={counts}
-        search={search}
-        onSearchChange={setSearch}
-      />
+    <div className="rounded-lg border border-border bg-card">
+      <div className="px-4 py-3">
+        <ActivityFilters
+          filter={filter}
+          onFilterChange={setFilter}
+          counts={counts}
+          search={search}
+          onSearchChange={setSearch}
+        />
+      </div>
       {visible.length === 0 ? (
-        <EmptyStatePlaceholder messageId="dashboard.home.activity.noMatches" />
+        <div className="border-t border-border px-4 py-8 text-sm text-muted-foreground">
+          {intl.formatMessage({ id: "dashboard.home.activity.noMatches" })}
+        </div>
       ) : (
         <ul
-          className="divide-y divide-border rounded-lg ring-1 ring-foreground/10"
+          className="divide-y divide-border border-t border-border"
           aria-label={intl.formatMessage({ id: "dashboard.home.card.activity" })}
         >
           {visible.map((item) => (
