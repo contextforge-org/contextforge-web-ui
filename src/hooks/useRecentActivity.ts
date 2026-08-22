@@ -17,7 +17,8 @@ export const RECENT_ACTIVITY_POLL_INTERVAL_MS = 30_000;
 interface UseRecentActivityResult {
   items: ActivityItem[];
   isLoading: boolean;
-  error: { message: string } | null;
+  /** The original error, so callers can inspect `ApiError.status` (e.g. 403). */
+  error: Error | null;
   refetch: () => Promise<void>;
 }
 
@@ -26,6 +27,8 @@ interface UseRecentActivityOptions {
   limit?: number;
   /** Polling cadence override. Pass 0 to disable. */
   pollIntervalMs?: number;
+  /** When false, no request is made and the feed stays empty. */
+  enabled?: boolean;
 }
 
 function isMockEnabled(): boolean {
@@ -33,12 +36,12 @@ function isMockEnabled(): boolean {
 }
 
 export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRecentActivityResult {
-  const { limit = 10, pollIntervalMs = RECENT_ACTIVITY_POLL_INTERVAL_MS } = options;
+  const { limit = 10, pollIntervalMs = RECENT_ACTIVITY_POLL_INTERVAL_MS, enabled = true } = options;
   const mock = isMockEnabled();
 
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<{ message: string } | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchOnce = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -58,8 +61,10 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
         setError(null);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "Failed to load recent activity";
-        setError({ message });
+        // Keep the original error rather than flattening it to { message }:
+        // ApiError carries the status, and `isPermissionDenied` needs the
+        // instance to tell a 403 from any other failure.
+        setError(err instanceof Error ? err : new Error("Failed to load recent activity"));
       } finally {
         setIsLoading(false);
       }
@@ -68,6 +73,13 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setItems([]);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     void fetchOnce(controller.signal);
 
@@ -83,12 +95,13 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
       controller.abort();
       window.clearInterval(intervalId);
     };
-  }, [fetchOnce, mock, pollIntervalMs]);
+  }, [fetchOnce, mock, pollIntervalMs, enabled]);
 
   const refetch = useCallback(async (): Promise<void> => {
+    if (!enabled) return;
     setIsLoading(true);
     await fetchOnce();
-  }, [fetchOnce]);
+  }, [fetchOnce, enabled]);
 
   return { items, isLoading, error, refetch };
 }
