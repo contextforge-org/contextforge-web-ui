@@ -140,6 +140,9 @@ export const serversApi = {
    *
    * Tries the stateless server/discover method (MCP 2026-07-28+) first and
    * falls back to a stateful initialize round-trip for earlier specs.
+   *
+   * Calls POST /v1/mcp-servers/test-handshake. Returns a structured
+   * GatewayHandshakeResponse describing the negotiation outcome.
    */
   testHandshake: (
     request: GatewayHandshakeRequest,
