@@ -111,6 +111,31 @@ describe("ALL /api/*", () => {
     expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
   });
 
+  it("keeps the /api prefix for /api/logs/*, which mcpgateway mounts under /api", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/api/logs/activity?limit=100",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Stripping the prefix here would forward /logs/activity, which 404s.
+    expect(lastRequest?.path).toBe("/api/logs/activity?limit=100");
+    expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
+  });
+
+  it("does not treat a non-logs path beginning with the same letters as /api-mounted", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    await app.fastify.inject({ method: "GET", url: "/api/logsearch", headers: { cookie } });
+
+    expect(lastRequest?.path).toBe("/logsearch");
+  });
+
   it("never lets the browser override the injected Authorization header", async () => {
     const app = await buildApp();
     const { cookie } = await seedSession(app);
