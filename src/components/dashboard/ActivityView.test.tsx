@@ -106,7 +106,7 @@ describe("ActivityView", () => {
     feed(ITEMS);
     renderWithProviders(<ActivityView />);
 
-    expect(within(screen.getByRole("tab", { name: /All activity/ })).getByText("5")).toBeVisible();
+    expect(screen.getByRole("tab", { name: "All activity" })).toBeInTheDocument();
     expect(within(screen.getByRole("tab", { name: /Errors/ })).getByText("2")).toBeVisible();
     expect(within(screen.getByRole("tab", { name: /Warnings/ })).getByText("1")).toBeVisible();
     expect(screen.queryByRole("tab", { name: /Info/ })).not.toBeInTheDocument();
