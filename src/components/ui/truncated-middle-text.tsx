@@ -23,8 +23,13 @@ export interface TruncatedMiddleTextProps {
  * it, wraps the result in a hover tooltip carrying the full value.
  *
  * Unlike `TruncatedText`, the full string never reaches the DOM here — it's
- * shortened before render — so `aria-label` is set explicitly to keep it
- * available to screen readers regardless of the tooltip's hover state.
+ * shortened before render — so a visually-hidden span carries the full value
+ * for screen readers regardless of the tooltip's hover state. This is
+ * deliberately *not* `aria-label`: values here are often arbitrary data (IDs,
+ * URI templates, ...) that can coincidentally contain words matching an
+ * unrelated label query elsewhere on the page, and `aria-label` would give
+ * this plain `<span>` an accessible name that generic label-based queries
+ * (`getByLabel`, `getByRole(..., { name })`) can match against.
  */
 export function TruncatedMiddleText({
   value,
@@ -36,8 +41,9 @@ export function TruncatedMiddleText({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={className} aria-label={isTruncated ? value : undefined}>
-          {display}
+        <span className={className}>
+          <span aria-hidden={isTruncated || undefined}>{display}</span>
+          {isTruncated && <span className="sr-only">{value}</span>}
         </span>
       </TooltipTrigger>
       {isTruncated && <TooltipContent>{value}</TooltipContent>}
