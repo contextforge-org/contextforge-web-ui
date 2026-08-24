@@ -603,7 +603,7 @@ export function VirtualServerDetailsPanel({
                                 value={identifier}
                                 label={intl.formatMessage(
                                   { id: "common.copyValue" },
-                                  { label: identifier },
+                                  { label: getComponentLabel(component.type) },
                                 )}
                                 className="size-5 text-muted-foreground"
                               />
@@ -674,10 +674,16 @@ export function VirtualServerDetailsPanel({
                     {server.version ?? intl.formatMessage({ id: "gateways.details.notAvailable" })}
                   </DetailRow>
                   <DetailRow label={intl.formatMessage({ id: "gateways.details.serverId" })}>
-                    <CopyValue label="server ID" value={server.id} />
+                    <CopyValue
+                      label={intl.formatMessage({ id: "gateways.details.serverIdCopyLabel" })}
+                      value={server.id}
+                    />
                   </DetailRow>
                   <DetailRow label={intl.formatMessage({ id: "gateways.details.url" })}>
-                    <CopyValue label="URL" value={endpoint} />
+                    <CopyValue
+                      label={intl.formatMessage({ id: "gateways.details.urlCopyLabel" })}
+                      value={endpoint}
+                    />
                   </DetailRow>
                   {(() => {
                     const tagLabels = tags.map((tag) => tag.label);

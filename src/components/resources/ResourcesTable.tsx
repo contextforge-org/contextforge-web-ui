@@ -82,7 +82,7 @@ export function ResourcesTable({
                   value={resource.uriTemplate || resource.uri}
                   label={intl.formatMessage(
                     { id: "resources.table.copyUri" },
-                    { uri: resource.uriTemplate || resource.uri },
+                    { name: resource.title || resource.name },
                   )}
                   iconClassName="size-3"
                   className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
@@ -97,7 +97,10 @@ export function ResourcesTable({
                 </span>
                 <CopyButton
                   value={resource.id}
-                  label={intl.formatMessage({ id: "resources.table.copyResourceId" })}
+                  label={intl.formatMessage(
+                    { id: "resources.table.copyResourceId" },
+                    { name: resource.title || resource.name },
+                  )}
                   iconClassName="size-3"
                   className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
                 />

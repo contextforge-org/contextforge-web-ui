@@ -272,7 +272,7 @@ describe("ToolSchemaDialog", () => {
     });
   });
 
-  it("closes on a single Escape press instead of dismissing a copy button tooltip first", async () => {
+  it("closes on a single Escape press", async () => {
     const user = userEvent.setup();
     const tool = createMockTool();
     render(<ToolSchemaDialog tool={tool} open={true} onOpenChange={mockOnOpenChange} />);

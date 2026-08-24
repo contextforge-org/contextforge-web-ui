@@ -132,6 +132,7 @@
   "gateways.details.lastModified": "Last modified",
   "gateways.details.copyLabel": "Copy {label}",
   "gateways.details.serverIdCopyLabel": "server ID",
+  "gateways.details.urlCopyLabel": "URL",
   "gateways.details.actionsFor": "Actions for {name}",
   "gateways.details.notAvailable": "N/A",
   "gateways.details.tagFallback": "Tag"

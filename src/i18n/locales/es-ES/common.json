@@ -11,6 +11,7 @@
   "common.button.back": "Volver",
   "common.button.submitting": "Enviando...",
   "common.copyValue": "Copiar {label}",
+  "common.copyCode": "Copiar código",
   "common.copied": "¡Copiado!",
   "common.copyFailed": "Error al copiar",
   "common.loading": "Cargando...",

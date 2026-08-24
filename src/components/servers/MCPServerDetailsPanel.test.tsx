@@ -817,11 +817,12 @@ describe("MCPServerDetailsPanel", () => {
         />,
       );
 
-      // A titled tool copies via its title label; an untitled one via its identifier.
+      // A titled tool copies via its title label; an untitled one via the
+      // component-type noun (its identifier is a raw value, not a name).
       await user.click(await screen.findByRole("button", { name: "Copy Tool One" }));
       expect(copyToClipboard).toHaveBeenCalledWith("original_tool_1");
 
-      await user.click(screen.getByRole("button", { name: "Copy original_tool_2" }));
+      await user.click(screen.getByRole("button", { name: "Copy tool" }));
       expect(copyToClipboard).toHaveBeenCalledWith("original_tool_2");
     });
 

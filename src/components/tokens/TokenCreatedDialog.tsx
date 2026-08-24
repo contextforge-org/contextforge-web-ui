@@ -44,13 +44,6 @@ export function TokenCreatedDialog({ token, onClose, returnFocusRef }: TokenCrea
     >
       <DialogContent
         className="gap-6 sm:max-w-xl"
-        onOpenAutoFocus={(event) => {
-          // Radix would otherwise auto-focus the first focusable descendant,
-          // the copy button — whose tooltip opens on focus and would eat the
-          // first Escape press instead of the dialog. Focus Close instead.
-          event.preventDefault();
-          closeButtonRef.current?.focus();
-        }}
         onCloseAutoFocus={(event) => {
           const target = returnFocusRef?.current;
           if (!target) return; // No target: leave Radix's default restore alone.

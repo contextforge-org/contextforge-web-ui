@@ -11,6 +11,7 @@
   "common.button.back": "Back",
   "common.button.submitting": "Submitting...",
   "common.copyValue": "Copy {label}",
+  "common.copyCode": "Copy code",
   "common.copied": "Copied!",
   "common.copyFailed": "Copy failed",
   "common.loading": "Loading...",

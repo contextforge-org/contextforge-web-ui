@@ -43,6 +43,8 @@
   "mcpServer.table.components.resources": "{count, plural, one {# resource} other {# resources}}",
   "mcpServer.table.components.prompts": "{count, plural, one {# prompt} other {# prompts}}",
   "mcpServer.table.copyUuid": "Copy UUID for {name}",
+  "mcpServer.details.uuid": "UUID",
+  "mcpServer.details.url": "URL",
   "mcpServer.table.actions.label": "Actions for {name}",
   "mcpServer.table.actions.openMenu": "Open menu for {name}",
   "mcpServer.table.actions.viewDetails": "View details",

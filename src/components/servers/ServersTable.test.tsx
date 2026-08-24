@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ServersTable } from "./ServersTable";
@@ -36,6 +36,10 @@ const noop = vi.fn();
 describe("ServersTable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   // ── Loading state ────────────────────────────────────────────────────────────
@@ -200,9 +204,7 @@ describe("ServersTable", () => {
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
-
-    vi.useRealTimers();
+    expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
   it("shows a failed indicator instead of throwing when copying to the clipboard fails", async () => {

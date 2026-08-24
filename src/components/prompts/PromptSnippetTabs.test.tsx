@@ -81,7 +81,7 @@ describe("PromptSnippetTabs", () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain("curl -X POST");
     expect(writeText.mock.calls[0][0]).toContain('"user":"Alice"');
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Copied!");
+    expect(screen.getByRole("status")).toHaveTextContent("Copied!");
   });
 
   it("rebuilds the snippet when args change", () => {

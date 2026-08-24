@@ -666,9 +666,13 @@ describe("ToolForm", () => {
 
       expect(writeTextMock).toHaveBeenCalledWith('{\n  "type": "string"\n}');
 
-      // Wait for the copied confirmation to appear
+      // Wait for the copied confirmation to appear. Both the input- and
+      // output-schema copy buttons mount their own status region, so find
+      // the one that actually announces "Copied!" rather than assuming
+      // there's only one on the page.
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent("Copied!");
+        const statuses = screen.getAllByRole("status");
+        expect(statuses.some((el) => el.textContent === "Copied!")).toBe(true);
       });
 
       // Restore clipboard
