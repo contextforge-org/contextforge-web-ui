@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolPreviewResult } from "./ToolPreviewResult";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
+import type { ToolPreviewResponse } from "@/api/tools";
+import { TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES } from "./toolResultContent";
 
 function previewProps(
   overrides: Partial<Pick<ToolPreviewState, "result" | "error" | "hasRun">>,
@@ -23,7 +26,7 @@ describe("ToolPreviewResult", () => {
   });
 
   it("renders status, warnings, resolved arguments, and raw response for success", () => {
-    render(
+    const { container } = render(
       <ToolPreviewResult
         preview={previewProps({
           hasRun: true,
@@ -33,6 +36,7 @@ describe("ToolPreviewResult", () => {
             preview: {
               target: { kind: "federated", gateway_name: "github" },
               resolved_arguments: { query: "cloudflare" },
+              content: [{ type: "text", text: "found issue", mimeType: "text/plain" }],
               warnings: [{ code: "elicitation_skipped", message: "approval skipped" }],
             },
           },
@@ -45,8 +49,12 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("federated: github")).toBeInTheDocument();
     expect(screen.getByText("Warnings")).toBeInTheDocument();
     expect(screen.getByText("approval skipped")).toBeInTheDocument();
+    expect(screen.getByText("Tool result")).toBeInTheDocument();
+    expect(screen.getByText("found issue")).toBeInTheDocument();
     expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
     expect(screen.getByText("Raw preview response")).toBeInTheDocument();
+    expect(screen.getByLabelText("Copy raw preview response")).toBeVisible();
+    expect(container.textContent).toContain('"resolved_arguments"');
   });
 
   it("renders API failures", () => {
@@ -84,6 +92,100 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("schema_defaulted")).toBeInTheDocument();
     expect(screen.getByText("Preview returned a warning")).toBeInTheDocument();
     expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+  });
+
+  it("renders elicitation skipped warnings without backend messages", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: {
+              target: "local",
+              warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Live invocation may request user input; preview skipped approval_hook."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders localized fallback hook labels for elicitation warnings", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: {
+              warnings: [{ code: "elicitation_skipped" }],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Live invocation may request user input; preview skipped one or more hooks.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps large raw responses collapsed until requested", async () => {
+    const user = userEvent.setup();
+    const marker = "hidden raw marker";
+    const preview = {
+      debug: `${"x".repeat(TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES)} ${marker}`,
+    } as unknown as ToolPreviewResponse;
+    const { container } = render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Large content hidden/)).toBeInTheDocument();
+    expect(container.textContent).not.toContain(marker);
+
+    await user.click(screen.getByRole("button", { name: "View all" }));
+
+    expect(container.textContent).toContain(marker);
+  });
+
+  it("renders tool error results without treating the HTTP request as failed", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 5,
+            preview: {
+              content: [{ type: "text", text: "tool failed", mimeType: "text/plain" }],
+              isError: true,
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Preview 200")).toBeInTheDocument();
+    expect(screen.getByText("Error response")).toBeInTheDocument();
+    expect(screen.getByText("tool failed")).toBeInTheDocument();
   });
 
   it("renders generic failures without an HTTP status", () => {
