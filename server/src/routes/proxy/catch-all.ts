@@ -39,6 +39,13 @@ function toUpstreamPath(wildcard: string): string {
     : `/${wildcard}`;
 }
 
+/** Inverse of toUpstreamPath: upstream path -> browser `/api/*` path. */
+function toBrowserPath(upstreamPath: string): string {
+  return UPSTREAM_API_PREFIXES.some((prefix) => upstreamPath.startsWith(`/api/${prefix}`))
+    ? upstreamPath
+    : `/api${upstreamPath}`;
+}
+
 // Inbound headers that must never reach upstream verbatim: bff_sid/bff_csrf
 // (Cookie) are BFF-only secrets; the rest are infra/auth headers mcpgateway
 // trusts for request-URL construction (Forwarded/X-Forwarded-*, including
@@ -90,7 +97,7 @@ function rewriteUpstreamLocation(
     return rest;
   }
   const upstreamPath = location.slice(config.contextforgeUrl.length);
-  return { ...rest, location: `/api${upstreamPath}` };
+  return { ...rest, location: toBrowserPath(upstreamPath) };
 }
 
 // fastify.csrfProtection is callback-style (request, reply, done), not
