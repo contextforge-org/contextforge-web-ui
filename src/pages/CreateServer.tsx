@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { api, ApiError } from "@/api/client";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
@@ -320,7 +321,7 @@ function ComponentCheckboxRow({
         }
         aria-label={`Select ${label}`}
       />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">{label}</span>
+      <TruncatedText className="min-w-0 flex-1 text-sm text-foreground">{label}</TruncatedText>
     </label>
   );
 }
@@ -435,7 +436,9 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
           <span className="flex size-7 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
             <MCPIcon className="size-4 [&_path]:fill-current" />
           </span>
-          <span className="min-w-0 flex-1 truncate font-medium text-foreground">{server.name}</span>
+          <TruncatedText className="min-w-0 flex-1 font-medium text-foreground">
+            {server.name}
+          </TruncatedText>
           <span className="hidden shrink-0 items-center gap-3 sm:flex">
             <ComponentCount
               icon={Wrench}

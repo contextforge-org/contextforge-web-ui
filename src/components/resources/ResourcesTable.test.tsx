@@ -228,17 +228,33 @@ describe("ResourcesTable", () => {
     expect(rows.length).toBeGreaterThan(1); // Header row + data rows
   });
 
-  it("truncates a very long resource name to a single line instead of overflowing the table", () => {
+  it("truncates a very long resource name to a single line instead of overflowing the table", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      value: 100,
+    });
+
+    const user = userEvent.setup();
     const longTitle =
       "This is a very long resource title that should be truncated to one line, not wrapped or overflowed";
     const resources = [createMockResource(1, { title: longTitle })];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
+    // The button's accessible name is computed from its full text content
+    // regardless of CSS truncation, so `getByRole` still matches on longTitle.
     const nameButton = screen.getByRole("button", { name: longTitle });
     expect(nameButton).toHaveClass("truncate");
-    // The full name stays available (e.g. via native tooltip) even though
-    // it's visually clipped.
-    expect(nameButton).toHaveAttribute("title", longTitle);
+
+    // The full name stays available via a hover tooltip (not a native
+    // `title`, which doesn't satisfy WCAG 1.4.13) even though it's visually
+    // clipped.
+    expect(nameButton).not.toHaveAttribute("title");
+    await user.hover(nameButton);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(longTitle);
 
     // table-fixed + a percentage column width is what actually stops an
     // unbreakable long name from forcing the whole table to scroll — a

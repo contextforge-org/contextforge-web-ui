@@ -18,7 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { truncateMiddle } from "@/components/gateways/utils";
+import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 
 export interface PromptDefinitionTableProps {
   prompts: NonNullable<PromptRead>[];
@@ -67,21 +68,24 @@ export function PromptDefinitionTable({
             className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
-              <button
-                type="button"
-                onClick={() => onSelectPrompt(prompt)}
-                className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                title={prompt.displayName || prompt.name}
-              >
-                {prompt.displayName || prompt.name}
-              </button>
+              <TruncatedText asChild tooltipContent={prompt.displayName || prompt.name}>
+                <button
+                  type="button"
+                  onClick={() => onSelectPrompt(prompt)}
+                  className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {prompt.displayName || prompt.name}
+                </button>
+              </TruncatedText>
             </TableCell>
 
             <TableCell className="px-4 py-3">
               <div className="group flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                  {truncateMiddle(prompt.id, 40)}
-                </span>
+                <TruncatedMiddleText
+                  value={prompt.id}
+                  maxLength={40}
+                  className="min-w-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground"
+                />
                 <CopyButton
                   value={prompt.id}
                   label={intl.formatMessage(

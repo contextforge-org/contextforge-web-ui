@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { IntlProvider } from "react-intl";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { UsersTable } from "./UsersTable";
 import type { User } from "../../types/user";
 
@@ -35,7 +36,7 @@ const mockIntl = {
 const renderWithIntl = (component: React.ReactNode) => {
   return render(
     <IntlProvider locale={mockIntl.locale} messages={mockIntl.messages}>
-      {component}
+      <TooltipProvider>{component}</TooltipProvider>
     </IntlProvider>,
   );
 };

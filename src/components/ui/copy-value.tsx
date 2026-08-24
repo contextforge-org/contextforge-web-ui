@@ -1,7 +1,7 @@
 import { useIntl } from "react-intl";
 
 import { CopyButton } from "@/components/ui/copy-button";
-import { truncateMiddle } from "@/components/gateways/utils";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 
 export interface CopyValueProps {
   /** Human-readable name of the value, used to build the copy button's accessible label. */
@@ -23,7 +23,7 @@ export function CopyValue({ label, value }: CopyValueProps) {
   const intl = useIntl();
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="min-w-0 flex-1 truncate font-mono text-[12px]">{truncateMiddle(value)}</span>
+      <TruncatedMiddleText value={value} className="min-w-0 flex-1 font-mono text-[12px]" />
       <CopyButton
         value={value}
         label={intl.formatMessage({ id: "common.copyValue" }, { label })}

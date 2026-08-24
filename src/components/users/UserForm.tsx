@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { useUserForm } from "@/hooks/useUserForm";
 import { PasswordInput } from "./PasswordInput";
 import type { CreateUserRequest, UpdateUserRequest, User as UserType } from "@/types/user";
@@ -173,7 +174,7 @@ export function UserForm({
                     title={intl.formatMessage({ id: "users.form.email.readonly" })}
                     aria-disabled="true"
                   >
-                    <span className="truncate">{user?.email}</span>
+                    <TruncatedText>{user?.email}</TruncatedText>
                     <Lock
                       className="h-4 w-4 shrink-0 text-neutral-400 dark:text-neutral-500"
                       aria-hidden="true"

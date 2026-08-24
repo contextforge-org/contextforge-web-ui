@@ -23,6 +23,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { CopyValue } from "@/components/ui/copy-value";
 import { Input } from "@/components/ui/input";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
@@ -336,12 +337,12 @@ export function MCPServerDetailsPanel({
                   </span>
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span
+                      <TruncatedText
                         aria-hidden="true"
-                        className="truncate text-xl font-semibold text-foreground"
+                        className="text-xl font-semibold text-foreground"
                       >
                         {server.name}
-                      </span>
+                      </TruncatedText>
                     </div>
                   </div>
                 </div>
@@ -483,11 +484,11 @@ export function MCPServerDetailsPanel({
                             </Badge>
                             {title ? (
                               <>
-                                <span className="min-w-0 truncate text-muted-foreground">
+                                <TruncatedText className="min-w-0 text-muted-foreground">
                                   {title}
-                                </span>
+                                </TruncatedText>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <span className="truncate">{identifier}</span>
+                                  <TruncatedText>{identifier}</TruncatedText>
                                   <CopyButton
                                     value={identifier}
                                     label={intl.formatMessage(
@@ -501,7 +502,7 @@ export function MCPServerDetailsPanel({
                             ) : (
                               <>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <span className="truncate">{identifier}</span>
+                                  <TruncatedText>{identifier}</TruncatedText>
                                   <CopyButton
                                     value={identifier}
                                     label={intl.formatMessage(

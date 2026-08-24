@@ -12,6 +12,7 @@ import { Input } from "../ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
@@ -406,9 +407,13 @@ export function HeaderQuickNav() {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => handleResultSelect(group.entity_type, item)}
               >
-                <span className="truncate text-sm font-medium text-foreground">{item.name}</span>
+                <TruncatedText className="w-full text-sm font-medium text-foreground">
+                  {item.name}
+                </TruncatedText>
                 {item.summary && item.summary !== item.name ? (
-                  <span className="truncate text-xs text-muted-foreground">{item.summary}</span>
+                  <TruncatedText className="w-full text-xs text-muted-foreground">
+                    {item.summary}
+                  </TruncatedText>
                 ) : null}
               </Button>
             );
