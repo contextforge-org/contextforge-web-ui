@@ -140,7 +140,7 @@ describe("VirtualServerDetailsPanel components list", () => {
 
     await screen.findByText("Titled Tool");
 
-    await user.click(screen.getByRole("button", { name: "Copy Titled Tool" }));
+    await user.click(screen.getByRole("button", { name: "Copy tool name for Titled Tool" }));
     expect(copyToClipboard).toHaveBeenCalledWith("titled-tool-id");
 
     // The untitled row has no separate name to reference, so its copy label

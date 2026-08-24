@@ -588,8 +588,8 @@ export function VirtualServerDetailsPanel({
                               <CopyButton
                                 value={identifier}
                                 label={intl.formatMessage(
-                                  { id: "common.copyValue" },
-                                  { label: title },
+                                  { id: `gateways.details.component.copyName.${component.type}` },
+                                  { name: title },
                                 )}
                                 className="size-5 text-muted-foreground"
                               />

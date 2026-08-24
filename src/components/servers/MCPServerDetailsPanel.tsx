@@ -265,6 +265,12 @@ export function MCPServerDetailsPanel({
 
   const intl = useIntl();
 
+  const getComponentLabel = useCallback(
+    (type: Exclude<ComponentTab, "all">) =>
+      intl.formatMessage({ id: `mcpServer.details.component.${type}` }),
+    [intl],
+  );
+
   const getVisibilityLabel = useCallback(
     (value?: string) => {
       if (value === "team") return intl.formatMessage({ id: "common.visibility.team" });
@@ -479,7 +485,7 @@ export function MCPServerDetailsPanel({
                               <span className="mr-1.5 inline-flex">
                                 {getComponentIcon(component.type)}
                               </span>
-                              {component.type.slice(0, -1)}
+                              {getComponentLabel(component.type)}
                             </Badge>
                             {title ? (
                               <>
@@ -491,8 +497,10 @@ export function MCPServerDetailsPanel({
                                   <CopyButton
                                     value={identifier}
                                     label={intl.formatMessage(
-                                      { id: "common.copyValue" },
-                                      { label: title },
+                                      {
+                                        id: `mcpServer.details.component.copyName.${component.type}`,
+                                      },
+                                      { name: title },
                                     )}
                                     className="size-5 text-muted-foreground"
                                   />
@@ -506,7 +514,7 @@ export function MCPServerDetailsPanel({
                                     value={identifier}
                                     label={intl.formatMessage(
                                       { id: "common.copyValue" },
-                                      { label: component.type.slice(0, -1) },
+                                      { label: getComponentLabel(component.type) },
                                     )}
                                     className="size-5 text-muted-foreground"
                                   />
