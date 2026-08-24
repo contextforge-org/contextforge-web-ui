@@ -57,25 +57,22 @@ export function ResourcesTable({
           <TableRow
             key={resource.id}
             data-state={selectedResourceId === resource.id ? "selected" : undefined}
-            onClick={() => onSelectResource(resource)}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelectResource(resource);
-              }
-            }}
-            className="cursor-pointer border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
+            className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
-              <span className="block truncate" title={resource.title || resource.name}>
+              <button
+                type="button"
+                onClick={() => onSelectResource(resource)}
+                className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                title={resource.title || resource.name}
+              >
                 {resource.title || resource.name}
-              </span>
+              </button>
             </TableCell>
 
             <TableCell className="px-4 py-3">
-              <div className="flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+              <div className="group flex min-w-0 items-center">
+                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                   {truncateMiddle(resource.uriTemplate || resource.uri, 28)}
                 </span>
                 <CopyButton
@@ -85,21 +82,21 @@ export function ResourcesTable({
                     { uri: resource.uriTemplate || resource.uri },
                   )}
                   iconClassName="size-3"
-                  className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
+                  className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                 />
               </div>
             </TableCell>
 
             <TableCell className="px-4 py-3">
-              <div className="flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+              <div className="group flex min-w-0 items-center">
+                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                   {truncateMiddle(resource.id, 18)}
                 </span>
                 <CopyButton
                   value={resource.id}
                   label={intl.formatMessage({ id: "resources.table.copyResourceId" })}
                   iconClassName="size-3"
-                  className="ml-4 size-4 shrink-0 text-muted-foreground hover:text-foreground"
+                  className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                 />
               </div>
             </TableCell>
@@ -116,31 +113,20 @@ export function ResourcesTable({
                         { id: "resources.table.moreOptionsFor" },
                         { name: resource.title || resource.name },
                       )}
-                      className="size-5 text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
+                      className="size-5 text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <MoreHorizontal className="size-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {onEditResource && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditResource(resource);
-                        }}
-                      >
+                      <DropdownMenuItem onClick={() => onEditResource(resource)}>
                         {intl.formatMessage({ id: "resources.table.edit" })}
                       </DropdownMenuItem>
                     )}
                     {onToggleResource && (
                       <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleResource(resource.id, resource.enabled ?? true);
-                        }}
+                        onClick={() => onToggleResource(resource.id, resource.enabled ?? true)}
                         aria-label={intl.formatMessage(
                           {
                             id: resource.enabled
@@ -156,12 +142,7 @@ export function ResourcesTable({
                       </DropdownMenuItem>
                     )}
                     {onDeleteResource && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteResource(resource.id);
-                        }}
-                      >
+                      <DropdownMenuItem onClick={() => onDeleteResource(resource.id)}>
                         {intl.formatMessage({ id: "resources.table.delete" })}
                       </DropdownMenuItem>
                     )}
@@ -176,10 +157,7 @@ export function ResourcesTable({
                     { id: "resources.table.moreOptionsFor" },
                     { name: resource.title || resource.name },
                   )}
-                  className="size-5 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
+                  className="size-5 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <MoreHorizontal className="size-4" />
                 </Button>

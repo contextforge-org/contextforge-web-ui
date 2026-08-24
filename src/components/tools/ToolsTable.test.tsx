@@ -111,18 +111,13 @@ describe("ToolsTable", () => {
     expect(idCell).toBeInTheDocument();
   });
 
-  it("calls onSelectTool when row is clicked", async () => {
+  it("calls onSelectTool when the name is clicked", async () => {
     const user = userEvent.setup();
     const tools = [createMockTool(1)];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
-    const row = screen.getByText("Display Name 1").closest("tr");
-    expect(row).toBeInTheDocument();
-
-    if (row) {
-      await user.click(row);
-      expect(mockOnSelectTool).toHaveBeenCalledWith(tools[0]);
-    }
+    await user.click(screen.getByRole("button", { name: "Display Name 1" }));
+    expect(mockOnSelectTool).toHaveBeenCalledWith(tools[0]);
   });
 
   it("highlights selected tool row", () => {
@@ -288,12 +283,15 @@ describe("ToolsTable", () => {
     expect(screen.getByText("tool_b")).toBeInTheDocument();
   });
 
-  it("applies cursor-pointer class to rows", () => {
+  it("underlines the name button on hover instead of the whole row being clickable", () => {
     const tools = [createMockTool(1)];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
+    const nameButton = screen.getByRole("button", { name: "Display Name 1" });
+    expect(nameButton).toHaveClass("hover:underline");
+
     const row = screen.getByText("Display Name 1").closest("tr");
-    expect(row).toHaveClass("cursor-pointer");
+    expect(row).not.toHaveClass("cursor-pointer");
   });
 
   it("renders table with proper ARIA structure", () => {
@@ -316,10 +314,9 @@ describe("ToolsTable", () => {
     const tools = [createMockTool(1, { displayName: longName })];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
-    const displayName = screen.getByText(longName);
-    const span = displayName.closest("span");
-    expect(span).toHaveClass("truncate");
-    expect(span).toHaveAttribute("title", longName);
+    const nameButton = screen.getByRole("button", { name: longName });
+    expect(nameButton).toHaveClass("truncate");
+    expect(nameButton).toHaveAttribute("title", longName);
 
     // table-fixed + a percentage column width is what actually stops an
     // unbreakable long name from forcing the whole table to scroll.
