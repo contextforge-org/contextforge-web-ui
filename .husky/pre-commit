@@ -1,1 +1,1 @@
-.husky/_/pre-commit
+npx lint-staged
