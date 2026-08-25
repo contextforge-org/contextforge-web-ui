@@ -164,7 +164,7 @@ describe("ResourcesTable", () => {
     const resources = [createMockResource(1, { uri: "resource://my-uri" })];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const copyButton = screen.getByLabelText("Copy resource://my-uri");
+    const copyButton = screen.getByLabelText("Copy URI for Resource 1 Title");
     await user.click(copyButton);
 
     expect(clipboardUtils.copyToClipboard).toHaveBeenCalledWith("resource://my-uri");
@@ -175,7 +175,7 @@ describe("ResourcesTable", () => {
     const resources = [createMockResource(1)];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const copyButton = screen.getByLabelText(/^Copy resource:\/\//);
+    const copyButton = screen.getByLabelText(/^Copy URI for/);
     await user.click(copyButton);
 
     expect(mockOnSelectResource).not.toHaveBeenCalled();
@@ -186,7 +186,7 @@ describe("ResourcesTable", () => {
     const resources = [createMockResource(1, { id: "resource-abc-123" })];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    const copyButton = screen.getByLabelText("Copy resource ID");
+    const copyButton = screen.getByLabelText("Copy resource ID for Resource 1 Title");
     await user.click(copyButton);
 
     expect(clipboardUtils.copyToClipboard).toHaveBeenCalledWith("resource-abc-123");

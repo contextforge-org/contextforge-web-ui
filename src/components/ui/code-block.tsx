@@ -1,4 +1,5 @@
 import { Highlight, themes, type Language } from "prism-react-renderer";
+import { useIntl } from "react-intl";
 
 import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
@@ -8,12 +9,10 @@ export type CodeBlockLanguage = "bash" | "json" | "python" | "tsx" | "markdown" 
 export interface CodeBlockProps {
   code: string;
   language: CodeBlockLanguage;
-  /** Label for the Copy button, used as both its aria-label and idle tooltip. */
+  /** Accessible label for the Copy button. Defaults to a generic "Copy code". */
   copyLabel?: string;
   /** Hide the built-in Copy affordance. */
   hideCopy?: boolean;
-  /** aria-label fallback when `copyLabel` is not supplied. */
-  copyAriaLabel?: string;
   className?: string;
   /** Pre-element padding override (defaults to p-4). */
   padding?: string;
@@ -45,12 +44,12 @@ export function CodeBlock({
   language,
   copyLabel,
   hideCopy = false,
-  copyAriaLabel,
   className,
   padding = "p-4",
 }: CodeBlockProps) {
+  const intl = useIntl();
   const prismLanguage = TOKEN_LANGUAGE[language];
-  const ariaLabel = copyLabel ?? copyAriaLabel ?? "Copy code";
+  const ariaLabel = copyLabel ?? intl.formatMessage({ id: "common.copyCode" });
 
   return (
     <div className={cn("relative", className)}>

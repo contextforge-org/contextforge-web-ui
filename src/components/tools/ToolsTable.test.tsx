@@ -165,7 +165,7 @@ describe("ToolsTable", () => {
     const tools = [createMockTool(1)];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
-    const copyButton = screen.getByLabelText("Copy tool ID");
+    const copyButton = screen.getByLabelText("Copy tool ID for Display Name 1");
     expect(copyButton).toBeInTheDocument();
   });
 
@@ -174,7 +174,7 @@ describe("ToolsTable", () => {
     const tools = [createMockTool(1, { id: "tool-abc-123" })];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
-    const copyButtons = screen.getAllByLabelText("Copy tool ID");
+    const copyButtons = screen.getAllByLabelText("Copy tool ID for Display Name 1");
     await user.click(copyButtons[0]);
 
     expect(gatewayUtils.copyToClipboard).toHaveBeenCalledWith("tool-abc-123");

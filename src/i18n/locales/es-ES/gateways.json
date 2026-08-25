@@ -113,6 +113,9 @@
   "gateways.details.component.tools": "herramienta",
   "gateways.details.component.resources": "recurso",
   "gateways.details.component.prompts": "prompt",
+  "gateways.details.component.copyName.tools": "Copiar nombre de la herramienta de {name}",
+  "gateways.details.component.copyName.resources": "Copiar URI de {name}",
+  "gateways.details.component.copyName.prompts": "Copiar nombre del prompt de {name}",
   "gateways.details.noComponentsFound": "No se encontraron componentes.",
   "gateways.details.noFilteredComponentsFound": "No se encontraron {filter}.",
   "gateways.details.close": "Cerrar detalles del servidor virtual",
@@ -132,6 +135,7 @@
   "gateways.details.lastModified": "Última modificación",
   "gateways.details.copyLabel": "Copiar {label}",
   "gateways.details.serverIdCopyLabel": "ID del servidor",
+  "gateways.details.urlCopyLabel": "URL",
   "gateways.details.actionsFor": "Acciones para {name}",
   "gateways.details.notAvailable": "N/D",
   "gateways.details.tagFallback": "Etiqueta"

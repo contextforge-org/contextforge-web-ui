@@ -50,6 +50,7 @@ function SchemaSection({
 }
 
 export function ToolSchemaDialog({ tool, open, onOpenChange }: ToolSchemaDialogProps) {
+  const intl = useIntl();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -58,8 +59,8 @@ export function ToolSchemaDialog({ tool, open, onOpenChange }: ToolSchemaDialogP
         className="max-w-2xl"
         onOpenAutoFocus={(event) => {
           // Radix would otherwise auto-focus the first focusable descendant,
-          // a schema copy button — whose tooltip opens on focus and would eat
-          // the first Escape press instead of the dialog. Focus Close instead.
+          // a schema copy button buried below the input/output JSON. Close is
+          // the more useful place to land in a dialog that's mostly read-only.
           event.preventDefault();
           closeButtonRef.current?.focus();
         }}
@@ -80,8 +81,14 @@ export function ToolSchemaDialog({ tool, open, onOpenChange }: ToolSchemaDialogP
         </DialogHeader>
 
         <div className="space-y-6">
-          <SchemaSection title="Input" schema={tool?.inputSchema} />
-          <SchemaSection title="Output" schema={tool?.outputSchema} />
+          <SchemaSection
+            title={intl.formatMessage({ id: "tools.schemaDialog.input" })}
+            schema={tool?.inputSchema}
+          />
+          <SchemaSection
+            title={intl.formatMessage({ id: "tools.schemaDialog.output" })}
+            schema={tool?.outputSchema}
+          />
         </div>
 
         <DialogFooter>

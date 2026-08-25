@@ -163,7 +163,13 @@ function ResourceContentPreview({
       <CodeBlock
         code={content.text ?? ""}
         language={codeLanguageFor(mimeType)}
-        copyLabel={mimeType || "content"}
+        copyLabel={intl.formatMessage(
+          { id: "common.copyValue" },
+          {
+            label:
+              mimeType || intl.formatMessage({ id: "resources.details.preview.contentFallback" }),
+          },
+        )}
       />
     );
   }

@@ -111,7 +111,10 @@ export function ToolsTable({
                   />
                   <CopyButton
                     value={tool.id}
-                    label={intl.formatMessage({ id: "tools.table.copyToolId" })}
+                    label={intl.formatMessage(
+                      { id: "tools.table.copyToolId" },
+                      { name: tool.displayName || tool.title || tool.name },
+                    )}
                     iconClassName="size-3"
                     className="ml-4 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                   />

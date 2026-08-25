@@ -10,13 +10,13 @@ describe("CodeBlock", () => {
     expect(screen.getByText('"a"')).toBeInTheDocument();
   });
 
-  it("copies the code to the clipboard and shows the copied tooltip when the copy button is clicked", async () => {
+  it("copies the code to the clipboard and announces the copied status when the copy button is clicked", async () => {
     const user = userEvent.setup();
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     render(<CodeBlock code="hello world" language="bash" copyLabel="bash" />);
     await user.click(screen.getByRole("button", { name: /bash/i }));
     expect(writeText).toHaveBeenCalledWith("hello world");
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Copied!");
+    expect(screen.getByRole("status")).toHaveTextContent("Copied!");
   });
 
   it("hides the copy button when hideCopy is set", () => {

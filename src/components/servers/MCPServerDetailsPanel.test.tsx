@@ -817,11 +817,12 @@ describe("MCPServerDetailsPanel", () => {
         />,
       );
 
-      // A titled tool copies via its title label; an untitled one via its identifier.
-      await user.click(await screen.findByRole("button", { name: "Copy Tool One" }));
+      // A titled tool copies via a "tool name for {title}" label; an untitled
+      // one via the component-type noun (its identifier is a raw value, not a name).
+      await user.click(await screen.findByRole("button", { name: "Copy tool name for Tool One" }));
       expect(copyToClipboard).toHaveBeenCalledWith("original_tool_1");
 
-      await user.click(screen.getByRole("button", { name: "Copy original_tool_2" }));
+      await user.click(screen.getByRole("button", { name: "Copy tool" }));
       expect(copyToClipboard).toHaveBeenCalledWith("original_tool_2");
     });
 
@@ -836,7 +837,7 @@ describe("MCPServerDetailsPanel", () => {
           initialTab="components"
         />,
       );
-      await screen.findByRole("button", { name: "Copy Tool One" });
+      await screen.findByRole("button", { name: "Copy tool name for Tool One" });
 
       const allTab = screen.getByRole("tab", { name: "All" });
       allTab.focus();
@@ -926,7 +927,7 @@ describe("MCPServerDetailsPanel", () => {
           initialTab="components"
         />,
       );
-      await screen.findByRole("button", { name: "Copy Tool One" });
+      await screen.findByRole("button", { name: "Copy tool name for Tool One" });
 
       const searchBox = screen.getByRole("searchbox");
       await user.click(searchBox);

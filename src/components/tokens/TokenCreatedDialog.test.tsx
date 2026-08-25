@@ -79,6 +79,12 @@ describe("TokenCreatedDialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("auto-focuses the copy button on open (no redirect needed without a hover tooltip)", async () => {
+    renderWithProviders(<TokenCreatedDialog token="raw-secret-123" onClose={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /copy/i })).toHaveFocus());
+  });
+
   it("calls copyToClipboard with the token when the copy button is clicked", () => {
     renderWithProviders(<TokenCreatedDialog token="raw-secret-123" onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /copy/i }));

@@ -112,13 +112,15 @@ describe("PromptCodeTab", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /re-run/i })).toBeInTheDocument(),
     );
-    // Status row is announced live once the run completes.
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    // Status row is announced live once the run completes. (Copy buttons on
+    // the page also mount a plain, unlabelled `role="status"` region, so
+    // disambiguate on `aria-live`, which only the preview status row sets.)
+    expect(document.querySelector('[role="status"][aria-live="polite"]')).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Python" }));
 
     expect(screen.getByRole("button", { name: /^preview$/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /re-run/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(document.querySelector('[role="status"][aria-live="polite"]')).not.toBeInTheDocument();
   });
 });

@@ -140,10 +140,12 @@ describe("VirtualServerDetailsPanel components list", () => {
 
     await screen.findByText("Titled Tool");
 
-    await user.click(screen.getByRole("button", { name: "Copy Titled Tool" }));
+    await user.click(screen.getByRole("button", { name: "Copy tool name for Titled Tool" }));
     expect(copyToClipboard).toHaveBeenCalledWith("titled-tool-id");
 
-    await user.click(screen.getByRole("button", { name: "Copy Plain Tool" }));
+    // The untitled row has no separate name to reference, so its copy label
+    // uses the component-type noun rather than the raw identifier value.
+    await user.click(screen.getByRole("button", { name: "Copy tool" }));
     expect(copyToClipboard).toHaveBeenCalledWith("Plain Tool");
   });
 
