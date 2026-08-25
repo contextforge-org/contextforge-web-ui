@@ -35,6 +35,13 @@ beforeAll(async () => {
         res.end();
         return;
       }
+      // Same redirect on an /api-mounted route, where the Location already
+      // carries the prefix.
+      if (req.url === "/api/logs/activity/") {
+        res.writeHead(307, { location: `${upstreamOrigin}/api/logs/activity` });
+        res.end();
+        return;
+      }
       // Simulates an expired/invalid bearer token — FastAPI's real
       // rbac middleware rejects with 401 here.
       if (req.url === "/expired") {
@@ -109,6 +116,31 @@ describe("ALL /api/*", () => {
     expect(response.statusCode).toBe(200);
     expect(lastRequest?.path).toBe("/tools?limit=5");
     expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
+  });
+
+  it("keeps the /api prefix for /api/logs/*, which mcpgateway mounts under /api", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/api/logs/activity?limit=100",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Stripping the prefix here would forward /logs/activity, which 404s.
+    expect(lastRequest?.path).toBe("/api/logs/activity?limit=100");
+    expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
+  });
+
+  it("does not treat a non-logs path beginning with the same letters as /api-mounted", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    await app.fastify.inject({ method: "GET", url: "/api/logsearch", headers: { cookie } });
+
+    expect(lastRequest?.path).toBe("/logsearch");
   });
 
   it("never lets the browser override the injected Authorization header", async () => {
@@ -190,6 +222,22 @@ describe("ALL /api/*", () => {
     // Must never leak the upstream host:port to the browser, or the
     // redirect would leave the BFF and drop the session entirely.
     expect(response.headers.location).toBe("/api/teams/");
+  });
+
+  it("does not double the prefix rewriting a redirect on an /api-mounted route", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/api/logs/activity/",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(307);
+    // Prepending unconditionally here would send the browser to
+    // /api/api/logs/activity, which 404s.
+    expect(response.headers.location).toBe("/api/logs/activity");
   });
 
   it("revokes the BFF session when upstream returns 401 (expired/invalid bearer token)", async () => {
