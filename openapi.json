@@ -36886,6 +36886,79 @@
           }
         }
       }
+    },
+    "/v1/virtual-servers/{server_id}/test-handshake": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Test Server Mcp Handshake",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "operationId": "test_server_mcp_handshake_v1_virtual_servers__server_id__test_handshake_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerHandshakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -53062,7 +53135,8 @@
             "enum": [
               "stored",
               "form",
-              "none"
+              "none",
+              "session"
             ],
             "title": "Credentialsource",
             "default": "none"
@@ -53115,6 +53189,29 @@
         ],
         "title": "GatewayHandshakeResponse",
         "description": "Result of an MCP handshake test.",
+        "nullable": true
+      },
+      "ServerHandshakeRequest": {
+        "properties": {
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers",
+            "description": "Optional headers (e.g. Authorization) overriding the caller's own forwarded credentials"
+          }
+        },
+        "type": "object",
+        "title": "ServerHandshakeRequest",
+        "description": "Request to run an MCP handshake test against a virtual server's own endpoint.\n\nUnlike :class:`GatewayHandshakeRequest`, the target is derived from the\ntrusted, already-registered virtual server ID (path parameter) rather than\nan arbitrary caller-supplied URL, so no ``base_url``/``path`` fields exist here.",
         "nullable": true
       }
     },

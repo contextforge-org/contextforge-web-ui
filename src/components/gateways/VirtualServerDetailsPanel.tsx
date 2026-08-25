@@ -484,6 +484,7 @@ export function VirtualServerDetailsPanel({
                 <TabsContent value="test" className="mt-8">
                   <HandshakeTestPanel
                     key={server.id}
+                    serverId={server.id}
                     serverUrl={endpoint}
                     aggregatedCounts={aggregatedComponentCounts}
                   />

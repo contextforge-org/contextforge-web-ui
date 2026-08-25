@@ -6,11 +6,12 @@ import { server } from "@/test/mocks/server";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { HandshakeTestPanel } from "./HandshakeTestPanel";
 
-const TEST_ENDPOINT = "*/v1/mcp-servers/test-handshake";
+const TEST_ENDPOINT = "*/v1/virtual-servers/:serverId/test-handshake";
 
 describe("HandshakeTestPanel", () => {
   const defaultProps = {
-    serverUrl: "https://mcp.example.com/mcp",
+    serverId: "srv-1",
+    serverUrl: "https://mcp.example.com/servers/srv-1/mcp",
   };
 
   beforeEach(() => {
@@ -20,24 +21,25 @@ describe("HandshakeTestPanel", () => {
   it("renders with the initial idle state", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    expect(screen.getByDisplayValue("https://mcp.example.com/mcp")).toBeInTheDocument();
+    expect(screen.getByText(/^endpoint$/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
     expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
   });
 
-  it("displays URL and headers form fields", () => {
+  it("shows the endpoint read-only and a headers form field", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    expect(screen.getByLabelText(/^url/i)).toBeInTheDocument();
+    expect(screen.getByText(/^endpoint$/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^url$/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/headers/i)).toBeInTheDocument();
   });
 
-  it("calls the handshake endpoint and shows a successful result", async () => {
+  it("calls the handshake endpoint scoped to the server ID and shows a successful result", async () => {
     const user = userEvent.setup();
-    let requestBody: Record<string, unknown> | undefined;
+    let requestedUrl = "";
     server.use(
       http.post(TEST_ENDPOINT, async ({ request }) => {
-        requestBody = (await request.json()) as Record<string, unknown>;
+        requestedUrl = request.url;
         return HttpResponse.json({
           success: true,
           latencyMs: 55,
@@ -47,6 +49,7 @@ describe("HandshakeTestPanel", () => {
           serverVersion: "1.2.3",
           componentCounts: { tools: 3, prompts: 1 },
           countsPartial: false,
+          credentialSource: "session",
         });
       }),
     );
@@ -60,15 +63,14 @@ describe("HandshakeTestPanel", () => {
     expect(screen.getByText(/latency: 55 ms/i)).toBeInTheDocument();
     expect(screen.getByText(/initialize/)).toBeInTheDocument();
     expect(screen.getByText(/My MCP Server/)).toBeInTheDocument();
+    expect(screen.getByText("Your own session credentials")).toBeInTheDocument();
 
     // Component count badges
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("tools")).toBeInTheDocument();
 
-    // The wire request carries the expected fields.
-    expect(requestBody).toEqual(
-      expect.objectContaining({ baseUrl: "https://mcp.example.com/mcp" }),
-    );
+    // The request targets this server's own ID-scoped route.
+    expect(requestedUrl).toContain("/v1/virtual-servers/srv-1/test-handshake");
   });
 
   it("renders a failed handshake as an error", async () => {
@@ -107,13 +109,13 @@ describe("HandshakeTestPanel", () => {
     });
   });
 
-  it("forwards headers as a JSON object", async () => {
+  it("forwards headers as a JSON object, overriding the caller's own session credentials", async () => {
     const user = userEvent.setup();
     let requestBody: Record<string, unknown> | undefined;
     server.use(
       http.post(TEST_ENDPOINT, async ({ request }) => {
         requestBody = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({ success: true, latencyMs: 10 });
+        return HttpResponse.json({ success: true, latencyMs: 10, credentialSource: "form" });
       }),
     );
     render(<HandshakeTestPanel {...defaultProps} />);
@@ -124,36 +126,26 @@ describe("HandshakeTestPanel", () => {
     await waitFor(() => {
       expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
     });
-    expect(requestBody).toEqual(
-      expect.objectContaining({ headers: { Authorization: "Bearer tok" } }),
+    expect(requestBody).toEqual({ headers: { Authorization: "Bearer tok" } });
+  });
+
+  it("sends no body fields when headers are left blank", async () => {
+    const user = userEvent.setup();
+    let requestBody: Record<string, unknown> | undefined;
+    server.use(
+      http.post(TEST_ENDPOINT, async ({ request }) => {
+        requestBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ success: true, latencyMs: 10 });
+      }),
     );
-  });
-
-  it("requires a URL before running", async () => {
-    const user = userEvent.setup();
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    const urlField = screen.getByLabelText(/^url/i);
-    await user.clear(urlField);
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/url is required/i)).toBeInTheDocument();
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
     });
-  });
-
-  it("rejects an invalid URL", async () => {
-    const user = userEvent.setup();
-    render(<HandshakeTestPanel {...defaultProps} />);
-
-    const urlField = screen.getByLabelText(/^url/i);
-    await user.clear(urlField);
-    await user.type(urlField, "not-a-url");
-    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/url must start with http/i)).toBeInTheDocument();
-    });
+    expect(requestBody).toEqual({});
   });
 
   it("validates JSON in the headers field before running", async () => {
@@ -215,17 +207,17 @@ describe("HandshakeTestPanel", () => {
     await waitFor(() => expect(aborted).toBe(true));
   });
 
-  it("clears the URL error as soon as the field is edited", async () => {
+  it("clears the headers error as soon as the field is edited", async () => {
     const user = userEvent.setup();
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    const urlField = screen.getByLabelText(/^url/i);
-    await user.clear(urlField);
+    const headersField = screen.getByLabelText(/headers/i);
+    await user.type(headersField, "invalid json");
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-    await waitFor(() => expect(screen.getByText(/url is required/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument());
 
-    await user.type(urlField, "https://mcp.example.com/mcp");
-    expect(screen.queryByText(/url is required/i)).not.toBeInTheDocument();
+    await user.clear(headersField);
+    expect(screen.queryByText(/invalid headers json/i)).not.toBeInTheDocument();
   });
 
   it("shows the advertised capabilities", async () => {
@@ -322,8 +314,8 @@ describe("HandshakeTestPanel", () => {
     const user = userEvent.setup();
     server.use(
       http.post(TEST_ENDPOINT, () =>
-        // Real shape returned when the backend blocks the URL before
-        // attempting a connection (egress allowlist / test policy).
+        // Real shape returned when the virtual server is disabled — the
+        // handshake short-circuits before attempting a connection.
         HttpResponse.json({
           success: false,
           latencyMs: 1,
@@ -336,7 +328,7 @@ describe("HandshakeTestPanel", () => {
           countsPartial: false,
           credentialSource: "none",
           failureClass: "transport",
-          error: "The MCP server URL is not allowed for testing.",
+          error: "Virtual server 'my-server' is disabled. Enable it before testing the connection.",
           rawPreview: null,
         }),
       ),
@@ -346,7 +338,7 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/not allowed for testing/i)).toBeInTheDocument();
+      expect(screen.getByText(/disabled/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/none — no credential sent/i)).toBeInTheDocument();
     expect(screen.queryByText(/expected/i)).not.toBeInTheDocument();

@@ -403,7 +403,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
 });
 
 describe("VirtualServerDetailsPanel test connection tab", () => {
-  const HANDSHAKE_ENDPOINT = "*/v1/mcp-servers/test-handshake";
+  const HANDSHAKE_ENDPOINT = "*/v1/virtual-servers/:serverId/test-handshake";
 
   beforeEach(() => {
     mswServer.use(

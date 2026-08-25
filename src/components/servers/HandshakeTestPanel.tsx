@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
 import { CircleCheck, CircleAlert, Info, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { JsonHighlighter } from "../ui/json-highlighter";
-import { serversApi } from "@/api/servers";
+import { CopyValue } from "../ui/copy-value";
+import { testVirtualServerHandshake } from "@/api/virtualServers";
 import type {
   GatewayHandshakeResponse,
   GatewayHandshakeResponseFailureClass,
@@ -15,6 +14,8 @@ import { parseApiError } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
 
 interface HandshakeTestPanelProps {
+  serverId: string;
+  /** The virtual server's own MCP endpoint, shown for reference only — the backend derives the actual test target from `serverId`, not from this value. */
   serverUrl: string;
   /**
    * The virtual server's own aggregated component counts (e.g.
@@ -28,32 +29,9 @@ interface HandshakeTestPanelProps {
 
 type TestStatus = "idle" | "testing" | "success" | "error";
 
-// Same URL validation as TestConnectionPanel
-const testUrlSchema = z
-  .string()
-  .trim()
-  .min(1, "URL is required.")
-  .refine(
-    (value) => {
-      try {
-        const parsed = new URL(value);
-        return parsed.protocol === "http:" || parsed.protocol === "https:";
-      } catch {
-        return false;
-      }
-    },
-    { message: "URL must start with http:// or https://." },
-  );
-
 type FieldErrors = {
-  url?: string;
   headers?: string;
 };
-
-function validateUrl(value: string): string | undefined {
-  const result = testUrlSchema.safeParse(value);
-  return result.success ? undefined : result.error.issues[0].message;
-}
 
 function validateHeaders(value: string): string | undefined {
   if (!value.trim()) return undefined;
@@ -84,6 +62,7 @@ const CREDENTIAL_SOURCE_COPY: Record<string, string> = {
   stored: "Stored server credential",
   form: "Headers entered in this form",
   none: "None — no credential sent",
+  session: "Your own session credentials",
 };
 
 function FieldLabel({
@@ -341,9 +320,12 @@ function HandshakeResultPanel({
   );
 }
 
-export function HandshakeTestPanel({ serverUrl, aggregatedCounts }: HandshakeTestPanelProps) {
+export function HandshakeTestPanel({
+  serverId,
+  serverUrl,
+  aggregatedCounts,
+}: HandshakeTestPanelProps) {
   const [status, setStatus] = useState<TestStatus>("idle");
-  const [url, setUrl] = useState<string>(serverUrl);
   const [headers, setHeaders] = useState<string>("");
   const [result, setResult] = useState<GatewayHandshakeResponse>(null);
   const [error, setError] = useState<string>("");
@@ -361,11 +343,10 @@ export function HandshakeTestPanel({ serverUrl, aggregatedCounts }: HandshakeTes
     setError("");
 
     const nextErrors: FieldErrors = {
-      url: validateUrl(url),
       headers: validateHeaders(headers),
     };
     setErrors(nextErrors);
-    if (nextErrors.url || nextErrors.headers) {
+    if (nextErrors.headers) {
       return;
     }
 
@@ -379,11 +360,9 @@ export function HandshakeTestPanel({ serverUrl, aggregatedCounts }: HandshakeTes
 
     setStatus("testing");
     try {
-      const res = await serversApi.testHandshake(
-        {
-          baseUrl: url.trim(),
-          ...(parsedHeaders ? { headers: parsedHeaders } : {}),
-        },
+      const res = await testVirtualServerHandshake(
+        serverId,
+        parsedHeaders ? { headers: parsedHeaders } : {},
         controller.signal,
       );
       if (controller.signal.aborted) return;
@@ -395,7 +374,7 @@ export function HandshakeTestPanel({ serverUrl, aggregatedCounts }: HandshakeTes
       setStatus("error");
       setError(parseApiError(e, "Handshake test failed. Please try again."));
     }
-  }, [url, headers]);
+  }, [serverId, headers]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -410,37 +389,22 @@ export function HandshakeTestPanel({ serverUrl, aggregatedCounts }: HandshakeTes
       <div className="grid gap-6 @3xl:grid-cols-2">
         {/* Left column — request form */}
         <div className="space-y-4">
-          {/* URL */}
+          {/* Endpoint — informational only. The backend derives the actual
+              test target from the server's own ID, so this isn't editable. */}
           <div className="space-y-2">
-            <FieldLabel htmlFor="handshake-url" required hint="The MCP server URL to test.">
-              URL
+            <FieldLabel hint="The virtual server's own MCP endpoint. The backend tests this server directly — it isn't editable here.">
+              Endpoint
             </FieldLabel>
-            <Input
-              id="handshake-url"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                clearError("url");
-              }}
-              onBlur={() => setErrors((prev) => ({ ...prev, url: validateUrl(url) }))}
-              placeholder="https://mcp.example.com/mcp"
-              disabled={isTesting}
-              aria-invalid={!!errors.url}
-              aria-describedby={errors.url ? "handshake-url-error" : undefined}
-              className="bg-transparent dark:bg-transparent"
-            />
-            {errors.url && (
-              <p id="handshake-url-error" className="text-sm text-red-500">
-                {errors.url}
-              </p>
-            )}
+            <div className="rounded-md border border-input bg-transparent px-3 py-2">
+              <CopyValue label="endpoint" value={serverUrl} />
+            </div>
           </div>
 
           {/* Headers */}
           <div className="space-y-2">
             <FieldLabel
               htmlFor="handshake-headers"
-              hint="Optional headers as a JSON object (e.g. Authorization)."
+              hint="Optional headers as a JSON object (e.g. Authorization). By default your own session credentials are reused; headers here override them."
             >
               Headers
             </FieldLabel>
