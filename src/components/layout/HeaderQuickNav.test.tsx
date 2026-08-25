@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { searchEntities } from "@/api/search";
 import { useAuthContext } from "@/auth/AuthContext";
 import { useRouter } from "@/router";
@@ -30,7 +31,9 @@ function dropdown() {
 function renderQuickNav() {
   return render(
     <I18nProvider>
-      <HeaderQuickNav />
+      <TooltipProvider>
+        <HeaderQuickNav />
+      </TooltipProvider>
     </I18nProvider>,
   );
 }

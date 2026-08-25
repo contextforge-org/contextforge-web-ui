@@ -17,7 +17,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ResourceRead } from "@/generated/types";
-import { truncateMiddle } from "@/components/gateways/utils";
+import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 
 export function ResourcesTable({
   resources,
@@ -60,21 +61,24 @@ export function ResourcesTable({
             className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
           >
             <TableCell className="px-4 py-3 text-sm text-foreground">
-              <button
-                type="button"
-                onClick={() => onSelectResource(resource)}
-                className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                title={resource.title || resource.name}
-              >
-                {resource.title || resource.name}
-              </button>
+              <TruncatedText asChild tooltipContent={resource.title || resource.name}>
+                <button
+                  type="button"
+                  onClick={() => onSelectResource(resource)}
+                  className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {resource.title || resource.name}
+                </button>
+              </TruncatedText>
             </TableCell>
 
             <TableCell className="px-4 py-3">
               <div className="group flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                  {truncateMiddle(resource.uriTemplate || resource.uri, 28)}
-                </span>
+                <TruncatedMiddleText
+                  value={resource.uriTemplate || resource.uri}
+                  maxLength={28}
+                  className="min-w-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground"
+                />
                 <CopyButton
                   value={resource.uriTemplate || resource.uri}
                   label={intl.formatMessage(
@@ -89,9 +93,11 @@ export function ResourcesTable({
 
             <TableCell className="px-4 py-3">
               <div className="group flex min-w-0 items-center">
-                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                  {truncateMiddle(resource.id, 18)}
-                </span>
+                <TruncatedMiddleText
+                  value={resource.id}
+                  maxLength={18}
+                  className="min-w-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground"
+                />
                 <CopyButton
                   value={resource.id}
                   label={intl.formatMessage({ id: "resources.table.copyResourceId" })}

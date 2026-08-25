@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Tool } from "@/types/tool";
-import { truncateMiddle } from "@/components/gateways/utils";
+import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { ToolSchemaDialog } from "@/components/tools/ToolSchemaDialog";
 
 export function ToolsTable({
@@ -73,21 +74,22 @@ export function ToolsTable({
               className="border-0 bg-neutral-50 hover:bg-neutral-50 data-[state=selected]:bg-neutral-50 dark:bg-neutral-800/50 dark:hover:bg-neutral-800/50 dark:data-[state=selected]:bg-neutral-800/50 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
             >
               <TableCell className="px-4 py-3 text-sm text-foreground">
-                <button
-                  type="button"
-                  onClick={() => onSelectTool(tool)}
-                  className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  title={tool.displayName || tool.title || tool.name}
-                >
-                  {tool.displayName || tool.title || tool.name}
-                </button>
+                <TruncatedText asChild tooltipContent={tool.displayName || tool.title || tool.name}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectTool(tool)}
+                    className="block max-w-full truncate rounded-sm text-left transition-colors hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {tool.displayName || tool.title || tool.name}
+                  </button>
+                </TruncatedText>
               </TableCell>
 
               <TableCell className="px-4 py-3">
                 <div className="group flex min-w-0 items-center">
-                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                  <TruncatedText className="min-w-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                     {tool.customName || tool.originalName}
-                  </span>
+                  </TruncatedText>
                   <CopyButton
                     value={tool.customName || tool.originalName}
                     label={intl.formatMessage(
@@ -102,9 +104,11 @@ export function ToolsTable({
 
               <TableCell className="px-4 py-3">
                 <div className="group flex min-w-0 items-center">
-                  <span className="min-w-0 truncate font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                    {truncateMiddle(tool.id, 18)}
-                  </span>
+                  <TruncatedMiddleText
+                    value={tool.id}
+                    maxLength={18}
+                    className="min-w-0 font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground"
+                  />
                   <CopyButton
                     value={tool.id}
                     label={intl.formatMessage({ id: "tools.table.copyToolId" })}

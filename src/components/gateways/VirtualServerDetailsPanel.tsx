@@ -23,6 +23,9 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { CopyValue } from "@/components/ui/copy-value";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TruncatedText } from "@/components/ui/truncated-text";
+import { getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer, VirtualServer } from "@/types/server";
 import type { ComponentFilter } from "@/components/gateways/types";
@@ -31,7 +34,6 @@ import {
   formatServerDateTime,
   getTagDisplay,
   getVirtualServerEndpoint,
-  truncateMiddle,
 } from "@/components/gateways/utils";
 import { useQuery } from "@/hooks/useQuery";
 
@@ -299,11 +301,16 @@ export function VirtualServerDetailsPanel({
     const serverById = new Map(getMCPServers(sourcesData).map((source) => [source.id, source]));
     return sourceIds.map((id) => {
       const source = serverById.get(id);
-      return {
-        id,
-        label: source?.name ?? truncateMiddle(id, 32),
-        source,
-      };
+      if (source?.name) {
+        return {
+          id,
+          label: source.name,
+          isTruncated: false,
+          fullValue: undefined as string | undefined,
+        };
+      }
+      const { display, isTruncated } = getTruncatedMiddle(id, 32);
+      return { id, label: display, isTruncated, fullValue: id };
     });
   }, [sourceIds, sourcesData]);
 
@@ -410,12 +417,12 @@ export function VirtualServerDetailsPanel({
                   </span>
                   <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span
+                      <TruncatedText
                         aria-hidden="true"
-                        className="truncate text-xl font-semibold text-foreground"
+                        className="text-xl font-semibold text-foreground"
                       >
                         {server.name}
-                      </span>
+                      </TruncatedText>
                     </div>
                   </div>
                 </div>
@@ -450,14 +457,14 @@ export function VirtualServerDetailsPanel({
                     {
                       id: "all",
                       label: intl.formatMessage({ id: "gateways.details.filter.allSources" }),
+                      isTruncated: false,
+                      fullValue: undefined as string | undefined,
                     },
                     ...sourceTabs,
                   ].map((source, index, sources) => {
                     const isSelected = sourceFilter === source.id;
-
-                    return (
+                    const tabButton = (
                       <Button
-                        key={source.id}
                         id={`source-tab-${index}`}
                         type="button"
                         variant="ghost"
@@ -476,6 +483,13 @@ export function VirtualServerDetailsPanel({
                       >
                         {source.label}
                       </Button>
+                    );
+
+                    return (
+                      <Tooltip key={source.id}>
+                        <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
+                        {source.isTruncated && <TooltipContent>{source.fullValue}</TooltipContent>}
+                      </Tooltip>
                     );
                   })}
                 </div>
@@ -582,9 +596,11 @@ export function VirtualServerDetailsPanel({
                         </Badge>
                         {title ? (
                           <>
-                            <span className="min-w-0 truncate text-muted-foreground">{title}</span>
+                            <TruncatedText className="min-w-0 text-muted-foreground">
+                              {title}
+                            </TruncatedText>
                             <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                              <span className="truncate">{identifier}</span>
+                              <TruncatedText>{identifier}</TruncatedText>
                               <CopyButton
                                 value={identifier}
                                 label={intl.formatMessage(
@@ -598,7 +614,7 @@ export function VirtualServerDetailsPanel({
                         ) : (
                           <>
                             <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                              <span className="truncate">{identifier}</span>
+                              <TruncatedText>{identifier}</TruncatedText>
                               <CopyButton
                                 value={identifier}
                                 label={intl.formatMessage(

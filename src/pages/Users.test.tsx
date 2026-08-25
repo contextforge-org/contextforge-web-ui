@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Users } from "./Users";
 import { RouterProvider } from "@/router";
 import { I18nProvider } from "@/i18n";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ReactElement } from "react";
 
 vi.mock("@/auth/AuthContext", () => ({
@@ -121,7 +122,9 @@ function renderWithRouter(ui: ReactElement, path = "/app/users") {
   window.history.pushState({}, "", path);
   return render(
     <RouterProvider>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <TooltipProvider>{ui}</TooltipProvider>
+      </I18nProvider>
     </RouterProvider>,
   );
 }

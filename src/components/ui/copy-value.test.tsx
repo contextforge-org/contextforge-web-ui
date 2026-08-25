@@ -28,8 +28,11 @@ describe("CopyValue", () => {
     const longValue = "abcdefghijklmnopqrstuvwxyz0123456789";
     render(<CopyValue label="ID" value={longValue} />);
 
-    // The visible text is truncated (default max 24 chars), not the raw value.
-    expect(screen.queryByText(longValue)).not.toBeInTheDocument();
+    // The visible text is truncated (default max 24 chars), not the raw
+    // value — the full value is present only in a visually-hidden span for
+    // screen readers.
+    const hidden = screen.getByText(longValue);
+    expect(hidden).toHaveClass("sr-only");
   });
 
   it("copies the full value (not the truncated display) when clicked", async () => {

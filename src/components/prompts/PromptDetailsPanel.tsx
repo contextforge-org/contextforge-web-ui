@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CopyValue } from "@/components/ui/copy-value";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { cn } from "@/lib/utils";
 import { getTagDisplay } from "@/components/gateways/utils";
 import { formatDateTime } from "@/utils/format";
@@ -170,9 +171,9 @@ export function PromptDetailsPanel({
               <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-sm bg-prompt-icon-bg text-neutral-950">
                 <MessageSquareCode className="size-4" />
               </span>
-              <span aria-hidden="true" className="truncate text-xl font-semibold text-foreground">
+              <TruncatedText aria-hidden="true" className="text-xl font-semibold text-foreground">
                 {title}
-              </span>
+              </TruncatedText>
             </div>
 
             {selected && (

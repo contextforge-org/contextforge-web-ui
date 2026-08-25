@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import type { VirtualServer } from "@/types/server";
 import { Box, EllipsisVertical, MessageSquareCode, Plus, Wrench } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -63,7 +64,9 @@ export function VirtualServerCard({
             <MCPIcon className="size-3.5 [&_path]:fill-current" />
           </span>
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <CardTitle className="truncate font-semibold">{server.name}</CardTitle>
+            <CardTitle className="min-w-0 font-semibold">
+              <TruncatedText>{server.name}</TruncatedText>
+            </CardTitle>
             <span
               className={cn(
                 "size-1.5 shrink-0 rounded-full",
@@ -182,15 +185,15 @@ export function VirtualServerCard({
                 </Badge>
               ))}
             </div>
-            <span
-              className="shrink-0 truncate text-[13px] text-muted-foreground"
+            <TruncatedText
+              className="shrink-0 text-[13px] text-muted-foreground"
               data-testid="last-updated"
             >
               {formatServerTimestamp(
                 server.updatedAt || server.createdAt,
                 intl.formatMessage({ id: "gateways.card.notSyncedYet" }),
               )}
-            </span>
+            </TruncatedText>
           </div>
         </CardContent>
       )}

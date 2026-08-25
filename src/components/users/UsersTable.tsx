@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 
 import type { User } from "../../types/user";
 import { UserActionsMenu } from "./UserActionsMenu";
+import { TruncatedText } from "../ui/truncated-text";
 import {
   Table,
   TableBody,
@@ -104,12 +105,12 @@ export function UsersTable({ users, onDeleteClick, onEditClick }: UsersTableProp
                       <UserIcon className="h-[18px] w-[18px] text-white" strokeWidth={1.5} />
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-sm leading-5 text-card-foreground">
+                      <TruncatedText className="text-sm leading-5 text-card-foreground">
                         {displayName}
-                      </div>
-                      <div className="truncate text-xs leading-4 text-muted-foreground">
+                      </TruncatedText>
+                      <TruncatedText className="text-xs leading-4 text-muted-foreground">
                         {user.email}
-                      </div>
+                      </TruncatedText>
                     </div>
                   </div>
                 </TableCell>

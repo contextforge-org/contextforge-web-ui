@@ -26,6 +26,7 @@
 
 import { useIntl } from "react-intl";
 
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { formatLastSeen } from "@/utils/format";
 import type { ClassifiedServer } from "./mcpServerRoster";
 import { rowTone } from "./mcpServerRoster";
@@ -110,7 +111,7 @@ export function ServerRosterRowStacked({ classified }: ServerRosterRowProps) {
   return (
     <li className="flex flex-col gap-y-0.5 text-sm">
       <StatusDot tone={tone} className="flex min-w-0">
-        <span className="min-w-0 truncate text-foreground">{name}</span>
+        <TruncatedText className="min-w-0 text-foreground">{name}</TruncatedText>
       </StatusDot>
       {showDetails && <span className="text-muted-foreground">{componentsText}</span>}
       {showDetails && <span className="text-muted-foreground">{transportText}</span>}

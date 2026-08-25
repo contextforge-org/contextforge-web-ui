@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { IntlProvider } from "react-intl";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserForm } from "./UserForm";
 import * as useUserFormModule from "@/hooks/useUserForm";
 
@@ -63,7 +64,7 @@ const defaultFormState = {
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en" messages={messages}>
-    {children}
+    <TooltipProvider>{children}</TooltipProvider>
   </IntlProvider>
 );
 

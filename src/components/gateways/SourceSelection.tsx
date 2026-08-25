@@ -20,6 +20,7 @@ import { MCPIcon } from "@/components/icons/MCPIcon";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
 import { useQuery } from "@/hooks/useQuery";
 import { cn } from "@/lib/utils";
@@ -404,9 +405,9 @@ export function SourceSelection({
                               <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
                                 <MCPIcon className="size-4 [&_path]:fill-current" />
                               </span>
-                              <span className="min-w-0 truncate font-medium text-foreground">
+                              <TruncatedText className="min-w-0 font-medium text-foreground">
                                 {server.name}
-                              </span>
+                              </TruncatedText>
                             </div>
                             <div className="flex min-w-0 items-center gap-3 text-muted-foreground">
                               <span className="flex items-center gap-1.5">

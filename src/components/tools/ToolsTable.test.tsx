@@ -308,15 +308,33 @@ describe("ToolsTable", () => {
     expect(rows.length).toBeGreaterThan(1); // Header row + data rows
   });
 
-  it("truncates a very long tool name to a single line instead of overflowing the table", () => {
+  it("truncates a very long tool name to a single line instead of overflowing the table", async () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollWidth", {
+      configurable: true,
+      value: 200,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      value: 100,
+    });
+
+    const user = userEvent.setup();
     const longName =
       "This is a very long tool name that should be truncated to one line, not wrapped or overflowed";
     const tools = [createMockTool(1, { displayName: longName })];
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
+    // The button's accessible name is computed from its full text content
+    // regardless of CSS truncation, so `getByRole` still matches on longName.
     const nameButton = screen.getByRole("button", { name: longName });
     expect(nameButton).toHaveClass("truncate");
-    expect(nameButton).toHaveAttribute("title", longName);
+
+    // The full name stays available via a hover tooltip (not a native
+    // `title`, which doesn't satisfy WCAG 1.4.13) even though it's visually
+    // clipped.
+    expect(nameButton).not.toHaveAttribute("title");
+    await user.hover(nameButton);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(longName);
 
     // table-fixed + a percentage column width is what actually stops an
     // unbreakable long name from forcing the whole table to scroll.

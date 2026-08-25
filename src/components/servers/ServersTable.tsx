@@ -23,6 +23,7 @@ import type { MCPServer, ServerStatus } from "../../types/server";
 import { Loading } from "../ui/loading";
 import { formatLocalDateTime } from "../../utils/formatDate";
 import { CopyButton } from "@/components/ui/copy-button";
+import { TruncatedText } from "@/components/ui/truncated-text";
 
 function getLastSeenValue(server: MCPServer): string | undefined {
   return server.lastSeen;
@@ -206,7 +207,7 @@ export function ServersTable({
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="max-w-[180px] truncate">{server.id}</span>
+                    <TruncatedText className="max-w-[180px]">{server.id}</TruncatedText>
                     <CopyButton
                       value={server.id}
                       label={intl.formatMessage(
