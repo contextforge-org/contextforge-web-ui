@@ -26,6 +26,10 @@ function catalogResults(server: CatalogServer, addingServerIds: ReadonlySet<stri
       onView={vi.fn()}
       onAdd={vi.fn()}
       addingServerIds={addingServerIds}
+      onTest={vi.fn()}
+      onDisconnect={vi.fn()}
+      canTest={false}
+      canDisconnect={false}
     />
   );
 }

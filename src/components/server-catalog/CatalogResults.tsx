@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { CircleCheck, EllipsisVertical, FileText, Plus } from "lucide-react";
+import { CircleCheck, EllipsisVertical, FileText, PlugZap, Plus, Unplug } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
@@ -24,6 +24,8 @@ import {
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getTagLabels } from "@/utils/tags";
+
+const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
 
 function getSafeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -72,12 +74,24 @@ function CatalogCard({
   server,
   onView,
   onAdd,
+  onTest,
+  onDisconnect,
   isAdding,
+  isTesting,
+  isDisconnecting,
+  canTest,
+  canDisconnect,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
+  onTest: () => void;
+  onDisconnect: () => void;
   isAdding: boolean;
+  isTesting: boolean;
+  isDisconnecting: boolean;
+  canTest: boolean;
+  canDisconnect: boolean;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -154,6 +168,29 @@ function CatalogCard({
                       >
                         {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
                       </DropdownMenuItem>
+                      {canTest && (
+                        <DropdownMenuItem
+                          disabled={server.requires_oauth_config || isTesting || isDisconnecting}
+                          onSelect={onTest}
+                          title={
+                            server.requires_oauth_config
+                              ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
+                              : undefined
+                          }
+                        >
+                          <PlugZap className="size-4" aria-hidden="true" />
+                          {intl.formatMessage({ id: "mcpServer.catalog.test" })}
+                        </DropdownMenuItem>
+                      )}
+                      {canDisconnect && server.gateway_id && (
+                        <DropdownMenuItem
+                          disabled={isTesting || isDisconnecting}
+                          onSelect={onDisconnect}
+                        >
+                          <Unplug className="size-4" aria-hidden="true" />
+                          {intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
@@ -287,12 +324,24 @@ export function CatalogResults({
   onView,
   onAdd,
   addingServerIds,
+  onTest,
+  onDisconnect,
+  testingServerIds = EMPTY_PENDING_IDS,
+  disconnectingServerIds = EMPTY_PENDING_IDS,
+  canTest,
+  canDisconnect,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
   onView: (server: CatalogServer, trigger: HTMLElement) => void;
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
+  onTest: (server: CatalogServer) => void;
+  onDisconnect: (server: CatalogServer) => void;
+  testingServerIds?: ReadonlySet<string>;
+  disconnectingServerIds?: ReadonlySet<string>;
+  canTest: boolean;
+  canDisconnect: boolean;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -313,7 +362,13 @@ export function CatalogResults({
               server={server}
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
+              onTest={() => onTest(server)}
+              onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}
+              isTesting={testingServerIds.has(server.id)}
+              isDisconnecting={disconnectingServerIds.has(server.id)}
+              canTest={canTest}
+              canDisconnect={canDisconnect}
             />
           ))}
         </ul>

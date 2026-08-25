@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { registerCatalogServer } from "@/api/catalog";
+import {
+  disconnectCatalogGateway,
+  getGatewayImpactPreview,
+  registerCatalogServer,
+  testCatalogServer,
+} from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
@@ -14,12 +19,25 @@ import { ServerCatalog } from "./ServerCatalog";
 vi.mock("@/hooks/useQuery", () => ({
   useQuery: vi.fn(),
 }));
+const authState = vi.hoisted(() => ({
+  hasPermission: vi.fn(() => true),
+  permissionsLoading: false,
+}));
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => authState,
+}));
 vi.mock("@/api/catalog", () => ({
   registerCatalogServer: vi.fn(),
+  disconnectCatalogGateway: vi.fn(),
+  getGatewayImpactPreview: vi.fn(),
+  testCatalogServer: vi.fn(),
 }));
 
 const mockUseQuery = vi.mocked(useQuery);
 const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
+const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
+const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
+const mockTestCatalogServer = vi.mocked(testCatalogServer);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -32,6 +50,7 @@ const openConnected: CatalogServer = {
   tags: ["network", "observability"],
   transport: "STREAMABLEHTTP",
   is_registered: true,
+  gateway_id: "gateway-globalping",
 };
 
 const openAvailable: CatalogServer = {
@@ -121,6 +140,15 @@ describe("ServerCatalog", () => {
       server_id: "registered-server",
       message: "Registered",
     });
+    authState.hasPermission.mockReturnValue(true);
+    authState.permissionsLoading = false;
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 200,
+      data: { status: "success" },
+      headers: new Headers(),
+    });
+    mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -187,6 +215,118 @@ describe("ServerCatalog", () => {
     expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available");
   });
 
+  it("tests a connected catalog server and reports status plus latency", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    await waitFor(() =>
+      expect(mockTestCatalogServer).toHaveBeenCalledWith("https://globalping.example/mcp"),
+    );
+    expect(await screen.findByText("Globalping responded with status 200 in 12 ms.")).toBeVisible();
+  });
+
+  it("disables Test when OAuth configuration remains incomplete", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, requires_oauth_config: true }],
+          total: 1,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+
+    expect(screen.getByRole("menuitem", { name: "Test connection" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("hides connected-server mutations without their permissions", async () => {
+    const user = userEvent.setup();
+    authState.hasPermission.mockReturnValue(false);
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Disconnect" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "View details" })).toBeInTheDocument();
+  });
+
+  it("confirms disconnect, shows affected virtual servers, then refetches catalog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(response);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockGetGatewayImpactPreview.mockResolvedValue({
+      gatewayId: "gateway-globalping",
+      servers: [{ id: "virtual-1", name: "Production assistant" }],
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Production assistant")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() =>
+      expect(mockDisconnectCatalogGateway).toHaveBeenCalledWith("gateway-globalping"),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("waits for catalog state after an async disconnect", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue({
+      ...response,
+      servers: [{ ...openConnected, is_registered: false, gateway_id: null }],
+    });
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() => expect(refetch).toHaveBeenCalledOnce(), { timeout: 1_000 });
+    expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("keeps catalog state unchanged when backend rejects disconnect ownership", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockRejectedValue(
+      new ApiError(403, { detail: "Only the owner can delete this gateway" }, "HTTP 403"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    expect(await screen.findByText("Unable to disconnect Globalping. Try again.")).toBeVisible();
+    expect(refetch).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Connected")).toHaveLength(2);
+  });
+
   it("reports catalog registration failures", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
@@ -200,7 +340,7 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
   });
 
-  it("registers an available server without refetching the catalog", async () => {
+  it("registers an available server then refetches authoritative gateway state", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -216,11 +356,11 @@ describe("ServerCatalog", () => {
     ) => CatalogListResponse | undefined;
     expect(
       updateCatalog(response)?.servers.find((server) => server.id === openAvailable.id),
-    ).toMatchObject({ is_registered: true });
-    expect(refetch).not.toHaveBeenCalled();
+    ).toMatchObject({ is_registered: true, gateway_id: "registered-server" });
+    expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it("treats an already-registered response as connected without refetching", async () => {
+  it("refetches an already-registered response to obtain its gateway ID", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -233,8 +373,8 @@ describe("ServerCatalog", () => {
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
     expect(await screen.findByText("Public Notes is already connected.")).toBeInTheDocument();
-    expect(setData).toHaveBeenCalledOnce();
-    expect(refetch).not.toHaveBeenCalled();
+    expect(setData).not.toHaveBeenCalled();
+    expect(refetch).toHaveBeenCalledOnce();
     expect(screen.queryByText("Server already registered")).not.toBeInTheDocument();
   });
 
@@ -311,7 +451,7 @@ describe("ServerCatalog", () => {
 
     resolveNotes({ success: true, server_id: "notes", message: "Registered" });
     await waitFor(() => expect(setData).toHaveBeenCalledTimes(2));
-    expect(refetch).not.toHaveBeenCalled();
+    expect(refetch).toHaveBeenCalledTimes(2);
   });
 
   it("shows connected status in details opened from the action menu", async () => {

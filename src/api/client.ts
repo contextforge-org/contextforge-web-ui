@@ -123,6 +123,7 @@ interface RequestOptions {
 export interface ResponseWithMeta<T> {
   data: T;
   status: number;
+  headers: Headers;
 }
 
 async function requestWithMeta<T>(
@@ -192,11 +193,11 @@ async function requestWithMeta<T>(
 
   // 204 No Content
   if (response.status === 204) {
-    return { data: undefined as T, status: response.status };
+    return { data: undefined as T, status: response.status, headers: response.headers };
   }
 
   const data = (await response.json()) as T;
-  return { data, status: response.status };
+  return { data, status: response.status, headers: response.headers };
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -239,6 +240,13 @@ export const api = {
     opts?: Omit<RequestOptions, "method" | "body">,
   ): Promise<ResponseWithMeta<T>> {
     return requestWithMeta<T>(path, { method: "POST", body, ...opts });
+  },
+
+  deleteWithMeta<T>(
+    path: string,
+    opts?: Omit<RequestOptions, "method" | "body">,
+  ): Promise<ResponseWithMeta<T>> {
+    return requestWithMeta<T>(path, { method: "DELETE", ...opts });
   },
 
   put<T>(path: string, body?: unknown, opts?: Omit<RequestOptions, "method" | "body">): Promise<T> {
