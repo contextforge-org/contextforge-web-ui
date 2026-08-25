@@ -207,6 +207,14 @@
   scrollbar-color: var(--muted-foreground) transparent;
 }
 
+/* The `html` rule below reserves the gutter for the document scrollbar only.
+   `scrollbar-gutter` applies to the box it is set on, so nested scroll
+   containers need their own, or their content reflows whenever it crosses the
+   container's height. The Safari < 18.2 fallback is at the bottom of the file. */
+@utility scrollbar-gutter-stable {
+  scrollbar-gutter: stable;
+}
+
 /*
  ---break---
  */
@@ -226,9 +234,12 @@
 }
 
 /* Fallback for browsers without scrollbar-gutter (Safari < 18.2): always reserve
-   a classic scrollbar track. No effect where scrollbar-gutter is supported. */
+   a classic scrollbar track. No effect where scrollbar-gutter is supported.
+   Unlayered on purpose: Tailwind emits `.overflow-y-auto` into `@layer
+   utilities`, which these rules have to outrank at equal specificity. */
 @supports not (scrollbar-gutter: stable) {
-  html {
+  html,
+  .scrollbar-gutter-stable {
     overflow-y: scroll;
   }
 }
