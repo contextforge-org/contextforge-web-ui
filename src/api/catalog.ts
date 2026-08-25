@@ -35,6 +35,8 @@ export function testCatalogServer(url: string): Promise<GatewayTestResponse> {
     method: "GET",
     baseUrl: url,
     path: "",
+    // Streamable HTTP MCP servers require this for a GET connection check.
+    headers: { Accept: "text/event-stream" },
   };
   return api.post<GatewayTestResponse>("/v1/mcp-servers/test", request);
 }

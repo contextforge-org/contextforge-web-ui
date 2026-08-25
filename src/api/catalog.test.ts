@@ -65,7 +65,12 @@ describe("registerCatalogServer", () => {
       statusCode: 204,
       latencyMs: 21,
     });
-    expect(body).toEqual({ method: "GET", baseUrl: "https://catalog.example/mcp", path: "" });
+    expect(body).toEqual({
+      method: "GET",
+      baseUrl: "https://catalog.example/mcp",
+      path: "",
+      headers: { Accept: "text/event-stream" },
+    });
   });
 
   it("gets only the backend-provided disconnect impact preview", async () => {
