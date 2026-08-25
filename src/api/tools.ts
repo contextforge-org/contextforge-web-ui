@@ -92,6 +92,48 @@ export interface ToolPreviewResult {
   status: number;
 }
 
+export type ToolInvokeRequestId = string | number;
+
+export interface ToolInvokeRequest {
+  jsonrpc: "2.0";
+  id: ToolInvokeRequestId;
+  method: "tools/call";
+  params: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface ToolJsonRpcErrorBody {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+export interface ToolInvokeJsonRpcResponse {
+  jsonrpc?: "2.0";
+  id?: ToolInvokeRequestId | null;
+  result?: ToolPreviewResponse;
+  error?: ToolJsonRpcErrorBody;
+}
+
+export interface ToolInvokeResult {
+  result: ToolPreviewResponse;
+  status: number;
+  id: ToolInvokeRequestId | null;
+}
+
+export class ToolInvokeJsonRpcError extends Error {
+  constructor(
+    public readonly rpcError: ToolJsonRpcErrorBody,
+    public readonly status: number,
+    public readonly id: ToolInvokeRequestId | null,
+  ) {
+    super(rpcError.message);
+    this.name = "ToolInvokeJsonRpcError";
+  }
+}
+
 /**
  * Validates tool ID to prevent path traversal and injection attacks
  * @param id - The tool ID to validate
@@ -206,6 +248,57 @@ export const toolsApi = {
         { headers: passthroughHeaders, signal: options.signal },
       )
       .then(({ data, status }) => ({ preview: data, status }));
+  },
+
+  /**
+   * Invoke a tool through the production MCP JSON-RPC path.
+   *
+   * The browser calls `/rpc`; `api` resolves that to same-origin `/api/rpc`,
+   * where the BFF injects the upstream bearer token. JSON-RPC errors are body
+   * fields even when HTTP status is 200, so callers must not rely on HTTP
+   * status alone to classify invocation success.
+   */
+  invoke: (
+    name: string,
+    args: Record<string, unknown> = {},
+    passthroughHeaders: Record<string, string> = {},
+    options: { requestId?: ToolInvokeRequestId; signal?: AbortSignal } = {},
+  ): Promise<ToolInvokeResult> => {
+    const validName = validateToolName(name);
+    const requestId = options.requestId ?? `tool-live-${Date.now()}`;
+    const body: ToolInvokeRequest = {
+      jsonrpc: "2.0",
+      id: requestId,
+      method: "tools/call",
+      params: {
+        name: validName,
+        arguments: args,
+      },
+    };
+
+    return api
+      .postWithMeta<ToolInvokeJsonRpcResponse>("/rpc", body, {
+        headers: passthroughHeaders,
+        signal: options.signal,
+      })
+      .then(({ data, status }) => {
+        const id = data.id ?? null;
+        if (data.error) {
+          throw new ToolInvokeJsonRpcError(data.error, status, id);
+        }
+        if (!data.result) {
+          throw new ToolInvokeJsonRpcError(
+            {
+              code: -32603,
+              message: "Malformed JSON-RPC response",
+              data,
+            },
+            status,
+            id,
+          );
+        }
+        return { result: data.result, status, id };
+      });
   },
 
   /**

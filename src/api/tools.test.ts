@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { toolsApi } from "./tools";
+import { ToolInvokeJsonRpcError, toolsApi } from "./tools";
 import { setCsrfToken } from "./client";
 
 describe("toolsApi", () => {
@@ -103,6 +103,95 @@ describe("toolsApi", () => {
 
     it.each([".", "..", "   "])("throws synchronously for unsafe name %p", (name) => {
       expect(() => toolsApi.preview(name)).toThrow();
+    });
+  });
+
+  describe("invoke", () => {
+    it("POSTs a tools/call JSON-RPC envelope to /rpc with passthrough headers", async () => {
+      const body = {
+        jsonrpc: "2.0",
+        id: "invoke-1",
+        result: {
+          content: [{ type: "text", text: "done", mimeType: "text/plain" }],
+        },
+      };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await toolsApi.invoke(
+        "search.issues",
+        { query: "cloudflare" },
+        { "X-Api-Key": "session-key" },
+        { requestId: "invoke-1" },
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/rpc"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "invoke-1",
+            method: "tools/call",
+            params: {
+              name: "search.issues",
+              arguments: { query: "cloudflare" },
+            },
+          }),
+          headers: expect.objectContaining({
+            "X-CSRF-Token": "test-csrf-token",
+            "X-Api-Key": "session-key",
+          }),
+          credentials: "same-origin", // pragma: allowlist secret
+        }),
+      );
+      expect(result).toEqual({ result: body.result, status: 200, id: "invoke-1" });
+    });
+
+    it("throws ToolInvokeJsonRpcError for JSON-RPC error bodies even on HTTP 200", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: "invoke-denied",
+            error: { code: -32003, message: "Access denied", data: { method: "tools/call" } },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+
+      await expect(
+        toolsApi.invoke("search", {}, {}, { requestId: "invoke-denied" }),
+      ).rejects.toMatchObject({
+        name: "ToolInvokeJsonRpcError",
+        rpcError: { code: -32003, message: "Access denied" },
+        status: 200,
+        id: "invoke-denied",
+      });
+    });
+
+    it("throws ToolInvokeJsonRpcError for malformed JSON-RPC success bodies", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ jsonrpc: "2.0", id: "bad" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await expect(toolsApi.invoke("search", {}, {}, { requestId: "bad" })).rejects.toThrow(
+        ToolInvokeJsonRpcError,
+      );
+    });
+
+    it("throws synchronously for unsafe live invoke names", () => {
+      expect(() => toolsApi.invoke("../etc/passwd")).toThrow("Invalid tool name format");
     });
   });
 

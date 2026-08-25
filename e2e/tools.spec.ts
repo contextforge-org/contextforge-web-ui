@@ -17,6 +17,13 @@ interface UpdateToolPayload {
   [key: string]: unknown;
 }
 
+interface JsonRpcRequest {
+  jsonrpc?: string;
+  id?: string | number | null;
+  method?: string;
+  params?: Record<string, unknown>;
+}
+
 /** Stub the tools list endpoint (`/tools?limit=0&include_inactive=true`). */
 async function routeToolsList(page: Page, tools: Tool[]) {
   await page.route("**/tools?*", async (route) => {
@@ -40,6 +47,15 @@ async function openAddToolForm(page: Page) {
 async function fillToolBasics(page: Page, name: string, url: string) {
   await page.locator("#tool-name").fill(name);
   await page.locator("#tool-url").fill(url);
+}
+
+async function openToolDetails(page: Page, gatewaySlug: string) {
+  await page.getByRole("button", { name: `More options for ${gatewaySlug}` }).click();
+  await page.getByRole("menuitem", { name: "View details" }).click();
+
+  const panel = page.getByRole("region", { name: new RegExp(`Tools for ${gatewaySlug}`, "i") });
+  await expect(panel).toBeVisible();
+  return panel;
 }
 
 function makeTool(id: string, gatewaySlug: string, overrides: Partial<Tool> = {}): Tool {
@@ -367,6 +383,151 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("Resolved arguments")).toBeVisible();
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
     expect(previewHeaders["x-tenant-id"]).toBe("team-a");
+  });
+
+  test("live invokes a read-only tool with JSON-RPC args and passthrough headers", async ({
+    page,
+  }) => {
+    const liveTool = makeTool("search_issues", "github-server", {
+      description: "Search repository issues",
+      inputSchema: {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string", description: "Search query" },
+          limit: { type: "integer" },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    });
+    let rpcBody: JsonRpcRequest | null = null;
+    let rpcHeaders: Record<string, string> = {};
+
+    await routeToolsList(page, [liveTool]);
+    await page.route("**/api/rpc", async (route) => {
+      rpcBody = route.request().postDataJSON() as JsonRpcRequest;
+      rpcHeaders = route.request().headers();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: rpcBody.id ?? "invoke-1",
+          result: {
+            content: [{ type: "text", text: "Live result from gateway", mimeType: "text/plain" }],
+            structured_output: { total: 1 },
+          },
+        }),
+      });
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "github-server");
+
+    await expect(panel.getByText("MCP 2025-11-25")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+
+    await panel.getByLabel("query").fill("cloudflare");
+    await panel.getByLabel("limit").fill("5");
+    await panel.getByRole("button", { name: "Add header" }).click();
+    await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
+    await panel.getByLabel("Header 1 value").fill("team-a");
+
+    await panel.getByRole("button", { name: "Live invoke" }).click();
+
+    await expect(panel.getByText("Live invoke 200")).toBeVisible();
+    await expect(panel.getByText("Live result from gateway").first()).toBeVisible();
+    await expect(panel.getByText("Structured output")).toBeVisible();
+    expect(rpcBody).toMatchObject({
+      jsonrpc: "2.0",
+      method: "tools/call",
+      params: {
+        name: "search_issues",
+        arguments: { query: "cloudflare", limit: 5 },
+      },
+    });
+    expect(rpcBody?.params).not.toHaveProperty("server_id");
+    expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
+    expect(rpcHeaders["x-csrf-token"]).toBe("mock-csrf-token");
+  });
+
+  test("confirms destructive local live invoke before calling /rpc", async ({ page }) => {
+    const destructiveTool = makeTool("delete_issue", "local-gateway", {
+      gatewayId: null,
+      annotations: { destructiveHint: true },
+      inputSchema: { type: "object", properties: {} },
+    });
+    let rpcRequestCount = 0;
+
+    await routeToolsList(page, [destructiveTool]);
+    await page.route("**/api/rpc", async (route) => {
+      rpcRequestCount += 1;
+      const body = route.request().postDataJSON() as JsonRpcRequest;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: body.id ?? "invoke-1",
+          result: { content: [{ type: "text", text: "Deleted", mimeType: "text/plain" }] },
+        }),
+      });
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "local-gateway");
+
+    await panel.getByRole("button", { name: "Live invoke" }).click();
+    const dialog = page.getByRole("alertdialog", { name: "Invoke destructive tool" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(rpcRequestCount).toBe(0);
+
+    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Invoke destructive tool" })
+      .getByRole("button", { name: "Invoke tool" })
+      .click();
+
+    await expect.poll(() => rpcRequestCount).toBe(1);
+    await expect(panel.getByText("Live invoke 200")).toBeVisible();
+    await expect(panel.getByText("Deleted").first()).toBeVisible();
+  });
+
+  test("hides live invoke when tools.execute is missing", async ({ page, apiMock }) => {
+    await apiMock.mockPermissions({ permissions: ["tools.read", "servers.use"] });
+    const liveTool = makeTool("search_issues", "github-server", {
+      annotations: { readOnlyHint: true },
+      inputSchema: { type: "object", properties: {} },
+    });
+
+    await routeToolsList(page, [liveTool]);
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "github-server");
+
+    await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+  });
+
+  test("does not offer live invoke for federated tools without readOnlyHint", async ({ page }) => {
+    const federatedTool = makeTool("create_issue", "github-server", {
+      annotations: { destructiveHint: true },
+      inputSchema: { type: "object", properties: {} },
+    });
+
+    await routeToolsList(page, [federatedTool]);
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "github-server");
+
+    await expect(
+      panel.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
+    ).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
   });
 
   test("warns for denied passthrough headers and excludes them from preview", async ({ page }) => {

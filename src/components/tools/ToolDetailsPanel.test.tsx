@@ -5,6 +5,13 @@ import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolDetailsPanel } from "./ToolDetailsPanel";
 import type { Tool } from "@/types/tool";
 
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({
+    hasPermission: () => true,
+    permissionsLoading: false,
+  }),
+}));
+
 // Helper to create mock tools
 function createMockTool(id: number, overrides?: Partial<Tool>): Tool {
   return {
