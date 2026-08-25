@@ -24,7 +24,8 @@ import fp from "fastify-plugin";
 import { config } from "../config.js";
 
 const DEFAULT_PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../public");
-const PUBLIC_DIR = config.publicDir ?? DEFAULT_PUBLIC_DIR;
+// Resolved to absolute since @fastify/send's pathName is always absolute too.
+const PUBLIC_DIR = path.resolve(config.publicDir ?? DEFAULT_PUBLIC_DIR);
 
 // The one place both the cache-header check below and the 404 handler's
 // asset allowlist agree on what "an asset" is — keep them pointed at the

@@ -36,7 +36,8 @@ const Dashboard = lazyNamed(() => import("./pages/Dashboard"), "Dashboard");
 // waiting for AuthGuard to resolve first — otherwise its own useQuery data
 // fetch only starts after chunk-fetch -> parse -> mount, a JS-then-data
 // waterfall on the single most common navigation in the app.
-void import("./pages/Dashboard");
+// Catch: fires at module scope, would otherwise reject unhandled outside React's tree.
+void import("./pages/Dashboard").catch(() => {});
 const Gateways = lazyNamed(() => import("./pages/Gateways"), "Gateways");
 const CreateServer = lazyNamed(() => import("./pages/CreateServer"), "CreateServer");
 const Servers = lazyNamed(() => import("./pages/Servers"), "Servers");
