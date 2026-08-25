@@ -36,19 +36,13 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (
-            id.includes("/react/") ||
-            id.includes("/react-dom/") ||
-            id.includes("/scheduler/") ||
-            id.includes("/react-is/") ||
-            id.includes("/react-remove-scroll") ||
-            id.includes("/react-style-singleton") ||
-            id.includes("/use-callback-ref") ||
-            id.includes("/use-sidecar") ||
-            id.includes("react-intl") ||
-            id.includes("@formatjs") ||
-            id.includes("/sonner/")
-          )
+          // Anchored to the package root: a bare `/react-dom/` substring also
+          // matches @floating-ui/react-dom, which drags @floating-ui/dom in
+          // from `vendor` and makes vendor <-> vendor-react circular. Keep this
+          // chunk a leaf — react-adjacent packages (react-intl, @formatjs,
+          // sonner, react-remove-scroll) belong in `vendor`, since they import
+          // helpers that live there.
+          if (/node_modules\/(react|react-dom|scheduler|react-is)\//.test(id))
             return "vendor-react";
           if (id.includes("@radix-ui") || id.includes("radix-ui")) return "vendor-radix";
           if (id.includes("lucide-react")) return "vendor-lucide";
