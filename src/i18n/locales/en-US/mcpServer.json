@@ -211,5 +211,21 @@
   "mcpServer.testConnection.counts.prompts": "{count, plural, one {# prompt} other {# prompts}}",
   "mcpServer.testConnection.countsPartial.tools": "{count}+ tools",
   "mcpServer.testConnection.countsPartial.resources": "{count}+ resources",
-  "mcpServer.testConnection.countsPartial.prompts": "{count}+ prompts"
+  "mcpServer.testConnection.countsPartial.prompts": "{count}+ prompts",
+  "mcpServer.testConnection.virtualServer.credentialLabel": "Credential:",
+  "mcpServer.testConnection.virtualServer.credentialSource.stored": "Stored server credential",
+  "mcpServer.testConnection.virtualServer.credentialSource.form": "Headers entered in this form",
+  "mcpServer.testConnection.virtualServer.credentialSource.none": "None — no credential sent",
+  "mcpServer.testConnection.virtualServer.credentialSource.session": "Your own session credentials",
+  "mcpServer.testConnection.virtualServer.capabilitiesLabel": "Capabilities:",
+  "mcpServer.testConnection.virtualServer.countExpectedSuffix": "/ {expected} expected",
+  "mcpServer.testConnection.virtualServer.countMismatchTooltip": "Handshake reported {count}; the virtual server aggregates {expected}.",
+  "mcpServer.testConnection.virtualServer.countPartialMarker": "(partial)",
+  "mcpServer.testConnection.virtualServer.countMismatchBanner": "Component counts don't match the virtual server's aggregate. This can mean a federated source is unreachable or filtering has diverged.",
+  "mcpServer.testConnection.virtualServer.failureClassLabel": "Failure class:",
+  "mcpServer.testConnection.virtualServer.failureCopy.transport": "Could not complete the handshake. This can happen when the virtual server is disabled, or when one of its federated tool sources is unreachable.",
+  "mcpServer.testConnection.virtualServer.failureCopy.protocol": "The server responded, but MCP protocol negotiation failed. This can happen when the virtual server is disabled or a federated source returned an unexpected response.",
+  "mcpServer.testConnection.virtualServer.failureCopy.auth": "Authentication failed. Check the credentials or headers being sent.",
+  "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse": "The server returned a response that couldn't be parsed as a valid MCP handshake.",
+  "mcpServer.testConnection.virtualServer.failureCopy.default": "Check the credentials being sent and that the virtual server is enabled."
 }

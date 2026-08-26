@@ -513,6 +513,48 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     ).toBeInTheDocument();
   });
 
+  it("excludes disabled components from the aggregate used for the handshake comparison", async () => {
+    // The drawer's own queries pass include_inactive=true, but the handshake's
+    // component_counts only ever reflect enabled components — a disabled tool
+    // must not count toward the aggregate or it would permanently mismatch.
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/servers/:id/tools", () =>
+        HttpResponse.json({
+          tools: [
+            { id: "t1", name: "tool-1", originalName: "tool-1", enabled: true },
+            { id: "t2", name: "tool-2", originalName: "tool-2", enabled: false },
+          ],
+        }),
+      ),
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 10,
+          componentCounts: { tools: 1 },
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
   it("resets to the components tab when a new server is selected", async () => {
     const user = userEvent.setup();
     const { rerender } = render(

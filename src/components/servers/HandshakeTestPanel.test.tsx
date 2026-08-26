@@ -66,8 +66,8 @@ describe("HandshakeTestPanel", () => {
     expect(screen.getByText("Your own session credentials")).toBeInTheDocument();
 
     // Component count badges
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("tools")).toBeInTheDocument();
+    expect(screen.getByText("3 tools")).toBeInTheDocument();
+    expect(screen.getByText("1 prompt")).toBeInTheDocument();
 
     // The request targets this server's own ID-scoped route.
     expect(requestedUrl).toContain("/v1/virtual-servers/srv-1/test-handshake");
@@ -157,6 +157,18 @@ describe("HandshakeTestPanel", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument();
+    });
+  });
+
+  it("rejects header values that aren't strings", async () => {
+    const user = userEvent.setup();
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await user.type(screen.getByLabelText(/headers/i), '{{"X-Count":1}');
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/header values must be strings/i)).toBeInTheDocument();
     });
   });
 
@@ -338,11 +350,68 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/disabled/i)).toBeInTheDocument();
+      expect(screen.getByText(/is disabled\. enable it before testing/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/none — no credential sent/i)).toBeInTheDocument();
     expect(screen.queryByText(/expected/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+
+    // The disabled-server message is the most common "transport" failure for this
+    // in-process probe — the actionable copy below it must not tell the user to
+    // check a URL, since there's no caller-editable URL for this endpoint.
+    expect(screen.queryByText(/check the url/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/publicly reachable/i)).not.toBeInTheDocument();
+  });
+
+  it("does not flag a mismatch when a partial count is merely lower than the aggregate", async () => {
+    // A paginated first-page count is a lower bound, not the true count — it
+    // being under the aggregate isn't evidence of a real mismatch.
+    const user = userEvent.setup();
+    server.use(
+      http.post(TEST_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 20,
+          componentCounts: { tools: 1 },
+          countsPartial: true,
+        }),
+      ),
+    );
+    render(<HandshakeTestPanel {...defaultProps} aggregatedCounts={{ tools: 5 }} />);
+
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/1\+ tool/i)).toBeInTheDocument();
+    expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
+  it("still flags a mismatch when a partial count already exceeds the aggregate", async () => {
+    // Even as a lower bound, a reported count already over the expected total
+    // is a real mismatch — the true count can only be higher.
+    const user = userEvent.setup();
+    server.use(
+      http.post(TEST_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 20,
+          componentCounts: { tools: 5 },
+          countsPartial: true,
+        }),
+      ),
+    );
+    render(<HandshakeTestPanel {...defaultProps} aggregatedCounts={{ tools: 2 }} />);
+
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/counts don.t match the virtual server.s aggregate/i),
+    ).toBeInTheDocument();
   });
 
   it("does not flag a mismatch when the handshake counts match the aggregate", async () => {

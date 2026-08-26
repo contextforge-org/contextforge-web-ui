@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleCheck, CircleAlert, Info, Loader2, TriangleAlert } from "lucide-react";
+import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { JsonHighlighter } from "../ui/json-highlighter";
 import { CopyValue } from "../ui/copy-value";
 import { testVirtualServerHandshake } from "@/api/virtualServers";
-import type {
-  GatewayHandshakeResponse,
-  GatewayHandshakeResponseFailureClass,
-} from "@/generated/types";
+import type { GatewayHandshakeResponse } from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
 import { cn } from "@/lib/utils";
 
@@ -40,29 +38,66 @@ function validateHeaders(value: string): string | undefined {
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return "Headers must be a JSON object.";
     }
+    // The handshake endpoint types header values as strings; a number or nested
+    // object would only come back as a 422 from the backend.
+    if (
+      Object.values(parsed as Record<string, unknown>).some(
+        (headerValue) => typeof headerValue !== "string",
+      )
+    ) {
+      return "Header values must be strings.";
+    }
   } catch (e) {
     return `Invalid headers JSON: ${e instanceof Error ? e.message : "Parse error"}`;
   }
   return undefined;
 }
 
-// Per-class actionable copy. Keys match GatewayHandshakeResponseFailureClass.
-const FAILURE_CLASS_COPY: Record<string, string> = {
-  transport:
-    "Could not reach the server. Check the URL and that the endpoint is publicly reachable.",
-  protocol:
-    "The server responded, but MCP protocol negotiation failed. Check that the URL points to an MCP endpoint.",
-  auth: "Authentication failed. Check the credentials or headers being sent.",
-  invalid_response:
-    "The server returned a response that couldn't be parsed as a valid MCP handshake.",
+// Per-class actionable copy, unlike TestConnectionPanel's gateway-URL handshake this one
+// runs in-process against this virtual server's own endpoint (no outbound call, no
+// caller-editable URL), so the copy must not tell the user to check a URL.
+const FAILURE_CLASS_COPY_MESSAGE_IDS: Record<string, string> = {
+  transport: "mcpServer.testConnection.virtualServer.failureCopy.transport",
+  protocol: "mcpServer.testConnection.virtualServer.failureCopy.protocol",
+  auth: "mcpServer.testConnection.virtualServer.failureCopy.auth",
+  invalid_response: "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse",
 };
 
-// Keys match GatewayHandshakeResponseCredentialSource.
-const CREDENTIAL_SOURCE_COPY: Record<string, string> = {
-  stored: "Stored server credential",
-  form: "Headers entered in this form",
-  none: "None — no credential sent",
-  session: "Your own session credentials",
+// Keys match GatewayHandshakeResponseFailureClass; shared with TestConnectionPanel's map.
+const FAILURE_CLASS_MESSAGE_IDS: Record<string, string> = {
+  transport: "mcpServer.testConnection.failureClass.transport",
+  protocol: "mcpServer.testConnection.failureClass.protocol",
+  auth: "mcpServer.testConnection.failureClass.auth",
+  invalid_response: "mcpServer.testConnection.failureClass.invalidResponse",
+};
+
+// Keys match GatewayHandshakeResponseCredentialSource. This panel's copy (including the
+// "session" source unique to the virtual-server handshake) differs from
+// TestConnectionPanel's, so it gets its own message group rather than reusing that one.
+const CREDENTIAL_SOURCE_MESSAGE_IDS: Record<string, string> = {
+  stored: "mcpServer.testConnection.virtualServer.credentialSource.stored",
+  form: "mcpServer.testConnection.virtualServer.credentialSource.form",
+  none: "mcpServer.testConnection.virtualServer.credentialSource.none",
+  session: "mcpServer.testConnection.virtualServer.credentialSource.session",
+};
+
+const NEGOTIATION_PATH_MESSAGE_IDS: Record<string, string> = {
+  server_discover: "mcpServer.testConnection.negotiationPath.serverDiscover",
+  initialize: "mcpServer.testConnection.negotiationPath.initialize",
+};
+
+const COUNT_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.counts.tools",
+  resources: "mcpServer.testConnection.counts.resources",
+  prompts: "mcpServer.testConnection.counts.prompts",
+};
+
+// Deliberately plain substitution, not ICU plural: the "+" means "at least",
+// so "1+ tools" is correct even when the first page holds a single item.
+const PARTIAL_COUNT_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.countsPartial.tools",
+  resources: "mcpServer.testConnection.countsPartial.resources",
+  prompts: "mcpServer.testConnection.countsPartial.prompts",
 };
 
 function FieldLabel({
@@ -92,15 +127,26 @@ function FieldLabel({
 }
 
 function CountBadge({
-  label,
+  type,
   count,
   expected,
+  partial,
+  intl,
 }: {
-  label: string;
+  type: string;
   count: number;
   expected?: number;
+  partial: boolean;
+  intl: IntlShape;
 }) {
-  const mismatch = expected !== undefined && expected !== count;
+  // Partial counts are a first-page lower bound: the true count can only be
+  // >= what's reported, so a reported count still under the expected total
+  // isn't necessarily a real mismatch, but a reported count already over it is.
+  const mismatch = expected !== undefined && (partial ? count > expected : count !== expected);
+  const messageIds = partial ? PARTIAL_COUNT_MESSAGE_IDS : COUNT_MESSAGE_IDS;
+  const countText = messageIds[type]
+    ? intl.formatMessage({ id: messageIds[type] }, { count })
+    : `${count} ${type}`;
 
   return (
     <span
@@ -112,14 +158,21 @@ function CountBadge({
       )}
       title={
         mismatch
-          ? `Handshake reported ${count}; the virtual server aggregates ${expected}.`
+          ? intl.formatMessage(
+              { id: "mcpServer.testConnection.virtualServer.countMismatchTooltip" },
+              { count, expected },
+            )
           : undefined
       }
     >
-      <span className={cn("font-medium", mismatch ? "" : "text-foreground")}>{count}</span>
-      {label}
+      <span className={cn("font-medium", mismatch ? "" : "text-foreground")}>{countText}</span>
       {expected !== undefined && (
-        <span className="text-[10px] opacity-75">/ {expected} expected</span>
+        <span className="text-[10px] opacity-75">
+          {intl.formatMessage(
+            { id: "mcpServer.testConnection.virtualServer.countExpectedSuffix" },
+            { expected },
+          )}
+        </span>
       )}
       {mismatch && <TriangleAlert className="size-3" aria-hidden="true" />}
     </span>
@@ -129,10 +182,15 @@ function CountBadge({
 function getCountMismatchKeys(
   componentCounts: Record<string, number> | null | undefined,
   aggregatedCounts: Record<string, number> | undefined,
+  countsPartial: boolean,
 ): string[] {
   if (!aggregatedCounts) return [];
   const keys = new Set([...Object.keys(componentCounts ?? {}), ...Object.keys(aggregatedCounts)]);
-  return Array.from(keys).filter((key) => (componentCounts?.[key] ?? 0) !== aggregatedCounts[key]);
+  return Array.from(keys).filter((key) => {
+    const count = componentCounts?.[key] ?? 0;
+    const expected = aggregatedCounts[key];
+    return countsPartial ? count > expected : count !== expected;
+  });
 }
 
 function HandshakeResultPanel({
@@ -140,11 +198,13 @@ function HandshakeResultPanel({
   result,
   error,
   aggregatedCounts,
+  intl,
 }: {
   status: TestStatus;
   result: GatewayHandshakeResponse;
   error: string;
   aggregatedCounts?: Record<string, number>;
+  intl: IntlShape;
 }) {
   if (status === "idle") {
     return (
@@ -169,8 +229,9 @@ function HandshakeResultPanel({
   // nothing to compare, and showing "0 / N" badges there would just restate
   // the failure as a misleading mismatch.
   const hasHandshakeCounts = result?.componentCounts != null;
+  const countsPartial = Boolean(result?.countsPartial);
   const mismatchKeys = hasHandshakeCounts
-    ? getCountMismatchKeys(result.componentCounts, aggregatedCounts)
+    ? getCountMismatchKeys(result.componentCounts, aggregatedCounts, countsPartial)
     : [];
   const allCountKeys = hasHandshakeCounts
     ? Array.from(
@@ -195,16 +256,22 @@ function HandshakeResultPanel({
           <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
         )}
         <span className="text-sm font-medium text-foreground">
-          {succeeded ? "Handshake succeeded" : (result?.error ?? error ?? "Handshake failed")}
+          {succeeded
+            ? intl.formatMessage({ id: "mcpServer.testConnection.handshakeSucceeded" })
+            : (result?.error ??
+              error ??
+              intl.formatMessage({ id: "mcpServer.testConnection.handshakeFailed" }))}
         </span>
       </div>
 
       {/* Credential used — always shown, per security requirement */}
       {result?.credentialSource && (
         <p className="pl-6 text-[13px] text-muted-foreground">
-          Credential:{" "}
+          {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.credentialLabel" })}{" "}
           <span className="text-foreground">
-            {CREDENTIAL_SOURCE_COPY[result.credentialSource] ?? result.credentialSource}
+            {CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource]
+              ? intl.formatMessage({ id: CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource] })
+              : result.credentialSource}
           </span>
         </p>
       )}
@@ -217,7 +284,12 @@ function HandshakeResultPanel({
           {/* Negotiation path */}
           {result.negotiationPath && (
             <p className="pl-6 text-[13px] text-muted-foreground">
-              Path: <span className="font-mono">{result.negotiationPath}</span>
+              {intl.formatMessage({ id: "mcpServer.testConnection.negotiationPath" })}:{" "}
+              <span className="font-mono">
+                {NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath]
+                  ? intl.formatMessage({ id: NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath] })
+                  : result.negotiationPath}
+              </span>
             </p>
           )}
 
@@ -226,7 +298,8 @@ function HandshakeResultPanel({
             <div className="space-y-0.5 pl-6 text-[13px] text-muted-foreground">
               {result.serverName && (
                 <p>
-                  Server: <span className="text-foreground">{result.serverName}</span>
+                  {intl.formatMessage({ id: "mcpServer.testConnection.serverName" })}:{" "}
+                  <span className="text-foreground">{result.serverName}</span>
                   {result.serverVersion && (
                     <span className="ml-1 text-muted-foreground">v{result.serverVersion}</span>
                   )}
@@ -234,7 +307,7 @@ function HandshakeResultPanel({
               )}
               {result.protocolVersion && (
                 <p>
-                  Protocol:{" "}
+                  {intl.formatMessage({ id: "mcpServer.testConnection.protocolVersion" })}:{" "}
                   <span className="font-mono text-foreground">{result.protocolVersion}</span>
                 </p>
               )}
@@ -244,7 +317,11 @@ function HandshakeResultPanel({
           {/* Capabilities */}
           {result.capabilities && Object.keys(result.capabilities).length > 0 && (
             <div className="pl-6 text-[13px] text-muted-foreground">
-              <p>Capabilities:</p>
+              <p>
+                {intl.formatMessage({
+                  id: "mcpServer.testConnection.virtualServer.capabilitiesLabel",
+                })}
+              </p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {Object.keys(result.capabilities).map((capability) => (
                   <span
@@ -265,24 +342,28 @@ function HandshakeResultPanel({
                 {allCountKeys.map((key) => (
                   <CountBadge
                     key={key}
-                    label={key}
+                    type={key}
                     count={result.componentCounts?.[key] ?? 0}
                     expected={aggregatedCounts?.[key]}
+                    partial={countsPartial}
+                    intl={intl}
                   />
                 ))}
-                {result.countsPartial && (
-                  <span className="self-center text-[11px] text-muted-foreground">(partial)</span>
+                {countsPartial && (
+                  <span className="self-center text-[11px] text-muted-foreground">
+                    {intl.formatMessage({
+                      id: "mcpServer.testConnection.virtualServer.countPartialMarker",
+                    })}
+                  </span>
                 )}
               </div>
               {mismatchKeys.length > 0 && (
                 <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-amber-700 dark:text-amber-400">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                   <span>
-                    Component counts don&apos;t match the virtual server&apos;s aggregate
-                    {result.countsPartial
-                      ? " (handshake counts are a paginated lower bound, so this may not be a real mismatch)"
-                      : ""}
-                    . This can mean a federated source is unreachable or filtering has diverged.
+                    {intl.formatMessage({
+                      id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
+                    })}
                   </span>
                 </p>
               )}
@@ -293,12 +374,21 @@ function HandshakeResultPanel({
           {!succeeded && result.failureClass && (
             <div className="pl-6 text-[13px] text-muted-foreground">
               <p>
-                Failure class: <span className="font-mono">{result.failureClass}</span>
+                {intl.formatMessage({
+                  id: "mcpServer.testConnection.virtualServer.failureClassLabel",
+                })}{" "}
+                <span className="font-mono">
+                  {FAILURE_CLASS_MESSAGE_IDS[result.failureClass]
+                    ? intl.formatMessage({ id: FAILURE_CLASS_MESSAGE_IDS[result.failureClass] })
+                    : result.failureClass}
+                </span>
               </p>
               <p className="mt-0.5 text-foreground">
-                {FAILURE_CLASS_COPY[
-                  result.failureClass as GatewayHandshakeResponseFailureClass & string
-                ] ?? "Check the server URL, credentials, and that it speaks MCP."}
+                {intl.formatMessage({
+                  id:
+                    FAILURE_CLASS_COPY_MESSAGE_IDS[result.failureClass] ??
+                    "mcpServer.testConnection.virtualServer.failureCopy.default",
+                })}
               </p>
             </div>
           )}
@@ -325,6 +415,7 @@ export function HandshakeTestPanel({
   serverUrl,
   aggregatedCounts,
 }: HandshakeTestPanelProps) {
+  const intl = useIntl();
   const [status, setStatus] = useState<TestStatus>("idle");
   const [headers, setHeaders] = useState<string>("");
   const [result, setResult] = useState<GatewayHandshakeResponse>(null);
@@ -462,6 +553,7 @@ export function HandshakeTestPanel({
               result={result}
               error={error}
               aggregatedCounts={aggregatedCounts}
+              intl={intl}
             />
           </div>
         </div>

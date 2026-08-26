@@ -211,5 +211,21 @@
   "mcpServer.testConnection.counts.prompts": "{count, plural, one {# prompt} other {# prompts}}",
   "mcpServer.testConnection.countsPartial.tools": "{count}+ ferramentas",
   "mcpServer.testConnection.countsPartial.resources": "{count}+ recursos",
-  "mcpServer.testConnection.countsPartial.prompts": "{count}+ prompts"
+  "mcpServer.testConnection.countsPartial.prompts": "{count}+ prompts",
+  "mcpServer.testConnection.virtualServer.credentialLabel": "Credencial:",
+  "mcpServer.testConnection.virtualServer.credentialSource.stored": "Credencial armazenada do servidor",
+  "mcpServer.testConnection.virtualServer.credentialSource.form": "Cabeçalhos inseridos neste formulário",
+  "mcpServer.testConnection.virtualServer.credentialSource.none": "Nenhuma — nenhuma credencial enviada",
+  "mcpServer.testConnection.virtualServer.credentialSource.session": "Suas próprias credenciais de sessão",
+  "mcpServer.testConnection.virtualServer.capabilitiesLabel": "Capacidades:",
+  "mcpServer.testConnection.virtualServer.countExpectedSuffix": "/ {expected} esperados",
+  "mcpServer.testConnection.virtualServer.countMismatchTooltip": "O handshake reportou {count}; o servidor virtual agrega {expected}.",
+  "mcpServer.testConnection.virtualServer.countPartialMarker": "(parcial)",
+  "mcpServer.testConnection.virtualServer.countMismatchBanner": "As contagens de componentes não correspondem ao agregado do servidor virtual. Isso pode significar que uma fonte federada está inacessível ou que a filtragem divergiu.",
+  "mcpServer.testConnection.virtualServer.failureClassLabel": "Classe de falha:",
+  "mcpServer.testConnection.virtualServer.failureCopy.transport": "Não foi possível concluir o handshake. Isso pode acontecer quando o servidor virtual está desabilitado, ou quando uma de suas fontes de ferramentas federadas está inacessível.",
+  "mcpServer.testConnection.virtualServer.failureCopy.protocol": "O servidor respondeu, mas a negociação do protocolo MCP falhou. Isso pode acontecer quando o servidor virtual está desabilitado ou uma fonte federada retornou uma resposta inesperada.",
+  "mcpServer.testConnection.virtualServer.failureCopy.auth": "Falha na autenticação. Verifique as credenciais ou os cabeçalhos enviados.",
+  "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse": "O servidor retornou uma resposta que não pôde ser interpretada como um handshake MCP válido.",
+  "mcpServer.testConnection.virtualServer.failureCopy.default": "Verifique as credenciais enviadas e se o servidor virtual está habilitado."
 }

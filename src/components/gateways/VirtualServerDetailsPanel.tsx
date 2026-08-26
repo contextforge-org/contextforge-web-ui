@@ -60,6 +60,7 @@ interface Tool {
   description?: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 interface Resource {
@@ -69,6 +70,7 @@ interface Resource {
   uri: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 interface Prompt {
@@ -79,6 +81,7 @@ interface Prompt {
   description?: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 type ComponentWithType =
@@ -284,10 +287,15 @@ export function VirtualServerDetailsPanel({
   const allComponents = fetchedComponents.length > 0 ? fetchedComponents : fallbackComponents;
 
   // The virtual server's own aggregated component counts, used to flag a
-  // mismatch against what the handshake test itself reports.
+  // mismatch against what the handshake test itself reports. The handshake
+  // counts come from tools/resources/prompts `list` calls against the live
+  // MCP endpoint, which only ever see enabled components — so a disabled
+  // component here must be excluded too, or a server with one disabled tool
+  // would show a permanent, spurious mismatch.
   const aggregatedComponentCounts = useMemo(() => {
     const counts: Record<string, number> = { tools: 0, resources: 0, prompts: 0 };
     for (const component of allComponents) {
+      if (component.enabled === false) continue;
       counts[component.type] = (counts[component.type] ?? 0) + 1;
     }
     return counts;
