@@ -56,6 +56,10 @@
   "common.theme.system": "System theme",
   "common.theme.toggle": "Toggle theme",
   "common.button.remove": "Remove",
+  "common.errorBoundary.title": "Something went wrong",
+  "common.errorBoundary.chunkLoadMessage": "This page was updated since you last loaded it. Reload to get the latest version.",
+  "common.errorBoundary.genericMessage": "An unexpected error occurred. Try reloading the page.",
+  "common.errorBoundary.reload": "Reload page",
   "common.required": "*",
   "common.team.label": "Team",
   "common.team.placeholder": "Select a team"

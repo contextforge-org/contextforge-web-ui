@@ -11,6 +11,7 @@ import Fastify from "fastify";
 
 import { config } from "./config.js";
 import { createRequestLogController } from "./lib/request-logging.js";
+import compressPlugin from "./plugins/compress.js";
 import cookiePlugin from "./plugins/cookie.js";
 import csrfPlugin from "./plugins/csrf.js";
 import redisPlugin from "./plugins/redis.js";
@@ -37,6 +38,7 @@ await fastify.register(cookiePlugin);
 await fastify.register(redisPlugin);
 await fastify.register(sessionPlugin);
 await fastify.register(csrfPlugin);
+await fastify.register(compressPlugin);
 await fastify.register(staticPlugin);
 
 fastify.get("/healthz", async () => ({ ok: true }));

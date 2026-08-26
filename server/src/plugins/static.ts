@@ -24,7 +24,21 @@ import fp from "fastify-plugin";
 import { config } from "../config.js";
 
 const DEFAULT_PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../public");
-const PUBLIC_DIR = config.publicDir ?? DEFAULT_PUBLIC_DIR;
+// Resolved to absolute since @fastify/send's pathName is always absolute too.
+const PUBLIC_DIR = path.resolve(config.publicDir ?? DEFAULT_PUBLIC_DIR);
+
+// The one place both the cache-header check below and the 404 handler's
+// asset allowlist agree on what "an asset" is — keep them pointed at the
+// same name so they can't drift, and keep it in sync with vite.config.ts's
+// outDir contents and the root public/ dir it copies verbatim.
+const ASSETS_DIR_NAME = "assets";
+const ASSETS_URL_PREFIX = `/${ASSETS_DIR_NAME}/`;
+// Prefix, not substring: PUBLIC_DIR is deploy-configurable (PUBLIC_DIR env
+// var), so a bare `pathName.includes("/assets/")` would false-positive on
+// index.html for any deploy path with an "assets" *ancestor* directory
+// (e.g. PUBLIC_DIR=/srv/assets/server/public) — long-caching the SPA shell
+// itself instead of only PUBLIC_DIR/assets/*.
+const ASSETS_FS_PREFIX = path.join(PUBLIC_DIR, ASSETS_DIR_NAME) + path.sep;
 
 export default fp(
   async function staticPlugin(fastify: FastifyInstance) {
@@ -32,6 +46,12 @@ export default fp(
       root: PUBLIC_DIR,
       prefix: "/",
       index: false, // '/' is handled explicitly by routes/app.ts, for the auth check
+      // Only /assets/* is content-hashed by Vite, so only it gets long-cached.
+      setHeaders(reply, pathName) {
+        if (pathName.startsWith(ASSETS_FS_PREFIX)) {
+          reply.header("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
     });
 
     fastify.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
@@ -42,9 +62,9 @@ export default fp(
       // /app/reset-password/:token when the token itself contains a dot.
       // Anything under these prefixes that reaches here is a genuinely
       // missing build artifact; everything else is a client-router path and
-      // gets the SPA shell. Keep in sync with vite.config.ts's outDir
-      // contents and the root public/ dir it copies verbatim.
-      const isKnownAssetPath = pathname.startsWith("/assets/") || pathname === "/favicon.ico";
+      // gets the SPA shell.
+      const isKnownAssetPath =
+        pathname.startsWith(ASSETS_URL_PREFIX) || pathname === "/favicon.ico";
 
       if (
         request.method !== "GET" ||
