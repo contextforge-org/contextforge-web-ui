@@ -48,6 +48,9 @@ async function clearForcedPasswordChange(): Promise<string> {
 
   const precondition = await upstreamLogin("/auth/email/login", EMAIL, BOOTSTRAP_PASSWORD);
   if (precondition.status === 200) {
+    // Not reachable via our own `down -v`-every-run compose flow (each run
+    // starts from a fresh gateway), but guards a gateway provisioned some
+    // other way, or ADMIN_REQUIRE_PASSWORD_CHANGE_ON_BOOTSTRAP=false.
     console.log("Bootstrap admin already past the forced password change — nothing to do.");
     return (JSON.parse(precondition.body) as { access_token: string }).access_token;
   }
