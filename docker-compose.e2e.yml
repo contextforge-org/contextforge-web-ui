@@ -1,9 +1,5 @@
-# Standalone stack for `npm run e2e:docker` — app + redis + a real gateway,
-# entirely independent of docker-compose.yml (own `app`/`redis` copies, not
-# layered on top of it) so a plain `docker compose down` on the dev stack
-# can never touch this one, or vice versa. `name:` namespaces every
-# container/volume/network under `e2e_`/`e2e-` instead of the dev stack's
-# `contextforge-web-ui_`/`contextforge-web-ui-`.
+# Standalone stack for `npm run e2e:docker` — own app/redis, independent of
+# docker-compose.yml, so a plain `docker compose down` can't touch either one.
 name: e2e
 
 services:

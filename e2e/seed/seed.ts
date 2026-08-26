@@ -1,5 +1,5 @@
 /**
- * Bootstraps the `testing` profile's gateway: waits for healthy, then
+ * Bootstraps docker-compose.e2e.yml's gateway: waits for healthy, then
  * clears the bootstrap admin's forced password-change. Run between
  * `docker compose up` and `playwright test` — see `npm run e2e:docker`.
  */
@@ -48,11 +48,20 @@ async function clearForcedPasswordChange(): Promise<string> {
 
   const precondition = await upstreamLogin("/auth/email/login", EMAIL, BOOTSTRAP_PASSWORD);
   if (precondition.status === 200) {
-    // Not reachable via our own `down -v`-every-run compose flow (each run
-    // starts from a fresh gateway), but guards a gateway provisioned some
-    // other way, or ADMIN_REQUIRE_PASSWORD_CHANGE_ON_BOOTSTRAP=false.
+    // Guards a gateway provisioned outside our down-v-every-run flow, or with the bootstrap check disabled.
     console.log("Bootstrap admin already past the forced password change — nothing to do.");
     return (JSON.parse(precondition.body) as { access_token: string }).access_token;
+  }
+  if (precondition.status === 401) {
+    // Bootstrap password rejected (not "change required") — an interrupted prior run likely already rotated it.
+    const already = await upstreamLogin("/auth/email/login", EMAIL, NEW_PASSWORD);
+    if (already.status === 200) {
+      console.log("Bootstrap admin already seeded by an interrupted prior run — nothing to do.");
+      return (JSON.parse(already.body) as { access_token: string }).access_token;
+    }
+    throw new Error(
+      `Neither bootstrap nor final password worked: ${already.status} ${already.body}`,
+    );
   }
   if (precondition.status !== 403) {
     throw new Error(`Unexpected precondition check: ${precondition.status} ${precondition.body}`);
@@ -83,9 +92,7 @@ async function clearForcedPasswordChange(): Promise<string> {
   return (JSON.parse(confirm.body) as { access_token: string }).access_token;
 }
 
-// TODO(follow-up): seed real servers/tools/etc. here once the still-mocked
-// suites get rewritten to assert on real data. v1.0.8's role bootstrap logs
-// "team_admin role not found" and 422s team-scoped creates — check that's fixed upstream first.
+// TODO(follow-up): seed real servers/tools once mocked suites assert on real data — blocked on an upstream role-bootstrap bug (422s team-scoped creates).
 
 async function main() {
   console.log(`Waiting for gateway at ${GATEWAY_URL}...`);

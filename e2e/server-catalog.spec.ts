@@ -249,7 +249,7 @@ test.describe("Server catalog page", () => {
       expect(route.request().method()).toBe("POST");
       // Real mode gets a real, randomly-generated token from the real login.
       expect(route.request().headers()["x-csrf-token"]).toBe(
-        apiMock.getRealCsrfToken() ?? MOCK_CSRF_TOKEN,
+        (await apiMock.getRealCsrfToken()) ?? MOCK_CSRF_TOKEN,
       );
       registerCalls += 1;
       registered = true;

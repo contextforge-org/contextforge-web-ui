@@ -34,7 +34,7 @@ COPY --chown=1001:0 openapi.json orval.config.ts index.html vite.config.ts build
 COPY --chown=1001:0 tsconfig.json tsconfig.app.json tsconfig.node.json ./
 COPY --chown=1001:0 public ./public
 COPY --chown=1001:0 src ./src
-# Off by default; `testing` profile passes --build-arg true for e2e:docker. Must be ARG — Vite bakes it in at build time.
+# Off by default; docker-compose.e2e.yml passes --build-arg true for e2e:docker. Must be ARG — Vite bakes it in at build time.
 ARG VITE_ENABLE_TOOL_PREVIEW=false
 ENV VITE_ENABLE_TOOL_PREVIEW=${VITE_ENABLE_TOOL_PREVIEW}
 RUN npm run build

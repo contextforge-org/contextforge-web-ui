@@ -57,7 +57,7 @@ export interface ApiMock {
   mockPermissions(options?: { permissions?: string[] }): Promise<void>;
   mockUnauthorized(urlPattern: string | RegExp): Promise<void>;
   /** Real csrfToken from this test's real login — compare against this instead of MOCK_CSRF_TOKEN when IS_REAL_API. */
-  getRealCsrfToken(): string | undefined;
+  getRealCsrfToken(): Promise<string | undefined>;
   /**
    * Mocks POST /auth/change-password-required, the BFF's route used by
    * PasswordChangeRequired.tsx (client/src/pages/) after a "password change
@@ -73,7 +73,7 @@ export interface ApiMock {
 }
 
 export function createApiMock(page: Page): ApiMock {
-  let realCsrfToken: string | undefined;
+  let realSessionResponse: Promise<{ csrfToken?: string }> | undefined;
   return {
     async mockLogin({
       user = DEFAULT_TEST_USER,
@@ -109,17 +109,11 @@ export function createApiMock(page: Page): ApiMock {
         // Real login when authenticated, no-op when false, so specs testing
         // the logged-out state stay logged out.
         if (authenticated) {
+          // AuthContext's own /auth/session call sets ITS token, not realLogin()'s — arm before it fires.
+          realSessionResponse = page
+            .waitForResponse((response) => /\/auth\/session(?:\?|$)/.test(response.url()))
+            .then((response) => response.json() as Promise<{ csrfToken?: string }>);
           await realLogin(page);
-          // AuthContext re-fetches /auth/session itself and uses ITS token, not realLogin()'s.
-          page.on("response", async (response) => {
-            if (!/\/auth\/session(?:\?|$)/.test(response.url())) return;
-            try {
-              const body = (await response.json()) as { csrfToken?: string };
-              if (body.csrfToken) realCsrfToken = body.csrfToken;
-            } catch {
-              // Non-JSON/empty body — nothing to capture.
-            }
-          });
         }
         return;
       }
@@ -179,8 +173,8 @@ export function createApiMock(page: Page): ApiMock {
       });
     },
 
-    getRealCsrfToken() {
-      return realCsrfToken;
+    async getRealCsrfToken() {
+      return (await realSessionResponse)?.csrfToken;
     },
   };
 }
