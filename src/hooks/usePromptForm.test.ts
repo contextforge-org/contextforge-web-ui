@@ -9,6 +9,7 @@ import { usePromptForm } from "./usePromptForm";
 
 vi.mock("@/api/client", () => ({
   api: {
+    get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
   },
@@ -18,9 +19,20 @@ vi.mock("@/auth/AuthContext", () => ({
   useAuthContext: vi.fn(),
 }));
 
+const mockGet = vi.mocked(api.get);
 const mockPost = vi.mocked(api.post);
 const mockPut = vi.mocked(api.put);
 const mockUseAuthContext = vi.mocked(useAuthContext);
+
+const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true };
+const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false };
+
+/** Answers `GET /teams` with the given teams; everything else stays empty. */
+function mockTeams(teams: Array<Record<string, unknown>>) {
+  mockGet.mockImplementation((path: string) =>
+    path === "/teams" ? Promise.resolve({ teams }) : Promise.resolve([]),
+  );
+}
 
 const wrapper = ({ children }: { children: ReactNode }) =>
   createElement(
@@ -57,6 +69,7 @@ describe("usePromptForm", () => {
     vi.clearAllMocks();
     mockPost.mockReset();
     mockPut.mockReset();
+    mockTeams([personalTeam]);
     mockAuth();
   });
 
@@ -162,49 +175,82 @@ describe("usePromptForm", () => {
     expect(result.current.getFormData().prompt.description).toHaveLength(500);
   });
 
-  it("shows a team visibility error immediately when no team is selected", () => {
-    const { result } = renderHook(() => usePromptForm());
+  describe("team visibility", () => {
+    it("resolves the only team without a sidebar selection", async () => {
+      const { result } = renderHook(() => usePromptForm());
 
-    act(() => {
-      result.current.setName("Team prompt");
-      result.current.setTemplate("Hello {{ name }}");
-      result.current.setVisibility("team");
+      act(() => {
+        result.current.setName("Team prompt");
+        result.current.setTemplate("Hello {{ name }}");
+        result.current.setVisibility("team");
+      });
+
+      // A single-team caller is never asked to choose, so choosing "team"
+      // visibility must not flag the field.
+      await waitFor(() => {
+        expect(result.current.teamId).toBe(personalTeam.id);
+      });
+      expect(result.current.errors.teamId).toBeUndefined();
+      expect(result.current.isValid).toBe(true);
     });
 
-    expect(result.current.errors.visibility).toBe(
-      "Team selection is required when visibility is set to team",
-    );
-    expect(result.current.teamId).toBeUndefined();
-  });
+    it("defaults to the personal team, and honours an override", async () => {
+      mockTeams([sharedTeam, personalTeam]);
+      const { result } = renderHook(() => usePromptForm());
 
-  it("clears the team visibility error and exposes teamId when a team becomes selected", async () => {
-    const { result, rerender } = renderHook(() => usePromptForm());
+      act(() => {
+        result.current.setVisibility("team");
+      });
 
-    act(() => {
-      result.current.setVisibility("team");
+      await waitFor(() => {
+        expect(result.current.teams).toHaveLength(2);
+      });
+      expect(result.current.teamId).toBe(personalTeam.id);
+
+      act(() => {
+        result.current.setTeamId(sharedTeam.id);
+      });
+
+      expect(result.current.teamId).toBe(sharedTeam.id);
     });
 
-    expect(result.current.errors.visibility).toBeDefined();
+    it("prefers the sidebar's active team", async () => {
+      mockAuth(sharedTeam.id);
+      mockTeams([personalTeam, sharedTeam]);
+      const { result } = renderHook(() => usePromptForm());
 
-    mockAuth("team-123");
-    rerender();
+      act(() => {
+        result.current.setVisibility("team");
+      });
 
-    await waitFor(() => {
-      expect(result.current.errors.visibility).toBeUndefined();
-      expect(result.current.teamId).toBe("team-123");
-    });
-  });
-
-  it("does not set a team visibility error when the sidebar already has a team selected", () => {
-    mockAuth("team-123");
-    const { result } = renderHook(() => usePromptForm());
-
-    act(() => {
-      result.current.setVisibility("team");
+      await waitFor(() => {
+        expect(result.current.teamId).toBe(sharedTeam.id);
+      });
+      expect(result.current.errors.teamId).toBeUndefined();
     });
 
-    expect(result.current.errors.visibility).toBeUndefined();
-    expect(result.current.teamId).toBe("team-123");
+    it("requires a team only on submit", async () => {
+      mockTeams([]);
+      const { result } = renderHook(() => usePromptForm());
+
+      act(() => {
+        result.current.setName("Team prompt");
+        result.current.setTemplate("Hello {{ name }}");
+        result.current.setVisibility("team");
+      });
+
+      // Not before the user tries to submit, though.
+      expect(result.current.errors.teamId).toBeUndefined();
+
+      await act(async () => {
+        await result.current.handleSubmit(fakeSubmit());
+      });
+
+      expect(result.current.errors.teamId).toBe(
+        "Team selection is required when visibility is set to team",
+      );
+      expect(mockPost).not.toHaveBeenCalled();
+    });
   });
 
   it("submits valid prompt data and calls onSuccess", async () => {
@@ -278,7 +324,7 @@ describe("usePromptForm", () => {
     );
   });
 
-  it("maps API team_id field errors onto visibility", async () => {
+  it("maps API team_id field errors onto the team field", async () => {
     mockAuth("team-123");
     const error = new Error("HTTP 422") as Error & {
       body?: { field?: string; message?: string };
@@ -303,7 +349,7 @@ describe("usePromptForm", () => {
 
     expect(mockPost).toHaveBeenCalled();
     await waitFor(() => {
-      expect(result.current.errors.visibility).toBe("Team is not available");
+      expect(result.current.errors.teamId).toBe("Team is not available");
     });
   });
 

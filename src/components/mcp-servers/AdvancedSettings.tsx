@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useIntl } from "react-intl";
 import { Info, TriangleAlert } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,9 +16,10 @@ import { BearerTokenAuth } from "@/components/mcp-servers/BearerTokenAuth";
 import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
 import { OAuth2Auth } from "@/components/mcp-servers/OAuth2Auth";
 import { QueryParameterAuth } from "@/components/mcp-servers/QueryParameterAuth";
-import { useAuthContext } from "@/auth/AuthContext";
+import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { TeamSelect } from "@/components/common/TeamSelect";
 
 export type { CustomHeader };
 
@@ -30,6 +30,10 @@ interface AdvancedSettingsProps {
   onVisibilityChange: (value: Visibility) => void;
   teamId: string;
   onTeamIdChange: (value: string) => void;
+  /** Validation message for the team field, shown on the selector. */
+  teamError?: string;
+  /** The server's own team, in edit mode. Pins the form to it. */
+  initialTeamId?: string;
   authType: AuthType;
   onAuthTypeChange: (value: AuthType) => void;
   basicAuthUsername: string;
@@ -81,6 +85,8 @@ export function AdvancedSettings({
   onVisibilityChange,
   teamId,
   onTeamIdChange,
+  teamError,
+  initialTeamId,
   authType,
   onAuthTypeChange,
   basicAuthUsername,
@@ -126,18 +132,13 @@ export function AdvancedSettings({
   onCACertificateFilesSelected,
   oauthErrors,
 }: AdvancedSettingsProps) {
-  const { selectedTeamId } = useAuthContext();
   const intl = useIntl();
-
-  useEffect(() => {
-    if (visibility === "team") {
-      if ((selectedTeamId ?? "") !== teamId) {
-        onTeamIdChange(selectedTeamId ?? "");
-      }
-    } else if (teamId) {
-      onTeamIdChange("");
-    }
-  }, [visibility, selectedTeamId, teamId, onTeamIdChange]);
+  const { teams, onTeamChange } = useTeamScope({
+    visibility,
+    teamId,
+    onTeamIdChange,
+    recordTeamId: initialTeamId,
+  });
 
   const renderAuthContent = () => {
     switch (authType) {
@@ -236,16 +237,17 @@ export function AdvancedSettings({
             </SelectItem>
           </SelectContent>
         </Select>
-        {visibility === "team" && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {intl.formatMessage({
-              id: selectedTeamId
-                ? "mcpServer.advanced.teamScoped"
-                : "mcpServer.advanced.teamNotSelected",
-            })}
-          </p>
-        )}
       </div>
+
+      {visibility === "team" && (
+        <TeamSelect
+          id="server-team"
+          teams={teams}
+          value={teamId || undefined}
+          onChange={onTeamChange}
+          error={teamError}
+        />
+      )}
 
       {/* Authentication type */}
       <div className="space-y-3">

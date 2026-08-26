@@ -183,6 +183,11 @@ export interface UseMCPServerFormReturn {
   advancedOpen: boolean;
   visibility: Visibility;
   teamId: string;
+  /**
+   * The team the server being edited already belongs to. Undefined while
+   * creating, and until the server has loaded.
+   */
+  initialTeamId?: string;
   authType: AuthType;
   oneTimeAuth: boolean; // pragma: allowlist secret
   passthroughHeaders: string;
@@ -816,6 +821,7 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
     advancedOpen,
     visibility,
     teamId,
+    initialTeamId: serverData?.teamId,
     authType,
     oneTimeAuth,
     passthroughHeaders,

@@ -59,5 +59,8 @@
   "common.errorBoundary.title": "Algo deu errado",
   "common.errorBoundary.chunkLoadMessage": "Esta página foi atualizada desde o último carregamento. Recarregue para obter a versão mais recente.",
   "common.errorBoundary.genericMessage": "Ocorreu um erro inesperado. Tente recarregar a página.",
-  "common.errorBoundary.reload": "Recarregar página"
+  "common.errorBoundary.reload": "Recarregar página",
+  "common.required": "*",
+  "common.team.label": "Equipe",
+  "common.team.placeholder": "Selecione uma equipe"
 }

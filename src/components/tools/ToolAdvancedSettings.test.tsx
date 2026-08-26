@@ -1,18 +1,43 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { api } from "@/api/client";
+import * as AuthContextModule from "@/auth/AuthContext";
 import { renderWithProviders } from "@/test/test-utils";
 import { ToolAdvancedSettings } from "./ToolAdvancedSettings";
 import { ToolBearerTokenAuth } from "./ToolBearerTokenAuth";
 
-// Mock AuthContext
+// Mock AuthContext — the sidebar team is per-test, so team resolution can be
+// exercised against both a chosen team and "All teams".
 vi.mock("@/auth/AuthContext", () => ({
-  useAuthContext: () => ({
-    selectedTeamId: "team-123",
-    user: null,
-    token: null,
-  }),
+  useAuthContext: vi.fn(),
 }));
+
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn().mockResolvedValue([]) },
+}));
+
+const mockGet = vi.mocked(api.get);
+const mockUseAuthContext = vi.mocked(AuthContextModule.useAuthContext);
+
+const makeAuthContext = (selectedTeamId: string | null = "team-123") =>
+  ({ selectedTeamId, user: null, token: null }) as unknown as ReturnType<
+    typeof AuthContextModule.useAuthContext
+  >;
+
+beforeEach(() => {
+  mockUseAuthContext.mockReturnValue(makeAuthContext());
+});
+
+const personalTeam = { id: "team-personal", name: "Personal team", is_personal: true };
+const sharedTeam = { id: "team-shared", name: "Shared team", is_personal: false };
+
+/** Answers `GET /teams` with the given teams; everything else stays empty. */
+function mockTeams(teams: Array<Record<string, unknown>>) {
+  mockGet.mockImplementation((path: string) =>
+    path === "/teams" ? Promise.resolve({ teams }) : Promise.resolve([]),
+  );
+}
 
 const defaultProps = {
   visibility: "public" as const,
@@ -162,9 +187,105 @@ describe("ToolAdvancedSettings", () => {
     expect(screen.queryByRole("button", { name: /Add header/i })).toBeNull();
   });
 
-  it("shows team hint when visibility is team and selectedTeamId is set", () => {
-    renderWithProviders(<ToolAdvancedSettings {...defaultProps} visibility="team" />);
-    expect(screen.getByText(/currently selected team/i)).toBeTruthy();
+  describe("team visibility", () => {
+    it("renders no selector for a single team", async () => {
+      mockTeams([personalTeam]);
+
+      renderWithProviders(<ToolAdvancedSettings {...defaultProps} visibility="team" />);
+
+      await waitFor(() => {
+        expect(screen.queryByRole("combobox", { name: /^team/i })).not.toBeInTheDocument();
+      });
+    });
+
+    it("renders a selector for several teams", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+
+      renderWithProviders(
+        <ToolAdvancedSettings {...defaultProps} visibility="team" teamId={sharedTeam.id} />,
+      );
+
+      expect(await screen.findByRole("combobox", { name: /^team/i })).toHaveTextContent(
+        "Shared team",
+      );
+    });
+
+    it("resolves to the sidebar team while creating", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      const onTeamIdChange = vi.fn();
+
+      renderWithProviders(
+        <ToolAdvancedSettings
+          {...defaultProps}
+          visibility="team"
+          teamId=""
+          onTeamIdChange={onTeamIdChange}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(onTeamIdChange).toHaveBeenCalledWith("team-123");
+      });
+    });
+
+    it("keeps the tool's own team while editing, over the sidebar team", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      const onTeamIdChange = vi.fn();
+
+      renderWithProviders(
+        <ToolAdvancedSettings
+          {...defaultProps}
+          visibility="team"
+          teamId={sharedTeam.id}
+          initialTeamId={sharedTeam.id}
+          onTeamIdChange={onTeamIdChange}
+        />,
+      );
+
+      // The sidebar sits on team-123; honouring it would retarget the tool.
+      await screen.findByRole("combobox", { name: /^team/i });
+      expect(onTeamIdChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps the tool's own team while editing with the sidebar on All teams", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      mockUseAuthContext.mockReturnValue(makeAuthContext(null));
+      const onTeamIdChange = vi.fn();
+
+      renderWithProviders(
+        <ToolAdvancedSettings
+          {...defaultProps}
+          visibility="team"
+          teamId={sharedTeam.id}
+          initialTeamId={sharedTeam.id}
+          onTeamIdChange={onTeamIdChange}
+        />,
+      );
+
+      await screen.findByRole("combobox", { name: /^team/i });
+      expect(onTeamIdChange).not.toHaveBeenCalled();
+    });
+
+    it("still lets the caller retarget the tool from the selector", async () => {
+      mockTeams([personalTeam, sharedTeam]);
+      const onTeamIdChange = vi.fn();
+      const user = userEvent.setup();
+
+      renderWithProviders(
+        <ToolAdvancedSettings
+          {...defaultProps}
+          visibility="team"
+          teamId={sharedTeam.id}
+          initialTeamId={sharedTeam.id}
+          onTeamIdChange={onTeamIdChange}
+        />,
+      );
+
+      await user.click(await screen.findByRole("combobox", { name: /^team/i }));
+      await user.click(screen.getByRole("option", { name: personalTeam.name }));
+
+      expect(onTeamIdChange).toHaveBeenCalledWith(personalTeam.id);
+    });
   });
 
   it("calls onResponseFilterChange when response filter changes", () => {
