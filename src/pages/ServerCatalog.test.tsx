@@ -334,7 +334,10 @@ describe("ServerCatalog", () => {
 
   it("retries async disconnect status without sending DELETE again", async () => {
     const user = userEvent.setup();
-    const refetch = vi.fn().mockResolvedValue(response);
+    const refetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Temporary catalog failure"))
+      .mockResolvedValue(response);
     mockUseQuery.mockReturnValue(queryResult({ refetch }));
     mockDisconnectCatalogGateway.mockClear();
     mockDisconnectCatalogGateway.mockResolvedValue({
@@ -354,6 +357,13 @@ describe("ServerCatalog", () => {
 
       await act(async () => {
         await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText("Globalping is still disconnecting. Refresh shortly.")).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await act(async () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
