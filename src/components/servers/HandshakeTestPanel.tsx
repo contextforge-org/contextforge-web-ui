@@ -438,6 +438,7 @@ export function HandshakeTestPanel({
     };
     setErrors(nextErrors);
     if (nextErrors.headers) {
+      setStatus("idle");
       return;
     }
 

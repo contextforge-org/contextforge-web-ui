@@ -219,6 +219,30 @@ describe("HandshakeTestPanel", () => {
     await waitFor(() => expect(aborted).toBe(true));
   });
 
+  it("clears a stale success result when a re-test is blocked by header validation", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(TEST_ENDPOINT, () =>
+        HttpResponse.json({ success: true, latencyMs: 10, credentialSource: "session" }),
+      ),
+    );
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/headers/i), "invalid json");
+    await user.click(screen.getByRole("button", { name: /^re-test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/handshake succeeded/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
+  });
+
   it("clears the headers error as soon as the field is edited", async () => {
     const user = userEvent.setup();
     render(<HandshakeTestPanel {...defaultProps} />);
