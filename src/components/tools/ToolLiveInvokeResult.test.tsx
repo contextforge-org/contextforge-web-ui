@@ -66,7 +66,7 @@ describe("ToolLiveInvokeResult", () => {
 
     expect(screen.getByText("Live invoke failed -32003")).toBeInTheDocument();
     expect(screen.getByText("8 ms")).toBeInTheDocument();
-    expect(screen.getByText("Access denied")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Access denied");
   });
 
   it("renders HTTP errors and tool-level error results", () => {

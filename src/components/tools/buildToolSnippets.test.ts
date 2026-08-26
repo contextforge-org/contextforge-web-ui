@@ -41,6 +41,19 @@ describe("buildToolSnippets", () => {
     expect(snippet).toContain(`can'\\''t reproduce`);
   });
 
+  it("escapes newline arguments inside the curl payload", () => {
+    const snippet = buildToolCurl({
+      toolName: "line_tool",
+      args: { query: "first\nsecond" },
+    });
+    const lines = snippet.split("\n");
+    const dataLine = lines[lines.length - 1] ?? "";
+
+    expect(lines).toHaveLength(4);
+    expect(dataLine).toContain("first\\nsecond");
+    expect(dataLine).not.toContain("first\nsecond");
+  });
+
   it("emits Python that keeps JSON booleans and nulls valid", () => {
     const snippet = buildToolPython({
       toolName: "nullable_tool",
@@ -52,6 +65,17 @@ describe("buildToolSnippets", () => {
     expect(snippet).toContain('\\"optional\\": null');
     expect(snippet).toContain("os.environ['MCPGATEWAY_URL']");
     expect(snippet).not.toContain("$MCPGATEWAY_URL");
+  });
+
+  it("omits undefined arguments from the Python JSON payload", () => {
+    const snippet = buildToolPython({
+      toolName: "missing_arg_tool",
+      args: { query: "cloudflare", optional: undefined },
+    });
+
+    expect(snippet).toContain('\\"query\\": \\"cloudflare\\"');
+    expect(snippet).not.toContain("undefined");
+    expect(snippet).not.toContain("optional");
   });
 
   it("checks both HTTP and JSON-RPC failures in TypeScript", () => {

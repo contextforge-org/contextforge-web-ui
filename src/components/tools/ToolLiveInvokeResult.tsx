@@ -85,7 +85,11 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
       )}
 
       {error && (
-        <pre className="overflow-auto rounded-md border border-destructive/40 bg-destructive/5 p-4 font-mono text-[12px] leading-relaxed text-destructive">
+        <pre
+          role="alert"
+          aria-live="assertive"
+          className="overflow-auto rounded-md border border-destructive/40 bg-destructive/5 p-4 font-mono text-[12px] leading-relaxed text-destructive"
+        >
           {error.message}
         </pre>
       )}
