@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import {
@@ -330,6 +330,49 @@ describe("ServerCatalog", () => {
 
     await waitFor(() => expect(refetch).toHaveBeenCalledOnce(), { timeout: 1_000 });
     expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("retries async disconnect status without sending DELETE again", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(response);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockClear();
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+
+    renderWithRouter(<ServerCatalog />);
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+      await act(async () => {
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText("Globalping is still disconnecting. Refresh shortly.")).toBeVisible();
+      refetch.mockResolvedValue({
+        ...response,
+        servers: [{ ...openConnected, is_registered: false, gateway_id: null }],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+
+      expect(screen.getByText("Globalping disconnected.")).toBeVisible();
+      expect(mockDisconnectCatalogGateway).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps catalog state unchanged when backend rejects disconnect ownership", async () => {
