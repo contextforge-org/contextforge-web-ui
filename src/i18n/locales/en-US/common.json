@@ -55,5 +55,8 @@
   "common.theme.dark": "Dark mode",
   "common.theme.system": "System theme",
   "common.theme.toggle": "Toggle theme",
-  "common.button.remove": "Remove"
+  "common.button.remove": "Remove",
+  "common.required": "*",
+  "common.team.label": "Team",
+  "common.team.placeholder": "Select a team"
 }

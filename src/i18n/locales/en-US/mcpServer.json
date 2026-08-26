@@ -111,8 +111,6 @@
   "mcpServer.catalog.error": "Unable to load server catalog. Try again.",
   "mcpServer.catalog.retry": "Retry",
   "mcpServer.advanced.visibilityPlaceholder": "Select visibility",
-  "mcpServer.advanced.teamScoped": "This server will be scoped to your currently selected team",
-  "mcpServer.advanced.teamNotSelected": "Please select a team using the team switcher in the sidebar",
   "mcpServer.advanced.authTypeLabel": "Authentication type",
   "mcpServer.advanced.authType.none": "None",
   "mcpServer.advanced.authType.basic": "Basic",
