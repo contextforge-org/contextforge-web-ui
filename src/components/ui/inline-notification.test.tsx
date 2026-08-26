@@ -86,4 +86,19 @@ describe("InlineNotification", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("renders and runs an optional action", async () => {
+    const onClick = vi.fn();
+    render(
+      <InlineNotification
+        type="error"
+        message="Disconnect is still running"
+        action={{ label: "Retry", onClick }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(onClick).toHaveBeenCalledOnce();
+  });
 });

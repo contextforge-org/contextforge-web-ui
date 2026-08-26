@@ -47,9 +47,10 @@ interface CatalogFilters {
 interface RegistrationNotification {
   type: "success" | "error";
   message: string;
+  retryCatalogServer?: CatalogServer;
 }
 
-const DISCONNECT_POLL_TIMEOUT_MS = 60_000;
+const DISCONNECT_POLL_TIMEOUT_MS = 30_000;
 const DEFAULT_DISCONNECT_POLL_MS = 1_000;
 
 class DisconnectPollTimeoutError extends Error {
@@ -542,6 +543,55 @@ export function ServerCatalog() {
     [refetch],
   );
 
+  const handleDisconnectStatusRetry = useCallback(
+    async (server: CatalogServer) => {
+      if (!beginDisconnecting(server.id)) return;
+
+      let pollController: AbortController | null = null;
+      setRegistrationNotification(null);
+      try {
+        disconnectPollAbortRef.current?.abort();
+        pollController = new AbortController();
+        disconnectPollAbortRef.current = pollController;
+        await waitForCatalogDisconnect(
+          server.id,
+          DEFAULT_DISCONNECT_POLL_MS,
+          pollController.signal,
+        );
+        shouldFocusRegistrationNotificationRef.current = true;
+        setRegistrationNotification({
+          type: "success",
+          message: intl.formatMessage(
+            { id: "mcpServer.catalog.disconnectSuccess" },
+            { name: server.name },
+          ),
+        });
+      } catch (error) {
+        if (isAbortError(error)) return;
+        shouldFocusRegistrationNotificationRef.current = true;
+        setRegistrationNotification({
+          type: "error",
+          message: intl.formatMessage(
+            {
+              id:
+                error instanceof DisconnectPollTimeoutError
+                  ? "mcpServer.catalog.disconnectPending"
+                  : "mcpServer.catalog.disconnectError",
+            },
+            { name: server.name },
+          ),
+          ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
+        });
+      } finally {
+        if (disconnectPollAbortRef.current === pollController) {
+          disconnectPollAbortRef.current = null;
+        }
+        endDisconnecting(server.id);
+      }
+    },
+    [beginDisconnecting, endDisconnecting, intl, waitForCatalogDisconnect],
+  );
+
   const confirmDisconnect = useCallback(async () => {
     const gatewayId = disconnectServer?.gateway_id;
     if (!disconnectServer || !gatewayId || !beginDisconnecting(disconnectServer.id)) {
@@ -595,6 +645,7 @@ export function ServerCatalog() {
           },
           { name: server.name },
         ),
+        ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
       });
     } finally {
       if (disconnectPollAbortRef.current === pollController) {
@@ -693,6 +744,17 @@ export function ServerCatalog() {
             ref={registrationNotificationRef}
             type={registrationNotification.type}
             message={registrationNotification.message}
+            action={
+              registrationNotification.retryCatalogServer
+                ? {
+                    label: intl.formatMessage({ id: "mcpServer.catalog.retry" }),
+                    onClick: () =>
+                      void handleDisconnectStatusRetry(
+                        registrationNotification.retryCatalogServer!,
+                      ),
+                  }
+                : undefined
+            }
             tabIndex={-1}
             onDismiss={handleRegistrationNotificationDismiss}
           />
@@ -729,7 +791,7 @@ export function ServerCatalog() {
               )}
             </p>
             {impactPreviewLoading && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
                 {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpactLoading" })}
               </p>
             )}

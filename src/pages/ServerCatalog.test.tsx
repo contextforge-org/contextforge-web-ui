@@ -285,6 +285,30 @@ describe("ServerCatalog", () => {
     expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
   });
 
+  it("announces impact-preview loading to screen readers", async () => {
+    const user = userEvent.setup();
+    let resolvePreview: (preview: { gatewayId: string; servers: never[] }) => void;
+    mockGetGatewayImpactPreview.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    expect(screen.getByText("Checking affected virtual servers…")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    expect(screen.getByText("Checking affected virtual servers…")).toHaveAttribute(
+      "aria-atomic",
+      "true",
+    );
+    resolvePreview!({ gatewayId: "gateway-globalping", servers: [] });
+  });
+
   it("waits for catalog state after an async disconnect", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue({
