@@ -405,7 +405,7 @@ export function VirtualServerDetailsPanel({
       >
         {server && (
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0 overflow-y-auto px-6 py-8 lg:px-12">
+            <div className="min-w-0 overflow-y-auto scrollbar-gutter-stable px-6 py-8 lg:px-12">
               <h2 id={headingId} className="sr-only">
                 {intl.formatMessage({ id: "gateways.details.sheetTitle" }, { name: server.name })}
               </h2>
