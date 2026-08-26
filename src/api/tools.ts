@@ -92,6 +92,58 @@ export interface ToolPreviewResult {
   status: number;
 }
 
+export type ToolInvokeRequestId = string | number;
+
+export interface ToolInvokeRequest {
+  jsonrpc: "2.0";
+  id: ToolInvokeRequestId;
+  method: "tools/call";
+  params: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface ToolCancelInvokeRequest {
+  jsonrpc: "2.0";
+  id: ToolInvokeRequestId;
+  method: "notifications/cancelled";
+  params: {
+    requestId: string;
+    reason?: string;
+  };
+}
+
+export interface ToolJsonRpcErrorBody {
+  code: number;
+  message: string;
+  data?: unknown;
+}
+
+export interface ToolInvokeJsonRpcResponse {
+  jsonrpc?: "2.0";
+  id?: ToolInvokeRequestId | null;
+  result?: ToolPreviewResponse;
+  error?: ToolJsonRpcErrorBody;
+}
+
+export interface ToolInvokeResult {
+  result: ToolPreviewResponse;
+  status: number;
+  id: ToolInvokeRequestId | null;
+}
+
+export class ToolInvokeJsonRpcError extends Error {
+  constructor(
+    public readonly rpcError: ToolJsonRpcErrorBody,
+    public readonly status: number,
+    public readonly id: ToolInvokeRequestId | null,
+  ) {
+    super(rpcError.message);
+    this.name = "ToolInvokeJsonRpcError";
+  }
+}
+
 /**
  * Validates tool ID to prevent path traversal and injection attacks
  * @param id - The tool ID to validate
@@ -127,6 +179,12 @@ function validateToolName(name: string): string {
     throw new Error("Invalid tool name format");
   }
   return name;
+}
+
+function validateRequestId(id: ToolInvokeRequestId): ToolInvokeRequestId {
+  if (typeof id === "string" && id.trim()) return id;
+  if (typeof id === "number" && Number.isFinite(id)) return id;
+  throw new Error("Invalid request ID");
 }
 
 export const toolsApi = {
@@ -206,6 +264,89 @@ export const toolsApi = {
         { headers: passthroughHeaders, signal: options.signal },
       )
       .then(({ data, status }) => ({ preview: data, status }));
+  },
+
+  /**
+   * Invoke a tool through the production MCP JSON-RPC path.
+   *
+   * The browser calls `/rpc`; `api` resolves that to same-origin `/api/rpc`,
+   * where the BFF injects the upstream bearer token. JSON-RPC errors are body
+   * fields even when HTTP status is 200, so callers must not rely on HTTP
+   * status alone to classify invocation success.
+   */
+  invoke: (
+    name: string,
+    args: Record<string, unknown> = {},
+    passthroughHeaders: Record<string, string> = {},
+    options: { requestId?: ToolInvokeRequestId; signal?: AbortSignal } = {},
+  ): Promise<ToolInvokeResult> => {
+    const validName = validateToolName(name);
+    const requestId = options.requestId ?? `tool-live-${Date.now()}`;
+    const body: ToolInvokeRequest = {
+      jsonrpc: "2.0",
+      id: requestId,
+      method: "tools/call",
+      params: {
+        name: validName,
+        arguments: args,
+      },
+    };
+
+    return api
+      .postWithMeta<ToolInvokeJsonRpcResponse>("/rpc", body, {
+        headers: passthroughHeaders,
+        signal: options.signal,
+      })
+      .then(({ data, status }) => {
+        const id = data.id ?? null;
+        if (data.error) {
+          throw new ToolInvokeJsonRpcError(data.error, status, id);
+        }
+        if (!data.result) {
+          throw new ToolInvokeJsonRpcError(
+            {
+              code: -32603,
+              message: "Malformed JSON-RPC response",
+              data,
+            },
+            status,
+            id,
+          );
+        }
+        return { result: data.result, status, id };
+      });
+  },
+
+  /**
+   * Request cancellation for an in-flight MCP JSON-RPC tool call.
+   *
+   * Uses the owner-authorized MCP notification path on `/rpc` instead of the
+   * REST cancellation endpoint, which is admin-scoped in the gateway today.
+   */
+  cancelInvoke: (
+    requestId: ToolInvokeRequestId,
+    reason?: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<void> => {
+    const validRequestId = validateRequestId(requestId);
+    const body: ToolCancelInvokeRequest = {
+      jsonrpc: "2.0",
+      id: `cancel-${String(validRequestId)}`,
+      method: "notifications/cancelled",
+      params: {
+        requestId: String(validRequestId),
+        ...(reason ? { reason } : {}),
+      },
+    };
+
+    return api
+      .postWithMeta<ToolInvokeJsonRpcResponse>("/rpc", body, { signal: options.signal })
+      .then(({ data, status }) => {
+        const id = data.id ?? null;
+        if (data.error) {
+          throw new ToolInvokeJsonRpcError(data.error, status, id);
+        }
+      });
   },
 
   /**

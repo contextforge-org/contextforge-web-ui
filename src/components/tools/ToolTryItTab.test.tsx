@@ -6,6 +6,19 @@ import { renderWithProviders as render } from "@/test/test-utils";
 import type { Tool } from "@/types/tool";
 import { ToolTryItTab } from "./ToolTryItTab";
 
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({
+    hasPermission: (permission: string) =>
+      permission === "tools.execute" || permission === "servers.use",
+    permissionsLoading: false,
+  }),
+}));
+
+function activeCode(): string {
+  const pre = document.querySelector('[data-slot="tabs-content"][data-state="active"] pre');
+  return pre?.textContent ?? "";
+}
+
 function makeTool(overrides: Partial<Tool> = {}): Tool {
   return {
     id: "tool-search",
@@ -48,6 +61,33 @@ function makeTool(overrides: Partial<Tool> = {}): Tool {
 }
 
 describe("ToolTryItTab", () => {
+  it("renders live tools/call snippets against a gateway placeholder", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+
+    render(
+      <ToolTryItTab tools={[selectedTool]} selectedTool={selectedTool} onSelectTool={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("tab", { name: "curl" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Python" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "TypeScript" })).toBeInTheDocument();
+    expect(screen.getByText("MCP 2025-11-25")).toBeInTheDocument();
+    expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
+    expect(activeCode()).toContain('"method":"tools/call"');
+    expect(activeCode()).toContain('"name":"search_issues"');
+    expect(activeCode()).not.toContain("/api/rpc");
+
+    await user.type(screen.getByLabelText(/query/i), "cloudflare");
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeEnabled();
+
+    await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
+    expect(activeCode()).toContain('"method": "tools/call"');
+    expect(activeCode()).toContain('"name": "search_issues"');
+    expect(activeCode()).not.toContain("server_id");
+  });
+
   it("preserves draft arguments and headers when the same tool is refreshed", async () => {
     const user = userEvent.setup();
     const selectedTool = makeTool();
