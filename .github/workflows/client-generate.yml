@@ -2,7 +2,7 @@
 # 🧬 Client Type Generation - verify generated types stay in sync
 # ===============================================================
 #   - regenerates src/generated/ from the committed openapi.json
-#   - verifies types exist and compile
+#   - verifies types exist, compile, and the app builds
 # ---------------------------------------------------------------
 
 name: Client Type Generation
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   generate-types:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    name: Generate and verify types
+    name: Generate, verify, and build types
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -50,3 +50,6 @@ jobs:
 
       - name: Verify generated types compile
         run: npx tsc -b --noEmit
+
+      - name: Build
+        run: npm run build
