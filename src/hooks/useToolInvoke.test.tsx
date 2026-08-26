@@ -14,13 +14,14 @@ vi.mock("@/api/tools", async () => {
   const actual = await vi.importActual<typeof import("@/api/tools")>("@/api/tools");
   return {
     ...actual,
-    toolsApi: { invoke: vi.fn() },
+    toolsApi: { invoke: vi.fn(), cancelInvoke: vi.fn() },
   };
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
+  vi.mocked(toolsApi.cancelInvoke).mockResolvedValue(undefined);
 });
 
 function setup(
@@ -60,6 +61,7 @@ describe("useToolInvoke", () => {
     expect(result.current.result?.result.content?.[0]?.text).toBe("done");
     expect(result.current.error).toBeNull();
     expect(result.current.hasRun).toBe(true);
+    expect(toolsApi.cancelInvoke).not.toHaveBeenCalled();
   });
 
   it("captures JSON-RPC error codes and messages", async () => {
@@ -116,7 +118,7 @@ describe("useToolInvoke", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("stopWaiting aborts in-flight requests without marking a server cancellation", async () => {
+  it("stopWaiting sends MCP cancellation and aborts in-flight requests", async () => {
     let capturedSignal: AbortSignal | undefined;
     vi.mocked(toolsApi.invoke).mockImplementation((_name, _args, _headers, opts) => {
       capturedSignal = opts?.signal;
@@ -134,6 +136,10 @@ describe("useToolInvoke", () => {
     });
 
     expect(capturedSignal?.aborted).toBe(true);
+    expect(toolsApi.cancelInvoke).toHaveBeenCalledWith(
+      expect.stringMatching(/^tool-live-/),
+      "user",
+    );
     expect(result.current.isLoading).toBe(false);
     expect(result.current.hasRun).toBe(false);
   });
@@ -159,8 +165,38 @@ describe("useToolInvoke", () => {
       await runPromise;
     });
 
+    expect(toolsApi.cancelInvoke).toHaveBeenCalledWith(
+      expect.stringMatching(/^tool-live-/),
+      "timeout",
+    );
     expect(result.current.error?.timedOut).toBe(true);
     expect(result.current.error?.message).toContain("timed out");
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("reset sends best-effort cancellation for active requests", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    vi.mocked(toolsApi.invoke).mockImplementation((_name, _args, _headers, opts) => {
+      capturedSignal = opts?.signal;
+      return new Promise(() => {});
+    });
+    const { result } = setup();
+
+    act(() => {
+      void result.current.run();
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(toolsApi.cancelInvoke).toHaveBeenCalledWith(
+      expect.stringMatching(/^tool-live-/),
+      "reset",
+    );
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.hasRun).toBe(false);
   });
 });

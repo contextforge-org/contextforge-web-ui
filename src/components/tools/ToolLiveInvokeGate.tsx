@@ -11,7 +11,7 @@ import { getToolAnnotationHints } from "./toolAnnotations";
 
 export type ToolLiveInvokeAvailability =
   | { state: "checkingAccess" }
-  | { state: "missingPermission" }
+  | { state: "missingPermission"; permission: "tools.execute" | "servers.use" }
   | { state: "available" }
   | { state: "requiresConfirmation" }
   | { state: "unavailableFederated" }
@@ -19,27 +19,32 @@ export type ToolLiveInvokeAvailability =
 
 export interface ResolveToolLiveInvokeAvailabilityInput {
   canExecute: boolean;
+  canUseServers: boolean;
   permissionsLoading: boolean;
   tool: Pick<Tool, "annotations" | "gatewayId">;
 }
 
 export function resolveToolLiveInvokeAvailability({
   canExecute,
+  canUseServers,
   permissionsLoading,
   tool,
 }: ResolveToolLiveInvokeAvailabilityInput): ToolLiveInvokeAvailability {
   if (permissionsLoading) return { state: "checkingAccess" };
-  if (!canExecute) return { state: "missingPermission" };
+  if (!canExecute) return { state: "missingPermission", permission: "tools.execute" };
+  if (!canUseServers) return { state: "missingPermission", permission: "servers.use" };
 
   const hints = getToolAnnotationHints(tool.annotations);
-  if (hints.readOnlyHint) return { state: "available" };
-
   const isFederated = Boolean(tool.gatewayId);
-  if (isFederated) return { state: "unavailableFederated" };
 
   // Future #5437 approval states should plug in here before deciding that a
   // non-read-only tool remains unavailable from this drawer.
-  if (hints.destructiveHint) return { state: "requiresConfirmation" };
+  if (hints.destructiveHint) {
+    return isFederated ? { state: "unavailableFederated" } : { state: "requiresConfirmation" };
+  }
+
+  if (hints.readOnlyHint) return { state: "available" };
+  if (isFederated) return { state: "unavailableFederated" };
 
   return { state: "unavailableUntagged" };
 }
@@ -58,6 +63,7 @@ export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveI
     () =>
       resolveToolLiveInvokeAvailability({
         canExecute: hasPermission("tools.execute"),
+        canUseServers: hasPermission("servers.use"),
         permissionsLoading,
         tool,
       }),
@@ -145,7 +151,12 @@ function availabilityMessage(
     case "checkingAccess":
       return formatMessage({ id: "tools.details.invoke.unavailable.checkingAccess" });
     case "missingPermission":
-      return formatMessage({ id: "tools.details.invoke.unavailable.missingPermission" });
+      return formatMessage({
+        id:
+          availability.permission === "tools.execute"
+            ? "tools.details.invoke.unavailable.missingExecutePermission"
+            : "tools.details.invoke.unavailable.missingServerUsePermission",
+      });
     case "unavailableFederated":
       return formatMessage({ id: "tools.details.invoke.unavailable.federated" });
     case "unavailableUntagged":

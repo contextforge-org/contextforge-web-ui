@@ -49,6 +49,7 @@ export function useToolInvoke(
   const [result, setResult] = useState<ToolInvokeSuccess | null>(null);
   const [error, setError] = useState<ToolInvokeFailure | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef<ToolInvokeRequestId | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeoutAbortRef = useRef(false);
 
@@ -59,26 +60,38 @@ export function useToolInvoke(
     }
   }, []);
 
-  const abortCurrent = useCallback(() => {
-    clearRunTimer();
-    abortRef.current?.abort();
-    abortRef.current = null;
-  }, [clearRunTimer]);
+  const cancelActiveRun = useCallback((reason: string) => {
+    const requestId = activeRequestIdRef.current;
+    if (requestId === null) return;
+    activeRequestIdRef.current = null;
+    void toolsApi.cancelInvoke(requestId, reason).catch(() => undefined);
+  }, []);
+
+  const abortCurrent = useCallback(
+    (cancelReason?: string) => {
+      if (cancelReason) cancelActiveRun(cancelReason);
+      clearRunTimer();
+      abortRef.current?.abort();
+      abortRef.current = null;
+    },
+    [cancelActiveRun, clearRunTimer],
+  );
 
   useEffect(() => {
+    abortCurrent("tool-changed");
     setResult(null);
     setError(null);
-  }, [toolName]);
+  }, [abortCurrent, toolName]);
 
   useEffect(() => {
     return () => {
-      abortCurrent();
+      abortCurrent("unmount");
     };
   }, [abortCurrent]);
 
   const reset = useCallback(() => {
     timeoutAbortRef.current = false;
-    abortCurrent();
+    abortCurrent("reset");
     setResult(null);
     setError(null);
     setLoading(false);
@@ -86,18 +99,21 @@ export function useToolInvoke(
 
   const stopWaiting = useCallback(() => {
     timeoutAbortRef.current = false;
-    abortCurrent();
+    abortCurrent("user");
     setLoading(false);
   }, [abortCurrent]);
 
   const run = useCallback(async () => {
-    abortCurrent();
+    abortCurrent("superseded");
     const controller = new AbortController();
+    const requestId = `tool-live-${Date.now()}`;
     abortRef.current = controller;
+    activeRequestIdRef.current = requestId;
     timeoutAbortRef.current = false;
 
     timeoutRef.current = setTimeout(() => {
       timeoutAbortRef.current = true;
+      cancelActiveRun("timeout");
       controller.abort();
     }, timeoutMs);
 
@@ -110,7 +126,7 @@ export function useToolInvoke(
         status,
         id,
       } = await toolsApi.invoke(toolName, args, passthroughHeaders, {
-        requestId: `tool-live-${Date.now()}`,
+        requestId,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -151,9 +167,21 @@ export function useToolInvoke(
       if (abortRef.current === controller) {
         abortRef.current = null;
       }
+      if (activeRequestIdRef.current === requestId) {
+        activeRequestIdRef.current = null;
+      }
       timeoutAbortRef.current = false;
     }
-  }, [abortCurrent, args, clearRunTimer, intl, passthroughHeaders, timeoutMs, toolName]);
+  }, [
+    abortCurrent,
+    args,
+    cancelActiveRun,
+    clearRunTimer,
+    intl,
+    passthroughHeaders,
+    timeoutMs,
+    toolName,
+  ]);
 
   return {
     run,

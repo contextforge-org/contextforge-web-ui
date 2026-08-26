@@ -104,6 +104,16 @@ export interface ToolInvokeRequest {
   };
 }
 
+export interface ToolCancelInvokeRequest {
+  jsonrpc: "2.0";
+  id: ToolInvokeRequestId;
+  method: "notifications/cancelled";
+  params: {
+    requestId: string;
+    reason?: string;
+  };
+}
+
 export interface ToolJsonRpcErrorBody {
   code: number;
   message: string;
@@ -169,6 +179,12 @@ function validateToolName(name: string): string {
     throw new Error("Invalid tool name format");
   }
   return name;
+}
+
+function validateRequestId(id: ToolInvokeRequestId): ToolInvokeRequestId {
+  if (typeof id === "string" && id.trim()) return id;
+  if (typeof id === "number" && Number.isFinite(id)) return id;
+  throw new Error("Invalid request ID");
 }
 
 export const toolsApi = {
@@ -298,6 +314,38 @@ export const toolsApi = {
           );
         }
         return { result: data.result, status, id };
+      });
+  },
+
+  /**
+   * Request cancellation for an in-flight MCP JSON-RPC tool call.
+   *
+   * Uses the owner-authorized MCP notification path on `/rpc` instead of the
+   * REST cancellation endpoint, which is admin-scoped in the gateway today.
+   */
+  cancelInvoke: (
+    requestId: ToolInvokeRequestId,
+    reason?: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<void> => {
+    const validRequestId = validateRequestId(requestId);
+    const body: ToolCancelInvokeRequest = {
+      jsonrpc: "2.0",
+      id: `cancel-${String(validRequestId)}`,
+      method: "notifications/cancelled",
+      params: {
+        requestId: String(validRequestId),
+        ...(reason ? { reason } : {}),
+      },
+    };
+
+    return api
+      .postWithMeta<ToolInvokeJsonRpcResponse>("/rpc", body, { signal: options.signal })
+      .then(({ data, status }) => {
+        const id = data.id ?? null;
+        if (data.error) {
+          throw new ToolInvokeJsonRpcError(data.error, status, id);
+        }
       });
   },
 

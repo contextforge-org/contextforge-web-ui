@@ -8,7 +8,8 @@ import { ToolTryItTab } from "./ToolTryItTab";
 
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => ({
-    hasPermission: (permission: string) => permission === "tools.execute",
+    hasPermission: (permission: string) =>
+      permission === "tools.execute" || permission === "servers.use",
     permissionsLoading: false,
   }),
 }));

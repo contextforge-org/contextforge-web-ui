@@ -195,6 +195,66 @@ describe("toolsApi", () => {
     });
   });
 
+  describe("cancelInvoke", () => {
+    it("POSTs an MCP cancellation notification to /rpc", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ jsonrpc: "2.0", id: "cancel-invoke-1", result: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await toolsApi.cancelInvoke("invoke-1", "user");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/rpc"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "cancel-invoke-1",
+            method: "notifications/cancelled",
+            params: {
+              requestId: "invoke-1",
+              reason: "user",
+            },
+          }),
+          headers: expect.objectContaining({
+            "X-CSRF-Token": "test-csrf-token",
+          }),
+          credentials: "same-origin", // pragma: allowlist secret
+        }),
+      );
+    });
+
+    it("throws ToolInvokeJsonRpcError for cancellation JSON-RPC errors", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: "cancel-invoke-1",
+            error: { code: -32003, message: "Not authorized" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+
+      await expect(toolsApi.cancelInvoke("invoke-1", "user")).rejects.toMatchObject({
+        name: "ToolInvokeJsonRpcError",
+        rpcError: { code: -32003, message: "Not authorized" },
+        status: 200,
+        id: "cancel-invoke-1",
+      });
+    });
+
+    it("throws synchronously for empty cancellation request IDs", () => {
+      expect(() => toolsApi.cancelInvoke("")).toThrow("Invalid request ID");
+    });
+  });
+
   describe("delete", () => {
     it("calls DELETE /tools/:id with CSRF token and same-origin credentials", async () => {
       mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));

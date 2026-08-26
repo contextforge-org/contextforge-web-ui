@@ -497,6 +497,73 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("Deleted").first()).toBeVisible();
   });
 
+  test("sends MCP cancellation when cancelling live invoke", async ({ page }) => {
+    const slowTool = makeTool("slow_search", "github-server", {
+      annotations: { readOnlyHint: true },
+      inputSchema: { type: "object", properties: {} },
+    });
+    const rpcBodies: JsonRpcRequest[] = [];
+    let releaseInvoke: (() => void) | undefined;
+    const releaseInvokePromise = new Promise<void>((resolve) => {
+      releaseInvoke = resolve;
+    });
+
+    await routeToolsList(page, [slowTool]);
+    await page.route("**/api/rpc", async (route) => {
+      const body = route.request().postDataJSON() as JsonRpcRequest;
+      rpcBodies.push(body);
+
+      if (body.method === "notifications/cancelled") {
+        releaseInvoke?.();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ jsonrpc: "2.0", id: body.id ?? "cancel-1", result: {} }),
+        });
+        return;
+      }
+
+      await releaseInvokePromise;
+      try {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: body.id ?? "invoke-1",
+            result: { content: [{ type: "text", text: "Finished", mimeType: "text/plain" }] },
+          }),
+        });
+      } catch {
+        // The browser request is expected to be aborted after cancellation.
+      }
+    });
+
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "github-server");
+
+    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await expect(panel.getByRole("button", { name: "Cancel request" })).toBeVisible();
+    await panel.getByRole("button", { name: "Cancel request" }).click();
+
+    await expect
+      .poll(() => rpcBodies.some((body) => body.method === "notifications/cancelled"))
+      .toBe(true);
+    const invokeBody = rpcBodies.find((body) => body.method === "tools/call");
+    const cancelBody = rpcBodies.find((body) => body.method === "notifications/cancelled");
+
+    expect(invokeBody?.id).toEqual(expect.stringMatching(/^tool-live-/));
+    expect(cancelBody).toMatchObject({
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+      params: {
+        requestId: String(invokeBody?.id),
+        reason: "user",
+      },
+    });
+  });
+
   test("hides live invoke when tools.execute is missing", async ({ page, apiMock }) => {
     await apiMock.mockPermissions({ permissions: ["tools.read", "servers.use"] });
     const liveTool = makeTool("search_issues", "github-server", {
@@ -510,6 +577,22 @@ test.describe("Tools page", () => {
     const panel = await openToolDetails(page, "github-server");
 
     await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+  });
+
+  test("hides live invoke when servers.use is missing", async ({ page, apiMock }) => {
+    await apiMock.mockPermissions({ permissions: ["tools.read", "tools.execute"] });
+    const liveTool = makeTool("search_issues", "github-server", {
+      annotations: { readOnlyHint: true },
+      inputSchema: { type: "object", properties: {} },
+    });
+
+    await routeToolsList(page, [liveTool]);
+    await page.goto(APP.TOOLS);
+    await page.waitForLoadState("networkidle");
+    const panel = await openToolDetails(page, "github-server");
+
+    await expect(panel.getByText("Live invoke requires servers.use.")).toBeVisible();
     await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
   });
 
