@@ -50,6 +50,30 @@ existing server instead:
 PLAYWRIGHT_BASE_URL=http://localhost:4444 PLAYWRIGHT_SKIP_WEBSERVER=1 npm run e2e
 ```
 
+### Real-backend mode (`e2e:docker`)
+
+`npm run e2e:docker` runs the same suite against a real backend instead of
+`page.route()` stubs: `docker-compose.e2e.yml` is a standalone stack (`app`,
+`redis`, and a real gateway — official `ghcr.io/ibm/mcp-context-forge`
+image), entirely independent of `docker-compose.yml` and under its own
+`e2e` Compose project, so it can never collide with a plain dev stack's
+containers or volumes either way. It seeds a login user, runs the suite
+against the containers (`E2E_REAL_API=true`), then tears the stack down.
+The `apiMock`/`auth` fixtures skip stubbing for the success path in this
+mode; the auth fixture logs in for real using
+`E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD`.
+
+```bash
+npm run e2e:docker
+```
+
+Requires `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` set in `.env` — the seed
+script bootstraps that user as the gateway's admin (22+ chars, no email
+local-part — see `.env.example`).
+
+The `gateway` image tag in `docker-compose.e2e.yml` is pinned to match
+`openapi.json`'s `info.version` — bump both together.
+
 ## Writing a new test
 
 Import the `test` and `expect` helpers from the fixture that matches your needs:

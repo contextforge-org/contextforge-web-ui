@@ -1,0 +1,60 @@
+# Standalone stack for `npm run e2e:docker` — own app/redis, independent of
+# docker-compose.yml, so a plain `docker compose down` can't touch either one.
+name: e2e
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_ENABLE_TOOL_PREVIEW: "true"
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CONTEXTFORGE_URL: http://gateway:4444
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: "no"
+    volumes:
+      - redis-data:/data
+
+  gateway:
+    # Keep in sync with openapi.json's `info.version` — the API surface this repo's BFF proxies to.
+    image: ghcr.io/ibm/mcp-context-forge:v1.0.8
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_URL: sqlite:///./data/mcp.db
+      # `:-` not `-`: E2E_TEST_EMAIL/PASSWORD ship blank in .env.example, so
+      # fall back even when set-but-empty.
+      PLATFORM_ADMIN_EMAIL: ${E2E_TEST_EMAIL:-test@example.com}
+      # Throwaway first-boot password. e2e/seed/seed.ts changes it to
+      # E2E_TEST_PASSWORD before tests run — real logins never use this one.
+      PLATFORM_ADMIN_PASSWORD: ${E2E_BOOTSTRAP_PASSWORD:-changeme-e2e-bootstrap-pwd1}
+      PLATFORM_ADMIN_FULL_NAME: E2E Test User
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-e2e-testing-secret-key-not-for-prod}
+      AUTH_ENCRYPTION_SECRET: ${AUTH_ENCRYPTION_SECRET:-e2e-testing-secret-not-for-prod-32ch}
+      MCPGATEWAY_UI_ENABLED: "true"
+      MCPGATEWAY_ADMIN_API_ENABLED: "true"
+      AUTH_REQUIRED: "true"
+      # Parallel workers each logging in for real blow past the login rate limit and lock the account.
+      RATE_LIMITING_ENABLED: "false"
+    ports:
+      - "4444:4444"
+    restart: "no"
+
+volumes:
+  redis-data:

@@ -1,5 +1,8 @@
 import { test, expect } from "../fixtures/api-mock";
+import { realLogin } from "../fixtures/real-login";
 import { APP, TOKEN_STORAGE_KEY } from "../utils/paths";
+
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
 
 test.describe("Password change required flow", () => {
   test.beforeEach(async ({ page, apiMock }) => {
@@ -14,9 +17,14 @@ test.describe("Password change required flow", () => {
     apiMock,
   }) => {
     await apiMock.mockChangePasswordRequired();
+    await apiMock.mockPermissions();
 
     await page.goto(`${APP.CHANGE_PASSWORD_REQUIRED}?email=test%40example.com`);
     await expect(page.getByLabel(/email address/i)).toHaveValue("test@example.com");
+
+    // The mocked change-password-required response never touches the real
+    // backend, so log in for real too or other unmocked calls 401 and bounce us to login.
+    if (IS_REAL_API) await realLogin(page);
 
     await page.getByLabel(/current password/i).fill("old-password");
     await page.getByLabel(/^new password/i).fill("New-password1");
@@ -24,7 +32,8 @@ test.describe("Password change required flow", () => {
     await page.getByRole("button", { name: /change password/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`${APP.ROOT}$`));
-    await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
+    // Not a heading match — that text is data-dependent. Home nav is the stable "landed, not bounced to /login" signal.
+    await expect(page.getByRole("button", { name: "Home" })).toBeVisible();
   });
 
   test("password changed but auto sign-in failed shows a fallback screen back to login", async ({

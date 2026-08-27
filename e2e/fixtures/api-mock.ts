@@ -4,9 +4,16 @@
  * Uses `page.route()` so tests run without a live backend. The payload
  * shapes mirror the BFF's auth routes (client/server/src/routes/auth/) and
  * `client/src/auth/AuthContext.tsx` (`User`, `LoginResponse`, `SessionResponse`).
+ *
+ * When E2E_REAL_API=true, methods testing the success path (default
+ * `mockSession`, `mockLogin({status: 200})`) do a real login instead of
+ * stubbing; error-status stubs stay mocked either way.
  */
 
 import { test as base, expect, type Page } from "@playwright/test";
+import { realLogin } from "./real-login";
+
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
 
 export interface MockUser {
   email: string;
@@ -49,6 +56,8 @@ export interface ApiMock {
    */
   mockPermissions(options?: { permissions?: string[] }): Promise<void>;
   mockUnauthorized(urlPattern: string | RegExp): Promise<void>;
+  /** Real csrfToken from this test's real login — compare against this instead of MOCK_CSRF_TOKEN when IS_REAL_API. */
+  getRealCsrfToken(): Promise<string | undefined>;
   /**
    * Mocks POST /auth/change-password-required, the BFF's route used by
    * PasswordChangeRequired.tsx (client/src/pages/) after a "password change
@@ -64,12 +73,17 @@ export interface ApiMock {
 }
 
 export function createApiMock(page: Page): ApiMock {
+  let realSessionResponse: Promise<{ csrfToken?: string }> | undefined;
   return {
     async mockLogin({
       user = DEFAULT_TEST_USER,
       status = 200,
       detail = "Invalid credentials",
     } = {}) {
+      // Only the success path skips stubbing (real login must hit the real
+      // backend); explicit error statuses test client rendering and stay
+      // mocked either way.
+      if (IS_REAL_API && status === 200) return;
       await page.route("**/auth/login", async (route) => {
         if (status === 200) {
           await route.fulfill({
@@ -91,6 +105,18 @@ export function createApiMock(page: Page): ApiMock {
     },
 
     async mockSession({ user = DEFAULT_TEST_USER, authenticated = true } = {}) {
+      if (IS_REAL_API) {
+        // Real login when authenticated, no-op when false, so specs testing
+        // the logged-out state stay logged out.
+        if (authenticated) {
+          // AuthContext's own /auth/session call sets ITS token, not realLogin()'s — arm before it fires.
+          realSessionResponse = page
+            .waitForResponse((response) => /\/auth\/session(?:\?|$)/.test(response.url()))
+            .then((response) => response.json() as Promise<{ csrfToken?: string }>);
+          await realLogin(page);
+        }
+        return;
+      }
       await page.route("**/auth/session", async (route) => {
         await route.fulfill({
           status: 200,
@@ -137,6 +163,7 @@ export function createApiMock(page: Page): ApiMock {
     },
 
     async mockUnauthorized(urlPattern) {
+      if (IS_REAL_API) return;
       await page.route(urlPattern, async (route) => {
         await route.fulfill({
           status: 401,
@@ -144,6 +171,10 @@ export function createApiMock(page: Page): ApiMock {
           body: JSON.stringify({ detail: "Unauthorized" }),
         });
       });
+    },
+
+    async getRealCsrfToken() {
+      return (await realSessionResponse)?.csrfToken;
     },
   };
 }
