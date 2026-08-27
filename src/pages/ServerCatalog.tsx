@@ -46,10 +46,12 @@ interface CatalogFilters {
 
 interface RegistrationNotification {
   id: string;
-  type: "success" | "error";
+  type: "success" | "error" | "info";
   message: string;
   retryCatalogServer?: CatalogServer;
 }
+
+type ImpactPreviewStatus = "idle" | "loading" | "loaded" | "error";
 
 const DISCONNECT_POLL_TIMEOUT_MS = 30_000;
 const DEFAULT_DISCONNECT_POLL_MS = 1_000;
@@ -312,13 +314,14 @@ export function ServerCatalog() {
   >([]);
   const [disconnectServer, setDisconnectServer] = useState<CatalogServer | null>(null);
   const [impactPreview, setImpactPreview] = useState<GatewayImpactPreview | null>(null);
-  const [impactPreviewLoading, setImpactPreviewLoading] = useState(false);
+  const [impactPreviewStatus, setImpactPreviewStatus] = useState<ImpactPreviewStatus>("idle");
   const impactRequestIdRef = useRef(0);
   const disconnectPollAbortControllersRef = useRef(new Map<string, AbortController>());
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
   const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const registrationNotificationRefs = useRef(new Map<string, HTMLDivElement>());
   const notificationToFocusRef = useRef<string | null>(null);
+  const shouldRedirectDisconnectCloseFocusRef = useRef(false);
   const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const canTest = !permissionsLoading && hasPermission("gateways.read");
   const canDisconnect = !permissionsLoading && hasPermission("gateways.delete");
@@ -496,7 +499,22 @@ export function ServerCatalog() {
 
       try {
         const result = await testCatalogServer(server.url);
-        const statusCode = result?.statusCode ?? 0;
+        if (!result) {
+          showRegistrationNotification(
+            {
+              id: `test:${server.id}`,
+              type: "error",
+              message: intl.formatMessage(
+                { id: "mcpServer.catalog.testError" },
+                { name: server.name },
+              ),
+            },
+            true,
+          );
+          return;
+        }
+
+        const statusCode = result.statusCode ?? 0;
         const succeeded = statusCode >= 200 && statusCode < 300;
         showRegistrationNotification(
           {
@@ -506,7 +524,7 @@ export function ServerCatalog() {
               {
                 id: succeeded ? "mcpServer.catalog.testSuccess" : "mcpServer.catalog.testFailure",
               },
-              { name: server.name, statusCode, latencyMs: result?.latencyMs ?? 0 },
+              { name: server.name, statusCode, latencyMs: result.latencyMs ?? 0 },
             ),
           },
           true,
@@ -543,21 +561,25 @@ export function ServerCatalog() {
 
       setDisconnectServer(server);
       setImpactPreview(null);
+      setImpactPreviewStatus("idle");
       const requestId = ++impactRequestIdRef.current;
       if (!canDisconnect) return;
 
-      setImpactPreviewLoading(true);
+      setImpactPreviewStatus("loading");
       void getGatewayImpactPreview(server.gateway_id)
         .then((preview) => {
-          if (impactRequestIdRef.current === requestId) setImpactPreview(preview);
+          if (impactRequestIdRef.current === requestId) {
+            setImpactPreview(preview);
+            setImpactPreviewStatus("loaded");
+          }
         })
         // Preview is optional. A permission or ownership race must not disclose
         // the protected list or block a deletion the caller may perform.
         .catch(() => {
-          if (impactRequestIdRef.current === requestId) setImpactPreview(null);
-        })
-        .finally(() => {
-          if (impactRequestIdRef.current === requestId) setImpactPreviewLoading(false);
+          if (impactRequestIdRef.current === requestId) {
+            setImpactPreview(null);
+            setImpactPreviewStatus("error");
+          }
         });
     },
     [canDisconnect, isDisconnecting, isTesting],
@@ -568,7 +590,7 @@ export function ServerCatalog() {
     impactRequestIdRef.current += 1;
     setDisconnectServer(null);
     setImpactPreview(null);
-    setImpactPreviewLoading(false);
+    setImpactPreviewStatus("idle");
   }, []);
 
   const waitForCatalogDisconnect = useCallback(
@@ -634,7 +656,7 @@ export function ServerCatalog() {
         showRegistrationNotification(
           {
             id: `disconnect:${server.id}`,
-            type: "error",
+            type: error instanceof DisconnectPollTimeoutError ? "info" : "error",
             message: intl.formatMessage(
               {
                 id:
@@ -677,6 +699,20 @@ export function ServerCatalog() {
     try {
       const response = await disconnectCatalogGateway(gatewayId);
       if (response.status === 202) {
+        setDisconnectServer(null);
+        setImpactPreview(null);
+        setImpactPreviewStatus("idle");
+        showRegistrationNotification(
+          {
+            id: `disconnect:${server.id}`,
+            type: "info",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.disconnectAccepted" },
+              { name: server.name },
+            ),
+          },
+          true,
+        );
         pollController = new AbortController();
         disconnectPollAbortControllersRef.current.set(server.id, pollController);
         await waitForCatalogDisconnect(
@@ -687,6 +723,7 @@ export function ServerCatalog() {
       } else {
         setData((current) => setCatalogServerRegistration(current, server.id, false, null));
         void refreshCatalogSilently();
+        shouldRedirectDisconnectCloseFocusRef.current = true;
       }
       impactRequestIdRef.current += 1;
       setDisconnectServer(null);
@@ -711,7 +748,7 @@ export function ServerCatalog() {
       showRegistrationNotification(
         {
           id: `disconnect:${server.id}`,
-          type: "error",
+          type: error instanceof DisconnectPollTimeoutError ? "info" : "error",
           message: intl.formatMessage(
             {
               id:
@@ -746,6 +783,16 @@ export function ServerCatalog() {
     if (open) return;
     setSelectedServer(null);
     window.setTimeout(() => lastViewTriggerRef.current?.focus(), 0);
+  }, []);
+
+  const handleDisconnectDialogCloseAutoFocus = useCallback((event: Event) => {
+    if (!shouldRedirectDisconnectCloseFocusRef.current) return;
+
+    // A synchronous delete swaps the actions trigger for Add, so Radix cannot
+    // restore focus to the removed trigger.
+    event.preventDefault();
+    shouldRedirectDisconnectCloseFocusRef.current = false;
+    pageHeadingRef.current?.focus();
   }, []);
 
   const handleRegistrationNotificationDismiss = useCallback(
@@ -878,23 +925,40 @@ export function ServerCatalog() {
                 { name: disconnectServer?.name ?? "" },
               )}
             </p>
-            {impactPreviewLoading && (
-              <p className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
+            <p className="sr-only" aria-live="polite" aria-atomic="true">
+              {impactPreviewStatus === "loading"
+                ? intl.formatMessage({ id: "mcpServer.catalog.disconnectImpactLoading" })
+                : ""}
+            </p>
+            {impactPreviewStatus === "loading" && (
+              <p className="text-sm text-muted-foreground">
                 {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpactLoading" })}
               </p>
             )}
-            {!impactPreviewLoading && impactPreview && impactPreview.servers.length > 0 && (
-              <div>
-                <p className="mb-1 text-sm font-medium">
-                  {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpact" })}
-                </p>
-                <ul className="list-inside list-disc text-sm">
-                  {impactPreview.servers.map((server) => (
-                    <li key={server.id}>{server.name}</li>
-                  ))}
-                </ul>
-              </div>
+            {impactPreviewStatus === "loaded" && impactPreview?.servers.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpactNone" })}
+              </p>
             )}
+            {impactPreviewStatus === "error" && (
+              <p className="text-sm text-muted-foreground">
+                {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpactError" })}
+              </p>
+            )}
+            {impactPreviewStatus === "loaded" &&
+              impactPreview &&
+              impactPreview.servers.length > 0 && (
+                <div>
+                  <p className="mb-1 text-sm font-medium">
+                    {intl.formatMessage({ id: "mcpServer.catalog.disconnectImpact" })}
+                  </p>
+                  <ul className="list-inside list-disc text-sm">
+                    {impactPreview.servers.map((server) => (
+                      <li key={server.id}>{server.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
           </div>
         }
         confirmLabel={intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}
@@ -904,6 +968,7 @@ export function ServerCatalog() {
         isLoading={disconnectServer ? disconnectingServerIds.has(disconnectServer.id) : false}
         loadingLabel={intl.formatMessage({ id: "mcpServer.catalog.disconnecting" })}
         closeOnConfirm={false}
+        onCloseAutoFocus={handleDisconnectDialogCloseAutoFocus}
       />
     </CatalogPageLayout>
   );

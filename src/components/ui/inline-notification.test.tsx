@@ -49,6 +49,15 @@ describe("InlineNotification", () => {
     });
   });
 
+  describe("info type", () => {
+    it("renders with role='status' and neutral text", () => {
+      render(<InlineNotification type="info" message="Disconnect pending" />);
+
+      expect(screen.getByRole("status")).toHaveTextContent("Disconnect pending");
+      expect(screen.getByText("Disconnect pending")).toHaveClass("text-blue-600");
+    });
+  });
+
   describe("dismiss button", () => {
     it("renders dismiss button when onDismiss is provided", () => {
       render(<InlineNotification type="success" message="Done" onDismiss={vi.fn()} />);

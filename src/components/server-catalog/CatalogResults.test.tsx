@@ -18,7 +18,12 @@ const availableServer: CatalogServer = {
   is_registered: false,
 };
 
-function catalogResults(server: CatalogServer, addingServerIds: ReadonlySet<string> = new Set()) {
+function catalogResults(
+  server: CatalogServer,
+  addingServerIds: ReadonlySet<string> = new Set(),
+  testingServerIds: ReadonlySet<string> = new Set(),
+  disconnectingServerIds: ReadonlySet<string> = new Set(),
+) {
   return (
     <CatalogResults
       servers={[server]}
@@ -28,6 +33,8 @@ function catalogResults(server: CatalogServer, addingServerIds: ReadonlySet<stri
       addingServerIds={addingServerIds}
       onTest={vi.fn()}
       onDisconnect={vi.fn()}
+      testingServerIds={testingServerIds}
+      disconnectingServerIds={disconnectingServerIds}
       canTest={false}
       canDisconnect={false}
     />
@@ -67,5 +74,39 @@ describe("CatalogResults", () => {
     await user.click(screen.getByRole("button", { name: "Actions for Public Notes" }));
 
     expect(await screen.findByRole("menu")).toHaveAttribute("data-align", "end");
+  });
+
+  it("shows testing and disconnecting status on the affected card", () => {
+    const connectedServer = { ...availableServer, is_registered: true, gateway_id: "gateway-1" };
+    const { rerender } = renderWithProviders(
+      catalogResults(connectedServer, new Set(), new Set([connectedServer.id])),
+    );
+
+    expect(screen.getByText("Testing connection…")).toHaveAttribute("role", "status");
+
+    rerender(catalogResults(connectedServer, new Set(), new Set(), new Set([connectedServer.id])));
+
+    expect(screen.getByText("Disconnecting…")).toHaveAttribute("role", "status");
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+  });
+
+  it("routes bundled catalog logos through the BFF", () => {
+    const { container } = renderWithProviders(
+      catalogResults({ ...availableServer, logo_url: "/static/catalog-icons/asana.png" }),
+    );
+
+    const logo = container.querySelector("img");
+
+    expect(logo).toHaveAttribute("src", "/api/static/catalog-icons/asana.png");
+    expect(logo).toHaveClass("size-full", "object-contain");
+    expect(logo?.parentElement).not.toHaveClass("bg-muted");
+  });
+
+  it("rejects local logo paths outside the catalog icon directory", () => {
+    const { container } = renderWithProviders(
+      catalogResults({ ...availableServer, logo_url: "/static/admin.png" }),
+    );
+
+    expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 });

@@ -243,6 +243,18 @@ describe("ServerCatalog", () => {
     ).toBeVisible();
   });
 
+  it("reports an empty connectivity response as a test error", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue(null);
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    expect(await screen.findByText("Unable to test Globalping. Try again.")).toBeVisible();
+    expect(screen.queryByText(/status 0/i)).not.toBeInTheDocument();
+  });
+
   it("keeps notifications from independent server mutations", async () => {
     const user = userEvent.setup();
     mockTestCatalogServer.mockResolvedValue({ statusCode: 503, latencyMs: 12 });
@@ -344,15 +356,32 @@ describe("ServerCatalog", () => {
     await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
     await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
 
-    expect(screen.getByText("Checking affected virtual servers…")).toHaveAttribute(
-      "aria-live",
-      "polite",
-    );
-    expect(screen.getByText("Checking affected virtual servers…")).toHaveAttribute(
-      "aria-atomic",
-      "true",
-    );
+    const impactAnnouncement = screen.getByText("Checking affected virtual servers…", {
+      selector: "[aria-live]",
+    });
+    expect(impactAnnouncement).toHaveAttribute("aria-live", "polite");
+    expect(impactAnnouncement).toHaveAttribute("aria-atomic", "true");
     resolvePreview!({ gatewayId: "gateway-globalping", servers: [] });
+  });
+
+  it("distinguishes an empty impact preview from a failed preview", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    expect(await screen.findByText("No affected virtual servers found.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    mockGetGatewayImpactPreview.mockRejectedValue(new Error("Preview unavailable"));
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    expect(
+      await screen.findByText(
+        "Could not check affected virtual servers. You can still disconnect this server.",
+      ),
+    ).toBeVisible();
   });
 
   it("waits for catalog state after an async disconnect", async () => {
@@ -376,6 +405,28 @@ describe("ServerCatalog", () => {
 
     await waitFor(() => expect(refetch).toHaveBeenCalledOnce(), { timeout: 1_000 });
     expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("closes an accepted async disconnect and marks the card as disconnecting", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn(() => new Promise<CatalogListResponse>(() => {}));
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    const acceptedNotification = await screen.findByText("Globalping is disconnecting.");
+    expect(acceptedNotification.closest('[role="status"]')).toBeVisible();
+    expect(screen.getByText("Disconnecting…")).toHaveAttribute("role", "status");
   });
 
   it("retries async disconnect status without sending DELETE again", async () => {
@@ -406,14 +457,18 @@ describe("ServerCatalog", () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(screen.getByText("Globalping is still disconnecting. Refresh shortly.")).toBeVisible();
+      expect(
+        screen.getByText("Globalping is still disconnecting. You can retry shortly."),
+      ).toBeVisible();
       fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(screen.getByText("Globalping is still disconnecting. Refresh shortly.")).toBeVisible();
+      expect(
+        screen.getByText("Globalping is still disconnecting. You can retry shortly."),
+      ).toBeVisible();
       refetch.mockResolvedValue({
         ...response,
         servers: [{ ...openConnected, is_registered: false, gateway_id: null }],

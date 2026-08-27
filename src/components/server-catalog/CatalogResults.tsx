@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { CircleCheck, EllipsisVertical, FileText, PlugZap, Plus, Unplug } from "lucide-react";
+import { CircleCheck, EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
@@ -26,9 +26,16 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
+const CATALOG_ICON_PATH = /^\/static\/catalog-icons\/[A-Za-z0-9][A-Za-z0-9._-]*\.png$/;
 
 function getSafeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
+
+  // Catalog icons are packaged by the API under this fixed path. Route them
+  // through the authenticated BFF so the browser never needs an API origin.
+  if (CATALOG_ICON_PATH.test(value)) {
+    return `/api${value}`;
+  }
 
   try {
     const parsed = new URL(value);
@@ -53,14 +60,11 @@ function CatalogLogo({ server }: { server: CatalogServer }) {
   }
 
   return (
-    <div
-      aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"
-    >
+    <div aria-hidden="true" className="size-8 shrink-0">
       <img
         src={logoUrl}
         alt=""
-        className="size-4 object-contain"
+        className="size-full object-contain"
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
@@ -131,10 +135,20 @@ function CatalogCard({
             <div className="mt-auto flex min-h-6 items-center gap-3 pt-4">
               {server.is_registered ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
-                    {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
-                  </span>
+                  {isDisconnecting ? (
+                    <span role="status" className="text-sm font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.catalog.disconnecting" })}
+                    </span>
+                  ) : isTesting ? (
+                    <span role="status" className="text-sm font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.catalog.testing" })}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
+                      {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
+                    </span>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -178,7 +192,6 @@ function CatalogCard({
                               : undefined
                           }
                         >
-                          <PlugZap className="size-4" aria-hidden="true" />
                           {intl.formatMessage({ id: "mcpServer.catalog.test" })}
                         </DropdownMenuItem>
                       )}
@@ -187,7 +200,6 @@ function CatalogCard({
                           disabled={isTesting || isDisconnecting}
                           onSelect={onDisconnect}
                         >
-                          <Unplug className="size-4" aria-hidden="true" />
                           {intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}
                         </DropdownMenuItem>
                       )}
