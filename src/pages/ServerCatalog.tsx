@@ -45,6 +45,7 @@ interface CatalogFilters {
 }
 
 interface RegistrationNotification {
+  id: string;
   type: "success" | "error";
   message: string;
   retryCatalogServer?: CatalogServer;
@@ -306,17 +307,18 @@ export function ServerCatalog() {
     end: endDisconnecting,
     isPending: isDisconnecting,
   } = usePendingIds();
-  const [registrationNotification, setRegistrationNotification] =
-    useState<RegistrationNotification | null>(null);
+  const [registrationNotifications, setRegistrationNotifications] = useState<
+    RegistrationNotification[]
+  >([]);
   const [disconnectServer, setDisconnectServer] = useState<CatalogServer | null>(null);
   const [impactPreview, setImpactPreview] = useState<GatewayImpactPreview | null>(null);
   const [impactPreviewLoading, setImpactPreviewLoading] = useState(false);
   const impactRequestIdRef = useRef(0);
-  const disconnectPollAbortRef = useRef<AbortController | null>(null);
+  const disconnectPollAbortControllersRef = useRef(new Map<string, AbortController>());
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
   const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
-  const registrationNotificationRef = useRef<HTMLDivElement | null>(null);
-  const shouldFocusRegistrationNotificationRef = useRef(false);
+  const registrationNotificationRefs = useRef(new Map<string, HTMLDivElement>());
+  const notificationToFocusRef = useRef<string | null>(null);
   const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const canTest = !permissionsLoading && hasPermission("gateways.read");
   const canDisconnect = !permissionsLoading && hasPermission("gateways.delete");
@@ -336,19 +338,38 @@ export function ServerCatalog() {
   }, [debouncedSearch, filters.search, updateQuery]);
 
   useEffect(() => {
-    if (!registrationNotification || !shouldFocusRegistrationNotificationRef.current) return;
+    const notificationId = notificationToFocusRef.current;
+    if (!notificationId) return;
 
-    shouldFocusRegistrationNotificationRef.current = false;
-    registrationNotificationRef.current?.focus();
-  }, [registrationNotification]);
+    notificationToFocusRef.current = null;
+    registrationNotificationRefs.current.get(notificationId)?.focus();
+  }, [registrationNotifications]);
 
   useEffect(
     () => () => {
       impactRequestIdRef.current += 1;
-      disconnectPollAbortRef.current?.abort();
+      disconnectPollAbortControllersRef.current.forEach((controller) => controller.abort());
+      disconnectPollAbortControllersRef.current.clear();
     },
     [],
   );
+
+  const showRegistrationNotification = useCallback(
+    (notification: RegistrationNotification, shouldFocus = false) => {
+      if (shouldFocus) notificationToFocusRef.current = notification.id;
+      setRegistrationNotifications((current) => [
+        ...current.filter((existing) => existing.id !== notification.id),
+        notification,
+      ]);
+    },
+    [],
+  );
+
+  const dismissRegistrationNotification = useCallback((notificationId: string) => {
+    setRegistrationNotifications((current) =>
+      current.filter((notification) => notification.id !== notificationId),
+    );
+  }, []);
 
   // Only the search box filters ahead of the URL, so the grid can react to the
   // debounced value. Category, provider and tag selections are committed to the
@@ -398,11 +419,12 @@ export function ServerCatalog() {
   const handleAdd = useCallback(
     async (server: CatalogServer) => {
       if (!beginAdding(server.id)) return;
-      setRegistrationNotification(null);
+      dismissRegistrationNotification(`add:${server.id}`);
       try {
         const result = await registerCatalogServer(server.id);
         if (!result.success) {
-          setRegistrationNotification({
+          showRegistrationNotification({
+            id: `add:${server.id}`,
             type: "error",
             message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
           });
@@ -415,7 +437,8 @@ export function ServerCatalog() {
         void refreshCatalogSilently();
       } catch (registrationError) {
         if (registrationError instanceof ApiError && registrationError.status === 409) {
-          setRegistrationNotification({
+          showRegistrationNotification({
+            id: `add:${server.id}`,
             type: "success",
             message: intl.formatMessage(
               { id: "mcpServer.catalog.alreadyConnected" },
@@ -428,19 +451,23 @@ export function ServerCatalog() {
 
         if (registrationError instanceof ApiError && registrationError.status === 404) {
           setData((current) => removeCatalogServer(current, server.id));
-          shouldFocusRegistrationNotificationRef.current = true;
-          setRegistrationNotification({
-            type: "error",
-            message: intl.formatMessage(
-              { id: "mcpServer.catalog.addNotFound" },
-              { name: server.name },
-            ),
-          });
+          showRegistrationNotification(
+            {
+              id: `add:${server.id}`,
+              type: "error",
+              message: intl.formatMessage(
+                { id: "mcpServer.catalog.addNotFound" },
+                { name: server.name },
+              ),
+            },
+            true,
+          );
           await refreshCatalogSilently();
           return;
         }
 
-        setRegistrationNotification({
+        showRegistrationNotification({
+          id: `add:${server.id}`,
           type: "error",
           message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
         });
@@ -448,7 +475,15 @@ export function ServerCatalog() {
         endAdding(server.id);
       }
     },
-    [beginAdding, endAdding, intl, refreshCatalogSilently, setData],
+    [
+      beginAdding,
+      dismissRegistrationNotification,
+      endAdding,
+      intl,
+      refreshCatalogSilently,
+      setData,
+      showRegistrationNotification,
+    ],
   );
 
   const handleTest = useCallback(
@@ -457,33 +492,49 @@ export function ServerCatalog() {
         return;
       }
 
-      setRegistrationNotification(null);
+      dismissRegistrationNotification(`test:${server.id}`);
 
       try {
         const result = await testCatalogServer(server.url);
         const statusCode = result?.statusCode ?? 0;
         const succeeded = statusCode >= 200 && statusCode < 300;
-        shouldFocusRegistrationNotificationRef.current = true;
-        setRegistrationNotification({
-          type: succeeded ? "success" : "error",
-          message: intl.formatMessage(
-            {
-              id: succeeded ? "mcpServer.catalog.testSuccess" : "mcpServer.catalog.testFailure",
-            },
-            { name: server.name, statusCode, latencyMs: result?.latencyMs ?? 0 },
-          ),
-        });
+        showRegistrationNotification(
+          {
+            id: `test:${server.id}`,
+            type: succeeded ? "success" : "error",
+            message: intl.formatMessage(
+              {
+                id: succeeded ? "mcpServer.catalog.testSuccess" : "mcpServer.catalog.testFailure",
+              },
+              { name: server.name, statusCode, latencyMs: result?.latencyMs ?? 0 },
+            ),
+          },
+          true,
+        );
       } catch {
-        shouldFocusRegistrationNotificationRef.current = true;
-        setRegistrationNotification({
-          type: "error",
-          message: intl.formatMessage({ id: "mcpServer.catalog.testError" }, { name: server.name }),
-        });
+        showRegistrationNotification(
+          {
+            id: `test:${server.id}`,
+            type: "error",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.testError" },
+              { name: server.name },
+            ),
+          },
+          true,
+        );
       } finally {
         endTesting(server.id);
       }
     },
-    [beginTesting, endTesting, intl, isDisconnecting],
+    [
+      beginTesting,
+      dismissRegistrationNotification,
+      endTesting,
+      intl,
+      isDisconnecting,
+      showRegistrationNotification,
+    ],
   );
 
   const handleDisconnect = useCallback(
@@ -493,7 +544,7 @@ export function ServerCatalog() {
       setDisconnectServer(server);
       setImpactPreview(null);
       const requestId = ++impactRequestIdRef.current;
-      if (!canTest) return;
+      if (!canDisconnect) return;
 
       setImpactPreviewLoading(true);
       void getGatewayImpactPreview(server.gateway_id)
@@ -509,7 +560,7 @@ export function ServerCatalog() {
           if (impactRequestIdRef.current === requestId) setImpactPreviewLoading(false);
         });
     },
-    [canTest, isDisconnecting, isTesting],
+    [canDisconnect, isDisconnecting, isTesting],
   );
 
   const handleDisconnectDialogOpenChange = useCallback((open: boolean) => {
@@ -524,6 +575,7 @@ export function ServerCatalog() {
     async (catalogId: string, initialDelayMs: number, signal: AbortSignal) => {
       const deadline = Date.now() + DISCONNECT_POLL_TIMEOUT_MS;
       let delayMs = initialDelayMs;
+      let consecutivePollErrors = 0;
 
       while (Date.now() < deadline) {
         await delay(delayMs, signal);
@@ -531,9 +583,18 @@ export function ServerCatalog() {
           const catalog = await refetch();
           const server = catalog.servers.find((candidate) => candidate.id === catalogId);
           if (!server?.is_registered || !server.gateway_id) return;
-        } catch {
+          consecutivePollErrors = 0;
+        } catch (error) {
+          if (isAbortError(error)) throw error;
+          consecutivePollErrors += 1;
+          if (
+            (error instanceof ApiError && error.status >= 400 && error.status < 500) ||
+            consecutivePollErrors >= 3
+          ) {
+            throw error;
+          }
           // Deletion has already been accepted. Keep polling through transient
-          // catalog failures instead of reporting it as a failed deletion.
+          // catalog failures, but surface persistent or authorization failures.
         }
         delayMs = DEFAULT_DISCONNECT_POLL_MS;
       }
@@ -548,48 +609,60 @@ export function ServerCatalog() {
       if (!beginDisconnecting(server.id)) return;
 
       let pollController: AbortController | null = null;
-      setRegistrationNotification(null);
+      dismissRegistrationNotification(`disconnect:${server.id}`);
       try {
-        disconnectPollAbortRef.current?.abort();
         pollController = new AbortController();
-        disconnectPollAbortRef.current = pollController;
+        disconnectPollAbortControllersRef.current.set(server.id, pollController);
         await waitForCatalogDisconnect(
           server.id,
           DEFAULT_DISCONNECT_POLL_MS,
           pollController.signal,
         );
-        shouldFocusRegistrationNotificationRef.current = true;
-        setRegistrationNotification({
-          type: "success",
-          message: intl.formatMessage(
-            { id: "mcpServer.catalog.disconnectSuccess" },
-            { name: server.name },
-          ),
-        });
+        showRegistrationNotification(
+          {
+            id: `disconnect:${server.id}`,
+            type: "success",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.disconnectSuccess" },
+              { name: server.name },
+            ),
+          },
+          true,
+        );
       } catch (error) {
         if (isAbortError(error)) return;
-        shouldFocusRegistrationNotificationRef.current = true;
-        setRegistrationNotification({
-          type: "error",
-          message: intl.formatMessage(
-            {
-              id:
-                error instanceof DisconnectPollTimeoutError
-                  ? "mcpServer.catalog.disconnectPending"
-                  : "mcpServer.catalog.disconnectError",
-            },
-            { name: server.name },
-          ),
-          ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
-        });
+        showRegistrationNotification(
+          {
+            id: `disconnect:${server.id}`,
+            type: "error",
+            message: intl.formatMessage(
+              {
+                id:
+                  error instanceof DisconnectPollTimeoutError
+                    ? "mcpServer.catalog.disconnectPending"
+                    : "mcpServer.catalog.disconnectError",
+              },
+              { name: server.name },
+            ),
+            ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
+          },
+          true,
+        );
       } finally {
-        if (disconnectPollAbortRef.current === pollController) {
-          disconnectPollAbortRef.current = null;
+        if (disconnectPollAbortControllersRef.current.get(server.id) === pollController) {
+          disconnectPollAbortControllersRef.current.delete(server.id);
         }
         endDisconnecting(server.id);
       }
     },
-    [beginDisconnecting, endDisconnecting, intl, waitForCatalogDisconnect],
+    [
+      beginDisconnecting,
+      dismissRegistrationNotification,
+      endDisconnecting,
+      intl,
+      showRegistrationNotification,
+      waitForCatalogDisconnect,
+    ],
   );
 
   const confirmDisconnect = useCallback(async () => {
@@ -604,9 +677,8 @@ export function ServerCatalog() {
     try {
       const response = await disconnectCatalogGateway(gatewayId);
       if (response.status === 202) {
-        disconnectPollAbortRef.current?.abort();
         pollController = new AbortController();
-        disconnectPollAbortRef.current = pollController;
+        disconnectPollAbortControllersRef.current.set(server.id, pollController);
         await waitForCatalogDisconnect(
           server.id,
           getRetryAfterMs(response.headers.get("Retry-After")),
@@ -619,37 +691,43 @@ export function ServerCatalog() {
       impactRequestIdRef.current += 1;
       setDisconnectServer(null);
       setImpactPreview(null);
-      shouldFocusRegistrationNotificationRef.current = true;
-      setRegistrationNotification({
-        type: "success",
-        message: intl.formatMessage(
-          { id: "mcpServer.catalog.disconnectSuccess" },
-          { name: server.name },
-        ),
-      });
+      showRegistrationNotification(
+        {
+          id: `disconnect:${server.id}`,
+          type: "success",
+          message: intl.formatMessage(
+            { id: "mcpServer.catalog.disconnectSuccess" },
+            { name: server.name },
+          ),
+        },
+        true,
+      );
     } catch (error) {
       if (isAbortError(error)) return;
       if (error instanceof DisconnectPollTimeoutError) {
         setDisconnectServer(null);
         setImpactPreview(null);
       }
-      shouldFocusRegistrationNotificationRef.current = true;
-      setRegistrationNotification({
-        type: "error",
-        message: intl.formatMessage(
-          {
-            id:
-              error instanceof DisconnectPollTimeoutError
-                ? "mcpServer.catalog.disconnectPending"
-                : "mcpServer.catalog.disconnectError",
-          },
-          { name: server.name },
-        ),
-        ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
-      });
+      showRegistrationNotification(
+        {
+          id: `disconnect:${server.id}`,
+          type: "error",
+          message: intl.formatMessage(
+            {
+              id:
+                error instanceof DisconnectPollTimeoutError
+                  ? "mcpServer.catalog.disconnectPending"
+                  : "mcpServer.catalog.disconnectError",
+            },
+            { name: server.name },
+          ),
+          ...(error instanceof DisconnectPollTimeoutError ? { retryCatalogServer: server } : {}),
+        },
+        true,
+      );
     } finally {
-      if (disconnectPollAbortRef.current === pollController) {
-        disconnectPollAbortRef.current = null;
+      if (disconnectPollAbortControllersRef.current.get(server.id) === pollController) {
+        disconnectPollAbortControllersRef.current.delete(server.id);
       }
       endDisconnecting(server.id);
     }
@@ -660,6 +738,7 @@ export function ServerCatalog() {
     intl,
     refreshCatalogSilently,
     setData,
+    showRegistrationNotification,
     waitForCatalogDisconnect,
   ]);
 
@@ -669,14 +748,17 @@ export function ServerCatalog() {
     window.setTimeout(() => lastViewTriggerRef.current?.focus(), 0);
   }, []);
 
-  const handleRegistrationNotificationDismiss = useCallback(() => {
-    const notification = registrationNotificationRef.current;
-    const shouldRestoreFocus = notification?.contains(notification.ownerDocument.activeElement);
-    setRegistrationNotification(null);
-    if (shouldRestoreFocus) {
-      window.setTimeout(() => pageHeadingRef.current?.focus(), 0);
-    }
-  }, []);
+  const handleRegistrationNotificationDismiss = useCallback(
+    (notificationId: string) => {
+      const notification = registrationNotificationRefs.current.get(notificationId);
+      const shouldRestoreFocus = notification?.contains(notification.ownerDocument.activeElement);
+      dismissRegistrationNotification(notificationId);
+      if (shouldRestoreFocus) {
+        window.setTimeout(() => pageHeadingRef.current?.focus(), 0);
+      }
+    },
+    [dismissRegistrationNotification],
+  );
 
   if (isLoading && !data) {
     return (
@@ -738,26 +820,32 @@ export function ServerCatalog() {
         onClearAll={clearAllFilters}
       />
 
-      {registrationNotification && (
+      {registrationNotifications.length > 0 && (
         <div className="mb-4">
-          <InlineNotification
-            ref={registrationNotificationRef}
-            type={registrationNotification.type}
-            message={registrationNotification.message}
-            action={
-              registrationNotification.retryCatalogServer
-                ? {
-                    label: intl.formatMessage({ id: "mcpServer.catalog.retry" }),
-                    onClick: () =>
-                      void handleDisconnectStatusRetry(
-                        registrationNotification.retryCatalogServer!,
-                      ),
-                  }
-                : undefined
-            }
-            tabIndex={-1}
-            onDismiss={handleRegistrationNotificationDismiss}
-          />
+          <div className="space-y-2">
+            {registrationNotifications.map((notification) => (
+              <InlineNotification
+                key={notification.id}
+                ref={(element) => {
+                  if (element) registrationNotificationRefs.current.set(notification.id, element);
+                  else registrationNotificationRefs.current.delete(notification.id);
+                }}
+                type={notification.type}
+                message={notification.message}
+                action={
+                  notification.retryCatalogServer
+                    ? {
+                        label: intl.formatMessage({ id: "mcpServer.catalog.retry" }),
+                        onClick: () =>
+                          void handleDisconnectStatusRetry(notification.retryCatalogServer!),
+                      }
+                    : undefined
+                }
+                tabIndex={-1}
+                onDismiss={() => handleRegistrationNotificationDismiss(notification.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 

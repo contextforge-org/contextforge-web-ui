@@ -20,7 +20,7 @@ vi.mock("@/hooks/useQuery", () => ({
   useQuery: vi.fn(),
 }));
 const authState = vi.hoisted(() => ({
-  hasPermission: vi.fn(() => true),
+  hasPermission: vi.fn<(permission: string) => boolean>(() => true),
   permissionsLoading: false,
 }));
 vi.mock("@/auth/useAuth", () => ({
@@ -225,7 +225,39 @@ describe("ServerCatalog", () => {
     await waitFor(() =>
       expect(mockTestCatalogServer).toHaveBeenCalledWith("https://globalping.example/mcp"),
     );
-    expect(await screen.findByText("Globalping responded with status 200 in 12 ms.")).toBeVisible();
+    expect(
+      await screen.findByText("Globalping connection succeeded with status 200 in 12 ms."),
+    ).toBeVisible();
+  });
+
+  it("reports a failed connection distinctly from a successful connection", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 503, latencyMs: 12 });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    expect(
+      await screen.findByText("Globalping connection failed with status 503 in 12 ms."),
+    ).toBeVisible();
+  });
+
+  it("keeps notifications from independent server mutations", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 503, latencyMs: 12 });
+    mockRegisterCatalogServer.mockRejectedValue(new Error("Network error"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+    await screen.findByText("Globalping connection failed with status 503 in 12 ms.");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+    expect(
+      screen.getByText("Globalping connection failed with status 503 in 12 ms."),
+    ).toBeVisible();
   });
 
   it("disables Test when OAuth configuration remains incomplete", async () => {
@@ -259,6 +291,20 @@ describe("ServerCatalog", () => {
     expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Disconnect" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "View details" })).toBeInTheDocument();
+  });
+
+  it("loads disconnect impact for a caller allowed to delete but not test", async () => {
+    const user = userEvent.setup();
+    authState.hasPermission.mockImplementation((permission) => permission === "gateways.delete");
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    await waitFor(() =>
+      expect(mockGetGatewayImpactPreview).toHaveBeenCalledWith("gateway-globalping"),
+    );
   });
 
   it("confirms disconnect, shows affected virtual servers, then refetches catalog", async () => {
@@ -380,6 +426,36 @@ describe("ServerCatalog", () => {
 
       expect(screen.getByText("Globalping disconnected.")).toBeVisible();
       expect(mockDisconnectCatalogGateway).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports persistent catalog polling failures as errors", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockRejectedValue(new ApiError(500, null, "HTTP 500"));
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+      await act(async () => {
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText("Unable to disconnect Globalping. Try again.")).toBeVisible();
+      expect(refetch).toHaveBeenCalledTimes(3);
     } finally {
       vi.useRealTimers();
     }
