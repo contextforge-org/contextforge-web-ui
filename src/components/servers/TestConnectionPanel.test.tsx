@@ -10,6 +10,11 @@ import { TestConnectionPanel } from "./TestConnectionPanel";
 const TEST_ENDPOINT = "*/v1/mcp-servers/test";
 const HANDSHAKE_ENDPOINT = "*/v1/mcp-servers/test-handshake";
 
+async function selectHandshakeMode(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("combobox", { name: /test type/i }));
+  await user.click(screen.getByRole("option", { name: /mcp handshake/i }));
+}
+
 describe("TestConnectionPanel", () => {
   const defaultProps = {
     serverUrl: "https://example.com",
@@ -401,7 +406,7 @@ describe("TestConnectionPanel", () => {
       const user = userEvent.setup();
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
 
       expect(screen.getByLabelText(/^url/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/^path/i)).toBeInTheDocument();
@@ -415,7 +420,7 @@ describe("TestConnectionPanel", () => {
       const user = userEvent.setup();
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
 
       expect(screen.getByText(/stored credentials for registered servers/i)).toBeInTheDocument();
     });
@@ -442,7 +447,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -477,7 +482,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -493,7 +498,7 @@ describe("TestConnectionPanel", () => {
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
       await waitFor(() => expect(screen.getByText(/url is required/i)).toBeInTheDocument());
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
 
       expect(screen.queryByText(/url is required/i)).not.toBeInTheDocument();
     });
@@ -518,7 +523,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -547,7 +552,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -573,7 +578,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -591,7 +596,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -609,7 +614,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
       await waitFor(() => {
         expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
@@ -627,7 +632,7 @@ describe("TestConnectionPanel", () => {
       const user = userEvent.setup();
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
 
       const hint = screen.getByText(/stored credentials for registered servers/i);
       expect(hint.id).toBe("headers-hint");
@@ -638,7 +643,7 @@ describe("TestConnectionPanel", () => {
       const user = userEvent.setup();
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.type(screen.getByLabelText(/headers/i), "not json");
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
@@ -660,7 +665,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.type(screen.getByLabelText(/headers/i), '{{"X-Retry": 3}');
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
@@ -687,7 +692,7 @@ describe("TestConnectionPanel", () => {
       );
       const { unmount } = render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       unmount();
@@ -720,7 +725,7 @@ describe("TestConnectionPanel", () => {
       await user.click(screen.getByRole("radio", { name: "Post" }));
       await user.type(screen.getByLabelText(/body/i), "not json");
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -728,25 +733,16 @@ describe("TestConnectionPanel", () => {
       });
     });
 
-    it("associates each tab with its tabpanel", async () => {
+    it("labels the mode dropdown and reflects the selected mode", async () => {
       const user = userEvent.setup();
       render(<TestConnectionPanel {...defaultProps} />);
 
-      const httpPanel = screen.getByRole("tabpanel");
-      expect(httpPanel.id).toBeTruthy();
-      expect(screen.getByRole("tab", { name: /http request/i })).toHaveAttribute(
-        "aria-controls",
-        httpPanel.id,
-      );
+      const modeSelect = screen.getByRole("combobox", { name: /test type/i });
+      expect(modeSelect).toHaveTextContent(/http request/i);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
 
-      const handshakePanel = screen.getByRole("tabpanel");
-      expect(handshakePanel.id).toBeTruthy();
-      expect(screen.getByRole("tab", { name: /mcp handshake/i })).toHaveAttribute(
-        "aria-controls",
-        handshakePanel.id,
-      );
+      expect(modeSelect).toHaveTextContent(/mcp handshake/i);
     });
 
     it("shows a Cancel button during a handshake and aborts on click", async () => {
@@ -766,7 +762,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await user.click(await screen.findByRole("button", { name: /^cancel$/i }));
@@ -791,7 +787,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -817,7 +813,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -839,7 +835,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => {
@@ -858,7 +854,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.type(screen.getByLabelText(/^path/i), "/mcp");
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
@@ -877,7 +873,7 @@ describe("TestConnectionPanel", () => {
       );
       render(<TestConnectionPanel {...defaultProps} />);
 
-      await user.click(screen.getByRole("tab", { name: /mcp handshake/i }));
+      await selectHandshakeMode(user);
       await user.click(screen.getByLabelText(/headers/i));
       await user.paste('{"X-Api-Key": "k"}');
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));

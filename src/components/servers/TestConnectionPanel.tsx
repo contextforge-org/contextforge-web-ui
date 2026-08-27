@@ -9,7 +9,6 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { JsonHighlighter } from "../ui/json-highlighter";
@@ -29,9 +28,6 @@ interface TestConnectionPanelProps {
 
 type TestStatus = "idle" | "testing" | "success" | "error";
 type TestMode = "http" | "handshake";
-
-const SEGMENTED_TRIGGER_CLASS =
-  "rounded-md px-3 py-1 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 const FAILURE_CLASS_MESSAGE_IDS: Record<string, string> = {
   transport: "mcpServer.testConnection.failureClass.transport",
@@ -316,6 +312,18 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
     setStatus("idle");
   }, []);
 
+  // Switching modes discards the previous run: the two modes render different
+  // result shapes, and a stale HTTP response next to a handshake form reads as
+  // if the handshake had already succeeded.
+  const handleModeChange = useCallback((value: string) => {
+    setMode(value as TestMode);
+    setStatus("idle");
+    setResponse(null);
+    setHandshakeResponse(null);
+    setError("");
+    setErrors({});
+  }, []);
+
   const responseBodyText = useMemo(() => {
     if (!response?.body) return "";
     return typeof response.body === "string"
@@ -354,6 +362,29 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
     <div className="grid gap-6 @3xl:grid-cols-2">
       {/* Left column — request form */}
       <div className="space-y-4">
+        {/* Test type */}
+        <div className="space-y-2">
+          <FieldLabel htmlFor="test-mode">
+            {intl.formatMessage({ id: "mcpServer.testConnection.mode.label" })}
+          </FieldLabel>
+          <Select value={mode} onValueChange={handleModeChange} disabled={isTesting}>
+            <SelectTrigger
+              id="test-mode"
+              className="w-full bg-transparent dark:bg-transparent dark:hover:bg-transparent"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="http">
+                {intl.formatMessage({ id: "mcpServer.testConnection.mode.http" })}
+              </SelectItem>
+              <SelectItem value="handshake">
+                {intl.formatMessage({ id: "mcpServer.testConnection.mode.handshake" })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* URL */}
         <div className="space-y-2">
           <FieldLabel htmlFor="url" required hint="The full URL of the MCP server to test.">
@@ -731,31 +762,5 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
     </div>
   );
 
-  return (
-    <div className="@container">
-      <Tabs
-        className="gap-6"
-        value={mode}
-        onValueChange={(value) => {
-          setMode(value as TestMode);
-          setStatus("idle");
-          setResponse(null);
-          setHandshakeResponse(null);
-          setError("");
-          setErrors({});
-        }}
-      >
-        <TabsList className="inline-flex h-9 w-fit items-center gap-1 rounded-lg bg-muted p-1">
-          <TabsTrigger value="http" className={SEGMENTED_TRIGGER_CLASS} disabled={isTesting}>
-            {intl.formatMessage({ id: "mcpServer.testConnection.mode.http" })}
-          </TabsTrigger>
-          <TabsTrigger value="handshake" className={SEGMENTED_TRIGGER_CLASS} disabled={isTesting}>
-            {intl.formatMessage({ id: "mcpServer.testConnection.mode.handshake" })}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="http">{formGrid}</TabsContent>
-        <TabsContent value="handshake">{formGrid}</TabsContent>
-      </Tabs>
-    </div>
-  );
+  return <div className="@container">{formGrid}</div>;
 }

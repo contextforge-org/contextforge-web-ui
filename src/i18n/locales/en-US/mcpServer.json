@@ -185,6 +185,7 @@
   "mcpServer.caCert.filesSelected": "{count, plural, one {# file selected successfully.} other {# files selected successfully.}}",
   "mcpServer.caCert.selected": "Selected: {files}",
   "mcpServer.testConnection.copyResponseBody": "Copy response body",
+  "mcpServer.testConnection.mode.label": "Test type",
   "mcpServer.testConnection.mode.http": "HTTP request",
   "mcpServer.testConnection.mode.handshake": "MCP handshake",
   "mcpServer.testConnection.handshakeSucceeded": "Handshake succeeded",
