@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
 import { serversApi } from "@/api/servers";
-import { useMCPServerForm } from "./useMCPServerForm";
+import { useMCPServerForm, type MCPServerFormInitialValues } from "./useMCPServerForm";
 
 describe("useMCPServerForm", () => {
   describe("Initial State", () => {
@@ -1704,6 +1704,50 @@ describe("useMCPServerForm", () => {
       });
 
       expect(result.current.isValid).toBe(false);
+    });
+  });
+
+  describe("initialValues (Quick Add prefill)", () => {
+    it("seeds create-mode fields from initialValues", () => {
+      const { result } = renderHook(() =>
+        useMCPServerForm(undefined, {
+          name: "DeepWiki",
+          url: "https://mcp.deepwiki.com/mcp",
+          description: "Knowledge base with deep learning integration",
+          transport: "SSE",
+        }),
+      );
+
+      expect(result.current.name).toBe("DeepWiki");
+      expect(result.current.url).toBe("https://mcp.deepwiki.com/mcp");
+      expect(result.current.description).toBe("Knowledge base with deep learning integration");
+      expect(result.current.transport).toBe("SSE");
+    });
+
+    it("applies a later initialValues object once it arrives (Quick Add picked after the form opened)", () => {
+      const { result, rerender } = renderHook(
+        ({ initialValues }: { initialValues?: MCPServerFormInitialValues }) =>
+          useMCPServerForm(undefined, initialValues),
+        { initialProps: { initialValues: undefined as MCPServerFormInitialValues | undefined } },
+      );
+
+      expect(result.current.name).toBe("");
+
+      rerender({ initialValues: { name: "DeepWiki", url: "https://mcp.deepwiki.com/mcp" } });
+
+      expect(result.current.name).toBe("DeepWiki");
+      expect(result.current.url).toBe("https://mcp.deepwiki.com/mcp");
+    });
+
+    it("does not apply initialValues in edit mode", async () => {
+      const { result } = renderHook(() =>
+        useMCPServerForm("edit-123", { name: "Should not apply" }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.name).toBe("Test Server");
+      });
+      expect(result.current.name).not.toBe("Should not apply");
     });
   });
 });

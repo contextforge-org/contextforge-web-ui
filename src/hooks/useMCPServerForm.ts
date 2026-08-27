@@ -17,6 +17,14 @@ import {
 export type TransportType = "SSE" | "STREAMABLEHTTP";
 export type AuthType = "none" | "basic" | "bearer" | "custom" | "oauth" | "query";
 
+/** Seeds a freshly-opened create-mode form, e.g. from a picked Quick Add catalog entry. */
+export interface MCPServerFormInitialValues {
+  name?: string;
+  url?: string;
+  description?: string;
+  transport?: TransportType;
+}
+
 export interface CustomHeader {
   id: string;
   key: string;
@@ -300,7 +308,10 @@ const initialState = {
   queryParamApiKey: "", // pragma: allowlist secret
 };
 
-export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
+export function useMCPServerForm(
+  gatewayId?: string,
+  initialValues?: MCPServerFormInitialValues,
+): UseMCPServerFormReturn {
   const [name, setName] = useState(initialState.name);
   const [url, setUrl] = useState(initialState.url);
   const [description, setDescription] = useState(initialState.description);
@@ -454,6 +465,18 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
       }
     }
   }, [serverData, gatewayId]);
+
+  // Seeds a freshly-opened create-mode form from caller-supplied defaults (e.g. a
+  // picked Quick Add catalog entry). Runs once per new initialValues reference —
+  // the caller is expected to hand in a new object only when a fresh pick is made,
+  // not on every render. Edit mode owns its own prefill via the effect above.
+  useEffect(() => {
+    if (!initialValues || gatewayId) return;
+    if (initialValues.name !== undefined) setName(initialValues.name);
+    if (initialValues.url !== undefined) setUrl(initialValues.url);
+    if (initialValues.description !== undefined) setDescription(initialValues.description);
+    if (initialValues.transport !== undefined) setTransport(initialValues.transport);
+  }, [initialValues, gatewayId]);
 
   // Use useQuery for POST request to create MCP gateway
   const { execute: createGateway, isLoading: isCreating } = useQuery<unknown, MCPServerFormData>(

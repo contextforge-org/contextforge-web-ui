@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { STATUS_ICON } from "@/lib/status";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
-import { ServerIcon } from "@/components/servers/ServerIcon";
+import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardTag } from "@/components/ui/card-tag";
@@ -27,53 +27,6 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
-const CATALOG_ICON_PATH = /^\/static\/catalog-icons\/[A-Za-z0-9][A-Za-z0-9._-]*\.png$/;
-
-function getSafeExternalUrl(value: string | null | undefined): string | null {
-  if (!value) return null;
-
-  // Catalog icons are packaged by the API under this fixed path. Route them
-  // through the authenticated BFF so the browser never needs an API origin.
-  if (CATALOG_ICON_PATH.test(value)) {
-    return `/api${value}`;
-  }
-
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" && !parsed.username && !parsed.password
-      ? parsed.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function CatalogLogo({ server }: { server: CatalogServer }) {
-  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
-  const logoUrl = getSafeExternalUrl(server.logo_url);
-
-  if (!logoUrl || failedLogoUrl === logoUrl) {
-    return (
-      <div aria-hidden="true">
-        <ServerIcon name={server.name} size="lg" />
-      </div>
-    );
-  }
-
-  return (
-    <div aria-hidden="true" className="size-8 shrink-0">
-      <img
-        src={logoUrl}
-        alt=""
-        className="size-full object-contain"
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={() => setFailedLogoUrl(logoUrl)}
-      />
-    </div>
-  );
-}
 
 function CatalogCard({
   server,
