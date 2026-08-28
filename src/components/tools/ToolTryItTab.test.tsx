@@ -118,4 +118,57 @@ describe("ToolTryItTab", () => {
     expect(screen.getByLabelText("Header 1 name")).toHaveValue("X-Tenant-Id");
     expect(screen.getByLabelText("Header 1 value")).toHaveValue("team-a");
   });
+
+  it("defaults scoped testing to preview and switches snippets with live mode", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({
+      name: "github.search_issues",
+      displayName: "Search issues",
+      annotations: { readOnlyHint: true },
+    });
+
+    render(
+      <ToolTryItTab
+        getToolLabel={(tool) => tool.displayName ?? tool.name}
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    expect(screen.getByText("Tool test")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
+    expect(activeCode()).toContain("/v1/tools/preview/github.search_issues");
+    expect(activeCode()).toContain('"server_id":"virtual-server-1"');
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
+    expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
+    await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
+    expect(activeCode()).toContain('"server_id": "virtual-server-1"');
+    expect(activeCode()).toContain('"name": "github.search_issues"');
+  });
+
+  it("keeps scoped preview available when live invocation is unsafe", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: {}, gatewayId: "gateway-id" });
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/query/i), "cloudflare");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    expect(
+      screen.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
+    ).toBeInTheDocument();
+  });
 });

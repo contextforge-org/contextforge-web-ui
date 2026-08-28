@@ -137,13 +137,13 @@ export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveI
           : intl.formatMessage({ id: "tools.details.invoke.run" })}
       </Button>
       <p className="max-w-xs text-right text-[12px] leading-4 text-muted-foreground">
-        {availabilityMessage(availability, intl.formatMessage)}
+        {getToolLiveInvokeAvailabilityMessage(availability, intl.formatMessage)}
       </p>
     </div>
   );
 }
 
-function availabilityMessage(
+export function getToolLiveInvokeAvailabilityMessage(
   availability: ToolLiveInvokeAvailability,
   formatMessage: (descriptor: { id: string }) => string,
 ) {
