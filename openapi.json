@@ -39786,6 +39786,18 @@
             "description": "Whether server is already registered",
             "default": false
           },
+          "gateway_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Id",
+            "description": "ID of the caller-visible gateway matched to this catalog server"
+          },
           "is_available": {
             "type": "boolean",
             "title": "Is Available",

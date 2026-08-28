@@ -25,8 +25,17 @@ import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getTagLabels } from "@/utils/tags";
 
+const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
+const CATALOG_ICON_PATH = /^\/static\/catalog-icons\/[A-Za-z0-9][A-Za-z0-9._-]*\.png$/;
+
 function getSafeExternalUrl(value: string | null | undefined): string | null {
   if (!value) return null;
+
+  // Catalog icons are packaged by the API under this fixed path. Route them
+  // through the authenticated BFF so the browser never needs an API origin.
+  if (CATALOG_ICON_PATH.test(value)) {
+    return `/api${value}`;
+  }
 
   try {
     const parsed = new URL(value);
@@ -51,14 +60,11 @@ function CatalogLogo({ server }: { server: CatalogServer }) {
   }
 
   return (
-    <div
-      aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"
-    >
+    <div aria-hidden="true" className="size-8 shrink-0">
       <img
         src={logoUrl}
         alt=""
-        className="size-4 object-contain"
+        className="size-full object-contain"
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
@@ -72,12 +78,24 @@ function CatalogCard({
   server,
   onView,
   onAdd,
+  onTest,
+  onDisconnect,
   isAdding,
+  isTesting,
+  isDisconnecting,
+  canTest,
+  canDisconnect,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
+  onTest: () => void;
+  onDisconnect: () => void;
   isAdding: boolean;
+  isTesting: boolean;
+  isDisconnecting: boolean;
+  canTest: boolean;
+  canDisconnect: boolean;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -117,10 +135,20 @@ function CatalogCard({
             <div className="mt-auto flex min-h-6 items-center gap-3 pt-4">
               {server.is_registered ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
-                    {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
-                  </span>
+                  {isDisconnecting ? (
+                    <span role="status" className="text-sm font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.catalog.disconnecting" })}
+                    </span>
+                  ) : isTesting ? (
+                    <span role="status" className="text-sm font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.catalog.testing" })}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <CircleCheck className="size-4 text-green-500" aria-hidden="true" />
+                      {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
+                    </span>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -154,6 +182,27 @@ function CatalogCard({
                       >
                         {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
                       </DropdownMenuItem>
+                      {canTest && (
+                        <DropdownMenuItem
+                          disabled={server.requires_oauth_config || isTesting || isDisconnecting}
+                          onSelect={onTest}
+                          title={
+                            server.requires_oauth_config
+                              ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
+                              : undefined
+                          }
+                        >
+                          {intl.formatMessage({ id: "mcpServer.catalog.test" })}
+                        </DropdownMenuItem>
+                      )}
+                      {canDisconnect && server.gateway_id && (
+                        <DropdownMenuItem
+                          disabled={isTesting || isDisconnecting}
+                          onSelect={onDisconnect}
+                        >
+                          {intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
@@ -287,12 +336,24 @@ export function CatalogResults({
   onView,
   onAdd,
   addingServerIds,
+  onTest,
+  onDisconnect,
+  testingServerIds = EMPTY_PENDING_IDS,
+  disconnectingServerIds = EMPTY_PENDING_IDS,
+  canTest,
+  canDisconnect,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
   onView: (server: CatalogServer, trigger: HTMLElement) => void;
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
+  onTest: (server: CatalogServer) => void;
+  onDisconnect: (server: CatalogServer) => void;
+  testingServerIds?: ReadonlySet<string>;
+  disconnectingServerIds?: ReadonlySet<string>;
+  canTest: boolean;
+  canDisconnect: boolean;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -313,7 +374,13 @@ export function CatalogResults({
               server={server}
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
+              onTest={() => onTest(server)}
+              onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}
+              isTesting={testingServerIds.has(server.id)}
+              isDisconnecting={disconnectingServerIds.has(server.id)}
+              canTest={canTest}
+              canDisconnect={canDisconnect}
             />
           ))}
         </ul>

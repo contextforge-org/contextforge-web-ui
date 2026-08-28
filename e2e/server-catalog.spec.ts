@@ -70,6 +70,7 @@ async function mockCatalog(page: import("@playwright/test").Page, servers: Catal
 test.describe("Server catalog page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockSession();
+    await apiMock.mockPermissions();
 
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
@@ -224,7 +225,7 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("heading", { name: "Globalping" })).toBeVisible();
   });
 
-  test("adds an open server without refetching its card", async ({ page, apiMock }) => {
+  test("adds an open server then refreshes its gateway id", async ({ page, apiMock }) => {
     let registered = false;
     let catalogCalls = 0;
     let registerCalls = 0;
@@ -235,7 +236,13 @@ test.describe("Server catalog page", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          servers: [{ ...OPEN_SERVER, is_registered: registered }],
+          servers: [
+            {
+              ...OPEN_SERVER,
+              is_registered: registered,
+              gateway_id: registered ? "gateway-public-notes" : null,
+            },
+          ],
           total: 1,
           categories: ["Productivity"],
           auth_types: ["Open"],
@@ -276,7 +283,9 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("button", { name: "Add Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "View Public Notes" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Actions for Public Notes" })).toBeVisible();
-    expect(catalogCalls).toBe(catalogCallsBeforeAdd);
+    await expect.poll(() => catalogCalls).toBe(catalogCallsBeforeAdd + 1);
+    await page.getByRole("button", { name: "Actions for Public Notes" }).click();
+    await expect(page.getByRole("menuitem", { name: "Disconnect" })).toBeVisible();
   });
 
   test("removes a stale server and moves focus to its 404 notification", async ({ page }) => {

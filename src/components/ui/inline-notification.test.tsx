@@ -49,6 +49,15 @@ describe("InlineNotification", () => {
     });
   });
 
+  describe("info type", () => {
+    it("renders with role='status' and neutral text", () => {
+      render(<InlineNotification type="info" message="Disconnect pending" />);
+
+      expect(screen.getByRole("status")).toHaveTextContent("Disconnect pending");
+      expect(screen.getByText("Disconnect pending")).toHaveClass("text-blue-600");
+    });
+  });
+
   describe("dismiss button", () => {
     it("renders dismiss button when onDismiss is provided", () => {
       render(<InlineNotification type="success" message="Done" onDismiss={vi.fn()} />);
@@ -85,5 +94,20 @@ describe("InlineNotification", () => {
         screen.getByRole("button", { name: "Dismiss OAuth notification" }),
       ).toBeInTheDocument();
     });
+  });
+
+  it("renders and runs an optional action", async () => {
+    const onClick = vi.fn();
+    render(
+      <InlineNotification
+        type="error"
+        message="Disconnect is still running"
+        action={{ label: "Retry", onClick }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });

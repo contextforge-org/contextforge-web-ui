@@ -1,9 +1,14 @@
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { registerCatalogServer } from "@/api/catalog";
+import {
+  disconnectCatalogGateway,
+  getGatewayImpactPreview,
+  registerCatalogServer,
+  testCatalogServer,
+} from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
@@ -14,12 +19,25 @@ import { ServerCatalog } from "./ServerCatalog";
 vi.mock("@/hooks/useQuery", () => ({
   useQuery: vi.fn(),
 }));
+const authState = vi.hoisted(() => ({
+  hasPermission: vi.fn<(permission: string) => boolean>(() => true),
+  permissionsLoading: false,
+}));
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => authState,
+}));
 vi.mock("@/api/catalog", () => ({
   registerCatalogServer: vi.fn(),
+  disconnectCatalogGateway: vi.fn(),
+  getGatewayImpactPreview: vi.fn(),
+  testCatalogServer: vi.fn(),
 }));
 
 const mockUseQuery = vi.mocked(useQuery);
 const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
+const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
+const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
+const mockTestCatalogServer = vi.mocked(testCatalogServer);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -32,6 +50,7 @@ const openConnected: CatalogServer = {
   tags: ["network", "observability"],
   transport: "STREAMABLEHTTP",
   is_registered: true,
+  gateway_id: "gateway-globalping",
 };
 
 const openAvailable: CatalogServer = {
@@ -121,6 +140,15 @@ describe("ServerCatalog", () => {
       server_id: "registered-server",
       message: "Registered",
     });
+    authState.hasPermission.mockReturnValue(true);
+    authState.permissionsLoading = false;
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 200,
+      data: { status: "success" },
+      headers: new Headers(),
+    });
+    mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -187,6 +215,326 @@ describe("ServerCatalog", () => {
     expect(mockRegisterCatalogServer).toHaveBeenCalledWith("open-available");
   });
 
+  it("tests a connected catalog server and reports status plus latency", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    await waitFor(() =>
+      expect(mockTestCatalogServer).toHaveBeenCalledWith("https://globalping.example/mcp"),
+    );
+    expect(
+      await screen.findByText("Globalping connection succeeded with status 200 in 12 ms."),
+    ).toBeVisible();
+  });
+
+  it("reports a failed connection distinctly from a successful connection", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 503, latencyMs: 12 });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    expect(
+      await screen.findByText("Globalping connection failed with status 503 in 12 ms."),
+    ).toBeVisible();
+  });
+
+  it("reports an empty connectivity response as a test error", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue(null);
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+
+    expect(await screen.findByText("Unable to test Globalping. Try again.")).toBeVisible();
+    expect(screen.queryByText(/status 0/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps notifications from independent server mutations", async () => {
+    const user = userEvent.setup();
+    mockTestCatalogServer.mockResolvedValue({ statusCode: 503, latencyMs: 12 });
+    mockRegisterCatalogServer.mockRejectedValue(new Error("Network error"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Test connection" }));
+    await screen.findByText("Globalping connection failed with status 503 in 12 ms.");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+    expect(
+      screen.getByText("Globalping connection failed with status 503 in 12 ms."),
+    ).toBeVisible();
+  });
+
+  it("disables Test when OAuth configuration remains incomplete", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, requires_oauth_config: true }],
+          total: 1,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+
+    expect(screen.getByRole("menuitem", { name: "Test connection" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("hides connected-server mutations without their permissions", async () => {
+    const user = userEvent.setup();
+    authState.hasPermission.mockReturnValue(false);
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Disconnect" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "View details" })).toBeInTheDocument();
+  });
+
+  it("loads disconnect impact for a caller allowed to delete but not test", async () => {
+    const user = userEvent.setup();
+    authState.hasPermission.mockImplementation((permission) => permission === "gateways.delete");
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    await waitFor(() =>
+      expect(mockGetGatewayImpactPreview).toHaveBeenCalledWith("gateway-globalping"),
+    );
+  });
+
+  it("confirms disconnect, shows affected virtual servers, then refetches catalog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(response);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockGetGatewayImpactPreview.mockResolvedValue({
+      gatewayId: "gateway-globalping",
+      servers: [{ id: "virtual-1", name: "Production assistant" }],
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Production assistant")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() =>
+      expect(mockDisconnectCatalogGateway).toHaveBeenCalledWith("gateway-globalping"),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("announces impact-preview loading to screen readers", async () => {
+    const user = userEvent.setup();
+    let resolvePreview: (preview: { gatewayId: string; servers: never[] }) => void;
+    mockGetGatewayImpactPreview.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    const impactAnnouncement = screen.getByText("Checking affected virtual servers…", {
+      selector: "[aria-live]",
+    });
+    expect(impactAnnouncement).toHaveAttribute("aria-live", "polite");
+    expect(impactAnnouncement).toHaveAttribute("aria-atomic", "true");
+    resolvePreview!({ gatewayId: "gateway-globalping", servers: [] });
+  });
+
+  it("distinguishes an empty impact preview from a failed preview", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    expect(await screen.findByText("No affected virtual servers found.")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    mockGetGatewayImpactPreview.mockRejectedValue(new Error("Preview unavailable"));
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+
+    expect(
+      await screen.findByText(
+        "Could not check affected virtual servers. You can still disconnect this server.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("waits for catalog state after an async disconnect", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue({
+      ...response,
+      servers: [{ ...openConnected, is_registered: false, gateway_id: null }],
+    });
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() => expect(refetch).toHaveBeenCalledOnce(), { timeout: 1_000 });
+    expect(await screen.findByText("Globalping disconnected.")).toBeInTheDocument();
+  });
+
+  it("closes an accepted async disconnect and marks the card as disconnecting", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn(() => new Promise<CatalogListResponse>(() => {}));
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    const acceptedNotification = await screen.findByText("Globalping is disconnecting.");
+    expect(acceptedNotification.closest('[role="status"]')).toBeVisible();
+    expect(screen.getByText("Disconnecting…")).toHaveAttribute("role", "status");
+  });
+
+  it("retries async disconnect status without sending DELETE again", async () => {
+    const user = userEvent.setup();
+    const refetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Temporary catalog failure"))
+      .mockResolvedValue(response);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockClear();
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+
+    renderWithRouter(<ServerCatalog />);
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+      await act(async () => {
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(
+        screen.getByText("Globalping is still disconnecting. You can retry shortly."),
+      ).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(
+        screen.getByText("Globalping is still disconnecting. You can retry shortly."),
+      ).toBeVisible();
+      refetch.mockResolvedValue({
+        ...response,
+        servers: [{ ...openConnected, is_registered: false, gateway_id: null }],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+
+      expect(screen.getByText("Globalping disconnected.")).toBeVisible();
+      expect(mockDisconnectCatalogGateway).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports persistent catalog polling failures as errors", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockRejectedValue(new ApiError(500, null, "HTTP 500"));
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockResolvedValue({
+      status: 202,
+      data: { status: "deleting" },
+      headers: new Headers({ "Retry-After": "0.001" }),
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+      await act(async () => {
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByText("Unable to disconnect Globalping. Try again.")).toBeVisible();
+      expect(refetch).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps catalog state unchanged when backend rejects disconnect ownership", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockDisconnectCatalogGateway.mockRejectedValue(
+      new ApiError(403, { detail: "Only the owner can delete this gateway" }, "HTTP 403"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
+    await user.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+
+    expect(await screen.findByText("Unable to disconnect Globalping. Try again.")).toBeVisible();
+    expect(refetch).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Connected")).toHaveLength(2);
+  });
+
   it("reports catalog registration failures", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
@@ -200,7 +548,7 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
   });
 
-  it("registers an available server without refetching the catalog", async () => {
+  it("registers an available server then refetches authoritative gateway state", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -216,11 +564,11 @@ describe("ServerCatalog", () => {
     ) => CatalogListResponse | undefined;
     expect(
       updateCatalog(response)?.servers.find((server) => server.id === openAvailable.id),
-    ).toMatchObject({ is_registered: true });
-    expect(refetch).not.toHaveBeenCalled();
+    ).toMatchObject({ is_registered: true, gateway_id: "registered-server" });
+    expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it("treats an already-registered response as connected without refetching", async () => {
+  it("refetches an already-registered response to obtain its gateway ID", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     const setData = vi.fn();
@@ -233,8 +581,8 @@ describe("ServerCatalog", () => {
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
     expect(await screen.findByText("Public Notes is already connected.")).toBeInTheDocument();
-    expect(setData).toHaveBeenCalledOnce();
-    expect(refetch).not.toHaveBeenCalled();
+    expect(setData).not.toHaveBeenCalled();
+    expect(refetch).toHaveBeenCalledOnce();
     expect(screen.queryByText("Server already registered")).not.toBeInTheDocument();
   });
 
@@ -311,7 +659,7 @@ describe("ServerCatalog", () => {
 
     resolveNotes({ success: true, server_id: "notes", message: "Registered" });
     await waitFor(() => expect(setData).toHaveBeenCalledTimes(2));
-    expect(refetch).not.toHaveBeenCalled();
+    expect(refetch).toHaveBeenCalledTimes(2);
   });
 
   it("shows connected status in details opened from the action menu", async () => {
