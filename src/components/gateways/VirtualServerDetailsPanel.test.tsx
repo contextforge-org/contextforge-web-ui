@@ -118,7 +118,9 @@ describe("VirtualServerDetailsPanel components list", () => {
   }
 
   it("renders titled and untitled component rows with badges", async () => {
+    const user = userEvent.setup();
     renderWithComponents();
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
 
     // Titled tool row shows the display title and the id as the identifier.
     expect(await screen.findByText("Titled Tool")).toBeInTheDocument();
@@ -137,6 +139,7 @@ describe("VirtualServerDetailsPanel components list", () => {
   it("copies the identifier when a row's copy button is clicked", async () => {
     const user = userEvent.setup();
     renderWithComponents();
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
 
     await screen.findByText("Titled Tool");
 
@@ -152,6 +155,7 @@ describe("VirtualServerDetailsPanel components list", () => {
   it("filters visible components with the search box", async () => {
     const user = userEvent.setup();
     renderWithComponents();
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
 
     await screen.findByText("Titled Tool");
 
@@ -202,6 +206,8 @@ describe("VirtualServerDetailsPanel components list", () => {
       />,
     );
 
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+
     // Source tabs resolve from the gateways response.
     expect(await screen.findByRole("tab", { name: "Gateway A" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Gateway B" })).toBeInTheDocument();
@@ -225,6 +231,7 @@ describe("VirtualServerDetailsPanel components list", () => {
   it("moves the active tab with arrow keys", async () => {
     const user = userEvent.setup();
     renderWithComponents();
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
 
     await screen.findByText("Titled Tool");
 
@@ -331,6 +338,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
   });
 
   it("shows an empty state when the server has no components", async () => {
+    const user = userEvent.setup();
     render(
       <VirtualServerDetailsPanel
         server={makeServer({ id: "empty-server" })}
@@ -340,6 +348,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
         onAddSources={vi.fn()}
       />,
     );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
     expect(await screen.findByText(/No components found/i)).toBeInTheDocument();
   });
 
@@ -355,7 +364,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
         onAddSources={vi.fn()}
       />,
     );
-    await screen.findByRole("tab", { name: "All" });
+    await screen.findByText(/^endpoint$/i);
 
     await user.keyboard("{Escape}");
 
@@ -363,6 +372,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
   });
 
   it("handles component responses returned as bare arrays", async () => {
+    const user = userEvent.setup();
     mswServer.use(
       http.get("*/servers/:id/tools", () =>
         HttpResponse.json([{ id: "t1", name: "arr_tool", originalName: "arr_tool" }]),
@@ -379,6 +389,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
         onAddSources={vi.fn()}
       />,
     );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
 
     expect(await screen.findByText("arr_tool")).toBeInTheDocument();
   });
@@ -394,6 +405,7 @@ describe("VirtualServerDetailsPanel render variants", () => {
         onAddSources={vi.fn()}
       />,
     );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
     const allTab = await screen.findByRole("tab", { name: "All" });
     allTab.focus();
     await user.keyboard("{Enter}");
@@ -413,7 +425,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     );
   });
 
-  it("renders the Components and Test connection top-level tabs", async () => {
+  it("renders the Try it and Components top-level tabs", async () => {
     render(
       <VirtualServerDetailsPanel
         server={makeServer()}
@@ -425,7 +437,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     );
 
     expect(await screen.findByRole("tab", { name: "Components" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Test connection" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Try it" })).toBeInTheDocument();
   });
 
   it("switches to the test panel and shows the handshake form", async () => {
@@ -440,10 +452,10 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
 
     expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
-    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
+    expect(screen.getByText(/run a test to open a mcp session/i)).toBeInTheDocument();
   });
 
   it("runs a handshake and displays a successful result", async () => {
@@ -468,11 +480,11 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/latency: 42 ms/i)).toBeInTheDocument();
   });
@@ -502,11 +514,11 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(
       await screen.findByText(/counts don.t match the virtual server.s aggregate/i),
@@ -546,16 +558,16 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
   });
 
-  it("resets to the components tab when a new server is selected", async () => {
+  it("resets to the try-it tab when a new server is selected", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <VirtualServerDetailsPanel
@@ -567,10 +579,10 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("tab", { name: "Test connection" }));
-    expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    expect(await screen.findByRole("tab", { name: "All" })).toBeInTheDocument();
 
-    // Simulate opening a different server — the panel resets to Components.
+    // Simulate opening a different server — the panel resets to Try it.
     rerender(
       <VirtualServerDetailsPanel
         server={makeServer({ id: "s2" })}
@@ -582,10 +594,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("tab", { name: "Components" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      expect(screen.getByRole("tab", { name: "Try it" })).toHaveAttribute("aria-selected", "true");
     });
   });
 });

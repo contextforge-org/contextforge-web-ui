@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleCheck, CircleAlert, Info, Loader2, TriangleAlert } from "lucide-react";
+import {
+  ChevronRight,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  Eye,
+  EyeOff,
+  Loader2,
+  TriangleAlert,
+} from "lucide-react";
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
+import { Input } from "../ui/input";
 import { JsonHighlighter } from "../ui/json-highlighter";
-import { CopyValue } from "../ui/copy-value";
+import { CopyButton } from "../ui/copy-button";
+import { TruncatedText } from "../ui/truncated-text";
 import { testVirtualServerHandshake } from "@/api/virtualServers";
 import type { GatewayHandshakeResponse } from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
+import { formatLastSeen } from "@/utils/format";
 import { cn } from "@/lib/utils";
 
 interface HandshakeTestPanelProps {
@@ -26,32 +36,6 @@ interface HandshakeTestPanelProps {
 }
 
 type TestStatus = "idle" | "testing" | "success" | "error";
-
-type FieldErrors = {
-  headers?: string;
-};
-
-function validateHeaders(value: string): string | undefined {
-  if (!value.trim()) return undefined;
-  try {
-    const parsed = JSON.parse(value);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return "Headers must be a JSON object.";
-    }
-    // The handshake endpoint types header values as strings; a number or nested
-    // object would only come back as a 422 from the backend.
-    if (
-      Object.values(parsed as Record<string, unknown>).some(
-        (headerValue) => typeof headerValue !== "string",
-      )
-    ) {
-      return "Header values must be strings.";
-    }
-  } catch (e) {
-    return `Invalid headers JSON: ${e instanceof Error ? e.message : "Parse error"}`;
-  }
-  return undefined;
-}
 
 // Per-class actionable copy, unlike TestConnectionPanel's gateway-URL handshake this one
 // runs in-process against this virtual server's own endpoint (no outbound call, no
@@ -86,97 +70,31 @@ const NEGOTIATION_PATH_MESSAGE_IDS: Record<string, string> = {
   initialize: "mcpServer.testConnection.negotiationPath.initialize",
 };
 
-const COUNT_MESSAGE_IDS: Record<string, string> = {
-  tools: "mcpServer.testConnection.counts.tools",
-  resources: "mcpServer.testConnection.counts.resources",
-  prompts: "mcpServer.testConnection.counts.prompts",
+const COMPONENT_TYPE_LABEL_IDS: Record<string, string> = {
+  tools: "gateways.details.filter.tools",
+  resources: "gateways.details.filter.resources",
+  prompts: "gateways.details.filter.prompts",
 };
 
-// Deliberately plain substitution, not ICU plural: the "+" means "at least",
-// so "1+ tools" is correct even when the first page holds a single item.
-const PARTIAL_COUNT_MESSAGE_IDS: Record<string, string> = {
-  tools: "mcpServer.testConnection.countsPartial.tools",
-  resources: "mcpServer.testConnection.countsPartial.resources",
-  prompts: "mcpServer.testConnection.countsPartial.prompts",
+const MATCHES_AGGREGATE_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.virtualServer.matchesAggregate.tools",
+  resources: "mcpServer.testConnection.virtualServer.matchesAggregate.resources",
+  prompts: "mcpServer.testConnection.virtualServer.matchesAggregate.prompts",
 };
 
-function FieldLabel({
-  htmlFor,
-  children,
-  required,
-  hint,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-  required?: boolean;
-  hint?: string;
-}) {
-  return (
-    <Label htmlFor={htmlFor} className="flex items-center gap-1 text-sm font-medium">
-      <span>
-        {children}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
-      </span>
-      {hint && (
-        <Info className="size-3.5 text-muted-foreground">
-          <title>{hint}</title>
-        </Info>
-      )}
-    </Label>
-  );
-}
+const MISMATCHES_AGGREGATE_MESSAGE_IDS: Record<string, string> = {
+  tools: "mcpServer.testConnection.virtualServer.mismatchAggregate.tools",
+  resources: "mcpServer.testConnection.virtualServer.mismatchAggregate.resources",
+  prompts: "mcpServer.testConnection.virtualServer.mismatchAggregate.prompts",
+};
 
-function CountBadge({
-  type,
-  count,
-  expected,
-  partial,
-  intl,
-}: {
-  type: string;
-  count: number;
-  expected?: number;
-  partial: boolean;
-  intl: IntlShape;
-}) {
-  // Partial counts are a first-page lower bound: the true count can only be
-  // >= what's reported, so a reported count still under the expected total
-  // isn't necessarily a real mismatch, but a reported count already over it is.
-  const mismatch = expected !== undefined && (partial ? count > expected : count !== expected);
-  const messageIds = partial ? PARTIAL_COUNT_MESSAGE_IDS : COUNT_MESSAGE_IDS;
-  const countText = messageIds[type]
-    ? intl.formatMessage({ id: messageIds[type] }, { count })
-    : `${count} ${type}`;
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
-        mismatch
-          ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-          : "bg-muted text-muted-foreground",
-      )}
-      title={
-        mismatch
-          ? intl.formatMessage(
-              { id: "mcpServer.testConnection.virtualServer.countMismatchTooltip" },
-              { count, expected },
-            )
-          : undefined
-      }
-    >
-      <span className={cn("font-medium", mismatch ? "" : "text-foreground")}>{countText}</span>
-      {expected !== undefined && (
-        <span className="text-[10px] opacity-75">
-          {intl.formatMessage(
-            { id: "mcpServer.testConnection.virtualServer.countExpectedSuffix" },
-            { expected },
-          )}
-        </span>
-      )}
-      {mismatch && <TriangleAlert className="size-3" aria-hidden="true" />}
-    </span>
-  );
+function getCapabilityFlags(
+  capabilities: Record<string, unknown> | null | undefined,
+  type: string,
+): string[] {
+  const value = capabilities?.[type];
+  if (!value || typeof value !== "object") return [];
+  return Object.keys(value as Record<string, unknown>);
 }
 
 function getCountMismatchKeys(
@@ -193,32 +111,179 @@ function getCountMismatchKeys(
   });
 }
 
+/** A trigger box styled to match the "Change test credential" / "Handshake response" affordance. */
+function DisclosureTrigger({
+  open,
+  onClick,
+  children,
+  controls,
+}: {
+  open: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  controls: string;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={onClick}
+      className="flex h-10 w-full items-center gap-2 rounded-md border border-input px-3 text-left text-[13px] font-medium text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+      aria-expanded={open}
+      aria-controls={controls}
+    >
+      <ChevronRight className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")} />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+    </Button>
+  );
+}
+
+function StatusDot({ tone }: { tone: "success" | "error" }) {
+  return (
+    <span
+      className={cn(
+        "size-1.5 shrink-0 rounded-full",
+        tone === "success" ? "bg-green-500" : "bg-destructive",
+      )}
+      aria-hidden="true"
+    />
+  );
+}
+
+function ComponentRow({
+  type,
+  count,
+  countsPartial,
+  capabilities,
+  aggregatedCounts,
+  intl,
+}: {
+  type: string;
+  count: number;
+  countsPartial: boolean;
+  capabilities: Record<string, unknown> | null | undefined;
+  aggregatedCounts?: Record<string, number>;
+  intl: IntlShape;
+}) {
+  const expected = aggregatedCounts?.[type];
+  const hasComparison = expected !== undefined;
+  const mismatch = hasComparison && (countsPartial ? count > expected : count !== expected);
+  const flags = getCapabilityFlags(capabilities, type);
+  const typeLabel = COMPONENT_TYPE_LABEL_IDS[type]
+    ? intl.formatMessage({ id: COMPONENT_TYPE_LABEL_IDS[type] })
+    : type;
+  const returnedText = intl.formatMessage(
+    {
+      id: countsPartial
+        ? "mcpServer.testConnection.virtualServer.countReturnedPartial"
+        : "mcpServer.testConnection.virtualServer.countReturned",
+    },
+    { count },
+  );
+
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[104px_88px_160px_minmax(0,1fr)] items-start gap-x-3 gap-y-1 py-1.5 text-[13px]",
+        // Below 600px, and again between 1024-1200px, the panel is too narrow for the
+        // fixed-width grid to fit without clipping, but not narrow enough to be worth a
+        // dedicated third layout — drop to a wrapping flex row in both bands so the
+        // "matches..." column falls to its own line instead of overflowing.
+        "max-[599px]:flex max-[599px]:flex-wrap max-[599px]:gap-x-4",
+        "min-[1024px]:max-[1200px]:flex min-[1024px]:max-[1200px]:flex-wrap min-[1024px]:max-[1200px]:gap-x-4",
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center gap-1.5 text-muted-foreground",
+          "max-[599px]:w-24 max-[599px]:shrink-0",
+          "min-[1024px]:max-[1200px]:w-24 min-[1024px]:max-[1200px]:shrink-0",
+        )}
+      >
+        <Circle className="h-1.5 w-1.5 shrink-0 fill-current text-green-500" aria-hidden="true" />
+        {typeLabel}
+      </span>
+      <span
+        className={cn(
+          "text-muted-foreground",
+          "max-[599px]:w-20 max-[599px]:shrink-0",
+          "min-[1024px]:max-[1200px]:w-20 min-[1024px]:max-[1200px]:shrink-0",
+        )}
+      >
+        {returnedText}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 text-muted-foreground",
+          "max-[599px]:min-w-28 max-[599px]:shrink-0",
+          "min-[1024px]:max-[1200px]:min-w-28 min-[1024px]:max-[1200px]:shrink-0",
+        )}
+      >
+        {flags.length > 0 ? flags.join(" · ") : null}
+      </span>
+      {hasComparison && (
+        <span
+          className={cn(
+            "flex min-w-0 items-start justify-start gap-1.5 text-left",
+            "max-[599px]:min-w-44 max-[599px]:flex-1",
+            "min-[1024px]:max-[1200px]:min-w-44 min-[1024px]:max-[1200px]:flex-1",
+            mismatch ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+          )}
+          title={
+            mismatch
+              ? intl.formatMessage(
+                  { id: "mcpServer.testConnection.virtualServer.countMismatchTooltip" },
+                  { count, expected },
+                )
+              : undefined
+          }
+        >
+          {mismatch ? (
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+          ) : (
+            <CircleCheck className="size-3.5 shrink-0 text-green-500" aria-hidden="true" />
+          )}
+          {intl.formatMessage({
+            id: mismatch
+              ? MISMATCHES_AGGREGATE_MESSAGE_IDS[type]
+              : MATCHES_AGGREGATE_MESSAGE_IDS[type],
+          })}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function HandshakeResultPanel({
   status,
   result,
   error,
+  testedAt,
   aggregatedCounts,
   intl,
 }: {
   status: TestStatus;
   result: GatewayHandshakeResponse;
   error: string;
+  testedAt: number | null;
   aggregatedCounts?: Record<string, number>;
   intl: IntlShape;
 }) {
   if (status === "idle") {
     return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center">
-        <p className="text-sm text-muted-foreground">Run a test to see the result here.</p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.idlePlaceholder" })}
+      </p>
     );
   }
 
   if (status === "testing") {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Running handshake…</p>
+      <div className="flex items-center gap-3">
+        <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.runningHandshake" })}
+        </p>
       </div>
     );
   }
@@ -226,8 +291,8 @@ function HandshakeResultPanel({
   const succeeded = status === "success";
   // Only compare against the aggregate when the handshake actually returned
   // counts — a transport/auth failure that never reached the server has
-  // nothing to compare, and showing "0 / N" badges there would just restate
-  // the failure as a misleading mismatch.
+  // nothing to compare, and showing a false "match" there would just restate
+  // the failure as misleading progress.
   const hasHandshakeCounts = result?.componentCounts != null;
   const countsPartial = Boolean(result?.countsPartial);
   const mismatchKeys = hasHandshakeCounts
@@ -241,170 +306,220 @@ function HandshakeResultPanel({
         ]),
       )
     : [];
+  const totalComponents = hasHandshakeCounts
+    ? Object.values(result.componentCounts ?? {}).reduce((sum, n) => sum + n, 0)
+    : undefined;
+
+  const testedText =
+    testedAt == null
+      ? null
+      : Math.round((Date.now() - testedAt) / 1000) === 0
+        ? intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.testedJustNow" })
+        : (() => {
+            const relative = formatLastSeen(new Date(testedAt).toISOString(), {
+              locale: intl.locale,
+            });
+            return relative
+              ? intl.formatMessage(
+                  { id: "mcpServer.testConnection.virtualServer.testedAgo" },
+                  { relative },
+                )
+              : null;
+          })();
+
+  const metaParts: React.ReactNode[] = [];
+  if (result?.protocolVersion) {
+    metaParts.push(
+      <span key="protocol">
+        {intl.formatMessage(
+          { id: "mcpServer.testConnection.virtualServer.protocolMeta" },
+          { version: result.protocolVersion },
+        )}
+      </span>,
+    );
+  }
+  if (result?.serverName) {
+    metaParts.push(
+      <span key="server">
+        {result.serverName}
+        {result.serverVersion ? ` ${result.serverVersion}` : ""}
+      </span>,
+    );
+  }
+  if (totalComponents !== undefined) {
+    metaParts.push(
+      <span key="components">
+        {intl.formatMessage(
+          { id: "mcpServer.testConnection.virtualServer.totalComponents" },
+          { count: totalComponents },
+        )}
+      </span>,
+    );
+  }
+  if (result) {
+    metaParts.push(
+      <span key="latency">
+        {intl.formatMessage(
+          { id: "mcpServer.testConnection.virtualServer.latencyMeta" },
+          { ms: result.latencyMs },
+        )}
+      </span>,
+    );
+  }
+  if (result?.negotiationPath) {
+    const pathLabel = NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath]
+      ? intl.formatMessage({ id: NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath] })
+      : result.negotiationPath;
+    metaParts.push(
+      <span key="path" className="font-mono">
+        {intl.formatMessage(
+          { id: "mcpServer.testConnection.virtualServer.pathMeta" },
+          { path: pathLabel },
+        )}
+      </span>,
+    );
+  }
+  if (result?.credentialSource) {
+    metaParts.push(
+      <span key="credential">
+        {CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource]
+          ? intl.formatMessage({ id: CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource] })
+          : result.credentialSource}
+      </span>,
+    );
+  }
 
   return (
-    <div
-      className="relative flex flex-1 flex-col gap-3 overflow-auto p-4"
-      role={succeeded ? "status" : "alert"}
-      aria-live="polite"
-    >
+    <div className="space-y-4" role={succeeded ? "status" : "alert"} aria-live="polite">
       {/* Headline */}
-      <div className="flex items-start gap-2">
-        {succeeded ? (
-          <CircleCheck className="mt-0.5 size-4 shrink-0 text-green-500" />
-        ) : (
-          <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-        )}
-        <span className="text-sm font-medium text-foreground">
-          {succeeded
-            ? intl.formatMessage({ id: "mcpServer.testConnection.handshakeSucceeded" })
-            : (result?.error ??
-              error ??
-              intl.formatMessage({ id: "mcpServer.testConnection.handshakeFailed" }))}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-2">
+          {succeeded ? (
+            <CircleCheck className="mt-0.5 size-4 shrink-0 text-green-500" />
+          ) : (
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+          )}
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.connectionTest" })}
+            </p>
+            {testedText && <p className="text-[10px] text-muted-foreground">{testedText}</p>}
+          </div>
+        </div>
+        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          <StatusDot tone={succeeded ? "success" : "error"} />
+          {intl.formatMessage({
+            id: succeeded
+              ? "mcpServer.testConnection.virtualServer.connected"
+              : "mcpServer.testConnection.virtualServer.failed",
+          })}
         </span>
       </div>
 
-      {/* Credential used — always shown, per security requirement */}
-      {result?.credentialSource && (
-        <p className="pl-6 text-[13px] text-muted-foreground">
-          {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.credentialLabel" })}{" "}
-          <span className="text-foreground">
-            {CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource]
-              ? intl.formatMessage({ id: CREDENTIAL_SOURCE_MESSAGE_IDS[result.credentialSource] })
-              : result.credentialSource}
+      {!succeeded && (
+        <p className="text-sm text-foreground">
+          {result?.error ??
+            error ??
+            intl.formatMessage({ id: "mcpServer.testConnection.handshakeFailed" })}
+        </p>
+      )}
+
+      {metaParts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+          {metaParts.map((part, index) => (
+            <span key={index} className="flex items-center gap-2">
+              {index > 0 && (
+                <span aria-hidden="true" className="text-muted-foreground/40">
+                  &bull;
+                </span>
+              )}
+              {part}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Component counts, cross-checked against the virtual server's own aggregate */}
+      {allCountKeys.length > 0 && (
+        <div>
+          {allCountKeys.map((key) => (
+            <ComponentRow
+              key={key}
+              type={key}
+              count={result?.componentCounts?.[key] ?? 0}
+              countsPartial={countsPartial}
+              capabilities={result?.capabilities}
+              aggregatedCounts={aggregatedCounts}
+              intl={intl}
+            />
+          ))}
+        </div>
+      )}
+      {mismatchKeys.length > 0 && (
+        <p className="flex items-start gap-1.5 text-[13px] text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            {intl.formatMessage({
+              id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
+            })}
           </span>
         </p>
       )}
 
-      {result && (
-        <>
-          {/* Latency */}
-          <p className="pl-6 text-[13px] text-muted-foreground">Latency: {result.latencyMs} ms</p>
+      {/* Failure class + actionable copy */}
+      {!succeeded && result?.failureClass && (
+        <div className="text-[13px] text-muted-foreground">
+          <p>
+            {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.failureClassLabel" })}{" "}
+            <span className="font-mono">
+              {FAILURE_CLASS_MESSAGE_IDS[result.failureClass]
+                ? intl.formatMessage({ id: FAILURE_CLASS_MESSAGE_IDS[result.failureClass] })
+                : result.failureClass}
+            </span>
+          </p>
+          <p className="mt-0.5 text-foreground">
+            {intl.formatMessage({
+              id:
+                FAILURE_CLASS_COPY_MESSAGE_IDS[result.failureClass] ??
+                "mcpServer.testConnection.virtualServer.failureCopy.default",
+            })}
+          </p>
+        </div>
+      )}
 
-          {/* Negotiation path */}
-          {result.negotiationPath && (
-            <p className="pl-6 text-[13px] text-muted-foreground">
-              {intl.formatMessage({ id: "mcpServer.testConnection.negotiationPath" })}:{" "}
-              <span className="font-mono">
-                {NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath]
-                  ? intl.formatMessage({ id: NEGOTIATION_PATH_MESSAGE_IDS[result.negotiationPath] })
-                  : result.negotiationPath}
-              </span>
-            </p>
-          )}
+      {/* Raw preview */}
+      {result?.rawPreview && (
+        <HandshakeResponseDisclosure rawPreview={result.rawPreview} intl={intl} />
+      )}
+    </div>
+  );
+}
 
-          {/* Server identity */}
-          {(result.serverName ?? result.serverVersion ?? result.protocolVersion) && (
-            <div className="space-y-0.5 pl-6 text-[13px] text-muted-foreground">
-              {result.serverName && (
-                <p>
-                  {intl.formatMessage({ id: "mcpServer.testConnection.serverName" })}:{" "}
-                  <span className="text-foreground">{result.serverName}</span>
-                  {result.serverVersion && (
-                    <span className="ml-1 text-muted-foreground">v{result.serverVersion}</span>
-                  )}
-                </p>
-              )}
-              {result.protocolVersion && (
-                <p>
-                  {intl.formatMessage({ id: "mcpServer.testConnection.protocolVersion" })}:{" "}
-                  <span className="font-mono text-foreground">{result.protocolVersion}</span>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Capabilities */}
-          {result.capabilities && Object.keys(result.capabilities).length > 0 && (
-            <div className="pl-6 text-[13px] text-muted-foreground">
-              <p>
-                {intl.formatMessage({
-                  id: "mcpServer.testConnection.virtualServer.capabilitiesLabel",
-                })}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {Object.keys(result.capabilities).map((capability) => (
-                  <span
-                    key={capability}
-                    className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 font-mono text-xs text-foreground"
-                  >
-                    {capability}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Component counts, cross-checked against the virtual server's own aggregate */}
-          {allCountKeys.length > 0 && (
-            <div className="pl-6">
-              <div className="flex flex-wrap gap-1.5">
-                {allCountKeys.map((key) => (
-                  <CountBadge
-                    key={key}
-                    type={key}
-                    count={result.componentCounts?.[key] ?? 0}
-                    expected={aggregatedCounts?.[key]}
-                    partial={countsPartial}
-                    intl={intl}
-                  />
-                ))}
-                {countsPartial && (
-                  <span className="self-center text-[11px] text-muted-foreground">
-                    {intl.formatMessage({
-                      id: "mcpServer.testConnection.virtualServer.countPartialMarker",
-                    })}
-                  </span>
-                )}
-              </div>
-              {mismatchKeys.length > 0 && (
-                <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-amber-700 dark:text-amber-400">
-                  <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    {intl.formatMessage({
-                      id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
-                    })}
-                  </span>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Failure class + actionable copy */}
-          {!succeeded && result.failureClass && (
-            <div className="pl-6 text-[13px] text-muted-foreground">
-              <p>
-                {intl.formatMessage({
-                  id: "mcpServer.testConnection.virtualServer.failureClassLabel",
-                })}{" "}
-                <span className="font-mono">
-                  {FAILURE_CLASS_MESSAGE_IDS[result.failureClass]
-                    ? intl.formatMessage({ id: FAILURE_CLASS_MESSAGE_IDS[result.failureClass] })
-                    : result.failureClass}
-                </span>
-              </p>
-              <p className="mt-0.5 text-foreground">
-                {intl.formatMessage({
-                  id:
-                    FAILURE_CLASS_COPY_MESSAGE_IDS[result.failureClass] ??
-                    "mcpServer.testConnection.virtualServer.failureCopy.default",
-                })}
-              </p>
-            </div>
-          )}
-
-          {/* Raw preview */}
-          {result.rawPreview && (
-            <div className="mt-1 space-y-1">
-              <p className="text-[13px] text-muted-foreground">Raw preview:</p>
-              <pre className="max-h-[320px] overflow-auto text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
-                <code className="break-words">
-                  <JsonHighlighter text={result.rawPreview} />
-                </code>
-              </pre>
-            </div>
-          )}
-        </>
+function HandshakeResponseDisclosure({
+  rawPreview,
+  intl,
+}: {
+  rawPreview: string;
+  intl: IntlShape;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <DisclosureTrigger
+        open={open}
+        onClick={() => setOpen((v) => !v)}
+        controls="handshake-response-panel"
+      >
+        {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.handshakeResponse" })}
+      </DisclosureTrigger>
+      {open && (
+        <div id="handshake-response-panel" className="mt-2 rounded-md border border-input p-3">
+          <pre className="max-h-[320px] overflow-auto text-[13px] leading-relaxed break-words whitespace-pre-wrap text-foreground">
+            <code className="break-words">
+              <JsonHighlighter text={rawPreview} />
+            </code>
+          </pre>
+        </div>
       )}
     </div>
   );
@@ -417,33 +532,42 @@ export function HandshakeTestPanel({
 }: HandshakeTestPanelProps) {
   const intl = useIntl();
   const [status, setStatus] = useState<TestStatus>("idle");
-  const [headers, setHeaders] = useState<string>("");
+  const [credentialOpen, setCredentialOpen] = useState(false);
+  const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
   const [result, setResult] = useState<GatewayHandshakeResponse>(null);
   const [error, setError] = useState<string>("");
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const [testedAt, setTestedAt] = useState<number | null>(null);
+  // Cancel only appears once a test has been running long enough that
+  // aborting it is actually useful — avoids a flash for fast/local servers.
+  const [showCancel, setShowCancel] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const cancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearError = useCallback((field: keyof FieldErrors) => {
-    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  const clearCancelTimer = useCallback(() => {
+    if (cancelTimerRef.current) {
+      clearTimeout(cancelTimerRef.current);
+      cancelTimerRef.current = null;
+    }
   }, []);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      clearCancelTimer();
+    },
+    [clearCancelTimer],
+  );
 
   const handleTest = useCallback(async () => {
     setResult(null);
     setError("");
+    setShowCancel(false);
+    clearCancelTimer();
 
-    const nextErrors: FieldErrors = {
-      headers: validateHeaders(headers),
-    };
-    setErrors(nextErrors);
-    if (nextErrors.headers) {
-      setStatus("idle");
-      return;
-    }
-
-    const parsedHeaders: Record<string, string> | undefined = headers.trim()
-      ? (JSON.parse(headers) as Record<string, string>)
+    const trimmedToken = token.trim();
+    const headers = trimmedToken
+      ? { Authorization: /^bearer\s/i.test(trimmedToken) ? trimmedToken : `Bearer ${trimmedToken}` }
       : undefined;
 
     abortRef.current?.abort();
@@ -451,113 +575,153 @@ export function HandshakeTestPanel({
     abortRef.current = controller;
 
     setStatus("testing");
+    cancelTimerRef.current = setTimeout(() => setShowCancel(true), 350);
     try {
       const res = await testVirtualServerHandshake(
         serverId,
-        parsedHeaders ? { headers: parsedHeaders } : {},
+        headers ? { headers } : {},
         controller.signal,
       );
       if (controller.signal.aborted) return;
       setResult(res);
+      setTestedAt(Date.now());
       setStatus(res?.success ? "success" : "error");
     } catch (e) {
       if (controller.signal.aborted) return;
       setResult(null);
+      setTestedAt(Date.now());
       setStatus("error");
-      setError(parseApiError(e, "Handshake test failed. Please try again."));
+      setError(
+        parseApiError(e, intl.formatMessage({ id: "mcpServer.testConnection.handshakeError" })),
+      );
+    } finally {
+      clearCancelTimer();
     }
-  }, [serverId, headers]);
+  }, [serverId, token, intl, clearCancelTimer]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
+    clearCancelTimer();
+    setShowCancel(false);
     setStatus("idle");
-  }, []);
+  }, [clearCancelTimer]);
 
   const isTesting = status === "testing";
   const hasResult = status === "success" || status === "error";
 
   return (
-    <div className="@container space-y-6">
-      <div className="grid gap-6 @3xl:grid-cols-2">
-        {/* Left column — request form */}
-        <div className="space-y-4">
-          {/* Endpoint — informational only. The backend derives the actual
-              test target from the server's own ID, so this isn't editable. */}
-          <div className="space-y-2">
-            <FieldLabel hint="The virtual server's own MCP endpoint. The backend tests this server directly — it isn't editable here.">
-              Endpoint
-            </FieldLabel>
-            <div className="rounded-md border border-input bg-transparent px-3 py-2">
-              <CopyValue label="endpoint" value={serverUrl} />
-            </div>
-          </div>
-
-          {/* Headers */}
-          <div className="space-y-2">
-            <FieldLabel
-              htmlFor="handshake-headers"
-              hint="Optional headers as a JSON object (e.g. Authorization). By default your own session credentials are reused; headers here override them."
-            >
-              Headers
-            </FieldLabel>
-            <Textarea
-              id="handshake-headers"
-              value={headers}
-              onChange={(e) => {
-                setHeaders(e.target.value);
-                clearError("headers");
-              }}
-              onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
-              placeholder='{"Authorization": "Bearer …"}'
-              className="min-h-[96px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
-              disabled={isTesting}
-              aria-invalid={!!errors.headers}
-              aria-describedby={errors.headers ? "handshake-headers-error" : undefined}
+    <div className="space-y-6">
+      {/* Endpoint — informational only. The backend derives the actual
+          test target from the server's own ID, so this isn't editable. */}
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-foreground">
+          {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.endpointLabel" })}
+        </label>
+        <div className="flex items-center gap-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <TruncatedText className="min-w-0 font-mono text-sm text-foreground">
+              {serverUrl}
+            </TruncatedText>
+            <CopyButton
+              value={serverUrl}
+              label={intl.formatMessage(
+                { id: "common.copyValue" },
+                {
+                  label: intl.formatMessage({
+                    id: "mcpServer.testConnection.virtualServer.endpointLabel",
+                  }),
+                },
+              )}
+              className="size-5 shrink-0 text-muted-foreground"
             />
-            {errors.headers && (
-              <p id="handshake-headers-error" className="text-sm text-red-500">
-                {errors.headers}
-              </p>
-            )}
           </div>
-        </div>
-
-        {/* Right column — action button + result panel */}
-        <div className="flex flex-col gap-2">
-          <div className="flex h-5 items-end justify-end gap-3">
-            {isTesting && (
-              <Button variant="ghost" onClick={handleCancel}>
-                Cancel
+          <div className="flex shrink-0 items-center gap-2">
+            {isTesting && showCancel && (
+              <Button type="button" variant="ghost" size="xs" onClick={handleCancel}>
+                {intl.formatMessage({ id: "common.button.cancel" })}
               </Button>
             )}
-            <Button onClick={handleTest} disabled={isTesting}>
+            <Button type="button" size="sm" onClick={handleTest} disabled={isTesting}>
               {isTesting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Running test…
+                  <Loader2 className="size-3 animate-spin" />
+                  {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.runningTest" })}
                 </>
               ) : hasResult ? (
-                "Re-test connection"
+                intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.retestButton" })
               ) : (
-                "Test connection"
+                intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.testButton" })
               )}
             </Button>
           </div>
-
-          <div
-            className={cn(
-              "flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-md border border-input bg-transparent",
-            )}
-          >
-            <HandshakeResultPanel
-              status={status}
-              result={result}
-              error={error}
-              aggregatedCounts={aggregatedCounts}
-              intl={intl}
-            />
-          </div>
         </div>
+      </div>
+
+      {/* Change test credential */}
+      <div>
+        <DisclosureTrigger
+          open={credentialOpen}
+          onClick={() => setCredentialOpen((v) => !v)}
+          controls="test-credential-panel"
+        >
+          {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.changeCredential" })}
+        </DisclosureTrigger>
+        {credentialOpen && (
+          <div id="test-credential-panel" className="mt-5 space-y-2">
+            <label htmlFor="handshake-token" className="text-[13px] font-medium text-foreground">
+              {intl.formatMessage({
+                id: "mcpServer.testConnection.virtualServer.bearerTokenLabel",
+              })}
+            </label>
+            <div className="relative">
+              <Input
+                id="handshake-token"
+                type={showToken ? "text" : "password"}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder={intl.formatMessage({
+                  id: "mcpServer.testConnection.virtualServer.bearerTokenPlaceholder",
+                })}
+                disabled={isTesting}
+                className="pr-10 font-mono"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                onClick={() => setShowToken((v) => !v)}
+                className="absolute inset-y-0 right-2 my-auto text-muted-foreground"
+                aria-label={intl.formatMessage({
+                  id: showToken
+                    ? "mcpServer.testConnection.virtualServer.hideToken"
+                    : "mcpServer.testConnection.virtualServer.showToken",
+                })}
+                aria-pressed={showToken}
+              >
+                {showToken ? (
+                  <EyeOff className="size-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="size-4" aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+            <p className="text-[13px] text-muted-foreground">
+              {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.bearerTokenHint" })}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Result panel */}
+      <div className="rounded-md border border-input p-4">
+        <HandshakeResultPanel
+          status={status}
+          result={result}
+          error={error}
+          testedAt={testedAt}
+          aggregatedCounts={aggregatedCounts}
+          intl={intl}
+        />
       </div>
     </div>
   );

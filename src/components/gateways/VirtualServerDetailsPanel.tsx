@@ -155,7 +155,7 @@ export function VirtualServerDetailsPanel({
   const tagFallback = intl.formatMessage({ id: "gateways.details.tagFallback" });
   const notSyncedYet = intl.formatMessage({ id: "gateways.card.notSyncedYet" });
   const tags = (server?.tags ?? []).map((tag, index) => getTagDisplay(tag, index, tagFallback));
-  const [topTab, setTopTab] = useState<TopTab>("components");
+  const [topTab, setTopTab] = useState<TopTab>("test");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [componentFilter, setComponentFilter] = useState<ComponentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -346,7 +346,7 @@ export function VirtualServerDetailsPanel({
   // Reset tab, filter and search when the panel opens or the selected server changes.
   useEffect(() => {
     if (!open) return;
-    setTopTab("components");
+    setTopTab("test");
     setSourceFilter("all");
     setComponentFilter("all");
     setSearchQuery("");
@@ -481,11 +481,11 @@ export function VirtualServerDetailsPanel({
                 aria-label="Virtual server details view"
               >
                 <TabsList className="inline-flex h-10 w-[280px] items-center gap-0 rounded-md bg-muted p-1">
+                  <TabsTrigger value="test" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "gateways.details.tryIt" })}
+                  </TabsTrigger>
                   <TabsTrigger value="components" className={SEGMENTED_TRIGGER_CLASS}>
                     {intl.formatMessage({ id: "gateways.details.components" })}
-                  </TabsTrigger>
-                  <TabsTrigger value="test" className={SEGMENTED_TRIGGER_CLASS}>
-                    {intl.formatMessage({ id: "gateways.card.testConnection" })}
                   </TabsTrigger>
                 </TabsList>
 

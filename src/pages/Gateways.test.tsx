@@ -811,6 +811,8 @@ describe("Gateways", () => {
       "/app/gateways/create-server?editServerId=gateway%2F1%3Fmode%3Ddetail",
     );
     expect(screen.queryByRole("button", { name: "Add components" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Components" }));
     expect(screen.getByText("Get Repo Issues")).toBeInTheDocument();
     expect(screen.getByText("GITHUB_GET_REPO_ISSUES")).toBeInTheDocument();
     expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
@@ -828,6 +830,7 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
     await user.click(await screen.findByRole("menuitem", { name: "View details" }));
 
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
     expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
     expect(screen.getAllByText("summarize_pull_request").length).toBeGreaterThan(0);
   });

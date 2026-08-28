@@ -8,6 +8,10 @@ import { HandshakeTestPanel } from "./HandshakeTestPanel";
 
 const TEST_ENDPOINT = "*/v1/virtual-servers/:serverId/test-handshake";
 
+async function openCredentialPanel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /change test credential/i }));
+}
+
 describe("HandshakeTestPanel", () => {
   const defaultProps = {
     serverId: "srv-1",
@@ -22,16 +26,45 @@ describe("HandshakeTestPanel", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
     expect(screen.getByText(/^endpoint$/i)).toBeInTheDocument();
+    expect(screen.getByText(defaultProps.serverUrl)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
-    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
+    expect(screen.getByText(/run a test to open a mcp session/i)).toBeInTheDocument();
   });
 
-  it("shows the endpoint read-only and a headers form field", () => {
+  it("shows the endpoint read-only and copyable, with no editable URL field", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    expect(screen.getByText(/^endpoint$/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/^url$/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/headers/i)).toBeInTheDocument();
+    expect(screen.getByText(defaultProps.serverUrl)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /endpoint/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^copy endpoint$/i })).toBeInTheDocument();
+  });
+
+  it("keeps the bearer token field collapsed until 'Change test credential' is opened", async () => {
+    const user = userEvent.setup();
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    expect(screen.queryByLabelText(/bearer token/i)).not.toBeInTheDocument();
+
+    await openCredentialPanel(user);
+
+    expect(screen.getByLabelText(/bearer token/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing is stored/i)).toBeInTheDocument();
+  });
+
+  it("unmasks the bearer token when the show/hide toggle is clicked", async () => {
+    const user = userEvent.setup();
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await openCredentialPanel(user);
+    const tokenField = screen.getByLabelText(/bearer token/i);
+    await user.type(tokenField, "tok-123");
+    expect(tokenField).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: /^show token$/i }));
+    expect(tokenField).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: /^hide token$/i }));
+    expect(tokenField).toHaveAttribute("type", "password");
   });
 
   it("calls the handshake endpoint scoped to the server ID and shows a successful result", async () => {
@@ -58,16 +91,22 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
+    expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
     expect(screen.getByText(/latency: 55 ms/i)).toBeInTheDocument();
     expect(screen.getByText(/initialize/)).toBeInTheDocument();
     expect(screen.getByText(/My MCP Server/)).toBeInTheDocument();
-    expect(screen.getByText("Your own session credentials")).toBeInTheDocument();
+    expect(screen.getByText("session credential")).toBeInTheDocument();
 
-    // Component count badges
-    expect(screen.getByText("3 tools")).toBeInTheDocument();
-    expect(screen.getByText("1 prompt")).toBeInTheDocument();
+    // Per-component rows
+    expect(screen.getByText(/^tools$/i)).toBeInTheDocument();
+    expect(screen.getByText("3 returned")).toBeInTheDocument();
+    expect(screen.getByText(/^prompts$/i)).toBeInTheDocument();
+    expect(screen.getByText("1 returned")).toBeInTheDocument();
+
+    // Re-test label swap
+    expect(screen.getByRole("button", { name: /^re-test connection$/i })).toBeInTheDocument();
 
     // The request targets this server's own ID-scoped route.
     expect(requestedUrl).toContain("/v1/virtual-servers/srv-1/test-handshake");
@@ -92,6 +131,7 @@ describe("HandshakeTestPanel", () => {
     await waitFor(() => {
       expect(screen.getByText(/Connection refused/i)).toBeInTheDocument();
     });
+    expect(screen.getByText(/^failed$/i)).toBeInTheDocument();
     expect(screen.getByText(/transport/i)).toBeInTheDocument();
   });
 
@@ -109,7 +149,7 @@ describe("HandshakeTestPanel", () => {
     });
   });
 
-  it("forwards headers as a JSON object, overriding the caller's own session credentials", async () => {
+  it("sends the bearer token as an Authorization header, overriding the caller's own session credentials", async () => {
     const user = userEvent.setup();
     let requestBody: Record<string, unknown> | undefined;
     server.use(
@@ -120,16 +160,38 @@ describe("HandshakeTestPanel", () => {
     );
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    await user.type(screen.getByLabelText(/headers/i), '{{"Authorization":"Bearer tok"}');
+    await openCredentialPanel(user);
+    await user.type(screen.getByLabelText(/bearer token/i), "tok-123");
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
-    expect(requestBody).toEqual({ headers: { Authorization: "Bearer tok" } });
+    expect(requestBody).toEqual({ headers: { Authorization: "Bearer tok-123" } });
   });
 
-  it("sends no body fields when headers are left blank", async () => {
+  it("does not double-prefix a token the user already typed with 'Bearer '", async () => {
+    const user = userEvent.setup();
+    let requestBody: Record<string, unknown> | undefined;
+    server.use(
+      http.post(TEST_ENDPOINT, async ({ request }) => {
+        requestBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ success: true, latencyMs: 10 });
+      }),
+    );
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await openCredentialPanel(user);
+    await user.type(screen.getByLabelText(/bearer token/i), "Bearer tok-123");
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+    expect(requestBody).toEqual({ headers: { Authorization: "Bearer tok-123" } });
+  });
+
+  it("sends no body fields when the token field is left blank", async () => {
     const user = userEvent.setup();
     let requestBody: Record<string, unknown> | undefined;
     server.use(
@@ -143,33 +205,9 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(requestBody).toEqual({});
-  });
-
-  it("validates JSON in the headers field before running", async () => {
-    const user = userEvent.setup();
-    render(<HandshakeTestPanel {...defaultProps} />);
-
-    await user.type(screen.getByLabelText(/headers/i), "invalid json");
-    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument();
-    });
-  });
-
-  it("rejects header values that aren't strings", async () => {
-    const user = userEvent.setup();
-    render(<HandshakeTestPanel {...defaultProps} />);
-
-    await user.type(screen.getByLabelText(/headers/i), '{{"X-Count":1}');
-    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/header values must be strings/i)).toBeInTheDocument();
-    });
   });
 
   it("shows a Cancel button during a test and aborts on click", async () => {
@@ -194,7 +232,7 @@ describe("HandshakeTestPanel", () => {
     await user.click(cancelButton);
 
     await waitFor(() => expect(aborted).toBe(true));
-    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
+    expect(screen.getByText(/run a test to open a mcp session/i)).toBeInTheDocument();
   });
 
   it("cancels the in-flight request when the panel unmounts", async () => {
@@ -219,51 +257,19 @@ describe("HandshakeTestPanel", () => {
     await waitFor(() => expect(aborted).toBe(true));
   });
 
-  it("clears a stale success result when a re-test is blocked by header validation", async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.post(TEST_ENDPOINT, () =>
-        HttpResponse.json({ success: true, latencyMs: 10, credentialSource: "session" }),
-      ),
-    );
-    render(<HandshakeTestPanel {...defaultProps} />);
-
-    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
-    });
-
-    await user.type(screen.getByLabelText(/headers/i), "invalid json");
-    await user.click(screen.getByRole("button", { name: /^re-test connection$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument();
-    });
-    expect(screen.queryByText(/handshake succeeded/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/run a test to see the result here/i)).toBeInTheDocument();
-  });
-
-  it("clears the headers error as soon as the field is edited", async () => {
-    const user = userEvent.setup();
-    render(<HandshakeTestPanel {...defaultProps} />);
-
-    const headersField = screen.getByLabelText(/headers/i);
-    await user.type(headersField, "invalid json");
-    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
-    await waitFor(() => expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument());
-
-    await user.clear(headersField);
-    expect(screen.queryByText(/invalid headers json/i)).not.toBeInTheDocument();
-  });
-
-  it("shows the advertised capabilities", async () => {
+  it("shows per-component capability flags", async () => {
     const user = userEvent.setup();
     server.use(
       http.post(TEST_ENDPOINT, () =>
         HttpResponse.json({
           success: true,
           latencyMs: 20,
-          capabilities: { tools: {}, resources: {}, logging: {} },
+          capabilities: {
+            tools: { listChanged: false },
+            resources: { subscribe: false, listChanged: false },
+            logging: {},
+          },
+          componentCounts: { tools: 2, resources: 3 },
         }),
       ),
     );
@@ -272,11 +278,10 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
-    expect(screen.getByText("tools")).toBeInTheDocument();
-    expect(screen.getByText("resources")).toBeInTheDocument();
-    expect(screen.getByText("logging")).toBeInTheDocument();
+    expect(screen.getByText("listChanged")).toBeInTheDocument();
+    expect(screen.getByText("subscribe · listChanged")).toBeInTheDocument();
   });
 
   it("shows the credential source used for the handshake", async () => {
@@ -291,9 +296,9 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/headers entered in this form/i)).toBeInTheDocument();
+    expect(screen.getByText(/the bearer token entered above/i)).toBeInTheDocument();
   });
 
   it("shows actionable copy for the failure class", async () => {
@@ -336,7 +341,7 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(
       screen.getByText(/counts don.t match the virtual server.s aggregate/i),
@@ -344,9 +349,11 @@ describe("HandshakeTestPanel", () => {
     expect(
       screen.getByTitle("Handshake reported 1; the virtual server aggregates 3."),
     ).toBeInTheDocument();
+    expect(screen.getByText(/doesn.t match server.s total tools/i)).toBeInTheDocument();
+    expect(screen.getByText(/matches server.s total resources/i)).toBeInTheDocument();
   });
 
-  it("does not show count badges or a mismatch banner when the handshake never returned counts", async () => {
+  it("does not show component rows or a mismatch banner when the handshake never returned counts", async () => {
     const user = userEvent.setup();
     server.use(
       http.post(TEST_ENDPOINT, () =>
@@ -377,7 +384,7 @@ describe("HandshakeTestPanel", () => {
       expect(screen.getByText(/is disabled\. enable it before testing/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/none — no credential sent/i)).toBeInTheDocument();
-    expect(screen.queryByText(/expected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/returned/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
 
     // The disabled-server message is the most common "transport" failure for this
@@ -406,10 +413,11 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/1\+ tool/i)).toBeInTheDocument();
+    expect(screen.getByText("1+ returned")).toBeInTheDocument();
     expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/matches server.s total tools/i)).toBeInTheDocument();
   });
 
   it("still flags a mismatch when a partial count already exceeds the aggregate", async () => {
@@ -431,7 +439,7 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(
       screen.getByText(/counts don.t match the virtual server.s aggregate/i),
@@ -454,8 +462,57 @@ describe("HandshakeTestPanel", () => {
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/handshake succeeded/i)).toBeInTheDocument();
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the total component count and negotiation path in the summary line", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(TEST_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 128,
+          negotiationPath: "server_discover",
+          protocolVersion: "2026-07-28",
+          componentCounts: { tools: 12, resources: 3, prompts: 4 },
+        }),
+      ),
+    );
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText("19 components")).toBeInTheDocument();
+    expect(screen.getByText("MCP 2026-07-28")).toBeInTheDocument();
+    expect(screen.getByText(/server\/discover/)).toBeInTheDocument();
+  });
+
+  it("shows the raw handshake response behind a 'Handshake response' disclosure", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(TEST_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 20,
+          rawPreview: '{"protocolVersion":"2024-11-05"}',
+        }),
+      ),
+    );
+    render(<HandshakeTestPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/protocolVersion/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /handshake response/i }));
+    expect(screen.getByText(/protocolVersion/)).toBeInTheDocument();
   });
 });
