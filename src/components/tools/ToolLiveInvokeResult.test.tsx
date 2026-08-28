@@ -69,6 +69,29 @@ describe("ToolLiveInvokeResult", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Access denied");
   });
 
+  it("renders optional request and backing gateway context", () => {
+    render(
+      <ToolLiveInvokeResult
+        context={{ requestName: "Developer tools" }}
+        invoke={invokeProps({
+          hasRun: true,
+          result: {
+            id: "invoke-1",
+            status: 200,
+            renderTimeMs: 11,
+            result: {
+              target: { kind: "federated", gateway_name: "github-mcp" },
+              content: [{ type: "text", text: "live result", mimeType: "text/plain" }],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Requested through Developer tools")).toBeInTheDocument();
+    expect(screen.getByText("Answered by github-mcp")).toBeInTheDocument();
+  });
+
   it("renders HTTP errors and tool-level error results", () => {
     const { rerender } = render(
       <ToolLiveInvokeResult

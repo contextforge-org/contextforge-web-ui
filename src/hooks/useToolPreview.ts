@@ -27,21 +27,32 @@ export interface ToolPreviewState {
   hasRun: boolean;
 }
 
+export interface UseToolPreviewOptions {
+  enabled?: boolean;
+  serverId?: string;
+}
+
 export function useToolPreview(
   toolName: string,
   args: Record<string, unknown>,
   passthroughHeaders: Record<string, string>,
+  options: UseToolPreviewOptions = {},
 ): ToolPreviewState {
   const intl = useIntl();
+  const enabled = options.enabled ?? true;
+  const serverId = options.serverId;
   const [isLoading, setLoading] = useState(false);
   const [result, setResult] = useState<ToolPreviewSuccess | null>(null);
   const [error, setError] = useState<ToolPreviewFailure | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setResult(null);
     setError(null);
-  }, [toolName]);
+    setLoading(false);
+  }, [enabled, toolName]);
 
   useEffect(() => {
     return () => {
@@ -58,6 +69,7 @@ export function useToolPreview(
   }, []);
 
   const run = useCallback(async () => {
+    if (!enabled) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -67,6 +79,7 @@ export function useToolPreview(
     const startedAt = performance.now();
     try {
       const { preview, status } = await toolsApi.preview(toolName, args, passthroughHeaders, {
+        serverId,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -85,7 +98,7 @@ export function useToolPreview(
         setLoading(false);
       }
     }
-  }, [toolName, args, passthroughHeaders, intl]);
+  }, [enabled, toolName, args, passthroughHeaders, serverId, intl]);
 
   return {
     run,

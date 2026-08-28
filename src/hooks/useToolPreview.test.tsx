@@ -22,8 +22,9 @@ function setup(
   toolName = "search",
   args: Record<string, unknown> = {},
   headers: Record<string, string> = {},
+  options?: Parameters<typeof useToolPreview>[3],
 ) {
-  return renderHook(() => useToolPreview(toolName, args, headers), {
+  return renderHook(() => useToolPreview(toolName, args, headers, options), {
     wrapper: ({ children }) => <I18nProvider>{children}</I18nProvider>,
   });
 }
@@ -80,6 +81,40 @@ describe("useToolPreview", () => {
     expect(result.current.error?.message).toBe("Network failed");
     expect(result.current.error?.status).toBeNull();
     expect(result.current.hasRun).toBe(true);
+  });
+
+  it("does not run preview requests when disabled", async () => {
+    const { result } = setup("search", { query: "cloudflare" }, {}, { enabled: false });
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(toolsApi.preview).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.hasRun).toBe(false);
+  });
+
+  it("passes serverId through for scoped previews", async () => {
+    vi.mocked(toolsApi.preview).mockResolvedValue({
+      preview: { target: "local" },
+      status: 200,
+    });
+    const { result } = setup("github.search_issues", {}, {}, { serverId: "virtual-server-1" });
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(toolsApi.preview).toHaveBeenCalledWith(
+      "github.search_issues",
+      {},
+      {},
+      expect.objectContaining({
+        serverId: "virtual-server-1",
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("resets result and error state when the tool name changes", async () => {
