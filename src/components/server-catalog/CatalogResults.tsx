@@ -153,6 +153,7 @@ function CatalogCard({
                     <DropdownMenuTrigger asChild>
                       <Button
                         ref={actionsTriggerRef}
+                        id={`catalog-server-actions-${server.id}`}
                         type="button"
                         variant="ghost"
                         size="icon-xs"

@@ -11,6 +11,7 @@ import {
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/useAuth";
+import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
 import {
   CatalogResults,
   CatalogServerDetailsDialog,
@@ -24,7 +25,11 @@ import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
-import type { CatalogListResponse, CatalogServer } from "@/generated/types";
+import type {
+  CatalogListResponse,
+  CatalogServer,
+  CatalogServerRegisterBody,
+} from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
@@ -34,12 +39,16 @@ import { getTagLabels } from "@/utils/tags";
 const CATALOG_PATH = "/v1/catalog?limit=1000";
 const PAGE_PATH = "/app/server-catalog";
 const OPEN_AUTH_TYPE = "Open";
+const API_KEY_AUTH_TYPES = new Set(["API Key", "API"]);
+const SUPPORTED_AUTH_TYPES = [OPEN_AUTH_TYPE, ...API_KEY_AUTH_TYPES];
+const SUPPORTED_AUTH_TYPE_SET = new Set(SUPPORTED_AUTH_TYPES);
 const PAGE_HEADING_ID = "server-catalog-heading";
 
 interface CatalogFilters {
   search: string;
   category: string[];
   provider: string[];
+  authType: string[];
   tags: string[];
   installedOnly: boolean;
 }
@@ -81,6 +90,7 @@ function parseFilters(path: string): CatalogFilters {
     search: params.get("search") ?? "",
     category: readMulti(params, "category"),
     provider: readMulti(params, "provider"),
+    authType: readMulti(params, "auth_type"),
     tags: readMulti(params, "tags"),
     installedOnly: params.get("show_registered_only") === "true",
   };
@@ -105,11 +115,6 @@ function useCatalogFilters() {
         }
       });
 
-      // Transitional: the auth type filter was removed while the catalog only
-      // offers Open servers. Drop any auth_type left over in existing URLs so it
-      // cannot survive later navigations. Remove once auth types ship again.
-      params.delete("auth_type");
-
       const query = params.toString();
       navigate(query ? `${PAGE_PATH}?${query}` : PAGE_PATH, { replace: true });
     },
@@ -120,40 +125,48 @@ function useCatalogFilters() {
     (section: CatalogFilterSection, option: string, checked: boolean) => {
       const current = filters[section];
       updateQuery({
-        [section]: checked ? [...current, option] : current.filter((item) => item !== option),
+        [section === "authType" ? "auth_type" : section]: checked
+          ? [...current, option]
+          : current.filter((item) => item !== option),
       });
     },
     [filters, updateQuery],
   );
 
   const clearFilterSection = useCallback(
-    (section: CatalogFilterSection) => updateQuery({ [section]: [] }),
+    (section: CatalogFilterSection) =>
+      updateQuery({ [section === "authType" ? "auth_type" : section]: [] }),
     [updateQuery],
   );
 
-  // Drops the three popover sections in one navigation. The search box and the
+  // Drops the four popover sections in one navigation. The search box and the
   // connected-only toggle live outside the popover and are left alone.
   const clearAllFilters = useCallback(
-    () => updateQuery({ category: [], provider: [], tags: [] }),
+    () => updateQuery({ category: [], provider: [], auth_type: [], tags: [] }),
     [updateQuery],
   );
 
   return { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters };
 }
 
-function getOpenServers(servers: CatalogServer[]): CatalogServer[] {
-  // MVP display scope includes only entries whose auth type is exactly Open.
-  return servers.filter((server) => server.auth_type === OPEN_AUTH_TYPE);
+function getSupportedServers(servers: CatalogServer[]): CatalogServer[] {
+  return servers.filter((server) => SUPPORTED_AUTH_TYPE_SET.has(server.auth_type));
 }
 
-function filterOpenServers(openServers: CatalogServer[], filters: CatalogFilters): CatalogServer[] {
+function filterSupportedServers(
+  supportedServers: CatalogServer[],
+  filters: CatalogFilters,
+): CatalogServer[] {
   const search = filters.search.trim().toLocaleLowerCase();
 
-  return openServers.filter((server) => {
+  return supportedServers.filter((server) => {
     if (filters.category.length > 0 && !filters.category.includes(server.category ?? "")) {
       return false;
     }
     if (filters.provider.length > 0 && !filters.provider.includes(server.provider ?? "")) {
+      return false;
+    }
+    if (filters.authType.length > 0 && !filters.authType.includes(server.auth_type)) {
       return false;
     }
     if (filters.installedOnly && !server.is_registered) return false;
@@ -317,6 +330,8 @@ export function ServerCatalog() {
   const [impactPreviewStatus, setImpactPreviewStatus] = useState<ImpactPreviewStatus>("idle");
   const impactRequestIdRef = useRef(0);
   const disconnectPollAbortControllersRef = useRef(new Map<string, AbortController>());
+  const [apiKeyServer, setApiKeyServer] = useState<CatalogServer | null>(null);
+  const [focusActionsForServerId, setFocusActionsForServerId] = useState<string | null>(null);
   const lastViewTriggerRef = useRef<HTMLElement | null>(null);
   const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const registrationNotificationRefs = useRef(new Map<string, HTMLDivElement>());
@@ -374,36 +389,49 @@ export function ServerCatalog() {
     );
   }, []);
 
+  useEffect(() => {
+    if (!focusActionsForServerId) return;
+
+    const actions = document.getElementById(`catalog-server-actions-${focusActionsForServerId}`);
+    if (actions instanceof HTMLButtonElement) actions.focus();
+    setFocusActionsForServerId(null);
+  }, [data, focusActionsForServerId]);
+
   // Only the search box filters ahead of the URL, so the grid can react to the
   // debounced value. Category, provider and tag selections are committed to the
   // URL the moment they are ticked in the filters popover.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
-  const openServers = useMemo(() => getOpenServers(data?.servers ?? []), [data?.servers]);
+  const supportedServers = useMemo(() => getSupportedServers(data?.servers ?? []), [data?.servers]);
   const servers = useMemo(
-    () => filterOpenServers(openServers, activeFilters),
-    [openServers, activeFilters],
+    () => filterSupportedServers(supportedServers, activeFilters),
+    [supportedServers, activeFilters],
   );
   const categoryOptions = useMemo(
-    () => sortedUnique(openServers.map((server) => server.category)),
-    [openServers],
+    () => sortedUnique(supportedServers.map((server) => server.category)),
+    [supportedServers],
   );
   const providerOptions = useMemo(
-    () => sortedUnique(openServers.map((server) => server.provider)),
-    [openServers],
+    () => sortedUnique(supportedServers.map((server) => server.provider)),
+    [supportedServers],
   );
   const tagOptions = useMemo(
-    () => sortedUnique(openServers.flatMap((server) => getTagLabels(server.tags ?? []))),
-    [openServers],
+    () => sortedUnique(supportedServers.flatMap((server) => getTagLabels(server.tags ?? []))),
+    [supportedServers],
   );
-  const hasOpenServers = openServers.length > 0;
-  const hasConnectedServers = openServers.some((server) => server.is_registered);
-  const emptyStateMessageId = !hasOpenServers
+  const authTypeOptions = SUPPORTED_AUTH_TYPES;
+  const hasSupportedServers = supportedServers.length > 0;
+  const hasConnectedServers = supportedServers.some((server) => server.is_registered);
+  const emptyStateMessageId = !hasSupportedServers
     ? "mcpServer.catalog.empty"
     : filters.installedOnly && !hasConnectedServers
       ? "mcpServer.catalog.noneConnected"
       : "mcpServer.catalog.noResults";
-  const activeFilterCount = filters.category.length + filters.provider.length + filters.tags.length;
+  const activeFilterCount =
+    filters.category.length +
+    filters.provider.length +
+    filters.authType.length +
+    filters.tags.length;
 
   const handleView = useCallback((server: CatalogServer, trigger: HTMLElement) => {
     lastViewTriggerRef.current = trigger;
@@ -419,25 +447,28 @@ export function ServerCatalog() {
     }
   }, [refetch]);
 
-  const handleAdd = useCallback(
-    async (server: CatalogServer) => {
-      if (!beginAdding(server.id)) return;
+  const registerServer = useCallback(
+    async (server: CatalogServer, body?: CatalogServerRegisterBody): Promise<boolean> => {
+      if (!beginAdding(server.id)) return false;
       dismissRegistrationNotification(`add:${server.id}`);
       try {
-        const result = await registerCatalogServer(server.id);
+        const result = body
+          ? await registerCatalogServer(server.id, body)
+          : await registerCatalogServer(server.id);
         if (!result.success) {
           showRegistrationNotification({
             id: `add:${server.id}`,
             type: "error",
             message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
           });
-          return;
+          return false;
         }
 
         setData((current) =>
           setCatalogServerRegistration(current, server.id, true, result.server_id),
         );
         void refreshCatalogSilently();
+        return true;
       } catch (registrationError) {
         if (registrationError instanceof ApiError && registrationError.status === 409) {
           showRegistrationNotification({
@@ -449,7 +480,7 @@ export function ServerCatalog() {
             ),
           });
           await refreshCatalogSilently();
-          return;
+          return false;
         }
 
         if (registrationError instanceof ApiError && registrationError.status === 404) {
@@ -466,7 +497,7 @@ export function ServerCatalog() {
             true,
           );
           await refreshCatalogSilently();
-          return;
+          return false;
         }
 
         showRegistrationNotification({
@@ -474,6 +505,7 @@ export function ServerCatalog() {
           type: "error",
           message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
         });
+        return false;
       } finally {
         endAdding(server.id);
       }
@@ -487,6 +519,27 @@ export function ServerCatalog() {
       setData,
       showRegistrationNotification,
     ],
+  );
+
+  const handleAdd = useCallback(
+    (server: CatalogServer) => {
+      if (API_KEY_AUTH_TYPES.has(server.auth_type)) {
+        setApiKeyServer(server);
+        return;
+      }
+      void registerServer(server);
+    },
+    [registerServer],
+  );
+
+  const handleApiKeySubmit = useCallback(
+    async (body: CatalogServerRegisterBody) => {
+      if (!apiKeyServer) return false;
+      const registered = await registerServer(apiKeyServer, body);
+      if (registered) setFocusActionsForServerId(apiKeyServer.id);
+      return registered;
+    },
+    [apiKeyServer, registerServer],
   );
 
   const handleTest = useCallback(
@@ -855,9 +908,11 @@ export function ServerCatalog() {
         installedOnly={filters.installedOnly}
         category={filters.category}
         provider={filters.provider}
+        authType={filters.authType}
         selectedTags={filters.tags}
         categories={categoryOptions}
         providers={providerOptions}
+        authTypes={authTypeOptions}
         availableTags={tagOptions}
         activeFilterCount={activeFilterCount}
         onSearchChange={setSearch}
@@ -900,7 +955,7 @@ export function ServerCatalog() {
         servers={servers}
         emptyStateMessageId={emptyStateMessageId}
         onView={handleView}
-        onAdd={(server) => void handleAdd(server)}
+        onAdd={handleAdd}
         addingServerIds={addingServerIds}
         onTest={(server) => void handleTest(server)}
         onDisconnect={handleDisconnect}
@@ -911,7 +966,6 @@ export function ServerCatalog() {
       />
 
       <CatalogServerDetailsDialog server={selectedServer} onOpenChange={handleDetailsOpenChange} />
-
       <ConfirmDialog
         open={disconnectServer !== null}
         role="alertdialog"
@@ -970,6 +1024,16 @@ export function ServerCatalog() {
         closeOnConfirm={false}
         onCloseAutoFocus={handleDisconnectDialogCloseAutoFocus}
       />
+      {apiKeyServer && (
+        <CatalogApiKeyDialog
+          server={apiKeyServer}
+          onOpenChange={(open) => {
+            if (!open) setApiKeyServer(null);
+          }}
+          onSubmit={handleApiKeySubmit}
+          isSubmitting={addingServerIds.has(apiKeyServer.id)}
+        />
+      )}
     </CatalogPageLayout>
   );
 }
