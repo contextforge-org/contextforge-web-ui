@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -6,9 +6,23 @@ import { server as mswServer } from "@/test/mocks/server";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { VirtualServerDetailsPanel } from "./VirtualServerDetailsPanel";
 import type { VirtualServer } from "@/types/server";
+import type { Tool } from "@/types/tool";
 import { copyToClipboard } from "@/lib/clipboard";
 
 vi.mock("@/lib/clipboard", () => ({ copyToClipboard: vi.fn() }));
+
+const authMock = vi.hoisted(() => ({
+  permissions: ["*"] as string[],
+  permissionsLoading: false,
+}));
+
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({
+    hasPermission: (permission: string) =>
+      authMock.permissions.includes("*") || authMock.permissions.includes(permission),
+    permissionsLoading: authMock.permissionsLoading,
+  }),
+}));
 
 function makeServer(overrides: Partial<VirtualServer> = {}): VirtualServer {
   return {
@@ -46,6 +60,56 @@ function makeServer(overrides: Partial<VirtualServer> = {}): VirtualServer {
     ...overrides,
   };
 }
+
+function makeTool(overrides: Partial<Tool> = {}): Tool {
+  return {
+    id: "tool-search",
+    name: "github.search_issues",
+    originalName: "search_issues",
+    description: "Search repository issues",
+    originalDescription: "Search repository issues",
+    title: "Search issues",
+    displayName: "Search issues",
+    gatewayId: "gateway-id",
+    gatewaySlug: "github-server",
+    customName: "",
+    customNameSlug: "search_issues",
+    enabled: true,
+    reachable: true,
+    deprecated: false,
+    executionCount: 0,
+    tags: [],
+    integrationType: "MCP",
+    requestType: "http",
+    url: "https://example.com/mcp",
+    headers: {},
+    annotations: { readOnlyHint: true },
+    jsonpathFilter: null,
+    auth: null,
+    version: 1,
+    visibility: "team",
+    createdAt: "2024-01-01T00:00:00",
+    updatedAt: "2024-01-02T00:00:00",
+    inputSchema: {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query: { type: "string" },
+      },
+    },
+    outputSchema: { type: "object" },
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  authMock.permissions = ["*"];
+  authMock.permissionsLoading = false;
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("VirtualServerDetailsPanel inline tag add", () => {
   it("calls onAddTag with the merged, de-duplicated tag list", async () => {
@@ -245,6 +309,151 @@ describe("VirtualServerDetailsPanel components list", () => {
     // Clicking a tab selects it directly.
     await user.click(screen.getByRole("tab", { name: "Resources" }));
     expect(screen.getByRole("tab", { name: "Resources" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("VirtualServerDetailsPanel Try-it flag", () => {
+  beforeEach(() => {
+    mswServer.use(
+      http.get("*/servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+      http.get("*/gateways", () => HttpResponse.json({ gateways: [] })),
+    );
+  });
+
+  it("keeps the drawer components-only when the flag is disabled", async () => {
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "false");
+    mswServer.use(http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })));
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          associatedTools: ["Titled Tool"],
+          associatedToolIds: ["titled-tool-id"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Titled Tool")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Components" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Live tool call")).not.toBeInTheDocument();
+  });
+
+  it("shows a flag-gated Try-it tab using fetched tools", async () => {
+    const user = userEvent.setup();
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    mswServer.use(
+      http.get("*/servers/:id/tools", () =>
+        HttpResponse.json({ tools: [makeTool({ id: "tool-1", displayName: "Find issues" })] }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          id: "virtual-server-1",
+          name: "Developer tools",
+          associatedTools: ["Fallback Tool"],
+          associatedToolIds: ["fallback-tool"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    const componentsTab = await screen.findByRole("tab", { name: "Components" });
+    expect(componentsTab).toHaveAttribute("data-state", "active");
+    expect(screen.getByRole("tab", { name: "Try it" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Try it" }));
+
+    expect(await screen.findByText("Live tool call")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Fallback Tool")).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
+    ).toHaveTextContent('"server_id":"virtual-server-1"');
+  });
+
+  it("does not fall back to associatedToolIds for Try-it", async () => {
+    const user = userEvent.setup();
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    mswServer.use(http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })));
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          associatedTools: ["Fallback Tool"],
+          associatedToolIds: ["fallback-tool"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+
+    expect(await screen.findByText("No attached tools are available to test.")).toBeInTheDocument();
+    expect(screen.queryByText("Live tool call")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+  });
+
+  it("blocks Try-it when tools.execute is missing", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["servers.use"];
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    mswServer.use(
+      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [makeTool()] })),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "virtual-server-1" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+
+    expect(await screen.findByText("Live invoke requires tools.execute.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+  });
+
+  it("blocks Try-it when servers.use is missing", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["tools.execute"];
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    mswServer.use(
+      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [makeTool()] })),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "virtual-server-1" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+
+    expect(await screen.findByText("Live invoke requires servers.use.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeDisabled();
   });
 });
 

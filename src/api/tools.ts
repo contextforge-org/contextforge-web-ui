@@ -100,6 +100,7 @@ export interface ToolInvokeRequest {
   method: "tools/call";
   params: {
     name: string;
+    server_id?: string;
     arguments: Record<string, unknown>;
   };
 }
@@ -278,7 +279,7 @@ export const toolsApi = {
     name: string,
     args: Record<string, unknown> = {},
     passthroughHeaders: Record<string, string> = {},
-    options: { requestId?: ToolInvokeRequestId; signal?: AbortSignal } = {},
+    options: { requestId?: ToolInvokeRequestId; serverId?: string; signal?: AbortSignal } = {},
   ): Promise<ToolInvokeResult> => {
     const validName = validateToolName(name);
     const requestId = options.requestId ?? `tool-live-${Date.now()}`;
@@ -288,6 +289,7 @@ export const toolsApi = {
       method: "tools/call",
       params: {
         name: validName,
+        ...(options.serverId ? { server_id: options.serverId } : {}),
         arguments: args,
       },
     };

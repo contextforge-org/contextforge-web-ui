@@ -30,6 +30,24 @@ describe("buildToolSnippets", () => {
     });
   });
 
+  it("includes server_id in scoped tools/call snippets", () => {
+    const scopedInput = { ...input, serverId: "virtual-server-1" };
+
+    expect(JSON.parse(buildToolJsonRpc(scopedInput))).toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "gateway.search_issues",
+        server_id: "virtual-server-1",
+        arguments: { query: "can't reproduce", limit: 5, dryRun: false },
+      },
+    });
+    expect(buildToolCurl(scopedInput)).toContain('"server_id":"virtual-server-1"');
+    expect(buildToolPython(scopedInput)).toContain('\\"server_id\\": \\"virtual-server-1\\"');
+    expect(buildToolTypescript(scopedInput)).toContain('server_id: "virtual-server-1"');
+  });
+
   it("targets a real gateway placeholder instead of the browser BFF path", () => {
     const snippet = buildToolCurl(input);
 

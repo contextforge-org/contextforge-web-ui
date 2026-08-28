@@ -1,6 +1,15 @@
 import { test, expect } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { VirtualServer } from "../src/types/server";
+import type { Tool } from "../src/types/tool";
+import type { Page } from "@playwright/test";
+
+interface JsonRpcRequest {
+  jsonrpc?: string;
+  id?: string | number | null;
+  method?: string;
+  params?: Record<string, unknown>;
+}
 
 const MOCK_VIRTUAL_SERVER: VirtualServer = {
   id: "76c7b637dafc4d7197f14817ddffeda9", // pragma: allowlist secret
@@ -71,6 +80,93 @@ const MOCK_MCP_SERVER_2 = {
   resource_count: 1,
   prompt_count: 1,
 };
+
+function makeTryItTool(overrides: Partial<Tool> = {}): Tool {
+  return {
+    id: "tool-search",
+    name: "github.search_issues",
+    originalName: "search_issues",
+    description: "Search repository issues",
+    originalDescription: "Search repository issues",
+    title: "Search issues",
+    displayName: "Search issues",
+    gatewayId: "mcp-gateway-1",
+    gatewaySlug: "github-mcp",
+    customName: "",
+    customNameSlug: "search_issues",
+    enabled: true,
+    reachable: true,
+    deprecated: false,
+    executionCount: 0,
+    tags: [],
+    integrationType: "MCP",
+    requestType: "http",
+    url: "https://example.com/mcp",
+    headers: {},
+    annotations: { readOnlyHint: true },
+    jsonpathFilter: null,
+    auth: null,
+    version: 1,
+    visibility: "team",
+    createdAt: "2026-04-10T10:00:00Z",
+    updatedAt: "2026-04-10T10:00:00Z",
+    inputSchema: {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer" },
+      },
+    },
+    outputSchema: { type: "object" },
+    ...overrides,
+  };
+}
+
+async function routeVirtualServerTryIt(page: Page, tools: Tool[]) {
+  await page.route("**/servers?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+    });
+  });
+  await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+    });
+  });
+  await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}/tools?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tools }),
+    });
+  });
+  await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}/resources?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ resources: [] }),
+    });
+  });
+  await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}/prompts?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ prompts: [] }),
+    });
+  });
+  await page.route("**/gateways?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ gateways: [MOCK_MCP_SERVER] }),
+    });
+  });
+}
 
 test.describe("Virtual Servers page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
@@ -1114,6 +1210,114 @@ test.describe("Virtual Servers page", () => {
     await expect(page).toHaveURL(
       new RegExp(`/app/gateways/create-server\\?editServerId=${MOCK_VIRTUAL_SERVER.id}`),
     );
+  });
+
+  test.describe("virtual server Try-it tab", () => {
+    test.skip(
+      process.env.VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT !== "true",
+      "requires VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT=true before Vite starts",
+    );
+
+    test("live invokes an attached tool through the virtual server", async ({ page }) => {
+      const tool = makeTryItTool();
+      let rpcBody: JsonRpcRequest | null = null;
+      let rpcHeaders: Record<string, string> = {};
+
+      await routeVirtualServerTryIt(page, [tool]);
+      await page.route("**/api/rpc", async (route) => {
+        rpcBody = route.request().postDataJSON() as JsonRpcRequest;
+        rpcHeaders = route.request().headers();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: rpcBody.id ?? "invoke-1",
+            result: {
+              target: { kind: "federated", gateway_name: "github-mcp" },
+              content: [
+                {
+                  type: "text",
+                  text: "Scoped result from virtual server",
+                  mimeType: "text/plain",
+                },
+              ],
+            },
+          }),
+        });
+      });
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for testVS" }).click();
+      await page.getByRole("menuitem", { name: "View details" }).click();
+
+      const panel = page.getByRole("region", { name: "testVS details" });
+      await expect(panel).toBeVisible();
+      await expect(panel.getByRole("tab", { name: "Components" })).toHaveAttribute(
+        "data-state",
+        "active",
+      );
+
+      await panel.getByRole("tab", { name: "Try it" }).click();
+      await expect(panel.getByText("Live tool call")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Preview" })).toHaveCount(0);
+
+      await panel.getByLabel("query").fill("cloudflare");
+      await panel.getByLabel("limit").fill("5");
+      await panel.getByRole("button", { name: "Add header" }).click();
+      await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
+      await panel.getByLabel("Header 1 value").fill("team-a");
+      await panel.getByRole("button", { name: "Live invoke" }).click();
+
+      await expect(panel.getByText("Live invoke 200")).toBeVisible();
+      await expect(panel.getByText("Requested through testVS")).toBeVisible();
+      await expect(panel.getByText("Answered by github-mcp")).toBeVisible();
+      await expect(panel.getByText("Scoped result from virtual server").first()).toBeVisible();
+      expect(rpcBody).toMatchObject({
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "github.search_issues",
+          server_id: MOCK_VIRTUAL_SERVER.id,
+          arguments: { query: "cloudflare", limit: 5 },
+        },
+      });
+      expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
+    });
+
+    test("blocks live invoke without tools.execute", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["servers.read", "servers.use"] });
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+      await page.getByRole("button", { name: "Actions for testVS" }).click();
+      await page.getByRole("menuitem", { name: "View details" }).click();
+
+      const panel = page.getByRole("region", { name: "testVS details" });
+      await panel.getByRole("tab", { name: "Try it" }).click();
+
+      await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    });
+
+    test("blocks live invoke without servers.use", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["servers.read", "tools.execute"] });
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+      await page.getByRole("button", { name: "Actions for testVS" }).click();
+      await page.getByRole("menuitem", { name: "View details" }).click();
+
+      const panel = page.getByRole("region", { name: "testVS details" });
+      await panel.getByRole("tab", { name: "Try it" }).click();
+
+      await expect(panel.getByText("Live invoke requires servers.use.")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    });
   });
 
   test("shows only the actions menu in the virtual server card header", async ({ page }) => {

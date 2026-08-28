@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders as render } from "@/test/test-utils";
+import { toolsApi } from "@/api/tools";
 import type { Tool } from "@/types/tool";
 import { ToolTryItTab } from "./ToolTryItTab";
 
@@ -117,5 +118,36 @@ describe("ToolTryItTab", () => {
     expect(screen.getByLabelText(/query/i)).toHaveValue("cloudflare");
     expect(screen.getByLabelText("Header 1 name")).toHaveValue("X-Tenant-Id");
     expect(screen.getByLabelText("Header 1 value")).toHaveValue("team-a");
+  });
+
+  it("renders live-only scoped mode without preview UI or preview requests", async () => {
+    const user = userEvent.setup();
+    const previewSpy = vi.spyOn(toolsApi, "preview");
+    const selectedTool = makeTool({
+      name: "github.search_issues",
+      displayName: "Search issues",
+      annotations: { readOnlyHint: true },
+    });
+
+    render(
+      <ToolTryItTab
+        getToolLabel={(tool) => tool.displayName ?? tool.name}
+        invokeScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        previewEnabled={false}
+        selectedTool={selectedTool}
+        tools={[selectedTool]}
+        onSelectTool={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Live tool call")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Tool preview")).not.toBeInTheDocument();
+    expect(activeCode()).toContain('"server_id":"virtual-server-1"');
+
+    await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
+    expect(activeCode()).toContain('"server_id": "virtual-server-1"');
+    expect(activeCode()).toContain('"name": "github.search_issues"');
+    expect(previewSpy).not.toHaveBeenCalled();
   });
 });
