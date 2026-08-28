@@ -225,7 +225,7 @@ test.describe("Server catalog page", () => {
     await expect(page.getByRole("heading", { name: "Globalping" })).toBeVisible();
   });
 
-  test("adds an open server then refreshes its gateway id", async ({ page }) => {
+  test("adds an open server then refreshes its gateway id", async ({ page, apiMock }) => {
     let registered = false;
     let catalogCalls = 0;
     let registerCalls = 0;
