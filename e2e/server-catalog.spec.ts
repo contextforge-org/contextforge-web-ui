@@ -77,7 +77,7 @@ test.describe("Server catalog page", () => {
     });
   });
 
-  test("lists only Open catalog servers and marks registered ones connected", async ({ page }) => {
+  test("lists supported catalog servers and marks registered ones connected", async ({ page }) => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE, API_KEY_SERVER]);
 
     await page.goto(APP.SERVER_CATALOG);
@@ -85,12 +85,12 @@ test.describe("Server catalog page", () => {
 
     await expect(page.getByRole("heading", { name: "Server catalog" })).toBeVisible();
     const catalogList = page.getByRole("list", { name: "Catalog servers" });
-    await expect(catalogList.getByRole("listitem")).toHaveCount(2);
+    await expect(catalogList.getByRole("listitem")).toHaveCount(3);
     await expect(page.getByRole("heading", { name: "Globalping" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Public Notes" })).toBeVisible();
-    await expect(page.getByText("Secret Service")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Secret Service" })).toBeVisible();
     await expect(catalogList.getByText("Connected")).toBeVisible();
-    await expect(page.getByText("2 servers shown")).toBeVisible();
+    await expect(page.getByText("3 servers shown")).toBeVisible();
   });
 
   test("filters servers by search text and reflects it in the URL", async ({ page }) => {
