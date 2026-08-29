@@ -70,16 +70,16 @@ export function ActivityView() {
 
   if (isLoading) return <Skeleton className="h-40 w-full rounded-lg" />;
 
-  if (error) {
-    return isPermissionDenied(error) ? (
-      <PermissionDenied />
-    ) : (
-      <EmptyStatePlaceholder messageId="dashboard.home.activity.error" />
-    );
+  if (isPermissionDenied(error)) {
+    return <PermissionDenied />;
   }
 
   if (items.length === 0) {
-    return <EmptyStatePlaceholder messageId="dashboard.home.activity.empty" />;
+    return (
+      <EmptyStatePlaceholder
+        messageId={error ? "dashboard.home.activity.error" : "dashboard.home.activity.empty"}
+      />
+    );
   }
 
   return (

@@ -86,12 +86,13 @@ describe("ActivityView", () => {
   });
 
   it("renders relative timestamps and keeps the absolute ISO value for hover", () => {
-    feed([item({ timestamp: "2026-08-21T12:00:00Z" })]);
+    const timestamp = new Date(Date.now() - 6 * 60_000).toISOString();
+    feed([item({ timestamp })]);
     renderWithProviders(<ActivityView />);
 
     const time = screen.getByRole("listitem").querySelector("time");
-    expect(time).toHaveAttribute("dateTime", "2026-08-21T12:00:00Z");
-    expect(time).toHaveAttribute("title", "2026-08-21T12:00:00Z");
+    expect(time).toHaveAttribute("dateTime", timestamp);
+    expect(time).toHaveAttribute("title", timestamp);
     expect(time?.textContent).toMatch(/ago|now/);
   });
 
@@ -107,8 +108,8 @@ describe("ActivityView", () => {
     renderWithProviders(<ActivityView />);
 
     expect(screen.getByRole("tab", { name: "All activity" })).toBeInTheDocument();
-    expect(within(screen.getByRole("tab", { name: /Errors/ })).getByText("2")).toBeVisible();
-    expect(within(screen.getByRole("tab", { name: /Warnings/ })).getByText("1")).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Errors/ })).toHaveTextContent("Errors 2");
+    expect(screen.getByRole("tab", { name: /Warnings/ })).toHaveTextContent("Warnings 1");
     expect(screen.queryByRole("tab", { name: /Info/ })).not.toBeInTheDocument();
   });
 
@@ -159,6 +160,22 @@ describe("ActivityView", () => {
 
     expect(screen.getByText("Recent activity could not be loaded.")).toBeInTheDocument();
     expect(screen.queryByText(/psycopg2/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the loaded feed when a later poll fails", () => {
+    feed(ITEMS, { error: new ApiError(500, {}, "connection refused") });
+    renderWithProviders(<ActivityView />);
+
+    expect(screen.getByText("Health check failed")).toBeInTheDocument();
+    expect(screen.queryByText("Recent activity could not be loaded.")).not.toBeInTheDocument();
+  });
+
+  it("takes the denied state over a loaded feed when permission is lost", () => {
+    feed(ITEMS, { error: new ApiError(403, {}, "Forbidden") });
+    renderWithProviders(<ActivityView />);
+
+    expect(screen.getByText("You do not have permission to view this.")).toBeInTheDocument();
+    expect(screen.queryByText("Health check failed")).not.toBeInTheDocument();
   });
 
   it("shows a skeleton while the first fetch is in flight", () => {

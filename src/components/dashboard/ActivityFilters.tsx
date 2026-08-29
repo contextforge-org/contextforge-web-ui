@@ -52,7 +52,7 @@ export function ActivityFilters({
               value={id}
               className="inline-flex items-center gap-1.5 text-xs font-medium"
             >
-              {intl.formatMessage({ id: FILTER_LABEL[id] })}
+              {intl.formatMessage({ id: FILTER_LABEL[id] })}{" "}
               {id !== "all" && <span>{counts[id]}</span>}
             </TabsTrigger>
           ))}

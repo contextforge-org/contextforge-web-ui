@@ -238,10 +238,10 @@ function MainContent({
   return <EmptyStatePlaceholder messageId={PLACEHOLDER_MESSAGE[active]} />;
 }
 
-/** Placeholder copy per view until the real card lands. */
-const PLACEHOLDER_MESSAGE: Record<HomeViewId, string> = {
+/** Placeholder copy per view until the real card lands. Views with their own
+ * component return above and never reach this map. */
+const PLACEHOLDER_MESSAGE: Record<Exclude<HomeViewId, "activity">, string> = {
   default: "dashboard.home.emptyState",
-  activity: "dashboard.home.emptyState",
   mcp: "dashboard.home.placeholder.mcp",
   a2a: "dashboard.home.placeholder.a2a",
   rest: "dashboard.home.placeholder.rest",
