@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useIntl } from "react-intl";
 
+import type { ToolPreviewResponse } from "@/api/tools";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
@@ -21,10 +22,16 @@ import {
 } from "./toolResultContent";
 
 export interface ToolLiveInvokeResultProps {
+  context?: ToolLiveInvokeResultContext;
   invoke: Pick<ToolInvokeState, "result" | "error" | "hasRun">;
 }
 
-export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
+export interface ToolLiveInvokeResultContext {
+  backingGatewayName?: string;
+  requestName?: string;
+}
+
+export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultProps) {
   const intl = useIntl();
   const { result, error, hasRun } = invoke;
 
@@ -32,6 +39,7 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.result;
+  const backingGatewayName = context?.backingGatewayName ?? getBackingGatewayName(response);
   const toolResultIsError = response ? getToolResultIsError(response) : false;
   const succeeded = result !== null;
   const statusOk = succeeded && !toolResultIsError;
@@ -69,6 +77,27 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
         </span>
       </div>
 
+      {(context?.requestName || backingGatewayName) && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+          {context?.requestName && (
+            <span>
+              {intl.formatMessage(
+                { id: "tools.details.invoke.context.requestedThrough" },
+                { name: context.requestName },
+              )}
+            </span>
+          )}
+          {backingGatewayName && (
+            <span>
+              {intl.formatMessage(
+                { id: "tools.details.invoke.context.answeredBy" },
+                { name: backingGatewayName },
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
       {response && <ToolResultRenderer response={response} />}
 
       {response && (
@@ -95,6 +124,26 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
       )}
     </section>
   );
+}
+
+function getBackingGatewayName(response: ToolPreviewResponse | undefined): string | undefined {
+  if (!response) return undefined;
+  const root = response as Record<string, unknown>;
+  const target = typeof response.target === "object" && response.target ? response.target : null;
+  return (
+    getNonEmptyString(root.gateway_name) ??
+    getNonEmptyString(root.gatewayName) ??
+    getNonEmptyString(root.resolved_gateway_name) ??
+    getNonEmptyString(root.resolvedGatewayName) ??
+    getNonEmptyString(target?.gateway_name) ??
+    getNonEmptyString(target?.gatewayName) ??
+    getNonEmptyString(target?.gateway_slug) ??
+    getNonEmptyString(target?.gatewaySlug)
+  );
+}
+
+function getNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function RawLiveResponse({ response }: { response: unknown }) {

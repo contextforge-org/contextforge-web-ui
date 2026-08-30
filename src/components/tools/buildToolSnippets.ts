@@ -8,6 +8,7 @@ export type ToolSnippetLanguage = "curl" | "jsonRpc" | "python" | "typescript";
 
 export interface ToolSnippetInput {
   args: Record<string, unknown>;
+  serverId?: string;
   toolName: string;
 }
 
@@ -19,13 +20,14 @@ export interface ToolSnippetSpec {
   build: (input: ToolSnippetInput) => string;
 }
 
-function buildToolCallEnvelope({ toolName, args }: ToolSnippetInput) {
+function buildToolCallEnvelope({ toolName, args, serverId }: ToolSnippetInput) {
   return {
     jsonrpc: "2.0",
     id: 1,
     method: "tools/call",
     params: {
       name: toolName,
+      ...(serverId ? { server_id: serverId } : {}),
       arguments: args,
     },
   };
@@ -49,9 +51,9 @@ export function buildToolJsonRpc(input: ToolSnippetInput): string {
   return JSON.stringify(buildToolCallEnvelope(input), null, 2);
 }
 
-export function buildToolPython({ toolName, args }: ToolSnippetInput): string {
+export function buildToolPython({ toolName, args, serverId }: ToolSnippetInput): string {
   const payload = JSON.stringify(
-    JSON.stringify(buildToolCallEnvelope({ toolName, args }), null, 2),
+    JSON.stringify(buildToolCallEnvelope({ toolName, args, serverId }), null, 2),
   );
   return [
     "import json",
@@ -70,7 +72,8 @@ export function buildToolPython({ toolName, args }: ToolSnippetInput): string {
   ].join("\n");
 }
 
-export function buildToolTypescript({ toolName, args }: ToolSnippetInput): string {
+export function buildToolTypescript({ toolName, args, serverId }: ToolSnippetInput): string {
+  const serverIdLine = serverId ? `      server_id: ${JSON.stringify(serverId)},` : null;
   return [
     `const response = await fetch(\`\${process.env.${URL_ENV}}/rpc\`, {`,
     `  method: "POST",`,
@@ -84,6 +87,7 @@ export function buildToolTypescript({ toolName, args }: ToolSnippetInput): strin
     `    method: "tools/call",`,
     `    params: {`,
     `      name: ${JSON.stringify(toolName)},`,
+    ...(serverIdLine ? [serverIdLine] : []),
     `      arguments: ${JSON.stringify(args)},`,
     `    },`,
     `  }),`,

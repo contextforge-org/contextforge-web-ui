@@ -177,6 +177,46 @@ describe("toolsApi", () => {
       });
     });
 
+    it("includes server_id for scoped live invokes", async () => {
+      const body = {
+        jsonrpc: "2.0",
+        id: "invoke-scoped",
+        result: {
+          content: [{ type: "text", text: "scoped", mimeType: "text/plain" }],
+        },
+      };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await toolsApi.invoke(
+        "github.search_issues",
+        { query: "cloudflare" },
+        {},
+        { requestId: "invoke-scoped", serverId: "virtual-server-1" },
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/rpc"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "invoke-scoped",
+            method: "tools/call",
+            params: {
+              name: "github.search_issues",
+              server_id: "virtual-server-1",
+              arguments: { query: "cloudflare" },
+            },
+          }),
+        }),
+      );
+    });
+
     it("throws ToolInvokeJsonRpcError for malformed JSON-RPC success bodies", async () => {
       mockFetch.mockResolvedValueOnce(
         new Response(JSON.stringify({ jsonrpc: "2.0", id: "bad" }), {

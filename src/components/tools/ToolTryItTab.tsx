@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ComponentProps } from "react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
@@ -25,12 +26,24 @@ import { getToolAnnotationHints } from "./toolAnnotations";
 const DEFAULT_SNIPPET_LANGUAGE: ToolSnippetLanguage = "curl";
 
 export interface ToolTryItTabProps {
+  getToolLabel?: (tool: Tool) => string;
+  invokeScope?: { serverId: string; serverName: string };
+  previewEnabled?: boolean;
+  resultContext?: ComponentProps<typeof ToolLiveInvokeResult>["context"];
   tools: Tool[];
   selectedTool: Tool;
   onSelectTool: (tool: Tool) => void;
 }
 
-export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTabProps) {
+export function ToolTryItTab({
+  getToolLabel,
+  invokeScope,
+  previewEnabled = true,
+  resultContext,
+  tools,
+  selectedTool,
+  onSelectTool,
+}: ToolTryItTabProps) {
   const intl = useIntl();
   const [args, setArgs] = useState<Record<string, unknown>>(() =>
     seedToolArguments(selectedTool.inputSchema),
@@ -42,18 +55,23 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
     useState<ToolSnippetLanguage>(DEFAULT_SNIPPET_LANGUAGE);
   const forwardableHeaders = useMemo(() => getForwardableHeaders(headers), [headers]);
   const annotationHints = getToolAnnotationHints(selectedTool.annotations);
-  const preview = useToolPreview(selectedTool.name, args, forwardableHeaders);
-  const invoke = useToolInvoke(selectedTool.name, args, forwardableHeaders);
+  const preview = useToolPreview(selectedTool.name, args, forwardableHeaders, {
+    enabled: previewEnabled,
+  });
+  const invoke = useToolInvoke(selectedTool.name, args, forwardableHeaders, {
+    serverId: invokeScope?.serverId,
+  });
   const resetPreview = preview.reset;
   const resetInvoke = invoke.reset;
   const previousToolIdRef = useRef(selectedTool.id);
+  const toolLabel = getToolLabel ?? ((tool: Tool) => tool.name);
   const snippets = useMemo(
     () =>
       TOOL_SNIPPETS.map((spec) => ({
         ...spec,
-        text: spec.build({ toolName: selectedTool.name, args }),
+        text: spec.build({ toolName: selectedTool.name, args, serverId: invokeScope?.serverId }),
       })),
-    [args, selectedTool.name],
+    [args, invokeScope?.serverId, selectedTool.name],
   );
 
   useEffect(() => {
@@ -72,7 +90,11 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-foreground">
-            {intl.formatMessage({ id: "tools.details.preview.title" })}
+            {intl.formatMessage({
+              id: previewEnabled
+                ? "tools.details.preview.title"
+                : "tools.details.invoke.liveCallTitle",
+            })}
           </h3>
           {annotationHints.readOnlyHint && (
             <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px]">
@@ -109,7 +131,7 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
                       : "text-muted-foreground",
                   )}
                 >
-                  {tool.name}
+                  {toolLabel(tool)}
                 </Button>
               );
             })}
@@ -156,7 +178,9 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
             </div>
 
             <div className="flex flex-wrap items-start justify-end gap-2">
-              <ToolPreviewButton preview={preview} disabled={!argsValid || !headersValid} />
+              {previewEnabled && (
+                <ToolPreviewButton preview={preview} disabled={!argsValid || !headersValid} />
+              )}
               <ToolLiveInvokeGate
                 tool={selectedTool}
                 invoke={invoke}
@@ -180,8 +204,8 @@ export function ToolTryItTab({ tools, selectedTool, onSelectTool }: ToolTryItTab
         </Tabs>
       </div>
 
-      <ToolPreviewResult preview={preview} />
-      <ToolLiveInvokeResult invoke={invoke} />
+      {previewEnabled && <ToolPreviewResult preview={preview} />}
+      <ToolLiveInvokeResult invoke={invoke} context={resultContext} />
     </div>
   );
 }

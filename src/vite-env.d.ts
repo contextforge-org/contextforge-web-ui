@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_ENABLE_TOOL_PREVIEW?: string;
+  readonly VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT?: string;
 }
 
 // Injected by vite.config.ts `define` from package.json's version field.
