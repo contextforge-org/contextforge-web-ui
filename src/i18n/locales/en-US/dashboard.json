@@ -23,6 +23,7 @@
   "dashboard.home.activity.search": "Search activity",
   "dashboard.home.activity.empty": "No recent activity.",
   "dashboard.home.activity.noMatches": "No activity matches your filters.",
+  "dashboard.home.activity.resultCount": "{count, plural, =0 {No activity shown} one {# activity item shown} other {# activity items shown}}",
   "dashboard.home.activity.error": "Recent activity could not be loaded.",
   "dashboard.home.activity.status.success": "Success",
   "dashboard.home.activity.status.info": "Info",

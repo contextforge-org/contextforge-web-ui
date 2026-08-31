@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 import { ApiError } from "@/api/client";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
@@ -132,6 +132,17 @@ describe("ActivityView", () => {
 
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("Health check failed")).toBeInTheDocument();
+  });
+
+  it("announces the result count when filtering empties the list", async () => {
+    feed(ITEMS);
+    renderWithProviders(<ActivityView />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("5 activity items shown");
+
+    await userEvent.type(screen.getByRole("searchbox"), "nothing-matches-this");
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("No activity shown"));
   });
 
   it("distinguishes an empty feed from an empty filter result", async () => {

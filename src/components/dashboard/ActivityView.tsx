@@ -15,12 +15,16 @@
  * Search filters the fetched window client-side, so the feed is requested at the
  * server's max (`limit: 100`) rather than the hook's default of 10 — otherwise
  * search would only ever see the ten newest rows.
+ *
+ * The result count is announced from an always-mounted `role="status"` region,
+ * as in `CatalogResults` and `PluginResults`.
  */
 
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
 import type { ActivityItem } from "@/types/activity";
 
@@ -68,6 +72,8 @@ export function ActivityView() {
     return items.filter((item) => matchesFilter(item, filter) && matchesSearch(item, needle));
   }, [items, filter, search]);
 
+  const announcedCount = useDebouncedValue(visible.length, 300);
+
   if (isLoading) return <Skeleton className="h-40 w-full rounded-lg" />;
 
   if (isPermissionDenied(error)) {
@@ -84,6 +90,12 @@ export function ActivityView() {
 
   return (
     <div className="rounded-lg border border-border bg-card">
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {intl.formatMessage(
+          { id: "dashboard.home.activity.resultCount" },
+          { count: announcedCount },
+        )}
+      </p>
       <div className="px-4 py-3">
         <ActivityFilters
           filter={filter}

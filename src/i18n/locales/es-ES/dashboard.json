@@ -23,6 +23,7 @@
   "dashboard.home.activity.search": "Buscar actividad",
   "dashboard.home.activity.empty": "No hay actividad reciente.",
   "dashboard.home.activity.noMatches": "Ninguna actividad coincide con los filtros.",
+  "dashboard.home.activity.resultCount": "{count, plural, =0 {No se muestra actividad} one {Se muestra # elemento de actividad} other {Se muestran # elementos de actividad}}",
   "dashboard.home.activity.error": "No se pudo cargar la actividad reciente.",
   "dashboard.home.activity.status.success": "Correcto",
   "dashboard.home.activity.status.info": "Información",
