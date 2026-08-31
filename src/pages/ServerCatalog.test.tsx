@@ -14,6 +14,7 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
 import { RouterProvider } from "@/router";
+import type { Team } from "@/types/team";
 import { ServerCatalog } from "./ServerCatalog";
 
 vi.mock("@/hooks/useQuery", () => ({
@@ -23,11 +24,21 @@ const authState = vi.hoisted(() => ({
   hasPermission: vi.fn<(permission: string) => boolean>(() => true),
   permissionsLoading: false,
 }));
+const teamScopeState = vi.hoisted(() => ({
+  teams: [] as Team[],
+  onTeamChange: vi.fn(),
+}));
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => authState,
 }));
 vi.mock("@/hooks/useTeams", () => ({
-  useTeamScope: () => ({ teams: [], onTeamChange: vi.fn() }),
+  useTeamScope: ({ onTeamIdChange }: { onTeamIdChange: (teamId: string) => void }) => ({
+    teams: teamScopeState.teams,
+    onTeamChange: (teamId: string) => {
+      teamScopeState.onTeamChange(teamId);
+      onTeamIdChange(teamId);
+    },
+  }),
 }));
 vi.mock("@/api/catalog", () => ({
   registerCatalogServer: vi.fn(),
@@ -145,6 +156,8 @@ describe("ServerCatalog", () => {
     });
     authState.hasPermission.mockReturnValue(true);
     authState.permissionsLoading = false;
+    teamScopeState.teams = [];
+    teamScopeState.onTeamChange.mockReset();
     mockDisconnectCatalogGateway.mockResolvedValue({
       status: 200,
       data: { status: "success" },
@@ -625,6 +638,50 @@ describe("ServerCatalog", () => {
 
     expect(await within(dialog).findByText("API key is required.")).toBeInTheDocument();
     expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
+  });
+
+  it("requires a team before submitting team-visible catalog registration", async () => {
+    const user = userEvent.setup();
+    const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await within(dialog).findByText("Select a team.")).toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
+  });
+
+  it("submits selected team for team-visible catalog registration", async () => {
+    const user = userEvent.setup();
+    teamScopeState.teams = [
+      { id: "team-alpha", name: "Alpha team" },
+      { id: "team-beta", name: "Beta team" },
+    ] as Team[];
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.click(within(dialog).getByRole("combobox", { name: /^Team/ }));
+    await user.click(screen.getByRole("option", { name: "Alpha team" }));
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("api-key", {
+        name: null,
+        api_key: "test-api-key",
+        visibility: "team",
+        team_id: "team-alpha",
+      }),
+    );
+    expect(teamScopeState.onTeamChange).toHaveBeenCalledWith("team-alpha");
   });
 
   it("refetches an already-registered response to obtain its gateway ID", async () => {

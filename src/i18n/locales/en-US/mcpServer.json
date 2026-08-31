@@ -106,7 +106,6 @@
   "mcpServer.catalog.apiKey.teamRequired": "Select a team.",
   "mcpServer.catalog.apiKey.submit": "Add server",
   "mcpServer.catalog.addError": "Unable to add this server. Try again.",
-  "mcpServer.catalog.addConflict": "This catalog server is already registered.",
   "mcpServer.catalog.addNotFound": "{name} is no longer available in the catalog.",
   "mcpServer.catalog.alreadyConnected": "{name} is already connected.",
   "mcpServer.catalog.actionsFor": "Actions for {name}",

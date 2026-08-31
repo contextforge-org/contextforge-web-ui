@@ -106,7 +106,6 @@
   "mcpServer.catalog.apiKey.teamRequired": "Selecciona un equipo.",
   "mcpServer.catalog.apiKey.submit": "Añadir servidor",
   "mcpServer.catalog.addError": "No se pudo añadir este servidor. Inténtalo de nuevo.",
-  "mcpServer.catalog.addConflict": "Este servidor del catálogo ya está registrado.",
   "mcpServer.catalog.addNotFound": "{name} ya no está disponible en el catálogo.",
   "mcpServer.catalog.alreadyConnected": "{name} ya está conectado.",
   "mcpServer.catalog.actionsFor": "Acciones para {name}",
