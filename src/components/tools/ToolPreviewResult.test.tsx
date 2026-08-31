@@ -71,6 +71,30 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("missing query")).toBeInTheDocument();
   });
 
+  it("renders camelCase resolved arguments from the backend preview response", () => {
+    const { container } = render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 4,
+            preview: {
+              validated: true,
+              resolvedArguments: { customer_id: "acme-001" },
+              target: { kind: "local", gatewayName: null },
+              warnings: [],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
+    expect(container.textContent).toContain('"customer_id"');
+    expect(container.textContent).toContain('"acme-001"');
+  });
+
   it("renders fallback warning labels and string targets", () => {
     render(
       <ToolPreviewResult

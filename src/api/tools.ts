@@ -76,6 +76,7 @@ export interface ToolResultContentBlock {
 export interface ToolPreviewResponse {
   content?: ToolResultContentBlock[];
   resolved_arguments?: Record<string, unknown>;
+  resolvedArguments?: Record<string, unknown>;
   structured_output?: unknown;
   structuredOutput?: unknown;
   isError?: boolean;
