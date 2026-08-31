@@ -88,7 +88,7 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchOnce();
+      void fetchOnce(controller.signal);
     }, pollIntervalMs);
 
     return () => {

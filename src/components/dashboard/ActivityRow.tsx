@@ -20,7 +20,8 @@ import { ACTIVITY_STATUS_STYLE } from "./activityStatus";
 
 export function ActivityRow({ item }: { item: ActivityItem }) {
   const intl = useIntl();
-  const { Icon, className, labelId } = ACTIVITY_STATUS_STYLE[item.status];
+  const { Icon, className, labelId } =
+    ACTIVITY_STATUS_STYLE[item.status] ?? ACTIVITY_STATUS_STYLE.info;
   const relative = formatLastSeen(item.timestamp, { locale: intl.locale });
 
   return (

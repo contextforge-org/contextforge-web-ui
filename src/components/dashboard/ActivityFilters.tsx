@@ -2,8 +2,8 @@
  * ActivityFilters — the feed's filter tabs (All / Errors / Warnings, each with a
  * count) plus the search box.
  *
- * Counts key off `status === "error"` / `"warning"`, matching the mini-card
- * counters in `useMiniCardStatuses`, so the two never disagree. `info` has no
+ * Counts key off `status === "error"` / `"warning"`, the same predicate the
+ * mini-card counters in `useMiniCardStatuses` use over a narrower window. `info` has no
  * tab of its own: it is high-volume read/execute traffic that belongs under
  * "All activity" rather than as a severity filter.
  *

@@ -5,7 +5,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/api/client";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
 import { renderWithProviders } from "@/test/test-utils";
-import type { ActivityItem } from "@/types/activity";
+import type { ActivityItem, ActivityStatus } from "@/types/activity";
 
 import { ActivityView } from "./ActivityView";
 
@@ -101,6 +101,15 @@ describe("ActivityView", () => {
     renderWithProviders(<ActivityView />);
 
     expect(within(screen.getByRole("listitem")).getByText("Error")).toBeInTheDocument();
+  });
+
+  it("renders a row whose status is outside the known set instead of throwing", () => {
+    feed([item({ status: "quarantined" as ActivityStatus })]);
+    renderWithProviders(<ActivityView />);
+
+    const row = within(screen.getByRole("listitem"));
+    expect(row.getByText("MCP server registered")).toBeInTheDocument();
+    expect(row.getByText("Info")).toBeInTheDocument();
   });
 
   it("counts errors and warnings on the filter tabs, and info only under All", () => {
