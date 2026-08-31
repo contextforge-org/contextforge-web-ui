@@ -65,6 +65,39 @@ describe("useRecentActivity", () => {
     expect(callCount).toBe(1);
   });
 
+  it("stays loading when a limit change aborts the first request", async () => {
+    let callCount = 0;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get("*/api/logs/activity", async () => {
+        callCount += 1;
+        await gate;
+        return HttpResponse.json({ items: RECENT_ACTIVITY_FIXTURE.slice(0, 2) });
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ limit }) => useRecentActivity({ limit, pollIntervalMs: 0 }),
+      { initialProps: { limit: 10 } },
+    );
+
+    await waitFor(() => expect(callCount).toBe(1));
+    rerender({ limit: 20 });
+    await waitFor(() => expect(callCount).toBe(2));
+
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      release?.();
+      await gate;
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items).toHaveLength(2);
+  });
+
   it("refetch re-hits the endpoint and clears the error", async () => {
     let callCount = 0;
     server.use(

@@ -66,7 +66,7 @@ export function useRecentActivity(options: UseRecentActivityOptions = {}): UseRe
         // instance to tell a 403 from any other failure.
         setError(err instanceof Error ? err : new Error("Failed to load recent activity"));
       } finally {
-        setIsLoading(false);
+        if (!signal?.aborted) setIsLoading(false);
       }
     },
     [limit, mock],
