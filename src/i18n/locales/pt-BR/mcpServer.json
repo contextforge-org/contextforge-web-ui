@@ -13,7 +13,7 @@
   "mcpServer.tags.addError": "Falha ao adicionar a tag. Tente novamente.",
   "mcpServer.form.connectTitle": "Conectar servidor MCP",
   "mcpServer.form.editTitle": "Editar servidor MCP",
-  "mcpServer.form.intro": "O Context Forge vai descobrir as ferramentas, os recursos e os prompts do servidor. O servidor MCP deve estar em execução e acessível. Ou escolha um servidor no <catalog>catálogo de servidores MCP</catalog>.",
+  "mcpServer.form.intro": "O Context Forge vai descobrir as ferramentas, os recursos e os prompts do servidor. O servidor MCP deve estar em execução e acessível.",
   "mcpServer.form.fetchError": "Falha ao carregar os dados do servidor: {error}",
   "mcpServer.form.transportLabel": "Tipo de transporte do servidor",
   "mcpServer.form.nameLabel": "Nome",

@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { useIntl } from "react-intl";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -201,24 +201,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
             </div>
 
             <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              {intl.formatMessage(
-                { id: "mcpServer.form.intro" },
-                {
-                  catalog: (chunks: ReactNode) => (
-                    <Button
-                      type="button"
-                      variant="link"
-                      onClick={() => {
-                        onToggle();
-                        navigate("/app/server-catalog");
-                      }}
-                      className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
-                    >
-                      {chunks}
-                    </Button>
-                  ),
-                },
-              )}
+              {intl.formatMessage({ id: "mcpServer.form.intro" })}
             </p>
 
             {!serverId && (

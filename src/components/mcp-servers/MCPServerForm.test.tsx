@@ -163,13 +163,6 @@ describe("MCPServerForm", () => {
       renderWithRouter(<MCPServerForm isOpen={true} onToggle={vi.fn()} serverId="edit-123" />);
       expect(screen.getByRole("button", { name: /Save changes/i })).toBeInTheDocument();
     });
-
-    it("should render link to server catalog", () => {
-      renderWithRouter(<MCPServerForm {...defaultProps} />);
-
-      const catalogLink = screen.getByRole("button", { name: /mcp server catalog/i });
-      expect(catalogLink).toBeInTheDocument();
-    });
   });
 
   describe("Error States", () => {
@@ -644,23 +637,6 @@ describe("MCPServerForm", () => {
       await user.click(cancelButton);
 
       expect(onToggle).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("Server Catalog Navigation", () => {
-    it("should navigate to server catalog when link is clicked", async () => {
-      const user = userEvent.setup();
-      const onToggle = vi.fn();
-      renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggle} />);
-
-      const catalogLink = screen.getByRole("button", { name: /mcp server catalog/i });
-      await user.click(catalogLink);
-
-      expect(onToggle).toHaveBeenCalledTimes(1);
-      // Verify navigation by checking window location
-      await waitFor(() => {
-        expect(window.location.pathname).toBe("/app/server-catalog");
-      });
     });
   });
 
