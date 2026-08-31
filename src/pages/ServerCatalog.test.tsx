@@ -640,6 +640,32 @@ describe("ServerCatalog", () => {
     expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
   });
 
+  it("closes the API-key dialog when cancelled", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the API-key dialog open while registration is submitting", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockImplementation(() => new Promise(() => {}));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(within(dialog).getByRole("button", { name: "Adding…" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+  });
+
   it("requires a team before submitting team-visible catalog registration", async () => {
     const user = userEvent.setup();
     const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
