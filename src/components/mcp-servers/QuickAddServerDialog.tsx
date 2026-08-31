@@ -12,12 +12,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InlineNotification } from "@/components/ui/inline-notification";
+import { Label } from "@/components/ui/label";
 import { Loading } from "@/components/ui/loading";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QUICK_ADD_CATALOG_IDS } from "@/config/quickAddServers";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 
 const CATALOG_PATH = "/v1/catalog?limit=1000";
+// Quick Add submits through the standard gateway-create form, which can't yet
+// complete an OAuth setup flow, and only supports these two transports.
+const OPEN_AUTH_TYPE = "Open";
+const SUPPORTED_TRANSPORTS: ReadonlySet<string> = new Set(["SSE", "STREAMABLEHTTP"]);
+
+function isQuickAddEligible(server: CatalogServer | undefined): server is CatalogServer {
+  if (!server) return false;
+  return (
+    server.auth_type === OPEN_AUTH_TYPE &&
+    (server.transport == null || SUPPORTED_TRANSPORTS.has(server.transport))
+  );
+}
 
 interface QuickAddServerDialogProps {
   open: boolean;
@@ -48,9 +62,7 @@ export function QuickAddServerDialog({
   const servers = useMemo(() => {
     if (!data?.servers) return [];
     const byId = new Map(data.servers.map((server) => [server.id, server]));
-    return QUICK_ADD_CATALOG_IDS.map((id) => byId.get(id)).filter(
-      (server): server is CatalogServer => Boolean(server),
-    );
+    return QUICK_ADD_CATALOG_IDS.map((id) => byId.get(id)).filter(isQuickAddEligible);
   }, [data?.servers]);
 
   const selectedServer = servers.find((server) => server.id === selectedId) ?? null;
@@ -88,8 +100,9 @@ export function QuickAddServerDialog({
         )}
 
         {servers.length > 0 && (
-          <div
-            role="radiogroup"
+          <RadioGroup
+            value={selectedId ?? undefined}
+            onValueChange={setSelectedId}
             aria-labelledby={groupLabelId}
             className="grid grid-cols-2 gap-3 sm:grid-cols-4"
           >
@@ -100,18 +113,10 @@ export function QuickAddServerDialog({
               const inputId = `quick-add-${server.id}`;
               return (
                 <div key={server.id}>
-                  <input
-                    type="radio"
-                    id={inputId}
-                    name="quick-add-server"
-                    value={server.id}
-                    checked={selectedId === server.id}
-                    onChange={() => setSelectedId(server.id)}
-                    className="peer sr-only"
-                  />
-                  <label
+                  <RadioGroupItem id={inputId} value={server.id} className="peer sr-only" />
+                  <Label
                     htmlFor={inputId}
-                    className="flex h-full cursor-pointer flex-col rounded-xl border border-border p-3 transition-colors hover:border-ring peer-checked:border-ring peer-checked:ring-1 peer-checked:ring-ring peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:hover:border-muted-foreground"
+                    className="flex h-full cursor-pointer flex-col rounded-xl border border-border p-3 font-normal transition-colors hover:border-ring peer-data-[state=checked]:border-ring peer-data-[state=checked]:ring-1 peer-data-[state=checked]:ring-ring peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:hover:border-muted-foreground"
                   >
                     <div className="flex items-center gap-2">
                       <CatalogLogo server={server} />
@@ -122,11 +127,11 @@ export function QuickAddServerDialog({
                     <span className="mt-2 line-clamp-2 text-xs text-muted-foreground">
                       {server.description}
                     </span>
-                  </label>
+                  </Label>
                 </div>
               );
             })}
-          </div>
+          </RadioGroup>
         )}
 
         <div className="flex items-center justify-between pt-2">

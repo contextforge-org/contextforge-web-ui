@@ -41,6 +41,21 @@ const catalogResponse: CatalogListResponse = {
   providers: [],
 };
 
+// A curated id whose catalog entry has since drifted off the Quick Add contract:
+// non-Open auth and/or an unsupported transport must still be excluded.
+function catalogResponseWith(overrides: Partial<CatalogServer>): CatalogListResponse {
+  return {
+    servers: [
+      catalogServer({ id: QUICK_ADD_CATALOG_IDS[0], ...overrides }),
+      catalogServer({ id: QUICK_ADD_CATALOG_IDS[1] }),
+    ],
+    total: 2,
+    categories: [],
+    auth_types: [],
+    providers: [],
+  };
+}
+
 function mockCatalogQuery(overrides: Partial<ReturnType<typeof useQuery>> = {}) {
   mockUseQuery.mockReturnValue({
     data: catalogResponse,
@@ -68,6 +83,36 @@ describe("QuickAddServerDialog", () => {
     expect(screen.getByText(QUICK_ADD_CATALOG_IDS[0])).toBeInTheDocument();
     expect(screen.getByText(QUICK_ADD_CATALOG_IDS[1])).toBeInTheDocument();
     expect(screen.queryByText("not-curated")).not.toBeInTheDocument();
+  });
+
+  it("excludes a curated entry that is no longer Open auth", () => {
+    mockCatalogQuery({ data: catalogResponseWith({ auth_type: "oauth" }) });
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(QUICK_ADD_CATALOG_IDS[0])).not.toBeInTheDocument();
+    expect(screen.getByText(QUICK_ADD_CATALOG_IDS[1])).toBeInTheDocument();
+  });
+
+  it("excludes a curated entry with an unsupported transport", () => {
+    mockCatalogQuery({ data: catalogResponseWith({ transport: "WEBSOCKET" }) });
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(QUICK_ADD_CATALOG_IDS[0])).not.toBeInTheDocument();
+    expect(screen.getByText(QUICK_ADD_CATALOG_IDS[1])).toBeInTheDocument();
   });
 
   it("disables Continue until a card is selected, then calls onSelect with the picked server", async () => {

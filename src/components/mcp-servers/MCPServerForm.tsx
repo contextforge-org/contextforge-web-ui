@@ -18,7 +18,8 @@ import {
 import { STATUS_ICON } from "@/lib/status";
 import type { CatalogServer } from "@/generated/types";
 
-/** Catalog servers only carry SSE/STREAMABLEHTTP/WEBSOCKET/null; the form only supports the first two. */
+// QuickAddServerDialog only surfaces entries with SSE, STREAMABLEHTTP, or no
+// transport set, so anything else here defaults to STREAMABLEHTTP.
 function mapCatalogTransport(transport: string | null | undefined): TransportType {
   return transport === "SSE" ? "SSE" : "STREAMABLEHTTP";
 }
