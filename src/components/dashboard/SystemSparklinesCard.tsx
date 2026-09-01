@@ -83,7 +83,7 @@ export function SystemSparklinesCard({
   const isEmpty = !loading && !error && rows.every((row) => isEmptySeries(row.points));
 
   return (
-    <div className="rounded-lg bg-card px-5 py-4 shadow-xs ring-1 ring-foreground/10">
+    <div className="rounded-lg bg-card px-5 pt-4 pb-6 shadow-xs ring-1 ring-foreground/10">
       <div className="mb-4 flex items-start justify-between gap-4">
         <p className="text-xs leading-4 font-medium text-muted-foreground">
           {error
