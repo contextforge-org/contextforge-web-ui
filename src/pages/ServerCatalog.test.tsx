@@ -666,6 +666,44 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
   });
 
+  it("surfaces a registration failure inside the API-key dialog rather than behind it", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Unable to add this server. Try again.",
+    );
+    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("surfaces an already-connected conflict inside the API-key dialog", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockRegisterCatalogServer.mockRejectedValue(
+      new ApiError(409, { detail: "Server already registered" }, "HTTP 409"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(
+      await within(dialog).findByText("Secret Service is already connected."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalled();
+  });
+
   it("requires a team before submitting team-visible catalog registration", async () => {
     const user = userEvent.setup();
     const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;

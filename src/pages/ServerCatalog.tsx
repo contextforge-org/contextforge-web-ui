@@ -325,6 +325,9 @@ export function ServerCatalog() {
   const [registrationNotifications, setRegistrationNotifications] = useState<
     RegistrationNotification[]
   >([]);
+  const [apiKeyDialogNotification, setApiKeyDialogNotification] = useState<
+    RegistrationNotification | undefined
+  >();
   const [disconnectServer, setDisconnectServer] = useState<CatalogServer | null>(null);
   const [impactPreview, setImpactPreview] = useState<GatewayImpactPreview | null>(null);
   const [impactPreviewStatus, setImpactPreviewStatus] = useState<ImpactPreviewStatus>("idle");
@@ -448,7 +451,14 @@ export function ServerCatalog() {
   }, [refetch]);
 
   const registerServer = useCallback(
-    async (server: CatalogServer, body?: CatalogServerRegisterBody): Promise<boolean> => {
+    async (
+      server: CatalogServer,
+      body?: CatalogServerRegisterBody,
+      reportNotification: (
+        notification: RegistrationNotification,
+        shouldFocus?: boolean,
+      ) => void = showRegistrationNotification,
+    ): Promise<boolean> => {
       if (!beginAdding(server.id)) return false;
       dismissRegistrationNotification(`add:${server.id}`);
       try {
@@ -456,7 +466,7 @@ export function ServerCatalog() {
           ? await registerCatalogServer(server.id, body)
           : await registerCatalogServer(server.id);
         if (!result.success) {
-          showRegistrationNotification({
+          reportNotification({
             id: `add:${server.id}`,
             type: "error",
             message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
@@ -471,7 +481,7 @@ export function ServerCatalog() {
         return true;
       } catch (registrationError) {
         if (registrationError instanceof ApiError && registrationError.status === 409) {
-          showRegistrationNotification({
+          reportNotification({
             id: `add:${server.id}`,
             type: "success",
             message: intl.formatMessage(
@@ -485,7 +495,7 @@ export function ServerCatalog() {
 
         if (registrationError instanceof ApiError && registrationError.status === 404) {
           setData((current) => removeCatalogServer(current, server.id));
-          showRegistrationNotification(
+          reportNotification(
             {
               id: `add:${server.id}`,
               type: "error",
@@ -500,7 +510,7 @@ export function ServerCatalog() {
           return false;
         }
 
-        showRegistrationNotification({
+        reportNotification({
           id: `add:${server.id}`,
           type: "error",
           message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
@@ -524,6 +534,7 @@ export function ServerCatalog() {
   const handleAdd = useCallback(
     (server: CatalogServer) => {
       if (API_KEY_AUTH_TYPES.has(server.auth_type)) {
+        setApiKeyDialogNotification(undefined);
         setApiKeyServer(server);
         return;
       }
@@ -535,7 +546,8 @@ export function ServerCatalog() {
   const handleApiKeySubmit = useCallback(
     async (body: CatalogServerRegisterBody) => {
       if (!apiKeyServer) return false;
-      const registered = await registerServer(apiKeyServer, body);
+      setApiKeyDialogNotification(undefined);
+      const registered = await registerServer(apiKeyServer, body, setApiKeyDialogNotification);
       if (registered) setFocusActionsForServerId(apiKeyServer.id);
       return registered;
     },
@@ -1028,10 +1040,15 @@ export function ServerCatalog() {
         <CatalogApiKeyDialog
           server={apiKeyServer}
           onOpenChange={(open) => {
-            if (!open) setApiKeyServer(null);
+            if (!open) {
+              setApiKeyServer(null);
+              setApiKeyDialogNotification(undefined);
+            }
           }}
           onSubmit={handleApiKeySubmit}
           isSubmitting={addingServerIds.has(apiKeyServer.id)}
+          notification={apiKeyDialogNotification}
+          onDismissNotification={() => setApiKeyDialogNotification(undefined)}
         />
       )}
     </CatalogPageLayout>

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,11 +31,15 @@ export function CatalogApiKeyDialog({
   onOpenChange,
   onSubmit,
   isSubmitting,
+  notification,
+  onDismissNotification,
 }: {
   server: CatalogServer;
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: CatalogServerRegisterBody) => Promise<boolean>;
   isSubmitting: boolean;
+  notification?: { type: "success" | "error" | "info"; message: string };
+  onDismissNotification?: () => void;
 }) {
   const intl = useIntl();
   const [name, setName] = useState("");
@@ -105,6 +110,16 @@ export function CatalogApiKeyDialog({
             </DialogDescription>
           </DialogHeader>
 
+          {notification && (
+            <div className="mt-4">
+              <InlineNotification
+                type={notification.type}
+                message={notification.message}
+                onDismiss={onDismissNotification}
+              />
+            </div>
+          )}
+
           <div className="space-y-5 py-5">
             <div className="space-y-2.5">
               <Label htmlFor="catalog-server-name">
@@ -165,7 +180,8 @@ export function CatalogApiKeyDialog({
                 }}
                 disabled={isSubmitting}
               >
-                <SelectTrigger id="catalog-server-visibility">
+                {/* SelectTrigger is w-fit by default; full width lines it up with the inputs above. */}
+                <SelectTrigger id="catalog-server-visibility" className="w-full">
                   <SelectValue
                     placeholder={intl.formatMessage({
                       id: "mcpServer.advanced.visibilityPlaceholder",
