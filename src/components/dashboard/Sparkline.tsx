@@ -35,6 +35,10 @@ export function Sparkline({ points, formatValue, showCount }: SparklineProps) {
             content={<SparklineTooltip formatValue={formatValue} showCount={showCount} />}
             cursor={{ stroke: "var(--color-muted-foreground)", strokeWidth: 1 }}
             isAnimationActive={false}
+            // Each row's chart wrapper is position:relative with z-index auto, so
+            // rows paint in document order and an upper row's tooltip lands behind
+            // the rows below it. Matches the z-50 used by the ui/ overlays.
+            wrapperStyle={{ zIndex: 50 }}
           />
           <Line
             dataKey="line"
