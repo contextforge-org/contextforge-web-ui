@@ -195,6 +195,7 @@ export function CatalogApiKeyDialog({
                   <SelectItem value="team">
                     {intl.formatMessage({ id: "common.visibility.team" })}
                   </SelectItem>
+                  {/* The API uses "public" for org-internal visibility; the UI label is "Internal". */}
                   <SelectItem value="public">
                     {intl.formatMessage({ id: "common.visibility.internal" })}
                   </SelectItem>
