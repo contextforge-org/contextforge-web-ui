@@ -15,13 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Label } from "@/components/ui/label";
-import { Loading } from "@/components/ui/loading";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QUICK_ADD_CATALOG_IDS } from "@/config/quickAddServers";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
+import { cn } from "@/lib/utils";
 
 const CATALOG_PATH = "/v1/catalog?limit=1000";
+const GRID_CLASS = "grid grid-cols-2 gap-3 sm:grid-cols-4";
 // Quick Add registers without collecting any credentials, so it can't complete an
 // OAuth setup flow, and the gateway only supports these two transports.
 const OPEN_AUTH_TYPE = "Open";
@@ -32,6 +33,37 @@ function isQuickAddEligible(server: CatalogServer | undefined): server is Catalo
   return (
     server.auth_type === OPEN_AUTH_TYPE &&
     (server.transport == null || SUPPORTED_TRANSPORTS.has(server.transport))
+  );
+}
+
+/**
+ * DialogContent is vertically centred with a content-driven height, so anything that changes
+ * height after the dialog opens re-centres the whole box and reads as a bounce. Every state
+ * that precedes the loaded grid renders through here, reserving that grid's height: a card per
+ * curated id, matching the real card's padding, logo box and two-line description. Children,
+ * when given, are centred over the reserved space instead of the skeleton.
+ */
+function ReservedGridHeight({ children }: { children?: ReactNode }) {
+  return (
+    <div className="relative">
+      <div aria-hidden="true" className={cn(GRID_CLASS, children ? "invisible" : "animate-pulse")}>
+        {QUICK_ADD_CATALOG_IDS.map((id) => (
+          <div key={id} className="flex flex-col rounded-xl border border-border p-3">
+            <div className="flex items-center gap-2">
+              <div className="size-8 shrink-0 rounded-md bg-muted" />
+              <div className="h-5 w-full rounded bg-muted" />
+            </div>
+            <div className="mt-2 space-y-1">
+              <div className="h-3.5 w-full rounded bg-muted" />
+              <div className="h-3.5 w-2/3 rounded bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+      {children && (
+        <div className="absolute inset-0 flex items-center justify-center">{children}</div>
+      )}
+    </div>
   );
 }
 
@@ -131,19 +163,30 @@ export function QuickAddServerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && !data && <Loading variant="inline" />}
+        {isLoading && !data && (
+          <div>
+            <span role="status" aria-live="polite" className="sr-only">
+              {intl.formatMessage({ id: "common.loading" })}
+            </span>
+            <ReservedGridHeight />
+          </div>
+        )}
 
         {error && !data && (
-          <InlineNotification
-            type="error"
-            message={intl.formatMessage({ id: "mcpServer.quickAdd.errorState" })}
-          />
+          <ReservedGridHeight>
+            <InlineNotification
+              type="error"
+              message={intl.formatMessage({ id: "mcpServer.quickAdd.errorState" })}
+            />
+          </ReservedGridHeight>
         )}
 
         {data && servers.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            {intl.formatMessage({ id: "mcpServer.quickAdd.emptyState" })}
-          </p>
+          <ReservedGridHeight>
+            <p className="text-sm text-muted-foreground">
+              {intl.formatMessage({ id: "mcpServer.quickAdd.emptyState" })}
+            </p>
+          </ReservedGridHeight>
         )}
 
         {connectError && <InlineNotification type="error" message={connectError} />}
@@ -154,7 +197,7 @@ export function QuickAddServerDialog({
             onValueChange={setSelectedId}
             disabled={isConnecting}
             aria-labelledby={groupLabelId}
-            className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+            className={GRID_CLASS}
           >
             <span id={groupLabelId} className="sr-only">
               {intl.formatMessage({ id: "mcpServer.quickAdd.radioGroupLabel" })}

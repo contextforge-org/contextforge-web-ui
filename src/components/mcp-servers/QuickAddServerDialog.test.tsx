@@ -295,6 +295,44 @@ describe("QuickAddServerDialog", () => {
     expect(onBrowseCatalog).toHaveBeenCalled();
   });
 
+  // The dialog is vertically centred, so a shorter loading state would re-centre the box the
+  // moment the grid arrives. Loading, error and empty all reserve the loaded grid's height.
+  it("reserves the loaded grid's height while the catalog is loading", () => {
+    mockCatalogQuery({ data: undefined, isLoading: true });
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(document.querySelectorAll("[aria-hidden='true'] > div.rounded-xl")).toHaveLength(
+      QUICK_ADD_CATALOG_IDS.length,
+    );
+  });
+
+  it("keeps the reserved height behind the empty state", () => {
+    mockCatalogQuery({
+      data: { servers: [], total: 0, categories: [], auth_types: [], providers: [] },
+    });
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No quick add servers available right now.")).toBeInTheDocument();
+    expect(document.querySelectorAll("[aria-hidden='true'] > div.rounded-xl")).toHaveLength(
+      QUICK_ADD_CATALOG_IDS.length,
+    );
+  });
+
   it("shows an error state when the catalog fails to load", () => {
     mockCatalogQuery({ data: undefined, error: { message: "network error" } });
     renderWithProviders(
