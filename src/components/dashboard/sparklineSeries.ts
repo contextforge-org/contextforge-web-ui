@@ -82,13 +82,32 @@ export function headlineScalar(points: (number | null)[], mode: ScalarMode): num
   return null;
 }
 
+/** One grid slot, carrying both what to draw and what actually happened. */
+export interface SparklinePoint {
+  /** Bucket start, epoch ms. */
+  t: number;
+  /** Value for drawing. Idle slots are 0 so the line spans the whole window. */
+  line: number;
+  /** True value, or null when the slot had no requests. */
+  value: number | null;
+  /** Requests observed in the slot, used to qualify a percentile. */
+  count: number;
+}
+
 /**
- * Drawing-only view of a series: idle slots become 0 so the line spans the whole
- * window. Never feed this to `headlineScalar`, which would read the zeros as
- * measurements.
+ * Zip a series against the grid and the per-slot request counts. `line` keeps
+ * idle slots drawable; `value` stays null there so the tooltip says "no
+ * requests" rather than reporting a fabricated 0.
  */
-export function toLinePoints(points: (number | null)[]): number[] {
-  return points.map((p) => p ?? 0);
+export function toSparklinePoints(
+  grid: number[],
+  series: (number | null)[],
+  counts: number[],
+): SparklinePoint[] {
+  return grid.map((t, i) => {
+    const value = series[i] ?? null;
+    return { t, line: value ?? 0, value, count: counts[i] ?? 0 };
+  });
 }
 
 /** True when every slot is empty, i.e. nothing to draw. */

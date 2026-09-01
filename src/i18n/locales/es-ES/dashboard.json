@@ -83,5 +83,7 @@
   "dashboard.home.sparklines.p99": "Latencia p99",
   "dashboard.home.sparklines.window": "Últimas 24 horas",
   "dashboard.home.sparklines.error": "No se pudieron cargar las métricas.",
-  "dashboard.home.sparklines.empty": "Sin solicitudes rastreadas. Si aún no lo ha hecho, establezca OBSERVABILITY_ENABLED=true y reinicie la puerta de enlace."
+  "dashboard.home.sparklines.empty": "Sin solicitudes rastreadas. Si aún no lo ha hecho, establezca OBSERVABILITY_ENABLED=true y reinicie la puerta de enlace.",
+  "dashboard.home.sparklines.tooltip.noRequests": "Sin solicitudes",
+  "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# solicitud} other {# solicitudes}}"
 }

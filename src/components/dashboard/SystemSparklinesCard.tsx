@@ -18,7 +18,7 @@ import {
   buildGrid,
   headlineScalar,
   isEmptySeries,
-  toLinePoints,
+  toSparklinePoints,
 } from "./sparklineSeries";
 import { formatCount, formatResponseTime } from "./systemMetrics";
 
@@ -49,13 +49,19 @@ export function SystemSparklinesCard({
     const latency = (key: "p50" | "p95" | "p99") =>
       alignToGrid(percentiles?.buckets ?? [], percentiles?.[key] ?? [], grid, "gap");
 
+    // Executions doubles as the per-slot sample count, which is what lets the
+    // latency tooltips say how many requests a percentile was taken over.
+    const counts = executions.map((v) => v ?? 0);
+
     return [
       {
         key: "executions",
         label: intl.formatMessage({ id: "dashboard.home.sparklines.executions" }),
         points: executions,
-        line: toLinePoints(executions),
+        chart: toSparklinePoints(grid, executions, counts),
         value: formatCount(headlineScalar(executions, "sum")),
+        formatValue: formatCount,
+        showCount: false,
       },
       ...(["p50", "p95", "p99"] as const).map((key) => {
         const points = latency(key);
@@ -63,8 +69,10 @@ export function SystemSparklinesCard({
           key,
           label: intl.formatMessage({ id: `dashboard.home.sparklines.${key}` }),
           points,
-          line: toLinePoints(points),
+          chart: toSparklinePoints(grid, points, counts),
           value: formatResponseTime(headlineScalar(points, "latest")),
+          formatValue: formatResponseTime,
+          showCount: true,
         };
       }),
     ];
@@ -92,7 +100,9 @@ export function SystemSparklinesCard({
             key={row.key}
             label={row.label}
             value={row.value}
-            points={row.line}
+            points={row.chart}
+            formatValue={row.formatValue}
+            showCount={row.showCount}
             loading={loading}
           />
         ))}

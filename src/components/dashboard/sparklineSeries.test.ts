@@ -5,7 +5,7 @@ import {
   buildGrid,
   headlineScalar,
   isEmptySeries,
-  toLinePoints,
+  toSparklinePoints,
 } from "./sparklineSeries";
 
 const HOUR_MS = 3_600_000;
@@ -94,18 +94,27 @@ describe("headlineScalar", () => {
   });
 });
 
-describe("toLinePoints", () => {
-  it("flattens idle slots to zero so the line spans the whole window", () => {
-    expect(toLinePoints([null, 0.5, null, 0.3])).toEqual([0, 0.5, 0, 0.3]);
+describe("toSparklinePoints", () => {
+  const grid = [1000, 2000, 3000];
+
+  it("keeps idle slots drawable at zero while leaving the value null", () => {
+    const points = toSparklinePoints(grid, [null, 0.5, null], [0, 3, 0]);
+    expect(points.map((p) => p.line)).toEqual([0, 0.5, 0]);
+    expect(points.map((p) => p.value)).toEqual([null, 0.5, null]);
   });
 
-  it("leaves a gapless series untouched", () => {
-    expect(toLinePoints([0, 2, 5])).toEqual([0, 2, 5]);
+  it("carries the bucket time and request count through for the tooltip", () => {
+    const points = toSparklinePoints(grid, [null, 0.5, 0.2], [0, 3, 7]);
+    expect(points[1]).toEqual({ t: 2000, line: 0.5, value: 0.5, count: 3 });
+    expect(points[2].count).toBe(7);
   });
 
-  it("returns the same length as its input, which is what keeps rows aligned", () => {
-    const points = Array.from({ length: 24 }, (_, i) => (i === 23 ? 4 : null));
-    expect(toLinePoints(points)).toHaveLength(24);
+  it("emits one point per grid slot, which is what keeps rows aligned", () => {
+    expect(toSparklinePoints(grid, [], [])).toHaveLength(3);
+  });
+
+  it("defaults a missing count to zero rather than undefined", () => {
+    expect(toSparklinePoints(grid, [1, 2, 3], [])[0].count).toBe(0);
   });
 });
 
