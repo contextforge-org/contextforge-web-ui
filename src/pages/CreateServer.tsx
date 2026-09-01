@@ -8,7 +8,6 @@ import {
   CircleSlash,
   Code,
   MessageSquareCode,
-  TriangleAlert,
   Wrench,
 } from "lucide-react";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
@@ -28,6 +27,7 @@ import { TruncatedText } from "@/components/ui/truncated-text";
 import { api, ApiError } from "@/api/client";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
+import { STATUS_ICON } from "@/lib/status";
 import type { MCPServer, ServerStatus, VirtualServer, VirtualServerTag } from "@/types/server";
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
@@ -134,13 +134,13 @@ function getStatusConfig(status: ServerStatus) {
       return {
         Icon: Activity,
         labelId: "gateways.source.status.active",
-        className: "text-emerald-400",
+        className: "text-success",
       };
     case "warning":
       return {
-        Icon: TriangleAlert,
+        Icon: STATUS_ICON.warning,
         labelId: "gateways.source.status.warning",
-        className: "text-amber-400",
+        className: "text-warning",
       };
     case "offline":
       return {

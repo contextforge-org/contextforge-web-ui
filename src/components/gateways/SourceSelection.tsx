@@ -11,7 +11,6 @@ import {
   Lock,
   MessageSquareCode,
   Plus,
-  TriangleAlert,
   Users,
   Wrench,
 } from "lucide-react";
@@ -24,6 +23,7 @@ import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
 import { useQuery } from "@/hooks/useQuery";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import type { MCPServer, ServerStatus } from "@/types/server";
 
 const MCP_SERVERS_QUERY_PATH = "/gateways?limit=100&include_inactive=true";
@@ -72,13 +72,13 @@ function getStatusConfig(status: ServerStatus) {
       return {
         Icon: Activity,
         labelId: "gateways.source.status.active",
-        className: "text-emerald-400",
+        className: "text-success",
       };
     case "warning":
       return {
-        Icon: TriangleAlert,
+        Icon: STATUS_ICON.warning,
         labelId: "gateways.source.status.warning",
-        className: "text-amber-400",
+        className: "text-warning",
       };
     case "offline":
       return {

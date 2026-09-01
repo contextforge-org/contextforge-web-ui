@@ -1,8 +1,8 @@
 import { useIntl } from "react-intl";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { CodeBlock } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import type { PromptPreviewState } from "@/hooks/usePromptPreview";
 
 export interface PromptPreviewResultProps {
@@ -39,9 +39,9 @@ export function PromptPreviewResult({ preview }: PromptPreviewResultProps) {
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
         {succeeded ? (
-          <CheckCircle2 className="size-4 text-emerald-500" />
+          <STATUS_ICON.success className="size-4 text-success" />
         ) : (
-          <AlertCircle className="size-4 text-destructive" />
+          <STATUS_ICON.error className="size-4 text-destructive" />
         )}
         <span className={cn("font-medium", succeeded ? "text-foreground" : "text-destructive")}>
           {statusLabel}

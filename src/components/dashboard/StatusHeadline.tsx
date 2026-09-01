@@ -7,19 +7,23 @@
  * `action` are slots the fuller #5847 / default-state content fills in.
  */
 
-import { Activity, AlertTriangle, Info } from "lucide-react";
+import { Activity, Info } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useIntl } from "react-intl";
 
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import type { Severity } from "./homeStates";
 import { resolveHeadline, type HeadlineCondition } from "./resolveHeadline";
 
+// success/info keep their own dashboard-specific glyphs (a pulse for "all
+// active", not a generic checkmark); warning/error consume the shared
+// severity icons so the two no longer render identically.
 const SEVERITY_ICON: Record<Severity, ComponentType<{ className?: string }>> = {
   success: Activity,
   info: Info,
-  warning: AlertTriangle,
-  error: AlertTriangle,
+  warning: STATUS_ICON.warning,
+  error: STATUS_ICON.error,
 };
 
 // Severity is conveyed by the icon shape and the message, not by colour: the

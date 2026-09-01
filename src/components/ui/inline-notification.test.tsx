@@ -26,9 +26,9 @@ describe("InlineNotification", () => {
       expect(screen.getByText("Operation succeeded")).toBeInTheDocument();
     });
 
-    it("applies green text class to the message", () => {
+    it("applies the success tone class to the message", () => {
       render(<InlineNotification type="success" message="Done" />);
-      expect(screen.getByText("Done")).toHaveClass("text-green-500");
+      expect(screen.getByText("Done")).toHaveClass("text-success");
     });
   });
 
@@ -43,9 +43,9 @@ describe("InlineNotification", () => {
       expect(screen.getByText("A server with this name already exists")).toBeInTheDocument();
     });
 
-    it("applies red text class to the message", () => {
+    it("applies the destructive tone class to the message", () => {
       render(<InlineNotification type="error" message="Failed" />);
-      expect(screen.getByText("Failed")).toHaveClass("text-red-600");
+      expect(screen.getByText("Failed")).toHaveClass("text-destructive");
     });
   });
 
@@ -54,7 +54,7 @@ describe("InlineNotification", () => {
       render(<InlineNotification type="info" message="Disconnect pending" />);
 
       expect(screen.getByRole("status")).toHaveTextContent("Disconnect pending");
-      expect(screen.getByText("Disconnect pending")).toHaveClass("text-blue-600");
+      expect(screen.getByText("Disconnect pending")).toHaveClass("text-muted-foreground");
     });
   });
 

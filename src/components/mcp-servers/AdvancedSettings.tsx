@@ -1,5 +1,5 @@
 import { useIntl } from "react-intl";
-import { Info, TriangleAlert } from "lucide-react";
+import { Info } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -17,6 +17,7 @@ import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/C
 import { OAuth2Auth } from "@/components/mcp-servers/OAuth2Auth";
 import { QueryParameterAuth } from "@/components/mcp-servers/QueryParameterAuth";
 import { useTeamScope } from "@/hooks/useTeams";
+import { STATUS_ICON } from "@/lib/status";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 import { TeamSelect } from "@/components/common/TeamSelect";
@@ -309,7 +310,7 @@ export function AdvancedSettings({
         </div>
         {oneTimeAuth && (
           <div className="mt-3 flex items-start gap-3 rounded-md bg-neutral-50 p-3 dark:bg-neutral-800">
-            <TriangleAlert className="text-yellow-300 mt-0.5 h-4 w-4 shrink-0" />
+            <STATUS_ICON.warning className="text-warning mt-0.5 h-4 w-4 shrink-0" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthWarning" })}
             </p>

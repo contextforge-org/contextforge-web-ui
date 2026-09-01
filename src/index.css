@@ -56,6 +56,8 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -128,6 +130,10 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Semantic status colors — success/warning icons and badges read these
+     instead of a raw Tailwind shade, so every call site stays in sync. */
+  --success: var(--color-green-600);
+  --warning: var(--color-amber-600);
   --tool-icon-bg: var(--color-fuchsia-400);
   --prompt-icon-bg: #6fff9f;
   /* Brand cyan. Like the two above it this is a chip *background* carrying a
@@ -174,6 +180,8 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --success: var(--color-green-400);
+  --warning: var(--color-amber-400);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

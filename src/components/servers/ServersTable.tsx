@@ -1,12 +1,4 @@
-import {
-  Building2,
-  Lock,
-  Users,
-  TriangleAlert,
-  Activity,
-  CircleSlash,
-  CircleDashed,
-} from "lucide-react";
+import { Building2, Lock, Users, Activity, CircleSlash, CircleDashed } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,6 +16,7 @@ import { Loading } from "../ui/loading";
 import { formatLocalDateTime } from "../../utils/formatDate";
 import { CopyButton } from "@/components/ui/copy-button";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { STATUS_ICON } from "@/lib/status";
 
 function getLastSeenValue(server: MCPServer): string | undefined {
   return server.lastSeen;
@@ -68,13 +61,13 @@ function getStatusConfig(status: ServerStatus) {
       return {
         labelId: "mcpServer.status.active",
         Icon: Activity,
-        className: "text-emerald-600 dark:text-emerald-400",
+        className: "text-success",
       };
     case "warning":
       return {
         labelId: "mcpServer.status.warning",
-        Icon: TriangleAlert,
-        className: "text-amber-600 dark:text-amber-400",
+        Icon: STATUS_ICON.warning,
+        className: "text-warning",
       };
     case "offline":
       return {

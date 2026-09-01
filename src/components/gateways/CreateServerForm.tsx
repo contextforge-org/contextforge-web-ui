@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { ChevronRight, CircleAlert, Server } from "lucide-react";
+import { ChevronRight, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/tag-input";
@@ -15,6 +15,7 @@ import { MAX_TAGS } from "@/utils/tags";
 import type { CreateServerDetails } from "@/components/gateways/types";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { STATUS_ICON } from "@/lib/status";
 
 const visibilityOptions: Array<{
   value: Visibility;
@@ -111,7 +112,7 @@ export function CreateServerForm({
           role="alert"
           aria-live="assertive"
         >
-          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <STATUS_ICON.error className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>{displayedSubmitError}</p>
         </div>
       )}
