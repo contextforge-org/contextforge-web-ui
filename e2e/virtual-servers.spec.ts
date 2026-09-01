@@ -1059,6 +1059,10 @@ test.describe("Virtual Servers page", () => {
     await expect(detailsPanel.getByText("Visibility")).toBeVisible();
     await expect(detailsPanel.getByText("Internal")).toBeVisible();
     await expect(detailsPanel.getByText("development")).toBeVisible();
+
+    // "Try it" is the default tab; switch to Components before asserting on the
+    // component list.
+    await detailsPanel.getByRole("tab", { name: "Components" }).click();
     await expect(detailsPanel.getByText("Get Repo Issues")).toBeVisible();
     await expect(detailsPanel.getByText("GITHUB_GET_REPO_ISSUES")).toBeVisible();
     await expect(detailsPanel.getByText("github://repo/{owner}/{repo}").first()).toBeVisible();
@@ -1081,6 +1085,62 @@ test.describe("Virtual Servers page", () => {
     await expect(detailsPanel.getByText("summarize_pull_request")).toBeVisible();
     await expect(detailsPanel.getByText("Get Repo Issues")).toHaveCount(0);
     await expect(detailsPanel.getByText("github://repo/{owner}/{repo}")).toHaveCount(0);
+  });
+
+  test("shows a tooltip with the full endpoint when it's truncated in the Try it tab", async ({
+    page,
+  }) => {
+    await page.route("**/servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+      });
+    });
+    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+      });
+    });
+
+    // Narrow enough that the full endpoint URL can't fit on one line, forcing
+    // TruncatedText's CSS ellipsis to actually clip it.
+    await page.setViewportSize({ width: 480, height: 800 });
+
+    await page.goto(APP.GATEWAYS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Actions for testVS" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const detailsPanel = page.getByRole("region", { name: "testVS details" });
+    await expect(detailsPanel).toBeVisible();
+
+    // "Try it" is the default tab, so the endpoint is visible without switching tabs.
+    // Scope to the tabpanel — the sidebar's own "URL" field renders the same
+    // endpoint value (via a different component), which would otherwise be an
+    // ambiguous second match.
+    const endpoint = detailsPanel
+      .getByRole("tabpanel")
+      .getByText(new RegExp(`/servers/${MOCK_VIRTUAL_SERVER.id}/mcp$`));
+    await expect(endpoint).toBeVisible();
+    const fullEndpointText = (await endpoint.textContent())?.trim();
+    expect(fullEndpointText).toBeTruthy();
+
+    // The full value stays in the DOM regardless of visual clipping — confirm
+    // it's actually clipped at its current rendered width before relying on
+    // the tooltip to reveal it.
+    const isTruncated = await endpoint.evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(isTruncated).toBe(true);
+
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    await endpoint.hover();
+
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText(fullEndpointText!);
   });
 
   test("details panel add source button navigates to edit the virtual server", async ({ page }) => {

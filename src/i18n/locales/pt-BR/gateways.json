@@ -99,6 +99,7 @@
   "gateways.details.sheetDescription": "Detalhes e atividade do servidor virtual.",
   "gateways.details.addSource": "Adicionar fonte",
   "gateways.details.addSources": "Adicionar fontes",
+  "gateways.details.tryIt": "Testar",
   "gateways.details.components": "Componentes",
   "gateways.details.addComponents": "Adicionar componentes",
   "gateways.details.filter.all": "Todos",

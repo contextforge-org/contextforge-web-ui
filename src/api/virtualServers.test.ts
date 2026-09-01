@@ -5,6 +5,7 @@ import {
   buildUpdateVirtualServerPayload,
   deleteVirtualServer,
   setVirtualServerState,
+  testVirtualServerHandshake,
   updateVirtualServerTags,
 } from "./virtualServers";
 
@@ -313,5 +314,38 @@ describe("virtualServers API", () => {
     await updateVirtualServerTags("team/1", ["x"]);
 
     expect(api.put).toHaveBeenCalledWith("/servers/team%2F1", { tags: ["x"] });
+  });
+
+  describe("testVirtualServerHandshake", () => {
+    it("POSTs to /v1/virtual-servers/{id}/test-handshake with the request body and signal", async () => {
+      const response = { success: true, latencyMs: 12, credentialSource: "session" };
+      vi.mocked(api.post).mockResolvedValue(response);
+      const controller = new AbortController();
+
+      const result = await testVirtualServerHandshake(
+        "server-1",
+        { headers: { Authorization: "Bearer tok" } },
+        controller.signal,
+      );
+
+      expect(api.post).toHaveBeenCalledWith(
+        "/v1/virtual-servers/server-1/test-handshake",
+        { headers: { Authorization: "Bearer tok" } },
+        { signal: controller.signal },
+      );
+      expect(result).toBe(response);
+    });
+
+    it("URL-encodes the server ID", async () => {
+      vi.mocked(api.post).mockResolvedValue({ success: true, latencyMs: 1 });
+
+      await testVirtualServerHandshake("team/1", {});
+
+      expect(api.post).toHaveBeenCalledWith(
+        "/v1/virtual-servers/team%2F1/test-handshake",
+        {},
+        { signal: undefined },
+      );
+    });
   });
 });

@@ -12,6 +12,8 @@ import {
   Search,
   Wrench,
 } from "lucide-react";
+import { HandshakeTestPanel } from "@/components/servers/HandshakeTestPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   VisibilityInfoPopover,
   getVisibilityIcon,
@@ -44,6 +46,12 @@ const COMPONENT_FILTER_OPTIONS: Array<{ value: ComponentFilter; labelId: string 
   { value: "prompts", labelId: "gateways.details.filter.prompts" },
 ];
 
+type TopTab = "components" | "test";
+
+// Segmented-control styling shared with MCPServerDetailsPanel
+const SEGMENTED_TRIGGER_CLASS =
+  "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
+
 interface Tool {
   id: string;
   name: string;
@@ -52,6 +60,7 @@ interface Tool {
   description?: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 interface Resource {
@@ -61,6 +70,7 @@ interface Resource {
   uri: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 interface Prompt {
@@ -71,6 +81,7 @@ interface Prompt {
   description?: string;
   gatewayId?: string;
   gateway_id?: string;
+  enabled?: boolean;
 }
 
 type ComponentWithType =
@@ -144,6 +155,7 @@ export function VirtualServerDetailsPanel({
   const tagFallback = intl.formatMessage({ id: "gateways.details.tagFallback" });
   const notSyncedYet = intl.formatMessage({ id: "gateways.card.notSyncedYet" });
   const tags = (server?.tags ?? []).map((tag, index) => getTagDisplay(tag, index, tagFallback));
+  const [topTab, setTopTab] = useState<TopTab>("test");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [componentFilter, setComponentFilter] = useState<ComponentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,6 +286,21 @@ export function VirtualServerDetailsPanel({
 
   const allComponents = fetchedComponents.length > 0 ? fetchedComponents : fallbackComponents;
 
+  // The virtual server's own aggregated component counts, used to flag a
+  // mismatch against what the handshake test itself reports. The handshake
+  // counts come from tools/resources/prompts `list` calls against the live
+  // MCP endpoint, which only ever see enabled components — so a disabled
+  // component here must be excluded too, or a server with one disabled tool
+  // would show a permanent, spurious mismatch.
+  const aggregatedComponentCounts = useMemo(() => {
+    const counts: Record<string, number> = { tools: 0, resources: 0, prompts: 0 };
+    for (const component of allComponents) {
+      if (component.enabled === false) continue;
+      counts[component.type] = (counts[component.type] ?? 0) + 1;
+    }
+    return counts;
+  }, [allComponents]);
+
   const sourceIds = useMemo(
     () =>
       Array.from(
@@ -316,9 +343,10 @@ export function VirtualServerDetailsPanel({
 
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
 
-  // Reset filter and search when the panel opens or the selected server changes.
+  // Reset tab, filter and search when the panel opens or the selected server changes.
   useEffect(() => {
     if (!open) return;
+    setTopTab("test");
     setSourceFilter("all");
     setComponentFilter("all");
     setSearchQuery("");
@@ -447,205 +475,238 @@ export function VirtualServerDetailsPanel({
 
               <div className="my-8 h-px bg-border" />
 
-              {(sourcesLoading || sourceTabs.length > 0) && (
-                <div
-                  role="tablist"
-                  aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}
-                  className="flex max-w-full items-center overflow-x-auto rounded-md bg-muted p-1"
-                >
-                  {[
-                    {
-                      id: "all",
-                      label: intl.formatMessage({ id: "gateways.details.filter.allSources" }),
-                      isTruncated: false,
-                      fullValue: undefined as string | undefined,
-                    },
-                    ...sourceTabs,
-                  ].map((source, index, sources) => {
-                    const isSelected = sourceFilter === source.id;
-                    const tabButton = (
-                      <Button
-                        id={`source-tab-${index}`}
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        role="tab"
-                        aria-selected={isSelected}
-                        tabIndex={isSelected ? 0 : -1}
-                        className={cn(
-                          "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
-                          isSelected
-                            ? "bg-background text-foreground shadow-sm"
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
-                        onClick={() => setSourceFilter(source.id)}
-                        onKeyDown={(e) => handleSourceTabKeyDown(e, index, sources.length)}
-                      >
-                        {source.label}
-                      </Button>
-                    );
-
-                    return (
-                      <Tooltip key={source.id}>
-                        <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
-                        {source.isTruncated && <TooltipContent>{source.fullValue}</TooltipContent>}
-                      </Tooltip>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="mt-8 flex items-center justify-between gap-4">
-                <div
-                  role="tablist"
-                  aria-label="Filter components"
-                  className="flex min-w-0 items-center gap-6"
-                >
-                  {COMPONENT_FILTER_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      id={`tab-${option.value}`}
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      role="tab"
-                      aria-selected={componentFilter === option.value}
-                      tabIndex={componentFilter === option.value ? 0 : -1}
-                      className={`text-sm font-semibold transition-colors ${
-                        componentFilter === option.value
-                          ? "text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      onClick={() => setComponentFilter(option.value)}
-                      onKeyDown={(e) => handleTabKeyDown(e, option.value)}
-                    >
-                      {intl.formatMessage({ id: option.labelId })}
-                    </Button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => searchInputRef.current?.focus()}
-                    className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    aria-label="Search components"
-                  >
-                    <Search className="size-4" />
-                  </Button>
-                  <Input
-                    ref={searchInputRef}
-                    type="search"
-                    tabIndex={isSearchExpanded || searchQuery.length > 0 ? 0 : -1}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => setIsSearchExpanded(true)}
-                    onBlur={() => setIsSearchExpanded(searchQuery.length > 0)}
-                    placeholder={isSearchExpanded || searchQuery.length > 0 ? "Search..." : ""}
-                    className={cn(
-                      "h-8 rounded-md border-border bg-muted/50 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground focus-visible:bg-background",
-                      isSearchExpanded || searchQuery.length > 0
-                        ? "w-48 px-3 text-foreground"
-                        : "w-0 px-0 text-transparent caret-foreground border-transparent",
-                    )}
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div
-                  role="alert"
-                  className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                >
-                  {error.message}
-                </div>
-              )}
-
-              <div
-                role="tabpanel"
-                aria-labelledby={`tab-${componentFilter}`}
-                aria-live="polite"
-                className="mt-5 divide-y divide-transparent"
+              <Tabs
+                value={topTab}
+                onValueChange={(v) => setTopTab(v as TopTab)}
+                aria-label="Virtual server details view"
               >
-                {componentsLoading && (
-                  <div role="status" className="flex items-center gap-2 py-8 text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    <span>Loading components...</span>
-                  </div>
-                )}
+                <TabsList className="inline-flex h-10 w-[280px] items-center gap-0 rounded-md bg-muted p-1">
+                  <TabsTrigger value="test" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "gateways.details.tryIt" })}
+                  </TabsTrigger>
+                  <TabsTrigger value="components" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "gateways.details.components" })}
+                  </TabsTrigger>
+                </TabsList>
 
-                {!componentsLoading &&
-                  visibleComponents.map((component) => {
-                    const title = component.title;
-                    const identifier = getComponentIdentifier(component);
+                <TabsContent value="test" className="mt-8">
+                  <HandshakeTestPanel
+                    key={server.id}
+                    serverId={server.id}
+                    serverUrl={endpoint}
+                    aggregatedCounts={aggregatedComponentCounts}
+                  />
+                </TabsContent>
 
-                    return (
-                      <div
-                        key={`${component.type}-${component.id}`}
-                        className="grid min-h-10 grid-cols-[128px_minmax(0,1fr)_minmax(180px,0.9fr)_24px] items-center gap-4 py-1 text-sm"
-                      >
-                        <Badge
-                          variant="draft"
-                          className="w-fit rounded-md px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
-                        >
-                          <span className="mr-1.5 inline-flex">
-                            {getComponentIcon(component.type)}
-                          </span>
-                          {getComponentLabel(component.type)}
-                        </Badge>
-                        {title ? (
-                          <>
-                            <TruncatedText className="min-w-0 text-muted-foreground">
-                              {title}
-                            </TruncatedText>
-                            <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                              <TruncatedText>{identifier}</TruncatedText>
-                              <CopyButton
-                                value={identifier}
-                                label={intl.formatMessage(
-                                  { id: `gateways.details.component.copyName.${component.type}` },
-                                  { name: title },
-                                )}
-                                className="size-5 text-muted-foreground"
-                              />
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                              <TruncatedText>{identifier}</TruncatedText>
-                              <CopyButton
-                                value={identifier}
-                                label={intl.formatMessage(
-                                  { id: "common.copyValue" },
-                                  { label: getComponentLabel(component.type) },
-                                )}
-                                className="size-5 text-muted-foreground"
-                              />
-                            </span>
-                            <span aria-hidden="true" />
-                          </>
-                        )}
+                <TabsContent value="components" className="mt-8">
+                  {(sourcesLoading || sourceTabs.length > 0) && (
+                    <div
+                      role="tablist"
+                      aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}
+                      className="flex max-w-full items-center overflow-x-auto rounded-md bg-muted p-1"
+                    >
+                      {[
+                        {
+                          id: "all",
+                          label: intl.formatMessage({ id: "gateways.details.filter.allSources" }),
+                          isTruncated: false,
+                          fullValue: undefined as string | undefined,
+                        },
+                        ...sourceTabs,
+                      ].map((source, index, sources) => {
+                        const isSelected = sourceFilter === source.id;
+                        const tabButton = (
+                          <Button
+                            id={`source-tab-${index}`}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            role="tab"
+                            aria-selected={isSelected}
+                            tabIndex={isSelected ? 0 : -1}
+                            className={cn(
+                              "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
+                              isSelected
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground",
+                            )}
+                            onClick={() => setSourceFilter(source.id)}
+                            onKeyDown={(e) => handleSourceTabKeyDown(e, index, sources.length)}
+                          >
+                            {source.label}
+                          </Button>
+                        );
+
+                        return (
+                          <Tooltip key={source.id}>
+                            <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
+                            {source.isTruncated && (
+                              <TooltipContent>{source.fullValue}</TooltipContent>
+                            )}
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="mt-8 flex items-center justify-between gap-4">
+                    <div
+                      role="tablist"
+                      aria-label="Filter components"
+                      className="flex min-w-0 items-center gap-6"
+                    >
+                      {COMPONENT_FILTER_OPTIONS.map((option) => (
                         <Button
+                          key={option.value}
+                          id={`tab-${option.value}`}
                           type="button"
                           variant="ghost"
-                          size="icon-xs"
-                          aria-label={`Actions for ${title ?? identifier}`}
-                          className="justify-self-end text-muted-foreground"
+                          size="sm"
+                          role="tab"
+                          aria-selected={componentFilter === option.value}
+                          tabIndex={componentFilter === option.value ? 0 : -1}
+                          className={`text-sm font-semibold transition-colors ${
+                            componentFilter === option.value
+                              ? "text-foreground"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          onClick={() => setComponentFilter(option.value)}
+                          onKeyDown={(e) => handleTabKeyDown(e, option.value)}
                         >
-                          <EllipsisVertical className="size-4" />
+                          {intl.formatMessage({ id: option.labelId })}
                         </Button>
-                      </div>
-                    );
-                  })}
-
-                {!componentsLoading && visibleComponents.length === 0 && (
-                  <div className="py-8 text-sm text-muted-foreground">
-                    No {componentFilter === "all" ? "components" : componentFilter} found
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => searchInputRef.current?.focus()}
+                        className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-label="Search components"
+                      >
+                        <Search className="size-4" />
+                      </Button>
+                      <Input
+                        ref={searchInputRef}
+                        type="search"
+                        tabIndex={isSearchExpanded || searchQuery.length > 0 ? 0 : -1}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => setIsSearchExpanded(true)}
+                        onBlur={() => setIsSearchExpanded(searchQuery.length > 0)}
+                        placeholder={isSearchExpanded || searchQuery.length > 0 ? "Search..." : ""}
+                        className={cn(
+                          "h-8 rounded-md border-border bg-muted/50 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground focus-visible:bg-background",
+                          isSearchExpanded || searchQuery.length > 0
+                            ? "w-48 px-3 text-foreground"
+                            : "w-0 px-0 text-transparent caret-foreground border-transparent",
+                        )}
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {error && (
+                    <div
+                      role="alert"
+                      className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    >
+                      {error.message}
+                    </div>
+                  )}
+
+                  <div
+                    role="tabpanel"
+                    aria-labelledby={`tab-${componentFilter}`}
+                    aria-live="polite"
+                    className="mt-5 divide-y divide-transparent"
+                  >
+                    {componentsLoading && (
+                      <div
+                        role="status"
+                        className="flex items-center gap-2 py-8 text-muted-foreground"
+                      >
+                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                        <span>Loading components...</span>
+                      </div>
+                    )}
+
+                    {!componentsLoading &&
+                      visibleComponents.map((component) => {
+                        const title = component.title;
+                        const identifier = getComponentIdentifier(component);
+
+                        return (
+                          <div
+                            key={`${component.type}-${component.id}`}
+                            className="grid min-h-10 grid-cols-[128px_minmax(0,1fr)_minmax(180px,0.9fr)_24px] items-center gap-4 py-1 text-sm"
+                          >
+                            <Badge
+                              variant="draft"
+                              className="w-fit rounded-md px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
+                            >
+                              <span className="mr-1.5 inline-flex">
+                                {getComponentIcon(component.type)}
+                              </span>
+                              {getComponentLabel(component.type)}
+                            </Badge>
+                            {title ? (
+                              <>
+                                <TruncatedText className="min-w-0 text-muted-foreground">
+                                  {title}
+                                </TruncatedText>
+                                <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
+                                  <TruncatedText>{identifier}</TruncatedText>
+                                  <CopyButton
+                                    value={identifier}
+                                    label={intl.formatMessage(
+                                      {
+                                        id: `gateways.details.component.copyName.${component.type}`,
+                                      },
+                                      { name: title },
+                                    )}
+                                    className="size-5 text-muted-foreground"
+                                  />
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
+                                  <TruncatedText>{identifier}</TruncatedText>
+                                  <CopyButton
+                                    value={identifier}
+                                    label={intl.formatMessage(
+                                      { id: "common.copyValue" },
+                                      { label: getComponentLabel(component.type) },
+                                    )}
+                                    className="size-5 text-muted-foreground"
+                                  />
+                                </span>
+                                <span aria-hidden="true" />
+                              </>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={`Actions for ${title ?? identifier}`}
+                              className="justify-self-end text-muted-foreground"
+                            >
+                              <EllipsisVertical className="size-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+
+                    {!componentsLoading && visibleComponents.length === 0 && (
+                      <div className="py-8 text-sm text-muted-foreground">
+                        No {componentFilter === "all" ? "components" : componentFilter} found
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
