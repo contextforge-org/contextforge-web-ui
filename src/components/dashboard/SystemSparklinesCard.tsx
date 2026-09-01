@@ -13,7 +13,13 @@ import type { PercentilesResponse, TimeseriesResponse } from "@/types/metrics";
 import { WINDOW_HOURS, WINDOW_INTERVAL_MINUTES } from "@/hooks/useMetrics";
 
 import { SparklineRow } from "./SparklineRow";
-import { alignToGrid, buildGrid, headlineScalar, isEmptySeries } from "./sparklineSeries";
+import {
+  alignToGrid,
+  buildGrid,
+  headlineScalar,
+  isEmptySeries,
+  toLinePoints,
+} from "./sparklineSeries";
 import { formatCount, formatResponseTime } from "./systemMetrics";
 
 interface SystemSparklinesCardProps {
@@ -48,6 +54,7 @@ export function SystemSparklinesCard({
         key: "executions",
         label: intl.formatMessage({ id: "dashboard.home.sparklines.executions" }),
         points: executions,
+        line: toLinePoints(executions),
         value: formatCount(headlineScalar(executions, "sum")),
       },
       ...(["p50", "p95", "p99"] as const).map((key) => {
@@ -56,6 +63,7 @@ export function SystemSparklinesCard({
           key,
           label: intl.formatMessage({ id: `dashboard.home.sparklines.${key}` }),
           points,
+          line: toLinePoints(points),
           value: formatResponseTime(headlineScalar(points, "latest")),
         };
       }),
@@ -84,7 +92,7 @@ export function SystemSparklinesCard({
             key={row.key}
             label={row.label}
             value={row.value}
-            points={row.points}
+            points={row.line}
             loading={loading}
           />
         ))}

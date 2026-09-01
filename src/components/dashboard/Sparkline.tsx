@@ -6,8 +6,6 @@
  * every poll, making a flat metric appear to jump when only the scale moved.
  * `tickCount={2}` is load-bearing: without it recharts rounds the domain up to
  * nice tick values and the peak stops short of the top of the band.
- *
- * `null` slots (hours with no data) are bridged rather than drawn at the floor.
  */
 
 import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
@@ -16,8 +14,8 @@ import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
 export const SPARKLINE_HEIGHT = 37;
 
 interface SparklineProps {
-  /** One entry per grid slot, ascending. `null` means no data for that slot. */
-  points: (number | null)[];
+  /** One entry per grid slot, ascending. Gapless, so the line spans the window. */
+  points: number[];
 }
 
 export function Sparkline({ points }: SparklineProps) {
@@ -36,7 +34,6 @@ export function Sparkline({ points }: SparklineProps) {
             strokeOpacity={0.9}
             dot={false}
             activeDot={false}
-            connectNulls
           />
         </LineChart>
       </ResponsiveContainer>

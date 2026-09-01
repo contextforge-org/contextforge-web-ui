@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { alignToGrid, buildGrid, headlineScalar, isEmptySeries } from "./sparklineSeries";
+import {
+  alignToGrid,
+  buildGrid,
+  headlineScalar,
+  isEmptySeries,
+  toLinePoints,
+} from "./sparklineSeries";
 
 const HOUR_MS = 3_600_000;
 
@@ -85,6 +91,21 @@ describe("headlineScalar", () => {
 
   it("treats a zero-filled count window as zero, not unavailable", () => {
     expect(headlineScalar([0, 0, 0], "sum")).toBe(0);
+  });
+});
+
+describe("toLinePoints", () => {
+  it("flattens idle slots to zero so the line spans the whole window", () => {
+    expect(toLinePoints([null, 0.5, null, 0.3])).toEqual([0, 0.5, 0, 0.3]);
+  });
+
+  it("leaves a gapless series untouched", () => {
+    expect(toLinePoints([0, 2, 5])).toEqual([0, 2, 5]);
+  });
+
+  it("returns the same length as its input, which is what keeps rows aligned", () => {
+    const points = Array.from({ length: 24 }, (_, i) => (i === 23 ? 4 : null));
+    expect(toLinePoints(points)).toHaveLength(24);
   });
 });
 

@@ -12,7 +12,7 @@ interface SparklineRowProps {
   label: ReactNode;
   /** Pre-formatted value string (see `systemMetrics.ts` formatters). */
   value: ReactNode;
-  points: (number | null)[];
+  points: number[];
   loading?: boolean;
 }
 

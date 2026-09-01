@@ -2,8 +2,8 @@
  * Aligns the sparse metrics buckets onto an evenly spaced grid, so a busy hour
  * lands at its real position in the window rather than beside its neighbours.
  *
- * Counts fill gaps with 0; latencies fill with `null` and the chart bridges
- * them, since an hour with no traces had no latency rather than 0ms.
+ * Counts fill gaps with 0. Latencies fill with `null`, which keeps idle hours
+ * out of the headline number; `toLinePoints` flattens them to 0 for drawing.
  */
 
 /** How a slot with no server-side bucket is represented. */
@@ -80,6 +80,15 @@ export function headlineScalar(points: (number | null)[], mode: ScalarMode): num
     if (point !== null) return point;
   }
   return null;
+}
+
+/**
+ * Drawing-only view of a series: idle slots become 0 so the line spans the whole
+ * window. Never feed this to `headlineScalar`, which would read the zeros as
+ * measurements.
+ */
+export function toLinePoints(points: (number | null)[]): number[] {
+  return points.map((p) => p ?? 0);
 }
 
 /** True when every slot is empty, i.e. nothing to draw. */
