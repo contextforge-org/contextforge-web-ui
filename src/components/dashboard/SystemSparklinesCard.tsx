@@ -60,7 +60,9 @@ export function SystemSparklinesCard({
         points: executions,
         chart: toSparklinePoints(grid, executions, counts),
         value: formatCount(headlineScalar(executions, "sum")),
-        formatValue: formatCount,
+        // The executions tooltip names its own unit, so it needs no count line.
+        formatValue: (count: number) =>
+          intl.formatMessage({ id: "dashboard.home.sparklines.tooltip.executions" }, { count }),
         showCount: false,
       },
       ...(["p50", "p95", "p99"] as const).map((key) => {

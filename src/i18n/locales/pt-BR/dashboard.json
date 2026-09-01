@@ -85,5 +85,6 @@
   "dashboard.home.sparklines.error": "Não foi possível carregar as métricas.",
   "dashboard.home.sparklines.empty": "Nenhuma requisição rastreada. Se ainda não tiver feito isso, defina OBSERVABILITY_ENABLED=true e reinicie o gateway.",
   "dashboard.home.sparklines.tooltip.noRequests": "Sem requisições",
-  "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# requisição} other {# requisições}}"
+  "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# requisição} other {# requisições}}",
+  "dashboard.home.sparklines.tooltip.executions": "{count, plural, one {# execução} other {# execuções}}"
 }

@@ -60,9 +60,10 @@ describe("SparklineTooltip", () => {
     expect(screen.getByText(/1 request(?!s)/)).toBeInTheDocument();
   });
 
-  it("omits the count on the executions row, where it duplicates the value", () => {
-    render(point({ value: 22, line: 22, count: 22 }), formatCount, false);
-    expect(screen.getByText("22")).toBeInTheDocument();
+  it("omits the count where the formatter already names the unit", () => {
+    // Mirrors the executions row, whose formatter renders "22 executions".
+    render(point({ value: 22, line: 22, count: 22 }), (v) => `${v} executions`, false);
+    expect(screen.getByText("22 executions")).toBeInTheDocument();
     expect(screen.queryByText(/requests/)).not.toBeInTheDocument();
   });
 });

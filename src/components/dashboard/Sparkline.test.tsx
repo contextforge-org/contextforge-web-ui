@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { cloneElement, type ReactElement } from "react";
 import { renderWithProviders } from "@/test/test-utils";
 
 import { Sparkline } from "./Sparkline";
@@ -11,10 +12,11 @@ vi.mock("recharts", async () => {
   const actual = await vi.importActual<typeof import("recharts")>("recharts");
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: { children: React.ReactElement }) => ({
-      ...children,
-      props: { ...children.props, width: 200, height: 37 },
-    }),
+    ResponsiveContainer: ({ children }: { children: ReactElement }) =>
+      cloneElement(children as ReactElement<{ width?: number; height?: number }>, {
+        width: 200,
+        height: 37,
+      }),
   };
 });
 

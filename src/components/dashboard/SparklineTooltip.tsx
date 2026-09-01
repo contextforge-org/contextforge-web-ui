@@ -41,7 +41,7 @@ export function SparklineTooltip({
           : formatValue(point.value)}
       </span>
       {showCount && point.value !== null && (
-        <span className="text-muted-foreground">
+        <span className="tabular-nums text-popover-foreground">
           {intl.formatMessage(
             { id: "dashboard.home.sparklines.tooltip.requests" },
             { count: point.count },
