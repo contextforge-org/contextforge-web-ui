@@ -10,19 +10,8 @@ import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
 import { QuickAddServerDialog } from "@/components/mcp-servers/QuickAddServerDialog";
 import { ExposeComponentsForm } from "@/components/gateways/ExposeComponentsForm";
 import { useRouter } from "@/router";
-import {
-  useMCPServerForm,
-  type MCPServerFormInitialValues,
-  type TransportType,
-} from "@/hooks/useMCPServerForm";
+import { useMCPServerForm, type TransportType } from "@/hooks/useMCPServerForm";
 import { STATUS_ICON } from "@/lib/status";
-import type { CatalogServer } from "@/generated/types";
-
-// QuickAddServerDialog only surfaces entries with SSE, STREAMABLEHTTP, or no
-// transport set, so anything else here defaults to STREAMABLEHTTP.
-function mapCatalogTransport(transport: string | null | undefined): TransportType {
-  return transport === "SSE" ? "SSE" : "STREAMABLEHTTP";
-}
 
 interface MCPServerFormProps {
   isOpen: boolean;
@@ -41,7 +30,6 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
   const { navigate } = useRouter();
   const [createdGateway, setCreatedGateway] = useState<CreatedGatewayInfo | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [prefill, setPrefill] = useState<MCPServerFormInitialValues | undefined>();
   const {
     fetchError,
     name,
@@ -110,7 +98,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     setQueryParamName,
     queryParamApiKey,
     setQueryParamApiKey,
-  } = useMCPServerForm(serverId, prefill);
+  } = useMCPServerForm(serverId);
 
   const handleRedirectUriChange = useCallback(
     (uri: string) => {
@@ -124,13 +112,10 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     onToggle();
   };
 
-  const handleQuickAddSelect = useCallback((server: CatalogServer) => {
-    setPrefill({
-      name: server.name,
-      url: server.url,
-      description: server.description,
-      transport: mapCatalogTransport(server.transport),
-    });
+  // Quick Add registers through the catalog endpoint, so the gateway already exists by the
+  // time this runs and the connect form is skipped entirely.
+  const handleQuickAddConnected = useCallback((gatewayId: string, serverName: string) => {
+    setCreatedGateway({ id: gatewayId, name: serverName });
     setQuickAddOpen(false);
   }, []);
 
@@ -485,7 +470,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
       <QuickAddServerDialog
         open={quickAddOpen}
         onOpenChange={setQuickAddOpen}
-        onSelect={handleQuickAddSelect}
+        onConnected={handleQuickAddConnected}
         onBrowseCatalog={handleBrowseCatalog}
       />
     </>

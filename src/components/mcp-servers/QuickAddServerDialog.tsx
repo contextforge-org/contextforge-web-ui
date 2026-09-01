@@ -1,6 +1,8 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 
+import { registerCatalogServer } from "@/api/catalog";
+import { ApiError } from "@/api/client";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
 import { Button } from "@/components/ui/button";
@@ -20,8 +22,8 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 
 const CATALOG_PATH = "/v1/catalog?limit=1000";
-// Quick Add submits through the standard gateway-create form, which can't yet
-// complete an OAuth setup flow, and only supports these two transports.
+// Quick Add registers without collecting any credentials, so it can't complete an
+// OAuth setup flow, and the gateway only supports these two transports.
 const OPEN_AUTH_TYPE = "Open";
 const SUPPORTED_TRANSPORTS: ReadonlySet<string> = new Set(["SSE", "STREAMABLEHTTP"]);
 
@@ -36,27 +38,36 @@ function isQuickAddEligible(server: CatalogServer | undefined): server is Catalo
 interface QuickAddServerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called with the picked catalog entry. The caller is responsible for closing the dialog. */
-  onSelect: (server: CatalogServer) => void;
+  /**
+   * Called once the picked entry is registered and a gateway exists for it. The caller is
+   * responsible for closing the dialog.
+   */
+  onConnected: (gatewayId: string, serverName: string) => void;
   onBrowseCatalog: () => void;
 }
 
 export function QuickAddServerDialog({
   open,
   onOpenChange,
-  onSelect,
+  onConnected,
   onBrowseCatalog,
 }: QuickAddServerDialogProps) {
   const intl = useIntl();
   const groupLabelId = useId();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const { data, error, isLoading } = useQuery<CatalogListResponse>(CATALOG_PATH, {
     enabled: open,
   });
 
   useEffect(() => {
-    if (!open) setSelectedId(null);
+    if (!open) {
+      setSelectedId(null);
+      setIsConnecting(false);
+      setConnectError(null);
+    }
   }, [open]);
 
   const servers = useMemo(() => {
@@ -66,6 +77,42 @@ export function QuickAddServerDialog({
   }, [data?.servers]);
 
   const selectedServer = servers.find((server) => server.id === selectedId) ?? null;
+
+  const handleContinue = useCallback(async () => {
+    if (!selectedServer || isConnecting) return;
+    setConnectError(null);
+
+    // Already registered, so skip the round trip and go straight to the components step.
+    if (selectedServer.is_registered && selectedServer.gateway_id) {
+      onConnected(selectedServer.gateway_id, selectedServer.name);
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const result = await registerCatalogServer(selectedServer.id);
+      if (!result.success || !result.server_id) {
+        setConnectError(
+          result.message || intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }),
+        );
+        return;
+      }
+      onConnected(result.server_id, selectedServer.name);
+    } catch (registrationError) {
+      // A 409 means the catalog list this dialog loaded has gone stale, so there is no
+      // gateway id to hand on. Point at the catalog rather than retrying into the same 409.
+      setConnectError(
+        registrationError instanceof ApiError && registrationError.status === 409
+          ? intl.formatMessage(
+              { id: "mcpServer.quickAdd.alreadyConnected" },
+              { name: selectedServer.name },
+            )
+          : intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }),
+      );
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [intl, isConnecting, onConnected, selectedServer]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,10 +146,13 @@ export function QuickAddServerDialog({
           </p>
         )}
 
+        {connectError && <InlineNotification type="error" message={connectError} />}
+
         {servers.length > 0 && (
           <RadioGroup
             value={selectedId ?? undefined}
             onValueChange={setSelectedId}
+            disabled={isConnecting}
             aria-labelledby={groupLabelId}
             className="grid grid-cols-2 gap-3 sm:grid-cols-4"
           >
@@ -153,17 +203,22 @@ export function QuickAddServerDialog({
             )}
           </p>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isConnecting}
+              onClick={() => onOpenChange(false)}
+            >
               {intl.formatMessage({ id: "mcpServer.quickAdd.cancel" })}
             </Button>
             <Button
               type="button"
-              disabled={!selectedServer}
-              onClick={() => {
-                if (selectedServer) onSelect(selectedServer);
-              }}
+              disabled={!selectedServer || isConnecting}
+              onClick={handleContinue}
             >
-              {intl.formatMessage({ id: "mcpServer.quickAdd.continue" })}
+              {intl.formatMessage({
+                id: isConnecting ? "mcpServer.quickAdd.connecting" : "mcpServer.quickAdd.continue",
+              })}
             </Button>
           </div>
         </div>

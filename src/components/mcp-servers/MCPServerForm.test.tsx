@@ -14,21 +14,18 @@ let mockHookReturnValue: Record<string, unknown> | null = null;
 
 vi.mock("@/hooks/useMCPServerForm", async (importOriginal) => {
   const actual = (await importOriginal()) as {
-    useMCPServerForm: (
-      serverId?: string,
-      initialValues?: Record<string, unknown>,
-    ) => Record<string, unknown>;
+    useMCPServerForm: (serverId?: string) => Record<string, unknown>;
   };
   return {
     ...actual,
-    useMCPServerForm: (serverId?: string, initialValues?: Record<string, unknown>) => {
+    useMCPServerForm: (serverId?: string) => {
       if (mockHookActive) {
         return {
-          ...actual.useMCPServerForm(serverId, initialValues),
+          ...actual.useMCPServerForm(serverId),
           ...mockHookReturnValue,
         };
       }
-      return actual.useMCPServerForm(serverId, initialValues);
+      return actual.useMCPServerForm(serverId);
     },
   };
 });
@@ -69,7 +66,15 @@ const server = setupServer(
       teams: [{ id: "team-personal", name: "Personal team", is_personal: true }],
     });
   }),
-  // Quick Add dialog's catalog fetch — one curated entry is enough to exercise selection/prefill.
+  // Quick Add registers the picked entry through the catalog endpoint rather than the form.
+  http.post("/api/v1/catalog/:catalogId/register", () => {
+    return HttpResponse.json({
+      success: true,
+      server_id: "quick-add-gateway-1",
+      message: "registered",
+    });
+  }),
+  // Quick Add dialog's catalog fetch.
   http.get("/api/v1/catalog", () => {
     return HttpResponse.json({
       servers: [
@@ -1242,7 +1247,7 @@ describe("MCPServerForm", () => {
       expect(window.location.pathname).toBe("/app/server-catalog");
     });
 
-    it("opens the dialog from the catalog link and pre-fills the form on selection", async () => {
+    it("opens the dialog from the catalog link and advances to the detected components step on selection", async () => {
       const user = userEvent.setup();
       renderWithRouter(<MCPServerForm {...defaultProps} />);
 
@@ -1255,16 +1260,20 @@ describe("MCPServerForm", () => {
       await user.click(screen.getByRole("radio", { name: /DeepWiki/i }));
       await user.click(screen.getByRole("button", { name: "Continue" }));
 
+      // The connect form is skipped entirely: the gateway already exists by this point.
+      expect(
+        await screen.findByRole("heading", { name: "Expose MCP tools, resources, and prompts" }),
+      ).toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/Name/i)).toHaveValue("DeepWiki");
-      expect(screen.getByLabelText(/URL/i)).toHaveValue("https://mcp.deepwiki.com/mcp");
-      expect(screen.getByPlaceholderText(/Add an optional description/i)).toHaveValue(
-        "Knowledge base with deep learning integration",
-      );
-      expect(screen.getByRole("radio", { name: "Streamable HTTP" })).toBeChecked();
+      expect(screen.queryByLabelText(/URL/i)).not.toBeInTheDocument();
     });
 
-    it("maps a catalog entry's declared SSE transport onto the transport radio", async () => {
+    it("keeps the dialog open and reports the failure when registration fails", async () => {
+      server.use(
+        http.post("/api/v1/catalog/:catalogId/register", () => {
+          return new HttpResponse(null, { status: 500 });
+        }),
+      );
       const user = userEvent.setup();
       renderWithRouter(<MCPServerForm {...defaultProps} />);
 
@@ -1272,7 +1281,13 @@ describe("MCPServerForm", () => {
       await user.click(screen.getByRole("radio", { name: /Exa Search/i }));
       await user.click(screen.getByRole("button", { name: "Continue" }));
 
-      expect(screen.getByRole("radio", { name: "SSE" })).toBeChecked();
+      expect(
+        await screen.findByText("Unable to connect this server. Try again."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", { name: "Expose MCP tools, resources, and prompts" }),
+      ).not.toBeInTheDocument();
     });
 
     it("navigates to the full catalog and closes the form when Browse full catalog is clicked", async () => {
