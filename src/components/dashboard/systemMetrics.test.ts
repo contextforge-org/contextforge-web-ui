@@ -110,9 +110,16 @@ describe("countActiveTotal", () => {
 });
 
 describe("formatters", () => {
-  it("formats response times with three decimals and a ms suffix", () => {
+  it("formats sub-millisecond response times with three decimals", () => {
     expect(formatResponseTime(0.472)).toBe("0.472ms");
     expect(formatResponseTime(0)).toBe("0.000ms");
+  });
+
+  it("drops precision as the magnitude grows, rather than reporting 123.930ms", () => {
+    expect(formatResponseTime(8.93)).toBe("8.93ms");
+    expect(formatResponseTime(99.76)).toBe("99.8ms");
+    expect(formatResponseTime(123.93)).toBe("124ms");
+    expect(formatResponseTime(1580.4)).toBe("1580ms");
   });
 
   it("returns the placeholder for missing response times", () => {

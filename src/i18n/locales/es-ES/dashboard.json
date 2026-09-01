@@ -76,5 +76,12 @@
   "dashboard.home.mcp.column.lastSeen": "Visto por última vez",
   "dashboard.home.status.online": "En línea",
   "dashboard.home.status.offline": "Fuera de línea",
-  "dashboard.home.status.activity": "{errors} errores · {warnings} advertencias"
+  "dashboard.home.status.activity": "{errors} errores · {warnings} advertencias",
+  "dashboard.home.sparklines.executions": "Ejecuciones",
+  "dashboard.home.sparklines.p50": "Latencia p50",
+  "dashboard.home.sparklines.p95": "Latencia p95",
+  "dashboard.home.sparklines.p99": "Latencia p99",
+  "dashboard.home.sparklines.window": "Últimas 24 horas",
+  "dashboard.home.sparklines.error": "No se pudieron cargar las métricas.",
+  "dashboard.home.sparklines.empty": "Sin solicitudes rastreadas. Si aún no lo ha hecho, establezca OBSERVABILITY_ENABLED=true y reinicie la puerta de enlace."
 }

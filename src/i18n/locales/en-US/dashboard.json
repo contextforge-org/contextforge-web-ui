@@ -76,5 +76,12 @@
   "dashboard.home.mcp.column.lastSeen": "Last seen",
   "dashboard.home.status.online": "Online",
   "dashboard.home.status.offline": "Offline",
-  "dashboard.home.status.activity": "{errors} errors · {warnings} warnings"
+  "dashboard.home.status.activity": "{errors} errors · {warnings} warnings",
+  "dashboard.home.sparklines.executions": "Executions",
+  "dashboard.home.sparklines.p50": "p50 latency",
+  "dashboard.home.sparklines.p95": "p95 latency",
+  "dashboard.home.sparklines.p99": "p99 latency",
+  "dashboard.home.sparklines.window": "Last 24 hours",
+  "dashboard.home.sparklines.error": "Couldn't load metrics.",
+  "dashboard.home.sparklines.empty": "No traced requests. If you haven't already, set OBSERVABILITY_ENABLED=true and restart the gateway."
 }

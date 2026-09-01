@@ -143,10 +143,18 @@ export function countActiveTotal(items: Activatable[] | undefined): ActiveTotal 
 /** Placeholder shown whenever a value is unavailable. */
 export const UNAVAILABLE = "—";
 
-/** Format a response time the way the legacy admin UI does: 3 decimals + "ms". */
+/**
+ * Format a response time in milliseconds, holding roughly three significant
+ * figures. Sub-millisecond values keep the legacy admin UI's 3 decimals; the
+ * hundreds of milliseconds that percentiles actually reach would otherwise
+ * render as "123.930ms".
+ */
 export function formatResponseTime(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return UNAVAILABLE;
-  return `${value.toFixed(3)}ms`;
+
+  const magnitude = Math.abs(value);
+  const decimals = magnitude < 1 ? 3 : magnitude < 10 ? 2 : magnitude < 100 ? 1 : 0;
+  return `${value.toFixed(decimals)}ms`;
 }
 
 /** Derive a success-rate percentage from a `failureRate` in [0, 1]. */
