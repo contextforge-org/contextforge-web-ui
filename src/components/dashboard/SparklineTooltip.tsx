@@ -31,10 +31,10 @@ export function SparklineTooltip({
   if (!active || !point) return null;
 
   return (
-    <div className="rounded-md bg-popover px-2 py-1 text-xs leading-4 shadow-md ring-1 ring-foreground/10">
+    <div className="flex flex-col gap-0.5 rounded-md bg-popover px-2 py-1 text-xs leading-4 font-light shadow-md ring-1 ring-foreground/10">
       <span className="text-muted-foreground">
         {intl.formatTime(point.t, { hour: "2-digit", minute: "2-digit" })}
-      </span>{" "}
+      </span>
       <span className="tabular-nums text-popover-foreground">
         {point.value === null
           ? intl.formatMessage({ id: "dashboard.home.sparklines.tooltip.noRequests" })
@@ -42,7 +42,6 @@ export function SparklineTooltip({
       </span>
       {showCount && point.value !== null && (
         <span className="text-muted-foreground">
-          {" · "}
           {intl.formatMessage(
             { id: "dashboard.home.sparklines.tooltip.requests" },
             { count: point.count },
