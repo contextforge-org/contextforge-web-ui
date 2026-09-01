@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
@@ -12,6 +11,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import { ToolResultRenderer } from "./ToolResultRenderer";
 import {
   estimateJsonByteSize,
@@ -54,9 +54,9 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
         {statusOk ? (
-          <CheckCircle2 className="size-4 text-tool-status-active" />
+          <STATUS_ICON.success className="size-4 text-success" />
         ) : (
-          <AlertCircle className="size-4 text-destructive" />
+          <STATUS_ICON.error className="size-4 text-destructive" />
         )}
         <span className={cn("font-medium", statusOk ? "text-foreground" : "text-destructive")}>
           {statusLabel}

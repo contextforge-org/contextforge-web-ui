@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { AlertCircle, CheckCircle2, Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 import { CodeBlock, type CodeBlockLanguage } from "@/components/ui/code-block";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import { formatBytes } from "@/utils/format";
 import type { ResourceTestContent } from "@/api/resources";
 import type { ResourcePreviewState } from "./useResourcePreview";
@@ -94,9 +95,9 @@ export function ResourcePreviewResult({ preview }: ResourcePreviewResultProps) {
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
         {succeeded ? (
-          <CheckCircle2 className="size-4 text-emerald-500" />
+          <STATUS_ICON.success className="size-4 text-success" />
         ) : (
-          <AlertCircle className="size-4 text-destructive" />
+          <STATUS_ICON.error className="size-4 text-destructive" />
         )}
         <span className={cn("font-medium", succeeded ? "text-foreground" : "text-destructive")}>
           {statusLabel}

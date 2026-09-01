@@ -24,7 +24,7 @@ export function BasicAuth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.basic.usernameLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -43,7 +43,7 @@ export function BasicAuth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.basic.passwordLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input

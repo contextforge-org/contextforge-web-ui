@@ -58,7 +58,7 @@ export function CustomHeadersAuth({
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "mcpServer.auth.custom.keyLabel" })}
-                <span className="text-red-500">*</span>
+                <span className="text-destructive">*</span>
                 <span className="sr-only">
                   {intl.formatMessage({ id: "mcpServer.form.required" })}
                 </span>
@@ -84,7 +84,7 @@ export function CustomHeadersAuth({
                 className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "mcpServer.auth.custom.valueLabel" })}
-                <span className="text-red-500">*</span>
+                <span className="text-destructive">*</span>
                 <span className="sr-only">
                   {intl.formatMessage({ id: "mcpServer.form.required" })}
                 </span>

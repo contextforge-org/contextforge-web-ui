@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
 import type { ToolPreviewResponse, ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
 import { ToolResultRenderer } from "./ToolResultRenderer";
@@ -58,9 +59,9 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
         {statusOk ? (
-          <CheckCircle2 className="size-4 text-tool-status-active" />
+          <STATUS_ICON.success className="size-4 text-success" />
         ) : (
-          <AlertCircle className="size-4 text-destructive" />
+          <STATUS_ICON.error className="size-4 text-destructive" />
         )}
         <span className={cn("font-medium", statusOk ? "text-foreground" : "text-destructive")}>
           {statusLabel}
