@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -202,19 +202,29 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
             </div>
 
             <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-400">
-              {intl.formatMessage({ id: "mcpServer.form.intro" })}
+              {intl.formatMessage(
+                { id: "mcpServer.form.intro" },
+                {
+                  catalog: (chunks: ReactNode) => (
+                    <Button
+                      type="button"
+                      variant="link"
+                      onClick={() => {
+                        if (serverId) {
+                          onToggle();
+                          navigate("/app/server-catalog");
+                        } else {
+                          setQuickAddOpen(true);
+                        }
+                      }}
+                      className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
+                    >
+                      {chunks}
+                    </Button>
+                  ),
+                },
+              )}
             </p>
-
-            {!serverId && (
-              <Button
-                type="button"
-                variant="link"
-                onClick={() => setQuickAddOpen(true)}
-                className="w-fit px-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
-              >
-                {intl.formatMessage({ id: "mcpServer.quickAdd.trigger" })}
-              </Button>
-            )}
           </div>
 
           {fetchError && serverId && (

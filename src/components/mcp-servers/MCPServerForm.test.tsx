@@ -1230,18 +1230,23 @@ describe("MCPServerForm", () => {
   });
 
   describe("Quick Add", () => {
-    it("does not render the quick add trigger in edit mode", () => {
-      renderWithRouter(<MCPServerForm isOpen={true} onToggle={vi.fn()} serverId="edit-123" />);
-      expect(
-        screen.queryByRole("button", { name: /Quick add from catalog/i }),
-      ).not.toBeInTheDocument();
+    it("navigates directly to the full catalog in edit mode instead of opening quick add", async () => {
+      const user = userEvent.setup();
+      const onToggleSpy = vi.fn();
+      renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggleSpy} serverId="edit-123" />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(onToggleSpy).toHaveBeenCalled();
+      expect(window.location.pathname).toBe("/app/server-catalog");
     });
 
-    it("opens the dialog from the trigger and pre-fills the form on selection", async () => {
+    it("opens the dialog from the catalog link and pre-fills the form on selection", async () => {
       const user = userEvent.setup();
       renderWithRouter(<MCPServerForm {...defaultProps} />);
 
-      await user.click(screen.getByRole("button", { name: /Quick add from catalog/i }));
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
       const dialog = screen.getByRole("dialog");
       expect(
         within(dialog).getByRole("heading", { name: "Connect MCP server" }),
@@ -1263,7 +1268,7 @@ describe("MCPServerForm", () => {
       const user = userEvent.setup();
       renderWithRouter(<MCPServerForm {...defaultProps} />);
 
-      await user.click(screen.getByRole("button", { name: /Quick add from catalog/i }));
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
       await user.click(screen.getByRole("radio", { name: /Exa Search/i }));
       await user.click(screen.getByRole("button", { name: "Continue" }));
 
@@ -1275,7 +1280,7 @@ describe("MCPServerForm", () => {
       const onToggleSpy = vi.fn();
       renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggleSpy} />);
 
-      await user.click(screen.getByRole("button", { name: /Quick add from catalog/i }));
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
       await user.click(screen.getByRole("button", { name: "server catalog" }));
 
       expect(onToggleSpy).toHaveBeenCalled();

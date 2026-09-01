@@ -54,7 +54,7 @@ async function openQuickAddDialog(page: import("@playwright/test").Page) {
   await page.waitForLoadState("networkidle");
 
   await page.getByRole("button", { name: /Connect/i }).click();
-  await page.getByRole("button", { name: /Quick add from catalog/i }).click();
+  await page.getByRole("button", { name: /mcp server catalog/i }).click();
   await expect(
     page.getByRole("dialog").getByRole("heading", { name: "Connect MCP server" }),
   ).toBeVisible();
