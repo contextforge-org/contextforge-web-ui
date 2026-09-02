@@ -46,4 +46,15 @@ describe("Sparkline", () => {
     expect(curves).toHaveLength(1);
     expect(curves[0].getAttribute("d")).toMatch(/^M0,/);
   });
+
+  it("hides the chart from assistive tech, since the row value is already text", () => {
+    // Regression guard: this was dropped when the tooltip landed, exposing four
+    // unnamed SVGs per card. recharts gives the svg no accessible name.
+    const { container } = renderWithProviders(
+      <Sparkline points={points()} formatValue={formatCount} showCount={false} />,
+    );
+
+    expect(container.querySelector("[aria-hidden]")).not.toBeNull();
+    expect(container.querySelector("svg")!.closest("[aria-hidden]")).not.toBeNull();
+  });
 });

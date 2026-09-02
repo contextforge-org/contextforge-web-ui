@@ -20,7 +20,7 @@ interface SparklineProps {
 
 export function Sparkline({ points, formatValue, showCount }: SparklineProps) {
   return (
-    <div className="min-w-0 flex-1">
+    <div aria-hidden className="min-w-0 flex-1">
       <ResponsiveContainer width="100%" height={SPARKLINE_HEIGHT}>
         <LineChart data={points} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
           <YAxis hide domain={[0, "dataMax"]} tickCount={2} />
@@ -34,11 +34,11 @@ export function Sparkline({ points, formatValue, showCount }: SparklineProps) {
           <Line
             dataKey="line"
             type="linear"
-            stroke="var(--color-status-icon)"
+            stroke="var(--color-sparkline-stroke)"
             strokeWidth={1}
             strokeOpacity={0.9}
             dot={false}
-            activeDot={{ r: 2, strokeWidth: 0, fill: "var(--color-status-icon)" }}
+            activeDot={{ r: 2, strokeWidth: 0, fill: "var(--color-sparkline-stroke)" }}
           />
         </LineChart>
       </ResponsiveContainer>

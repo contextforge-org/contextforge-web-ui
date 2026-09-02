@@ -35,7 +35,7 @@ export function SystemStatusButton({ className }: { className?: string }) {
       <span className="text-xs">
         {intl.formatMessage({ id: "dashboard.home.sparklines.systemStatus" })}
       </span>
-      <SquareActivity className="size-3" />
+      <SquareActivity aria-hidden className="size-3" />
     </Button>
   );
 }

@@ -79,6 +79,10 @@
   /* Status-headline icon accent */
   --color-status-icon: var(--status-icon);
 
+  /* Sparkline stroke. Separate from --status-icon because a 1px line has to
+     clear 3:1 as a non-text graphic, which cyan-500 does not on white. */
+  --color-sparkline-stroke: var(--sparkline-stroke);
+
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
@@ -150,6 +154,7 @@
   /* Status-headline icon accent — cyan for the light background; the .dark
      override restores the brand cyan (#70f9ff). */
   --status-icon: var(--color-cyan-500);
+  --sparkline-stroke: var(--color-cyan-700);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -207,6 +212,7 @@
   --selection: var(--color-orange-500);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
+  --sparkline-stroke: #70f9ff;
 }
 /* A transparent track so the scrollbar doesn't paint a solid bar over the
    rounded corners of the box it scrolls in. */
