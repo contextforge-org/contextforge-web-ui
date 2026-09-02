@@ -7,8 +7,13 @@
     "node": ">=22.22.1"
   },
   "scripts": {
+    "predev": "npm ls --depth=0 >/dev/null 2>&1 || (echo 'Dependencies missing or out of date at repo root — run: npm install' >&2 && exit 1)",
     "dev": "vite",
     "dev:e2e": "vite --base=/ --port 5173 --strictPort",
+    "predev:bff": "npm ls --prefix server --depth=0 >/dev/null 2>&1 || (echo 'Dependencies missing or out of date in server/ — run: npm install --prefix server' >&2 && exit 1)",
+    "dev:bff": "VITE_DEV_SERVER_URL=http://localhost:5173 npm run dev --prefix server",
+    "predev:all": "npm run predev --silent && npm run generate",
+    "dev:all": "concurrently -n BFF,WEB -c blue,green \"npm run dev:bff\" \"npm run dev\"",
     "build": "npm run generate && tsc -b && vite build",
     "build:watch": "vite build --watch",
     "preview": "vite preview",
@@ -68,6 +73,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "@vitest/coverage-v8": "^4.1.9",
     "@vitest/ui": "^4.1.9",
+    "concurrently": "^10.0.5",
     "eslint": "^9.25.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.1",

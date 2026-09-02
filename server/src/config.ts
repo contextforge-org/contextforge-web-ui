@@ -75,6 +75,16 @@ export const config = {
   // for a non-standard layout, or to point at a temp dir in tests.
   publicDir: optionalUnset("PUBLIC_DIR"),
 
+  // Set to a running Vite dev server's origin (e.g. http://localhost:5173)
+  // to reverse-proxy everything not owned by the BFF's own routes (SPA
+  // shell, JS/CSS modules, HMR) to it instead of serving server/public/ —
+  // see plugins/vite-dev-proxy.ts, registered instead of plugins/static.ts
+  // when this is set. Lets the browser visit the BFF's own origin and get
+  // HMR, instead of visiting Vite directly (which would need PUBLIC_ORIGIN
+  // set to match, since origin-guard.ts checks the browser's actual
+  // Origin). Unset (default) = serve the built SPA as usual.
+  viteDevServerUrl: optionalUnset("VITE_DEV_SERVER_URL"),
+
   // Session-revocation re-check cadence for long-lived SSE connections
   // (Option A from agent-output/bff-proxy-and-sse-plan.md — bounded staleness,
   // no pub/sub required). Revisit if instant revocation becomes a hard requirement.

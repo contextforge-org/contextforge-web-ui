@@ -17,6 +17,7 @@ import csrfPlugin from "./plugins/csrf.js";
 import redisPlugin from "./plugins/redis.js";
 import sessionPlugin from "./plugins/session.js";
 import staticPlugin from "./plugins/static.js";
+import viteDevProxyPlugin from "./plugins/vite-dev-proxy.js";
 import appRoute from "./routes/app.js";
 import changePasswordRequiredRoute from "./routes/auth/change-password-required.js";
 import loginRoute from "./routes/auth/login.js";
@@ -39,7 +40,9 @@ await fastify.register(redisPlugin);
 await fastify.register(sessionPlugin);
 await fastify.register(csrfPlugin);
 await fastify.register(compressPlugin);
-await fastify.register(staticPlugin);
+// VITE_DEV_SERVER_URL set = proxy to a running Vite dev server for HMR
+// (see plugins/vite-dev-proxy.ts); unset = serve the built SPA as usual.
+await fastify.register(config.viteDevServerUrl ? viteDevProxyPlugin : staticPlugin);
 
 fastify.get("/healthz", async () => ({ ok: true }));
 
