@@ -82,7 +82,7 @@
   "dashboard.home.sparklines.p95": "p95 latency",
   "dashboard.home.sparklines.p99": "p99 latency",
   "dashboard.home.sparklines.error": "Couldn't load metrics.",
-  "dashboard.home.sparklines.empty": "No traced requests. If you haven't already, set OBSERVABILITY_ENABLED=true and restart the gateway.",
+  "dashboard.home.sparklines.empty": "No traced requests. If you haven't already, set OBSERVABILITY_ENABLED=true and restart ContextForge.",
   "dashboard.home.sparklines.tooltip.noRequests": "No requests",
   "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# request} other {# requests}}",
   "dashboard.home.sparklines.tooltip.executions": "{count, plural, one {# execution} other {# executions}}",
