@@ -81,10 +81,11 @@
   "dashboard.home.sparklines.p50": "p50 latency",
   "dashboard.home.sparklines.p95": "p95 latency",
   "dashboard.home.sparklines.p99": "p99 latency",
-  "dashboard.home.sparklines.window": "Last 24 hours",
   "dashboard.home.sparklines.error": "Couldn't load metrics.",
   "dashboard.home.sparklines.empty": "No traced requests. If you haven't already, set OBSERVABILITY_ENABLED=true and restart the gateway.",
   "dashboard.home.sparklines.tooltip.noRequests": "No requests",
   "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# request} other {# requests}}",
-  "dashboard.home.sparklines.tooltip.executions": "{count, plural, one {# execution} other {# executions}}"
+  "dashboard.home.sparklines.tooltip.executions": "{count, plural, one {# execution} other {# executions}}",
+  "dashboard.home.sparklines.title": "Traffic, last 24 hours",
+  "dashboard.home.sparklines.systemStatus": "System status"
 }

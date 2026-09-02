@@ -6,6 +6,10 @@ import { renderWithProviders } from "@/test/test-utils";
 
 import { SystemSparklinesCardConnected } from "./SystemSparklinesCardConnected";
 
+vi.mock("@/router", () => ({
+  useRouter: () => ({ navigate: vi.fn(), path: "/app/", params: {} }),
+}));
+
 vi.mock("@/hooks/useMetrics", () => ({
   useMetrics: vi.fn(),
   WINDOW_HOURS: 24,
@@ -48,7 +52,7 @@ describe("SystemSparklinesCardConnected", () => {
 
     renderWithProviders(<SystemSparklinesCardConnected />);
 
-    expect(screen.getByText("Last 24 hours")).toBeInTheDocument();
+    expect(screen.getByText("Traffic, last 24 hours")).toBeInTheDocument();
   });
 
   it("only shows the loading state on the first load, not on a refresh", () => {

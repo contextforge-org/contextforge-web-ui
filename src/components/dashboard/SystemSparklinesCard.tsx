@@ -13,6 +13,7 @@ import type { PercentilesResponse, TimeseriesResponse } from "@/types/metrics";
 import { WINDOW_HOURS, WINDOW_INTERVAL_MINUTES } from "@/hooks/useMetrics";
 
 import { SparklineRow } from "./SparklineRow";
+import { SystemStatusButton } from "./SystemStatusButton";
 import {
   alignToGrid,
   buildGrid,
@@ -82,21 +83,26 @@ export function SystemSparklinesCard({
 
   const isEmpty = !loading && !error && rows.every((row) => isEmptySeries(row.points));
 
+  // Sits under the title rather than beside it: the header row is the design's
+  // title plus System status button, with no slot for a status line.
+  const statusMessage = error
+    ? intl.formatMessage({ id: "dashboard.home.sparklines.error" })
+    : isEmpty
+      ? intl.formatMessage({ id: "dashboard.home.sparklines.empty" })
+      : null;
+
   return (
     <div className="rounded-lg bg-card px-5 pt-4 pb-6 shadow-xs ring-1 ring-foreground/10">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <p className="text-xs leading-4 font-medium text-muted-foreground">
-          {error
-            ? intl.formatMessage({ id: "dashboard.home.sparklines.error" })
-            : isEmpty
-              ? intl.formatMessage({ id: "dashboard.home.sparklines.empty" })
-              : null}
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm leading-4 font-medium text-muted-foreground">
+          {intl.formatMessage({ id: "dashboard.home.sparklines.title" })}
         </p>
-        <span className="shrink-0 text-xs leading-4 font-medium text-muted-foreground">
-          {intl.formatMessage({ id: "dashboard.home.sparklines.window" })}
-        </span>
+        <SystemStatusButton className="-my-2 shrink-0" />
       </div>
-      <div className="flex flex-col gap-4">
+      {statusMessage ? (
+        <p className="mt-2 text-xs leading-4 text-muted-foreground">{statusMessage}</p>
+      ) : null}
+      <div className="mt-4 flex flex-col gap-4">
         {rows.map((row) => (
           <SparklineRow
             key={row.key}

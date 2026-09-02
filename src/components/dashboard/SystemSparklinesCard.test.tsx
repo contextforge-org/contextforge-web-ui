@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders } from "@/test/test-utils";
 
 import { SystemSparklinesCard } from "./SystemSparklinesCard";
+
+const mockNavigate = vi.fn();
+vi.mock("@/router", () => ({
+  useRouter: () => ({ navigate: mockNavigate, path: "/app/", params: {} }),
+}));
 
 const HOUR_MS = 3_600_000;
 
@@ -14,14 +20,14 @@ function bucket(hoursAgo: number): string {
 }
 
 describe("SystemSparklinesCard", () => {
-  it("renders a row per metric with the window label", () => {
+  it("renders a row per metric under the window title", () => {
     renderWithProviders(<SystemSparklinesCard timeseries={null} percentiles={null} />);
 
     expect(screen.getByText("Executions")).toBeInTheDocument();
     expect(screen.getByText("p50 latency")).toBeInTheDocument();
     expect(screen.getByText("p95 latency")).toBeInTheDocument();
     expect(screen.getByText("p99 latency")).toBeInTheDocument();
-    expect(screen.getByText("Last 24 hours")).toBeInTheDocument();
+    expect(screen.getByText("Traffic, last 24 hours")).toBeInTheDocument();
   });
 
   it("totals executions across the window and takes the latest latency bucket", () => {
@@ -70,5 +76,14 @@ describe("SystemSparklinesCard", () => {
     );
 
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(4);
+  });
+
+  it("routes the System status button to the system view", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SystemSparklinesCard timeseries={null} percentiles={null} />);
+
+    await user.click(screen.getByRole("button", { name: /system status/i }));
+
+    expect(mockNavigate).toHaveBeenCalledWith("/app/?view=system");
   });
 });
