@@ -78,9 +78,11 @@ describe("Dashboard", () => {
   it("checks whether virtual and MCP servers exist", () => {
     renderWithProviders(<Dashboard />);
 
-    expect(mockUseQuery).toHaveBeenCalledWith("/servers?limit=1&include_pagination=true");
     expect(mockUseQuery).toHaveBeenCalledWith(
-      "/gateways?limit=1&include_inactive=true&include_pagination=true",
+      "/v1/virtual-servers?limit=1&include_pagination=true",
+    );
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      "/v1/mcp-servers?limit=1&include_inactive=true&include_pagination=true",
     );
   });
 

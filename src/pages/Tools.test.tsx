@@ -195,7 +195,7 @@ describe("Tools", () => {
     const mockTools: Tool[] = [createMockTool(1, "described-gateway")];
     server.use(
       http.get("/api/tools", () => HttpResponse.json(mockTools)),
-      http.get("/api/gateways", () =>
+      http.get("/api/v1/mcp-servers", () =>
         HttpResponse.json({
           gateways: [
             {

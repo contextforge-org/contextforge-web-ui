@@ -56,7 +56,7 @@ export const handlers = [
   }),
 
   // Mock gateways endpoint with cursor pagination
-  http.get("*/api/gateways", ({ request }) => {
+  http.get("*/api/v1/mcp-servers", ({ request }) => {
     const url = new URL(request.url);
     const cursor = url.searchParams.get("cursor");
     const limit = parseInt(url.searchParams.get("limit") || "25", 10);
@@ -86,7 +86,7 @@ export const handlers = [
   }),
 
   // Mock single gateway fetch endpoint
-  http.get("*/api/gateways/:id", ({ params }) => {
+  http.get("*/api/v1/mcp-servers/:id", ({ params }) => {
     return HttpResponse.json({
       id: params.id,
       name: "Test Server",
@@ -98,12 +98,12 @@ export const handlers = [
   }),
 
   // Mock gateway delete endpoint
-  http.delete("*/api/gateways/:id", () => {
+  http.delete("*/api/v1/mcp-servers/:id", () => {
     return HttpResponse.json({ success: true });
   }),
 
   // Mock gateway test endpoint
-  http.post("*/api/gateways/:id/test", () => {
+  http.post("*/api/v1/mcp-servers/:id/test", () => {
     return HttpResponse.json({
       success: true,
       message: "Connection successful",
@@ -111,7 +111,7 @@ export const handlers = [
   }),
 
   // Mock create gateway endpoint
-  http.post("*/api/gateways", async ({ request }) => {
+  http.post("*/api/v1/mcp-servers", async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
     return HttpResponse.json(
       {
@@ -124,7 +124,7 @@ export const handlers = [
   }),
 
   // Mock update gateway endpoint
-  http.put("*/api/gateways/:gatewayId", async ({ request, params }) => {
+  http.put("*/api/v1/mcp-servers/:gatewayId", async ({ request, params }) => {
     const body = (await request.json()) as Record<string, unknown>;
     const { gatewayId } = params;
     return HttpResponse.json({
