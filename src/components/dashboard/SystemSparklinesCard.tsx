@@ -83,8 +83,7 @@ export function SystemSparklinesCard({
 
   const isEmpty = !loading && !error && rows.every((row) => isEmptySeries(row.points));
 
-  // Sits under the title rather than beside it: the header row is the design's
-  // title plus System status button, with no slot for a status line.
+  // Sits under the title
   const statusMessage = error
     ? intl.formatMessage({ id: "dashboard.home.sparklines.error" })
     : isEmpty
@@ -92,12 +91,12 @@ export function SystemSparklinesCard({
       : null;
 
   return (
-    <div className="rounded-lg bg-card px-5 pt-4 pb-6 shadow-xs ring-1 ring-foreground/10">
+    <div className="rounded-lg bg-card px-5 pt-5 pb-7 shadow-xs ring-1 ring-foreground/10">
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm leading-4 font-medium text-muted-foreground">
           {intl.formatMessage({ id: "dashboard.home.sparklines.title" })}
         </p>
-        <SystemStatusButton className="-my-2 shrink-0" />
+        <SystemStatusButton className="-my-3 shrink-0" />
       </div>
       {statusMessage ? (
         <p className="mt-2 text-xs leading-4 text-muted-foreground">{statusMessage}</p>

@@ -1,11 +1,4 @@
 /**
- * Bare trend line: no axes, grid, legend or dots, plus a hover readout.
- *
- * The y-domain is anchored at 0 rather than fitted; a fitted domain rescales on
- * every poll, making a flat metric appear to jump when only the scale moved.
- * `tickCount={2}` is load-bearing: without it recharts rounds the domain up to
- * nice tick values and the peak stops short of the top of the band.
- *
  * The row's value is text beside the chart, so the line itself carries no
  * information a screen reader needs. The tooltip is a pointer-only
  * enhancement on top of that, not the only route to the data.
@@ -35,9 +28,7 @@ export function Sparkline({ points, formatValue, showCount }: SparklineProps) {
             content={<SparklineTooltip formatValue={formatValue} showCount={showCount} />}
             cursor={{ stroke: "var(--color-muted-foreground)", strokeWidth: 1 }}
             isAnimationActive={false}
-            // Each row's chart wrapper is position:relative with z-index auto, so
-            // rows paint in document order and an upper row's tooltip lands behind
-            // the rows below it. Matches the z-50 used by the ui/ overlays.
+            // Keep tooltip above other elements
             wrapperStyle={{ zIndex: 50 }}
           />
           <Line
