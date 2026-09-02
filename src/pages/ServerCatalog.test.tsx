@@ -14,6 +14,7 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
 import { RouterProvider } from "@/router";
+import type { Team } from "@/types/team";
 import { ServerCatalog } from "./ServerCatalog";
 
 vi.mock("@/hooks/useQuery", () => ({
@@ -23,8 +24,21 @@ const authState = vi.hoisted(() => ({
   hasPermission: vi.fn<(permission: string) => boolean>(() => true),
   permissionsLoading: false,
 }));
+const teamScopeState = vi.hoisted(() => ({
+  teams: [] as Team[],
+  onTeamChange: vi.fn(),
+}));
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => authState,
+}));
+vi.mock("@/hooks/useTeams", () => ({
+  useTeamScope: ({ onTeamIdChange }: { onTeamIdChange: (teamId: string) => void }) => ({
+    teams: teamScopeState.teams,
+    onTeamChange: (teamId: string) => {
+      teamScopeState.onTeamChange(teamId);
+      onTeamIdChange(teamId);
+    },
+  }),
 }));
 vi.mock("@/api/catalog", () => ({
   registerCatalogServer: vi.fn(),
@@ -142,6 +156,8 @@ describe("ServerCatalog", () => {
     });
     authState.hasPermission.mockReturnValue(true);
     authState.permissionsLoading = false;
+    teamScopeState.teams = [];
+    teamScopeState.onTeamChange.mockReset();
     mockDisconnectCatalogGateway.mockResolvedValue({
       status: 200,
       data: { status: "success" },
@@ -175,22 +191,40 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText("Unable to load server catalog. Try again.")).not.toBeInTheDocument();
   });
 
-  it("renders only exact Open entries and marks registered servers connected", () => {
+  it("renders supported Open and API-key entries and marks registered servers connected", () => {
     renderWithRouter(<ServerCatalog />);
 
     expect(screen.getByRole("region", { name: "Server catalog" })).toBeInTheDocument();
     const catalogList = screen.getByRole("list", { name: "Catalog servers" });
-    expect(within(catalogList).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(catalogList).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
-    expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
     expect(within(catalogList).getByText("Connected")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("2 servers shown");
+    expect(screen.getByRole("status")).toHaveTextContent("3 servers shown");
     expect(screen.getByRole("button", { name: "Actions for Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Public Notes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Secret Service" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View Globalping" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Public Notes" })).toBeInTheDocument();
     expect(screen.queryByText(/registration coming soon/i)).not.toBeInTheDocument();
+  });
+
+  it("offers API auth entries through the API-key add flow", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...apiKeyServer, id: "api", name: "API Service", auth_type: "API" }],
+          total: 1,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add API Service" }));
+    expect(await screen.findByRole("dialog", { name: "Add API Service" })).toBeInTheDocument();
   });
 
   it("opens a read-only server details dialog", async () => {
@@ -568,6 +602,150 @@ describe("ServerCatalog", () => {
     expect(refetch).toHaveBeenCalledOnce();
   });
 
+  it("opens an API-key dialog and submits catalog registration fields", async () => {
+    const user = userEvent.setup();
+    const setData = vi.fn();
+    mockUseQuery.mockReturnValue(queryResult({ setData }));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText("Custom name (optional)"), "My Secret Service");
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("api-key", {
+        name: "My Secret Service",
+        api_key: "test-api-key",
+        visibility: "private",
+        team_id: null,
+      }),
+    );
+    expect(setData).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
+  });
+
+  it("requires an API key before registration", async () => {
+    const user = userEvent.setup();
+    const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await within(dialog).findByText("API key is required.")).toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
+  });
+
+  it("closes the API-key dialog when cancelled", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the API-key dialog open while registration is submitting", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockImplementation(() => new Promise(() => {}));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(within(dialog).getByRole("button", { name: "Adding…" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+  });
+
+  it("surfaces a registration failure inside the API-key dialog rather than behind it", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Unable to add this server. Try again.",
+    );
+    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+  });
+
+  it("closes the API-key dialog and surfaces an already-connected conflict on the grid", async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mockUseQuery.mockReturnValue(queryResult({ refetch }));
+    mockRegisterCatalogServer.mockRejectedValue(
+      new ApiError(409, { detail: "Server already registered" }, "HTTP 409"),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await screen.findByText("Secret Service is already connected.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("requires a team before submitting team-visible catalog registration", async () => {
+    const user = userEvent.setup();
+    const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    expect(await within(dialog).findByText("Select a team.")).toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
+  });
+
+  it("submits selected team for team-visible catalog registration", async () => {
+    const user = userEvent.setup();
+    teamScopeState.teams = [
+      { id: "team-alpha", name: "Alpha team" },
+      { id: "team-beta", name: "Beta team" },
+    ] as Team[];
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Secret Service" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add Secret Service" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.click(within(dialog).getByRole("combobox", { name: /^Team/ }));
+    await user.click(screen.getByRole("option", { name: "Alpha team" }));
+    await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
+    await user.click(within(dialog).getByRole("button", { name: "Add server" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("api-key", {
+        name: null,
+        api_key: "test-api-key",
+        visibility: "team",
+        team_id: "team-alpha",
+      }),
+    );
+    expect(teamScopeState.onTeamChange).toHaveBeenCalledWith("team-alpha");
+  });
+
   it("refetches an already-registered response to obtain its gateway ID", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
@@ -778,7 +956,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("dialog", { name: "Filters" })).toBeInTheDocument();
 
     await selectSectionOption(user, "Categories", "Productivity");
-    expect(screen.queryByRole("checkbox", { name: "Security" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Security" })).toBeInTheDocument();
 
     await waitFor(() => expect(window.location.search).toContain("category=Productivity"));
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
@@ -919,16 +1097,16 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
   });
 
-  it("does not offer provider or tag filters owned only by non-Open servers", async () => {
+  it("offers filters owned by API-key catalog servers", async () => {
     const user = userEvent.setup();
     renderWithRouter(<ServerCatalog />);
 
     await openFilters(user);
     // Providers opens expanded, so its options are on screen straight away.
-    expect(screen.queryByRole("checkbox", { name: "SecureCo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "SecureCo" })).toBeInTheDocument();
 
     await user.click(within(getFilterSection("Tags")).getByRole("radio", { name: "Select" }));
-    expect(screen.queryByRole("checkbox", { name: "security" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "security" })).toBeInTheDocument();
   });
 
   it("filters by several providers at once", async () => {
@@ -949,6 +1127,28 @@ describe("ServerCatalog", () => {
     expect(params.getAll("provider")).toEqual(["jsDelivr", "Example"]);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
+  });
+
+  it("filters by authentication type and reflects it in the URL", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Authentication", "API Key");
+
+    expect(
+      within(getFilterSection("Authentication")).getByRole("checkbox", { name: "Open" }),
+    ).toBeInTheDocument();
+    expect(
+      within(getFilterSection("Authentication")).getByRole("checkbox", { name: "API Key" }),
+    ).toBeChecked();
+    expect(
+      within(getFilterSection("Authentication")).getByRole("checkbox", { name: "API" }),
+    ).toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).getAll("auth_type")).toEqual(["API Key"]);
+    expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
   });
 
   it("restores repeated category and provider params from the URL", async () => {
@@ -1010,34 +1210,41 @@ describe("ServerCatalog", () => {
     await openFilters(user);
     await selectSectionOption(user, "Providers", "jsDelivr");
     await selectSectionOption(user, "Categories", "Monitoring");
+    await selectSectionOption(user, "Authentication", "Open");
     await selectSectionOption(user, "Tags", "network");
 
-    expect(replaceState).toHaveBeenCalledTimes(3);
+    expect(replaceState).toHaveBeenCalledTimes(4);
     expect(pushState).not.toHaveBeenCalled();
 
     const params = new URLSearchParams(window.location.search);
     expect(params.getAll("provider")).toEqual(["jsDelivr"]);
     expect(params.getAll("category")).toEqual(["Monitoring"]);
+    expect(params.getAll("auth_type")).toEqual(["Open"]);
     expect(params.getAll("tags")).toEqual(["network"]);
 
     pushState.mockRestore();
     replaceState.mockRestore();
   });
 
-  it("drops a legacy auth_type param on any navigation", async () => {
+  it("restores auth-type filters from the URL and preserves them on navigation", async () => {
     const user = userEvent.setup();
-    renderWithRouter(<ServerCatalog />, "/app/server-catalog?auth_type=Open");
+    renderWithRouter(<ServerCatalog />, "/app/server-catalog?auth_type=API+Key");
 
     await openFilters(user);
-    await selectSectionOption(user, "Providers", "jsDelivr");
+    await user.click(
+      within(getFilterSection("Authentication")).getByRole("radio", { name: "Select" }),
+    );
 
-    expect(new URLSearchParams(window.location.search).has("auth_type")).toBe(false);
+    expect(
+      within(getFilterSection("Authentication")).getByRole("checkbox", { name: "API Key" }),
+    ).toBeChecked();
+    expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
 
-    renderWithRouter(<ServerCatalog />, "/app/server-catalog?auth_type=Open");
-    await user.type(screen.getAllByRole("searchbox", { name: "Search MCP servers" })[0], "notes");
+    await user.type(screen.getByRole("searchbox", { name: "Search MCP servers" }), "secret");
 
-    await waitFor(() => expect(window.location.search).toContain("search=notes"));
-    expect(new URLSearchParams(window.location.search).has("auth_type")).toBe(false);
+    await waitFor(() => expect(window.location.search).toContain("search=secret"));
+    expect(new URLSearchParams(window.location.search).getAll("auth_type")).toEqual(["API Key"]);
   });
 
   it("shows explicit disabled and generic error states with retry", async () => {
@@ -1063,15 +1270,14 @@ describe("ServerCatalog", () => {
     expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it("shows an empty state when the response has no Open entries", () => {
+  it("shows API-key catalog entries", () => {
     mockUseQuery.mockReturnValue(
       queryResult({ data: { ...response, servers: [apiKeyServer], total: 1 } }),
     );
 
     renderWithRouter(<ServerCatalog />);
 
-    expect(screen.getByText("No open MCP servers are available.")).toBeInTheDocument();
-    expect(screen.queryByText("Secret Service")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
   });
 
   it("shows a dedicated empty state when no Open servers are connected", async () => {

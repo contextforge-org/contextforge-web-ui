@@ -39923,6 +39923,35 @@
             ],
             "title": "Api Key",
             "description": "API key if the catalog entry requires one"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "private",
+                  "team",
+                  "public"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Visibility level: private, team, or public"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID for team-scoped registration"
           }
         },
         "type": "object",

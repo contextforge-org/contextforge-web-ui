@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const ALL_MODE = "all";
 const SELECT_MODE = "select";
 
-export type CatalogFilterSection = "category" | "provider" | "tags";
+export type CatalogFilterSection = "category" | "provider" | "authType" | "tags";
 
 type CatalogSectionMode = typeof ALL_MODE | typeof SELECT_MODE;
 type CatalogSectionModes = Record<CatalogFilterSection, CatalogSectionMode>;
@@ -22,6 +22,7 @@ type CatalogSectionModes = Record<CatalogFilterSection, CatalogSectionMode>;
 const DEFAULT_MODES: CatalogSectionModes = {
   category: ALL_MODE,
   provider: SELECT_MODE,
+  authType: ALL_MODE,
   tags: ALL_MODE,
 };
 
@@ -30,9 +31,11 @@ interface CatalogToolbarProps {
   installedOnly: boolean;
   category: string[];
   provider: string[];
+  authType: string[];
   selectedTags: string[];
   categories: string[];
   providers: string[];
+  authTypes: string[];
   availableTags: string[];
   activeFilterCount: number;
   onSearchChange: (value: string) => void;
@@ -208,9 +211,11 @@ function CatalogFilterSectionFields({
 function CatalogFiltersPopover({
   category,
   provider,
+  authType,
   selectedTags,
   categories,
   providers,
+  authTypes,
   availableTags,
   activeFilterCount,
   onToggleOption,
@@ -235,11 +240,12 @@ function CatalogFiltersPopover({
       setModes((previous) => ({
         category: category.length > 0 ? SELECT_MODE : ALL_MODE,
         provider: previous.provider,
+        authType: authType.length > 0 ? SELECT_MODE : ALL_MODE,
         tags: selectedTags.length > 0 ? SELECT_MODE : ALL_MODE,
       }));
       setExpanded("provider");
     },
-    [category.length, selectedTags.length],
+    [authType.length, category.length, selectedTags.length],
   );
 
   const setSectionMode = useCallback(
@@ -336,6 +342,21 @@ function CatalogFiltersPopover({
           onModeChange={(mode) => setSectionMode("category", mode)}
           onExpand={() => setExpanded("category")}
           onToggle={(option, checked) => onToggleOption("category", option, checked)}
+        />
+
+        <CatalogFilterSectionFields
+          idPrefix={`${id}-auth-type`}
+          legendId={`${id}-auth-type-legend`}
+          legend={intl.formatMessage({ id: "mcpServer.catalog.authentication" })}
+          options={authTypes}
+          selected={authType}
+          mode={modes.authType}
+          expanded={expanded === "authType"}
+          allLabel={intl.formatMessage({ id: "mcpServer.catalog.allAuthTypesOption" })}
+          selectLabel={intl.formatMessage({ id: "mcpServer.catalog.selectAuthTypes" })}
+          onModeChange={(mode) => setSectionMode("authType", mode)}
+          onExpand={() => setExpanded("authType")}
+          onToggle={(option, checked) => onToggleOption("authType", option, checked)}
         />
 
         {availableTags.length > 0 && (
