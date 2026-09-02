@@ -193,7 +193,7 @@ describe("useMiniCardStatuses — reachability dots", () => {
 
   it("is Online for a source with a reachable instance, Offline for one without", () => {
     mockUseQuery.mockImplementation((path: string | null) =>
-      typeof path === "string" && path.includes("/gateways")
+      typeof path === "string" && path.includes("/v1/mcp-servers")
         ? query({ gateways: [{ enabled: true, reachable: true }] })
         : query([]),
     );

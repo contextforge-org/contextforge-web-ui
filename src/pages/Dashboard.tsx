@@ -33,8 +33,9 @@ import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import type { VirtualServersResponse } from "@/types/server";
 
-const SERVERS_QUERY_PATH = "/servers?limit=1&include_pagination=true";
-const MCP_SERVERS_QUERY_PATH = "/gateways?limit=1&include_inactive=true&include_pagination=true";
+const SERVERS_QUERY_PATH = "/v1/virtual-servers?limit=1&include_pagination=true";
+const MCP_SERVERS_QUERY_PATH =
+  "/v1/mcp-servers?limit=1&include_inactive=true&include_pagination=true";
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 
 /** Inline source cards shown in the default state (one per source type). */

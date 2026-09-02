@@ -18,8 +18,8 @@ describe("useMcpServers", () => {
     setTabHidden(false);
   });
 
-  it("fetches /gateways and exposes servers plus a lastUpdated timestamp", async () => {
-    server.use(http.get("*/gateways", () => HttpResponse.json(GATEWAYS)));
+  it("fetches /v1/mcp-servers and exposes servers plus a lastUpdated timestamp", async () => {
+    server.use(http.get("*/v1/mcp-servers", () => HttpResponse.json(GATEWAYS)));
 
     const { result } = renderHook(() => useMcpServers(0)); // polling disabled
 
@@ -31,7 +31,7 @@ describe("useMcpServers", () => {
   it("polls on the interval and pauses while the tab is hidden", async () => {
     let calls = 0;
     server.use(
-      http.get("*/gateways", () => {
+      http.get("*/v1/mcp-servers", () => {
         calls += 1;
         return HttpResponse.json(GATEWAYS);
       }),
@@ -50,7 +50,7 @@ describe("useMcpServers", () => {
   it("fetches again when the tab becomes visible", async () => {
     let calls = 0;
     server.use(
-      http.get("*/gateways", () => {
+      http.get("*/v1/mcp-servers", () => {
         calls += 1;
         return HttpResponse.json(GATEWAYS);
       }),

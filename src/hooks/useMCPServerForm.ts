@@ -385,7 +385,7 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
       store_tokens?: boolean;
       auto_refresh?: boolean;
     };
-  }>(`/gateways/${gatewayId}`, {
+  }>(`/v1/mcp-servers/${gatewayId}`, {
     enabled: Boolean(gatewayId),
   });
 
@@ -457,7 +457,7 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
 
   // Use useQuery for POST request to create MCP gateway
   const { execute: createGateway, isLoading: isCreating } = useQuery<unknown, MCPServerFormData>(
-    "/gateways",
+    "/v1/mcp-servers",
     {
       method: "POST",
       enabled: false, // Don't execute immediately
@@ -467,7 +467,7 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
   // handleSubmit guards against a missing gatewayId before calling updateGateway,
   // so this URL is only ever used when gatewayId is defined.
   const { execute: updateGateway, isLoading: isUpdating } = useQuery<unknown, MCPServerFormData>(
-    `/gateways/${gatewayId}`,
+    `/v1/mcp-servers/${gatewayId}`,
     {
       method: "PUT",
       enabled: false, // Don't execute immediately

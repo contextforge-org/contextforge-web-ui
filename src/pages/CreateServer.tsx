@@ -32,7 +32,7 @@ import type { MCPServer, ServerStatus, VirtualServer, VirtualServerTag } from "@
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
-const MCP_SERVERS_QUERY_PATH = "/gateways?limit=100&include_inactive=true";
+const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
 const COMPONENT_PAGE_SIZE = 100;
 
 type CreateServerStep = "details" | "sources";
@@ -644,7 +644,9 @@ export function CreateServer() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const isEditMode = Boolean(editServerId);
-  const editServerPath = editServerId ? `/servers/${encodeURIComponent(editServerId)}` : null;
+  const editServerPath = editServerId
+    ? `/v1/virtual-servers/${encodeURIComponent(editServerId)}`
+    : null;
   const {
     data: editingServer,
     error: editServerError,

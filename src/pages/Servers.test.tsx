@@ -367,7 +367,11 @@ describe("Servers", () => {
     await user.click(submit);
 
     await waitFor(() =>
-      expect(api.post).toHaveBeenCalledWith("/gateways", expect.anything(), expect.anything()),
+      expect(api.post).toHaveBeenCalledWith(
+        "/v1/mcp-servers",
+        expect.anything(),
+        expect.anything(),
+      ),
     );
   });
 
@@ -377,7 +381,7 @@ describe("Servers", () => {
       if (path.includes("/tools")) return Promise.resolve({ tools: [] });
       if (path.includes("/resources")) return Promise.resolve({ resources: [] });
       if (path.includes("/prompts")) return Promise.resolve({ prompts: [] });
-      if (/\/gateways\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
+      if (/\/v1\/mcp-servers\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
       return Promise.resolve({ gateways: createMockServers(0, 1), nextCursor: null });
     });
     vi.mocked(api.put).mockResolvedValue({
@@ -397,7 +401,7 @@ describe("Servers", () => {
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith(expect.stringContaining("/gateways/server-0"), {
+      expect(api.put).toHaveBeenCalledWith(expect.stringContaining("/v1/mcp-servers/server-0"), {
         tags: ["newtag"],
       });
     });
@@ -409,7 +413,7 @@ describe("Servers", () => {
       if (path.includes("/tools")) return Promise.resolve({ tools: [] });
       if (path.includes("/resources")) return Promise.resolve({ resources: [] });
       if (path.includes("/prompts")) return Promise.resolve({ prompts: [] });
-      if (/\/gateways\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
+      if (/\/v1\/mcp-servers\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
       return Promise.resolve({ gateways: createMockServers(0, 1), nextCursor: null });
     });
     vi.mocked(api.put).mockRejectedValue(new Error("boom"));
@@ -427,7 +431,7 @@ describe("Servers", () => {
 
     // The rejected update runs through the error branch (which surfaces a toast).
     await waitFor(() => {
-      expect(api.put).toHaveBeenCalledWith(expect.stringContaining("/gateways/server-0"), {
+      expect(api.put).toHaveBeenCalledWith(expect.stringContaining("/v1/mcp-servers/server-0"), {
         tags: ["newtag"],
       });
     });
@@ -438,7 +442,7 @@ describe("Servers", () => {
       if (path.includes("/tools")) return Promise.resolve({ tools: [] });
       if (path.includes("/resources")) return Promise.resolve({ resources: [] });
       if (path.includes("/prompts")) return Promise.resolve({ prompts: [] });
-      if (/\/gateways\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
+      if (/\/v1\/mcp-servers\/server-0/.test(path)) return Promise.resolve(mockServerDetails);
       return Promise.resolve({ gateways: createMockServers(0, 1), nextCursor: null });
     });
 
@@ -1006,7 +1010,7 @@ describe("Servers", () => {
     const user = userEvent.setup();
 
     vi.mocked(api.get).mockImplementation((path) => {
-      if (path.includes("/gateways/server-0")) {
+      if (path.includes("/v1/mcp-servers/server-0")) {
         return Promise.resolve(mockServerDetails);
       }
       return Promise.resolve({

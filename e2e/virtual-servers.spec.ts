@@ -86,7 +86,7 @@ test.describe("Virtual Servers page", () => {
 
   test("shows connect source card when no virtual servers exist", async ({ page }) => {
     // Mock empty servers response
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -113,7 +113,7 @@ test.describe("Virtual Servers page", () => {
     apiMock,
   }) => {
     await apiMock.mockPermissions({ permissions: ["servers.read"] });
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -131,7 +131,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("navigates to create server UI when connect source card is clicked", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -161,7 +161,7 @@ test.describe("Virtual Servers page", () => {
   test("creates a virtual server when source selection is skipped", async ({ page }) => {
     let createPayload: unknown = null;
 
-    await page.route("**/servers", async (route) => {
+    await page.route("**/v1/virtual-servers", async (route) => {
       expect(route.request().method()).toBe("POST");
       createPayload = route.request().postDataJSON();
       await route.fulfill({
@@ -214,7 +214,7 @@ test.describe("Virtual Servers page", () => {
   test("shows create API errors and allows retry from source selection", async ({ page }) => {
     let requestCount = 0;
 
-    await page.route("**/servers", async (route) => {
+    await page.route("**/v1/virtual-servers", async (route) => {
       expect(route.request().method()).toBe("POST");
       requestCount += 1;
       if (requestCount === 1) {
@@ -246,7 +246,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("shows empty and failed MCP source states during source selection", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -263,8 +263,8 @@ test.describe("Virtual Servers page", () => {
 
     await expect(page.getByText("No MCP servers found.")).toBeVisible();
 
-    await page.unroute("**/gateways?*");
-    await page.route("**/gateways?*", async (route) => {
+    await page.unroute("**/v1/mcp-servers?*");
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -285,7 +285,7 @@ test.describe("Virtual Servers page", () => {
   test("shows component fetch errors before creating from selected MCP sources", async ({
     page,
   }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -329,7 +329,7 @@ test.describe("Virtual Servers page", () => {
 
   test("shows virtual servers list when servers exist", async ({ page }) => {
     // Mock servers response with data
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -353,7 +353,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("displays server details correctly", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -381,7 +381,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("opens server actions dropdown menu with state action", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -413,14 +413,14 @@ test.describe("Virtual Servers page", () => {
     const disabledServer = { ...MOCK_VIRTUAL_SERVER, enabled: false };
     let stateRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [disabledServer] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}/state?*`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}/state?*`, async (route) => {
       expect(route.request().method()).toBe("POST");
       expect(new URL(route.request().url()).searchParams.get("activate")).toBe("true");
       stateRequestCount += 1;
@@ -453,14 +453,14 @@ test.describe("Virtual Servers page", () => {
   test("requires confirmation to deactivate and supports cancellation", async ({ page }) => {
     let stateRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}/state?*`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}/state?*`, async (route) => {
       expect(route.request().method()).toBe("POST");
       expect(new URL(route.request().url()).searchParams.get("activate")).toBe("false");
       stateRequestCount += 1;
@@ -510,14 +510,14 @@ test.describe("Virtual Servers page", () => {
     });
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await deleteCanFinish;
@@ -554,14 +554,14 @@ test.describe("Virtual Servers page", () => {
       releaseDelete = resolve;
     });
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       await deleteCanFinish;
       await route.fulfill({ status: 204 });
     });
@@ -587,7 +587,7 @@ test.describe("Virtual Servers page", () => {
     let listRequestCount = 0;
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       listRequestCount += 1;
       await route.fulfill({
         status: 200,
@@ -595,7 +595,7 @@ test.describe("Virtual Servers page", () => {
         body: JSON.stringify({ servers: isDeleted ? [] : [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       isDeleted = true;
@@ -633,14 +633,14 @@ test.describe("Virtual Servers page", () => {
       releaseDelete = resolve;
     });
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await deleteCanFinish;
@@ -680,14 +680,14 @@ test.describe("Virtual Servers page", () => {
     });
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await deleteCanFinish;
@@ -726,14 +726,14 @@ test.describe("Virtual Servers page", () => {
   test("shows delete failures in a toast instead of the page content", async ({ page }) => {
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await route.fulfill({
@@ -762,7 +762,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("cancels delete dialog and keeps the virtual server card visible", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -799,14 +799,14 @@ test.describe("Virtual Servers page", () => {
     };
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER, SIBLING] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await route.fulfill({ status: 204 });
@@ -851,14 +851,14 @@ test.describe("Virtual Servers page", () => {
     });
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       if (route.request().method() === "DELETE") {
         deleteRequestCount += 1;
         await deleteCanFinish; // hold the response
@@ -910,14 +910,14 @@ test.describe("Virtual Servers page", () => {
     });
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       if (route.request().method() === "DELETE") {
         deleteRequestCount += 1;
         await deleteCanFinish;
@@ -971,14 +971,14 @@ test.describe("Virtual Servers page", () => {
   }) => {
     let deleteRequestCount = 0;
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       if (route.request().method() === "DELETE") {
         deleteRequestCount += 1;
         await route.fulfill({ status: 204 });
@@ -1023,14 +1023,14 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("opens virtual server details panel from row actions", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1090,14 +1090,14 @@ test.describe("Virtual Servers page", () => {
   test("shows a tooltip with the full endpoint when it's truncated in the Try it tab", async ({
     page,
   }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1144,14 +1144,14 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("details panel add source button navigates to edit the virtual server", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1177,7 +1177,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("shows only the actions menu in the virtual server card header", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1193,7 +1193,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("navigates to create server UI from the create server card", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1212,7 +1212,7 @@ test.describe("Virtual Servers page", () => {
 
   test("shows error state when API fails", async ({ page }) => {
     // Mock API error
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -1231,7 +1231,7 @@ test.describe("Virtual Servers page", () => {
   test("handles disabled server correctly", async ({ page }) => {
     const disabledServer = { ...MOCK_VIRTUAL_SERVER, enabled: false, tags: ["public", "disabled"] };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1260,7 +1260,7 @@ test.describe("Virtual Servers page", () => {
       tags: ["private", "disabled"],
     };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1294,7 +1294,7 @@ test.describe("Virtual Servers page", () => {
       tags: [],
     };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1318,7 +1318,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("connect source card is keyboard accessible", async ({ page }) => {
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1348,7 +1348,7 @@ test.describe("Virtual Servers page", () => {
       updatedAt: "",
     };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1372,7 +1372,7 @@ test.describe("Virtual Servers page", () => {
       associatedPrompts: [],
     };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1402,7 +1402,7 @@ test.describe("Virtual Servers page", () => {
       associatedPrompts: [],
     };
 
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1427,7 +1427,7 @@ test.describe("Virtual Servers page", () => {
   test("creates a virtual server with components from a selected MCP server", async ({ page }) => {
     let createPayload: unknown = null;
 
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1466,7 +1466,7 @@ test.describe("Virtual Servers page", () => {
         body: JSON.stringify({ prompts: [{ id: "prompt-from-mcp", name: "Prompt from MCP" }] }),
       });
     });
-    await page.route("**/servers", async (route) => {
+    await page.route("**/v1/virtual-servers", async (route) => {
       expect(route.request().method()).toBe("POST");
       createPayload = route.request().postDataJSON();
       await route.fulfill({
@@ -1482,7 +1482,7 @@ test.describe("Virtual Servers page", () => {
         }),
       });
     });
-    await page.route("**/servers?*", async (route) => {
+    await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1522,7 +1522,7 @@ test.describe("Virtual Servers page", () => {
   }) => {
     let createPayload: unknown = null;
 
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1571,7 +1571,7 @@ test.describe("Virtual Servers page", () => {
         body: JSON.stringify({ prompts: [{ id: "shared-prompt", name: "Shared Prompt" }] }),
       });
     });
-    await page.route("**/servers", async (route) => {
+    await page.route("**/v1/virtual-servers", async (route) => {
       expect(route.request().method()).toBe("POST");
       createPayload = route.request().postDataJSON();
       await route.fulfill({
@@ -1618,7 +1618,7 @@ test.describe("Virtual Servers page", () => {
       teamId: "team-1",
     };
 
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -1653,7 +1653,7 @@ test.describe("Virtual Servers page", () => {
         body: JSON.stringify({ prompts: [{ id: "existing-prompt-id", name: "Existing Prompt" }] }),
       });
     });
-    await page.route(`**/servers/${editServer.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${editServer.id}`, async (route) => {
       if (route.request().method() === "PUT") {
         updatePayload = route.request().postDataJSON();
         await route.fulfill({
@@ -1698,7 +1698,7 @@ test.describe("Virtual Servers page", () => {
   });
 
   test("shows edit load and update failures", async ({ page }) => {
-    await page.route("**/servers/missing-server", async (route) => {
+    await page.route("**/v1/virtual-servers/missing-server", async (route) => {
       await route.fulfill({
         status: 404,
         contentType: "application/json",
@@ -1709,15 +1709,15 @@ test.describe("Virtual Servers page", () => {
     await page.goto("/app/gateways/create-server?editServerId=missing-server");
     await expect(page.getByRole("alert")).toHaveText("HTTP 404");
 
-    await page.unroute("**/servers/missing-server");
-    await page.route("**/gateways?*", async (route) => {
+    await page.unroute("**/v1/virtual-servers/missing-server");
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [] }),
       });
     });
-    await page.route(`**/servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
       if (route.request().method() === "PUT") {
         await route.fulfill({
           status: 500,
