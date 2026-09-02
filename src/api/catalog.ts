@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  CatalogServerRegisterBody,
   CatalogServerRegisterResponse,
   GatewayRead,
   GatewayTestRequest,
@@ -13,12 +14,14 @@ export interface GatewayImpactPreview {
 
 export type CatalogGatewayDeleteResponse = GatewayRead | { status?: string; message?: string };
 
-/** Register an open catalog entry through the authenticated BFF proxy. */
+/** Register a catalog entry through the authenticated BFF proxy. */
 export async function registerCatalogServer(
   catalogId: string,
+  body?: CatalogServerRegisterBody,
 ): Promise<CatalogServerRegisterResponse> {
   return api.post<CatalogServerRegisterResponse>(
     `/v1/catalog/${encodeURIComponent(catalogId)}/register`,
+    body,
   );
 }
 
