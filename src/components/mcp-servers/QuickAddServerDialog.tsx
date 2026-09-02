@@ -141,6 +141,11 @@ export function QuickAddServerDialog({
   }, [data?.servers, unavailableIds]);
 
   const selectedServer = servers.find((server) => server.id === selectedId) ?? null;
+  const isLoadingCatalog = isLoading && !data;
+  // Rendered while loading as well as when loaded, so the dialog does not grow by this field's
+  // height the moment the grid arrives. ReservedGridHeight covers the grid; this covers itself.
+  // The error and empty states keep it hidden: there is nothing there to scope.
+  const showScopeFields = isLoadingCatalog || servers.length > 0;
 
   const handleContinue = useCallback(async () => {
     if (!selectedServer || isConnecting) return;
@@ -235,7 +240,7 @@ export function QuickAddServerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && !data && (
+        {isLoadingCatalog && (
           <div>
             <span role="status" aria-live="polite" className="sr-only">
               {intl.formatMessage({ id: "common.loading" })}
@@ -299,7 +304,7 @@ export function QuickAddServerDialog({
           </RadioGroup>
         )}
 
-        {servers.length > 0 && (
+        {showScopeFields && (
           <div className="space-y-5">
             <div className="space-y-2.5">
               <div className="flex items-center gap-1.5">
@@ -314,7 +319,7 @@ export function QuickAddServerDialog({
                   setVisibility(value);
                   setTeamError(undefined);
                 }}
-                disabled={isConnecting}
+                disabled={isConnecting || isLoadingCatalog}
               >
                 {/* SelectTrigger is w-fit by default; full width lines it up with the grid. */}
                 <SelectTrigger id="quick-add-visibility" className="w-full">

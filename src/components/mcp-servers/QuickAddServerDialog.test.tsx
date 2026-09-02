@@ -473,6 +473,48 @@ describe("QuickAddServerDialog", () => {
     );
   });
 
+  // The grid's height is reserved, so if the visibility field appeared only once the catalog
+  // resolved, the dialog would still grow by that field and re-centre.
+  it("renders the visibility field while loading as well as loaded", () => {
+    mockCatalogQuery({ data: undefined, isLoading: true });
+    const { rerender } = renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Visibility" })).toBeDisabled();
+
+    mockCatalogQuery();
+    rerender(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Visibility" })).toBeEnabled();
+  });
+
+  it("hides the visibility field when there is nothing to scope", () => {
+    mockCatalogQuery({ data: undefined, error: { message: "network error" } });
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("combobox", { name: "Visibility" })).not.toBeInTheDocument();
+  });
+
   it("keeps the reserved height behind the empty state", () => {
     mockCatalogQuery({
       data: { servers: [], total: 0, categories: [], auth_types: [], providers: [] },
