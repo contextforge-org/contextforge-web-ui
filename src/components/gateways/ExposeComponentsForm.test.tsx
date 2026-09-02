@@ -52,7 +52,7 @@ const server = setupServer(
     }
     return HttpResponse.json([]);
   }),
-  http.post("/api/servers", () => {
+  http.post("/api/v1/virtual-servers", () => {
     return HttpResponse.json({ id: "virtual-server-456" });
   }),
 );
@@ -380,7 +380,7 @@ describe("ExposeComponentsForm", () => {
     it("should disable submit button while creating", async () => {
       // Delay the server response to test the loading state
       server.use(
-        http.post("/api/servers", async () => {
+        http.post("/api/v1/virtual-servers", async () => {
           await new Promise((resolve) => setTimeout(resolve, 100));
           return HttpResponse.json({ id: "virtual-server-456" });
         }),
@@ -404,7 +404,7 @@ describe("ExposeComponentsForm", () => {
 
     it("should show error message on creation failure", async () => {
       server.use(
-        http.post("/api/servers", () => {
+        http.post("/api/v1/virtual-servers", () => {
           return HttpResponse.json({ error: "Failed to create server" }, { status: 500 });
         }),
       );
