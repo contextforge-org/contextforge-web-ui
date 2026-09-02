@@ -88,6 +88,25 @@ describe("aggregateSystemStats", () => {
     const result = aggregateSystemStats(metrics({ tools: entity({ totalExecutions: 4 }) }));
     expect(result?.avgResponseTime).toBeNull();
   });
+
+  it("skips an entity the gateway omitted from the response", () => {
+    const partial = metrics({ tools: entity({ totalExecutions: 4 }) });
+    // Older gateways omit whole sections rather than sending a zeroed entity.
+    delete (partial as Partial<MetricsResponse>).prompts;
+
+    const result = aggregateSystemStats(partial as MetricsResponse);
+    expect(result?.executions).toBe(4);
+  });
+
+  it("treats a missing execution total as zero", () => {
+    const result = aggregateSystemStats(
+      metrics({
+        tools: entity({ totalExecutions: undefined as unknown as number }),
+        a2aAgents: { avgResponseTime: 3 },
+      }),
+    );
+    expect(result?.executions).toBe(0);
+  });
 });
 
 describe("countActiveTotal", () => {

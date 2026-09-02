@@ -42,7 +42,6 @@ export function useMetrics(): MetricsState {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Read by the visibility handler without being a dependency of it, which
   // would re-register the listener on every fetch.
   const lastUpdatedRef = useRef<Date | null>(null);
@@ -91,15 +90,12 @@ export function useMetrics(): MetricsState {
   useEffect(() => {
     void fetchOnce();
 
-    intervalRef.current = globalThis.setInterval(() => {
+    const intervalId = globalThis.setInterval(() => {
       if (document.visibilityState === "visible") void fetchOnce();
     }, REFRESH_INTERVAL_MS);
 
     return () => {
-      if (intervalRef.current !== null) {
-        globalThis.clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      globalThis.clearInterval(intervalId);
       abortRef.current?.abort();
     };
   }, [fetchOnce]);

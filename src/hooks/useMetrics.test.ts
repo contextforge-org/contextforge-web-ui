@@ -90,6 +90,79 @@ describe("useMetrics", () => {
     expect(mockTimeseries.mock.calls.length).toBe(callsAfterMount);
   });
 
+  it("wraps a non-Error rejection so the card always has a message", async () => {
+    mockTimeseries.mockRejectedValue("boom");
+
+    const { result } = renderHook(() => useMetrics());
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.error?.message).toBe("Failed to load metrics");
+  });
+
+  it("discards a response that resolves after the request was aborted", async () => {
+    let release: (() => void) | undefined;
+    mockTimeseries.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ buckets: ["2026-09-01T12:00:00Z"], values: [9] });
+        }),
+    );
+
+    const { result } = renderHook(() => useMetrics());
+    await waitFor(() => expect(release).toBeDefined());
+
+    // A second fetch aborts the first; the first must not publish its result.
+    act(() => result.current.refetch());
+    await act(async () => {
+      release?.();
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.timeseries).toEqual({ buckets: [], values: [] });
+  });
+
+  it("refetches on becoming visible when nothing has loaded yet", async () => {
+    setVisibility("hidden");
+    mockTimeseries.mockImplementationOnce(() => new Promise(() => {}));
+
+    renderHook(() => useMetrics());
+    await waitFor(() => expect(mockTimeseries).toHaveBeenCalled());
+
+    await act(async () => {
+      setVisibility("visible");
+    });
+
+    await waitFor(() => expect(mockTimeseries.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it("refetches on becoming visible when the last success is older than the interval", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    setVisibility("hidden");
+    const { result } = renderHook(() => useMetrics());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const callsAfterMount = mockTimeseries.mock.calls.length;
+    vi.setSystemTime(Date.now() + REFRESH_INTERVAL_MS);
+    await act(async () => {
+      setVisibility("visible");
+    });
+
+    await waitFor(() => expect(mockTimeseries.mock.calls.length).toBeGreaterThan(callsAfterMount));
+  });
+
+  it("does not refetch on becoming visible while the data is still fresh", async () => {
+    setVisibility("hidden");
+    const { result } = renderHook(() => useMetrics());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const callsAfterMount = mockTimeseries.mock.calls.length;
+    await act(async () => {
+      setVisibility("visible");
+    });
+
+    expect(mockTimeseries.mock.calls.length).toBe(callsAfterMount);
+  });
+
   it("aborts the in-flight request on unmount", async () => {
     const { result, unmount } = renderHook(() => useMetrics());
     await waitFor(() => expect(result.current.isLoading).toBe(false));

@@ -73,6 +73,14 @@ describe("alignToGrid", () => {
   it("returns nothing for an empty grid", () => {
     expect(alignToGrid(["2026-09-01T11:00:00Z"], [7], [], "zero")).toEqual([]);
   });
+
+  it("matches on the exact timestamp when the grid holds a single slot", () => {
+    const single = [now];
+    expect(alignToGrid(["2026-09-01T12:00:00Z"], [7], single, "zero")).toEqual([7]);
+    // A one-slot grid has no interval to floor to, so a mid-bucket timestamp
+    // cannot be matched.
+    expect(alignToGrid(["2026-09-01T12:30:00Z"], [7], single, "zero")).toEqual([0]);
+  });
 });
 
 describe("headlineScalar", () => {
