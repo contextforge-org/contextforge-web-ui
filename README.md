@@ -88,18 +88,29 @@ Bring them up in this order:
    npm run dev   # :3000, tsx watch, reads ../.env
    ```
 
-3. **Build the frontend for the BFF to serve**, from the repo root:
+   Iterating on the frontend with HMR (step 3)? Start this with
+   `VITE_DEV_SERVER_URL=http://localhost:5173 npm run dev` instead — see
+   step 3 for why. Or skip steps 2 and 3 entirely and run `npm run dev:all`
+   from the repo root, which starts both with that already set.
+
+3. **Start the frontend** (terminal C, from the repo root):
 
    ```bash
    npm install
-   npm run build
+   npm run dev   # :5173
    ```
 
-   This builds the SPA into `server/public/`, which the already-running BFF
-   serves directly. Re-run `npm run build` after any frontend change;
-   there's no HMR dev server wired to the BFF, so this build step is the
-   loop for local iteration against the real backend. (`npm run build:watch`
-   reruns it automatically on file changes.)
+   Don't visit `:5173` directly — keep visiting the BFF on `:3000` (step
+   4). With `VITE_DEV_SERVER_URL` set (step 2), the BFF reverse-proxies
+   everything it doesn't own itself (SPA shell, JS/CSS modules, HMR) to
+   this Vite dev server (`server/src/plugins/vite-dev-proxy.ts`), so the
+   browser only ever talks to one origin (`:3000`) and gets real HMR
+   instead of the rebuild-and-refresh `build:watch` loop. `/api/*`,
+   `/auth/*`, etc. stay handled by the BFF itself, unaffected by the proxy.
+
+   Terminals B and C can be replaced with one: `npm run dev:all` runs both
+   via `concurrently` (already sets `VITE_DEV_SERVER_URL` for you). The API
+   (terminal A) still needs its own terminal since it's a separate repo.
 
 4. **Use it.** Visit `http://localhost:3000/`: redirects to `/app/login`
    (unauthed) or `/app/` (authed). The login form posts through the BFF,
@@ -110,9 +121,11 @@ Bring them up in this order:
    forces a password change unless `PASSWORD_CHANGE_ENFORCEMENT_ENABLED=false`
    is set in the API's `.env`).
 
-> `npm run dev` (plain Vite dev server at `:5173`, no BFF in front) still
-> works for UI-only iteration, but `/api/*` calls need the BFF — it won't
-> reach the ContextForge API on its own.
+> Testing the exact BFF-served bundle (no Vite dev server, no HMR)? Run
+> `npm run build` (or `npm run build:watch` to rebuild on change) instead of
+> step 3, and start the BFF in step 2 with plain `npm run dev` (no
+> `VITE_DEV_SERVER_URL`) — you're still visiting `http://localhost:3000/`
+> either way.
 
 #### Troubleshooting
 
@@ -121,6 +134,14 @@ Bring them up in this order:
 - **401 mid-session**: expected; the API token hard-expires per
   `TOKEN_EXPIRY` (default 20 min). The BFF auto-revokes the session and
   redirects to login.
+- **`:3000` doesn't reflect frontend changes / no HMR**: the BFF wasn't
+  started with `VITE_DEV_SERVER_URL=http://localhost:5173` (step 2), so
+  it's serving the last `server/public/` build instead of proxying to
+  Vite. Use `npm run dev:all`, or set the env var yourself.
+- **502/connection error on `:3000` for non-API paths**: `VITE_DEV_SERVER_URL`
+  is set but the Vite dev server (step 3) isn't actually running yet — the
+  BFF proxies to it lazily per-request, so start Vite first (or use
+  `npm run dev:all`, which starts both).
 
 ### Build
 
@@ -359,31 +380,32 @@ contextforge-web-ui/
 
 ## Available Scripts
 
-Run from the repo root unless noted. The app you actually visit is the BFF
-on `:3000` — see [Getting Started](#getting-started) for the full three-process
-setup.
+Run from the repo root unless noted. Visit the app on the BFF's port
+(`:3000`) either way — see [Getting Started](#getting-started) for the full
+dev setup.
 
-| Script                       | Description                                                                         |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| `npm run dev` (in `server/`) | **Start the BFF (`:3000`)** — serves the SPA and proxies `/api/*` to the API        |
-| `npm run dev`                | Vite dev server (`:5173`), UI-only — no BFF in front, so `/api/*` calls won't work  |
-| `npm run build`              | Build the SPA into `server/public/`, which the BFF serves (also the local dev loop) |
-| `npm run build:watch`        | Rebuild on change — the iteration loop when running against the real API            |
-| `npm run generate`           | Regenerate API types from `openapi.json`                                            |
-| `npm run preview`            | Preview production build                                                            |
-| `npm run lint`               | Check for linting errors                                                            |
-| `npm run lint:fix`           | Auto-fix linting errors                                                             |
-| `npm run format`             | Format all files with Prettier                                                      |
-| `npm run format:check`       | Check formatting without changes                                                    |
-| `npm run test`               | Run tests in watch mode                                                             |
-| `npm run test:run`           | Run tests once (CI mode)                                                            |
-| `npm run test:ui`            | Run tests with UI                                                                   |
-| `npm run test:coverage`      | Generate coverage report                                                            |
-| `npm run e2e`                | Run Playwright E2E tests                                                            |
-| `npm run e2e:ui`             | Playwright UI mode                                                                  |
-| `npm run e2e:debug`          | Playwright Inspector                                                                |
-| `npm run e2e:install`        | Install Playwright browsers                                                         |
-| `npm run e2e:report`         | Open last Playwright report                                                         |
+| Script                       | Description                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| `npm run dev`                | Vite dev server (`:5173`) — not visited directly; the BFF proxies to it for HMR                   |
+| `npm run dev` (in `server/`) | **Start the BFF (`:3000`)** — serves the SPA (or proxies to Vite) and proxies `/api/*` to the API |
+| `npm run dev:all`            | Both of the above together (via `concurrently`), `VITE_DEV_SERVER_URL` already set                |
+| `npm run build`              | Build the SPA into `server/public/`, which the BFF serves directly (no Vite dev server)           |
+| `npm run build:watch`        | Rebuild on change — for iterating without HMR, against the BFF-served build                       |
+| `npm run generate`           | Regenerate API types from `openapi.json`                                                          |
+| `npm run preview`            | Preview production build                                                                          |
+| `npm run lint`               | Check for linting errors                                                                          |
+| `npm run lint:fix`           | Auto-fix linting errors                                                                           |
+| `npm run format`             | Format all files with Prettier                                                                    |
+| `npm run format:check`       | Check formatting without changes                                                                  |
+| `npm run test`               | Run tests in watch mode                                                                           |
+| `npm run test:run`           | Run tests once (CI mode)                                                                          |
+| `npm run test:ui`            | Run tests with UI                                                                                 |
+| `npm run test:coverage`      | Generate coverage report                                                                          |
+| `npm run e2e`                | Run Playwright E2E tests                                                                          |
+| `npm run e2e:ui`             | Playwright UI mode                                                                                |
+| `npm run e2e:debug`          | Playwright Inspector                                                                              |
+| `npm run e2e:install`        | Install Playwright browsers                                                                       |
+| `npm run e2e:report`         | Open last Playwright report                                                                       |
 
 ## Internationalization (i18n)
 
