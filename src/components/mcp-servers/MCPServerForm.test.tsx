@@ -1268,6 +1268,31 @@ describe("MCPServerForm", () => {
       expect(screen.queryByLabelText(/URL/i)).not.toBeInTheDocument();
     });
 
+    // The user never passes through the connect form, so the scope the components step builds
+    // the virtual server with has to come from the dialog rather than the form's defaults.
+    it("carries the visibility chosen in the dialog into the exposed virtual server", async () => {
+      let exposedBody: Record<string, unknown> | undefined;
+      server.use(
+        http.post("/api/servers", async ({ request }) => {
+          exposedBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: "virtual-server-1" });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithRouter(<MCPServerForm {...defaultProps} />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+      await user.click(screen.getByRole("radio", { name: /DeepWiki/i }));
+      await user.click(screen.getByRole("combobox", { name: "Visibility" }));
+      await user.click(screen.getByRole("option", { name: "Internal" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      await user.click(await screen.findByRole("button", { name: "Expose components" }));
+
+      await waitFor(() => expect(exposedBody).toBeDefined());
+      expect(exposedBody).toMatchObject({ visibility: "public" });
+    });
+
     it("keeps the dialog open and reports the failure when registration fails", async () => {
       server.use(
         http.post("/api/v1/catalog/:catalogId/register", () => {

@@ -3,6 +3,8 @@ import { useIntl } from "react-intl";
 
 import { registerCatalogServer } from "@/api/catalog";
 import { ApiError } from "@/api/client";
+import { TeamSelect } from "@/components/common/TeamSelect";
+import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,19 @@ import {
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { QUICK_ADD_CATALOG_IDS } from "@/config/quickAddServers";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
+import { useTeamScope } from "@/hooks/useTeams";
 import { cn } from "@/lib/utils";
+import type { Visibility } from "@/types/server";
 
 const CATALOG_PATH = "/v1/catalog?limit=1000";
 const GRID_CLASS = "grid grid-cols-2 gap-3 sm:grid-cols-4";
@@ -67,14 +78,22 @@ function ReservedGridHeight({ children }: { children?: ReactNode }) {
   );
 }
 
+export interface QuickAddConnection {
+  gatewayId: string;
+  serverName: string;
+  visibility: Visibility;
+  teamId: string;
+}
+
 interface QuickAddServerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
    * Called once the picked entry is registered and a gateway exists for it. The caller is
-   * responsible for closing the dialog.
+   * responsible for closing the dialog, and for carrying the chosen scope into the components
+   * step so the virtual server lands where the user asked for it.
    */
-  onConnected: (gatewayId: string, serverName: string) => void;
+  onConnected: (connection: QuickAddConnection) => void;
   onBrowseCatalog: () => void;
 }
 
@@ -89,6 +108,13 @@ export function QuickAddServerDialog({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<Visibility>("private");
+  const [teamId, setTeamId] = useState("");
+  const [teamError, setTeamError] = useState<string>();
+  // Curated ids the backend 404s on. The list comes from the query cache rather than local
+  // state, so entries are dropped here instead of being spliced out of the cached response.
+  const [unavailableIds, setUnavailableIds] = useState<ReadonlySet<string>>(new Set());
+  const { teams, onTeamChange } = useTeamScope({ visibility, teamId, onTeamIdChange: setTeamId });
 
   const { data, error, isLoading } = useQuery<CatalogListResponse>(CATALOG_PATH, {
     enabled: open,
@@ -99,14 +125,20 @@ export function QuickAddServerDialog({
       setSelectedId(null);
       setIsConnecting(false);
       setConnectError(null);
+      setVisibility("private");
+      setTeamId("");
+      setTeamError(undefined);
+      setUnavailableIds(new Set());
     }
   }, [open]);
 
   const servers = useMemo(() => {
     if (!data?.servers) return [];
     const byId = new Map(data.servers.map((server) => [server.id, server]));
-    return QUICK_ADD_CATALOG_IDS.map((id) => byId.get(id)).filter(isQuickAddEligible);
-  }, [data?.servers]);
+    return QUICK_ADD_CATALOG_IDS.filter((id) => !unavailableIds.has(id))
+      .map((id) => byId.get(id))
+      .filter(isQuickAddEligible);
+  }, [data?.servers, unavailableIds]);
 
   const selectedServer = servers.find((server) => server.id === selectedId) ?? null;
 
@@ -114,40 +146,80 @@ export function QuickAddServerDialog({
     if (!selectedServer || isConnecting) return;
     setConnectError(null);
 
-    // Already registered, so skip the round trip and go straight to the components step.
+    if (visibility === "team" && !teamId) {
+      setTeamError(intl.formatMessage({ id: "mcpServer.quickAdd.teamRequired" }));
+      return;
+    }
+    setTeamError(undefined);
+
+    const scope = { visibility, teamId: visibility === "team" ? teamId : "" };
+
+    // Already registered, so skip the round trip and go straight to the components step. The
+    // scope reaches the virtual server built there; the existing gateway keeps its own.
     if (selectedServer.is_registered && selectedServer.gateway_id) {
-      onConnected(selectedServer.gateway_id, selectedServer.name);
+      onConnected({
+        gatewayId: selectedServer.gateway_id,
+        serverName: selectedServer.name,
+        ...scope,
+      });
       return;
     }
 
     setIsConnecting(true);
     try {
-      const result = await registerCatalogServer(selectedServer.id);
+      const result = await registerCatalogServer(selectedServer.id, {
+        visibility,
+        team_id: scope.teamId || null,
+      });
       if (!result.success || !result.server_id) {
         setConnectError(
           result.message || intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }),
         );
         return;
       }
-      onConnected(result.server_id, selectedServer.name);
+      onConnected({ gatewayId: result.server_id, serverName: selectedServer.name, ...scope });
     } catch (registrationError) {
       // A 409 means the catalog list this dialog loaded has gone stale, so there is no
       // gateway id to hand on. Point at the catalog rather than retrying into the same 409.
-      setConnectError(
-        registrationError instanceof ApiError && registrationError.status === 409
-          ? intl.formatMessage(
-              { id: "mcpServer.quickAdd.alreadyConnected" },
-              { name: selectedServer.name },
-            )
-          : intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }),
-      );
+      if (registrationError instanceof ApiError && registrationError.status === 409) {
+        setConnectError(
+          intl.formatMessage(
+            { id: "mcpServer.quickAdd.alreadyConnected" },
+            { name: selectedServer.name },
+          ),
+        );
+        return;
+      }
+
+      // A 404 means the entry left the catalog, so drop it rather than leave a card that
+      // 404s again on every retry.
+      if (registrationError instanceof ApiError && registrationError.status === 404) {
+        setUnavailableIds((current) => new Set(current).add(selectedServer.id));
+        setSelectedId(null);
+        setConnectError(
+          intl.formatMessage({ id: "mcpServer.quickAdd.notFound" }, { name: selectedServer.name }),
+        );
+        return;
+      }
+
+      setConnectError(intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }));
     } finally {
       setIsConnecting(false);
     }
-  }, [intl, isConnecting, onConnected, selectedServer]);
+  }, [intl, isConnecting, onConnected, selectedServer, teamId, visibility]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      // Nothing cancels an in-flight registration, so a dismissal here would still land the
+      // user on the components step once it resolved. Hold the dialog until it settles.
+      if (!nextOpen && isConnecting) return;
+      onOpenChange(nextOpen);
+    },
+    [isConnecting, onOpenChange],
+  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -227,6 +299,58 @@ export function QuickAddServerDialog({
           </RadioGroup>
         )}
 
+        {servers.length > 0 && (
+          <div className="space-y-5">
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="quick-add-visibility">
+                  {intl.formatMessage({ id: "gateways.createServer.visibility" })}
+                </Label>
+                <VisibilityInfoPopover />
+              </div>
+              <Select
+                value={visibility}
+                onValueChange={(value: Visibility) => {
+                  setVisibility(value);
+                  setTeamError(undefined);
+                }}
+                disabled={isConnecting}
+              >
+                {/* SelectTrigger is w-fit by default; full width lines it up with the grid. */}
+                <SelectTrigger id="quick-add-visibility" className="w-full">
+                  <SelectValue
+                    placeholder={intl.formatMessage({
+                      id: "mcpServer.advanced.visibilityPlaceholder",
+                    })}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">
+                    {intl.formatMessage({ id: "common.visibility.private" })}
+                  </SelectItem>
+                  <SelectItem value="team">
+                    {intl.formatMessage({ id: "common.visibility.team" })}
+                  </SelectItem>
+                  {/* The API uses "public" for org-internal visibility; the UI label is "Internal". */}
+                  <SelectItem value="public">
+                    {intl.formatMessage({ id: "common.visibility.internal" })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {visibility === "team" && (
+              <TeamSelect
+                id="quick-add-team"
+                teams={teams}
+                value={teamId || undefined}
+                onChange={onTeamChange}
+                error={teamError}
+              />
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           <p className="text-sm text-muted-foreground">
             {intl.formatMessage(
@@ -236,6 +360,7 @@ export function QuickAddServerDialog({
                   <Button
                     type="button"
                     variant="link"
+                    disabled={isConnecting}
                     onClick={onBrowseCatalog}
                     className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
                   >
@@ -250,7 +375,7 @@ export function QuickAddServerDialog({
               type="button"
               variant="ghost"
               disabled={isConnecting}
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             >
               {intl.formatMessage({ id: "mcpServer.quickAdd.cancel" })}
             </Button>

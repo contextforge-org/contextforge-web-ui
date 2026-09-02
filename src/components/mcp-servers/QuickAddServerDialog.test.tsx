@@ -8,6 +8,7 @@ import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { renderWithProviders } from "@/test/test-utils";
 import { QUICK_ADD_CATALOG_IDS } from "@/config/quickAddServers";
+import type { Team } from "@/types/team";
 import { QuickAddServerDialog } from "./QuickAddServerDialog";
 
 vi.mock("@/hooks/useQuery", () => ({
@@ -16,6 +17,17 @@ vi.mock("@/hooks/useQuery", () => ({
 
 vi.mock("@/api/catalog", () => ({
   registerCatalogServer: vi.fn(),
+}));
+
+const teamScopeState = vi.hoisted(() => ({
+  teams: [] as Team[],
+}));
+
+vi.mock("@/hooks/useTeams", () => ({
+  useTeamScope: ({ onTeamIdChange }: { onTeamIdChange: (teamId: string) => void }) => ({
+    teams: teamScopeState.teams,
+    onTeamChange: onTeamIdChange,
+  }),
 }));
 
 const mockUseQuery = vi.mocked(useQuery);
@@ -82,6 +94,7 @@ function selectFirstCuratedCard(user: ReturnType<typeof userEvent.setup>) {
 describe("QuickAddServerDialog", () => {
   beforeEach(() => {
     mockRegister.mockReset();
+    teamScopeState.teams = [];
   });
 
   it("renders only the curated catalog entries", () => {
@@ -156,9 +169,17 @@ describe("QuickAddServerDialog", () => {
 
     await user.click(continueButton);
 
-    expect(mockRegister).toHaveBeenCalledWith(QUICK_ADD_CATALOG_IDS[0]);
+    expect(mockRegister).toHaveBeenCalledWith(QUICK_ADD_CATALOG_IDS[0], {
+      visibility: "private",
+      team_id: null,
+    });
     await waitFor(() => {
-      expect(onConnected).toHaveBeenCalledWith("gateway-1", QUICK_ADD_CATALOG_IDS[0]);
+      expect(onConnected).toHaveBeenCalledWith({
+        gatewayId: "gateway-1",
+        serverName: QUICK_ADD_CATALOG_IDS[0],
+        visibility: "private",
+        teamId: "",
+      });
     });
   });
 
@@ -181,7 +202,12 @@ describe("QuickAddServerDialog", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(mockRegister).not.toHaveBeenCalled();
-    expect(onConnected).toHaveBeenCalledWith("existing-gateway", QUICK_ADD_CATALOG_IDS[0]);
+    expect(onConnected).toHaveBeenCalledWith({
+      gatewayId: "existing-gateway",
+      serverName: QUICK_ADD_CATALOG_IDS[0],
+      visibility: "private",
+      teamId: "",
+    });
   });
 
   it("keeps the dialog open and shows the failure when registration fails", async () => {
@@ -276,6 +302,139 @@ describe("QuickAddServerDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onConnected).not.toHaveBeenCalled();
     expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it("registers with the chosen team and hands that scope to the components step", async () => {
+    mockCatalogQuery();
+    teamScopeState.teams = [
+      { id: "team-alpha", name: "Alpha team" },
+      { id: "team-beta", name: "Beta team" },
+    ] as Team[];
+    mockRegister.mockResolvedValue({
+      success: true,
+      server_id: "gateway-1",
+      message: "registered",
+    });
+    const user = userEvent.setup();
+    const onConnected = vi.fn();
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={onConnected}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    await selectFirstCuratedCard(user);
+    await user.click(screen.getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.click(screen.getByRole("combobox", { name: /^Team/ }));
+    await user.click(screen.getByRole("option", { name: "Alpha team" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(mockRegister).toHaveBeenCalledWith(QUICK_ADD_CATALOG_IDS[0], {
+      visibility: "team",
+      team_id: "team-alpha",
+    });
+    await waitFor(() => {
+      expect(onConnected).toHaveBeenCalledWith({
+        gatewayId: "gateway-1",
+        serverName: QUICK_ADD_CATALOG_IDS[0],
+        visibility: "team",
+        teamId: "team-alpha",
+      });
+    });
+  });
+
+  it("blocks team visibility without a team instead of registering", async () => {
+    mockCatalogQuery();
+    teamScopeState.teams = [
+      { id: "team-alpha", name: "Alpha team" },
+      { id: "team-beta", name: "Beta team" },
+    ] as Team[];
+    const user = userEvent.setup();
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    await selectFirstCuratedCard(user);
+    await user.click(screen.getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Select a team.")).toBeInTheDocument();
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  // Nothing cancels the request, so a dismissal that went through would still land the user on
+  // the components step once it resolved.
+  it("refuses to close while a registration is in flight", async () => {
+    mockCatalogQuery();
+    let resolveRegistration: (value: Awaited<ReturnType<typeof registerCatalogServer>>) => void;
+    mockRegister.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRegistration = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={onOpenChange}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    await selectFirstCuratedCard(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("button", { name: "Connecting…" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.keyboard("{Escape}");
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "server catalog" })).toBeDisabled();
+
+    resolveRegistration!({ success: true, server_id: "gateway-1", message: "registered" });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument(),
+    );
+  });
+
+  it("drops a curated entry the backend 404s on so it cannot be retried", async () => {
+    mockCatalogQuery();
+    mockRegister.mockRejectedValue(new ApiError(404, null, "not found"));
+    const user = userEvent.setup();
+    const onConnected = vi.fn();
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={onConnected}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    await selectFirstCuratedCard(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(
+      await screen.findByText(`${QUICK_ADD_CATALOG_IDS[0]} is no longer available in the catalog.`),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: new RegExp(QUICK_ADD_CATALOG_IDS[0]) }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(onConnected).not.toHaveBeenCalled();
   });
 
   it("calls onBrowseCatalog when the browse-catalog link is clicked", async () => {

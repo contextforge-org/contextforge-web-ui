@@ -42,6 +42,8 @@
   "mcpServer.quickAdd.errorState": "Não foi possível carregar os servidores de adição rápida. Tente novamente.",
   "mcpServer.quickAdd.connectError": "Não foi possível conectar este servidor. Tente novamente.",
   "mcpServer.quickAdd.alreadyConnected": "{name} já está conectado. Gerencie-o no catálogo de servidores.",
+  "mcpServer.quickAdd.notFound": "{name} não está mais disponível no catálogo.",
+  "mcpServer.quickAdd.teamRequired": "Selecione uma equipe.",
   "mcpServer.table.caption": "Lista de servidores MCP com status e ações",
   "mcpServer.table.name": "Nome",
   "mcpServer.table.components": "Componentes",

@@ -42,6 +42,8 @@
   "mcpServer.quickAdd.errorState": "Unable to load quick add servers. Try again.",
   "mcpServer.quickAdd.connectError": "Unable to connect this server. Try again.",
   "mcpServer.quickAdd.alreadyConnected": "{name} is already connected. Manage it from the server catalog.",
+  "mcpServer.quickAdd.notFound": "{name} is no longer available in the catalog.",
+  "mcpServer.quickAdd.teamRequired": "Select a team.",
   "mcpServer.table.caption": "List of MCP servers with status and actions",
   "mcpServer.table.name": "Name",
   "mcpServer.table.components": "Components",

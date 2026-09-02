@@ -126,7 +126,11 @@ test.describe("Quick Add server dialog", () => {
         request.url().includes("/v1/catalog/deepwiki/register") && request.method() === "POST",
     );
     await continueButton.click();
-    await registerRequest;
+    // The dialog owns the scope now, so the register body has to carry it.
+    expect((await registerRequest).postDataJSON()).toMatchObject({
+      visibility: "private",
+      team_id: null,
+    });
 
     // The connect form is skipped: Quick Add registers through the catalog endpoint.
     await expect(
