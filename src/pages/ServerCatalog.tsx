@@ -481,7 +481,10 @@ export function ServerCatalog() {
         return true;
       } catch (registrationError) {
         if (registrationError instanceof ApiError && registrationError.status === 409) {
-          reportNotification({
+          // Terminal outcome, not a retryable error: always surface on the grid (matching the
+          // "connected" card state refreshCatalogSilently produces) and report success so the
+          // dialog closes instead of sitting open behind its own notification.
+          showRegistrationNotification({
             id: `add:${server.id}`,
             type: "success",
             message: intl.formatMessage(
@@ -490,7 +493,7 @@ export function ServerCatalog() {
             ),
           });
           await refreshCatalogSilently();
-          return false;
+          return true;
         }
 
         if (registrationError instanceof ApiError && registrationError.status === 404) {
@@ -547,7 +550,12 @@ export function ServerCatalog() {
     async (body: CatalogServerRegisterBody) => {
       if (!apiKeyServer) return false;
       setApiKeyDialogNotification(undefined);
-      const registered = await registerServer(apiKeyServer, body, setApiKeyDialogNotification);
+      // The dialog notification has no focus-ref registry like the grid's does, and doesn't
+      // need one: InlineNotification already uses role="alert"/"status" for a11y announcement,
+      // so shouldFocus is intentionally dropped here rather than passed to a state setter.
+      const registered = await registerServer(apiKeyServer, body, (notification) =>
+        setApiKeyDialogNotification(notification),
+      );
       if (registered) setFocusActionsForServerId(apiKeyServer.id);
       return registered;
     },

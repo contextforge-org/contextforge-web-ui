@@ -683,7 +683,7 @@ describe("ServerCatalog", () => {
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
-  it("surfaces an already-connected conflict inside the API-key dialog", async () => {
+  it("closes the API-key dialog and surfaces an already-connected conflict on the grid", async () => {
     const user = userEvent.setup();
     const refetch = vi.fn().mockResolvedValue(undefined);
     mockUseQuery.mockReturnValue(queryResult({ refetch }));
@@ -697,10 +697,8 @@ describe("ServerCatalog", () => {
     await user.type(within(dialog).getByLabelText(/^API key/), "test-api-key"); // pragma: allowlist secret
     await user.click(within(dialog).getByRole("button", { name: "Add server" }));
 
-    expect(
-      await within(dialog).findByText("Secret Service is already connected."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Add Secret Service" })).toBeInTheDocument();
+    expect(await screen.findByText("Secret Service is already connected.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
     expect(refetch).toHaveBeenCalled();
   });
 
