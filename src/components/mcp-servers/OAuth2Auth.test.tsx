@@ -19,7 +19,6 @@ describe("OAuth2Auth", () => {
     password: "", // pragma: allowlist secret
     onGrantTypeChange: vi.fn(),
     onIssuerUrlChange: vi.fn(),
-    onRedirectUriChange: vi.fn(),
     onClientIdChange: vi.fn(),
     onClientSecretChange: vi.fn(),
     onTokenUrlChange: vi.fn(),
@@ -145,24 +144,24 @@ describe("OAuth2Auth", () => {
     expect(onPasswordChange).toHaveBeenCalledWith("test-pass");
   });
 
-  it("shows a read-only derived redirect URI, lifts it into form state, and triggers the authorization URL callback", () => {
+  it("shows an auto-placeholder (not window.location.origin) with no stored redirect URI", () => {
     const onAuthorizationUrlChange = vi.fn();
-    const onRedirectUriChange = vi.fn();
 
     render(
       <OAuth2Auth
         {...defaultProps}
         grantType="authorization_code"
         onAuthorizationUrlChange={onAuthorizationUrlChange}
-        onRedirectUriChange={onRedirectUriChange}
       />,
     );
 
     const redirect = screen.getByLabelText(/Redirect URI/i);
     expect(redirect).toHaveAttribute("readonly");
-    expect(redirect).toHaveValue(`${window.location.origin}/oauth/callback`);
-    expect(screen.getByRole("button", { name: "Copy to clipboard" })).toBeInTheDocument();
-    expect(onRedirectUriChange).toHaveBeenCalledWith(`${window.location.origin}/oauth/callback`);
+    // The web UI's own origin is not where the gateway serves /oauth/callback
+    // in a split deployment (mcp-context-forge#6458) -- must never display or
+    // submit it as a guess.
+    expect(redirect).not.toHaveValue(`${window.location.origin}/oauth/callback`);
+    expect(screen.queryByRole("button", { name: "Copy to clipboard" })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Authorization URL/i), {
       target: { value: "https://auth.com/authorize" },
@@ -170,36 +169,18 @@ describe("OAuth2Auth", () => {
     expect(onAuthorizationUrlChange).toHaveBeenCalledWith("https://auth.com/authorize");
   });
 
-  it("displays a stored redirect URI verbatim without overwriting it", () => {
-    const onRedirectUriChange = vi.fn();
-
+  it("displays a stored redirect URI verbatim", () => {
     render(
       <OAuth2Auth
         {...defaultProps}
         grantType="authorization_code"
         redirectUri="https://public.example.com/oauth/callback"
-        onRedirectUriChange={onRedirectUriChange}
       />,
     );
 
     expect(screen.getByLabelText(/Redirect URI/i)).toHaveValue(
       "https://public.example.com/oauth/callback",
     );
-    expect(onRedirectUriChange).not.toHaveBeenCalled();
-  });
-
-  it("does not set a redirect URI for non-authorization_code grants", () => {
-    const onRedirectUriChange = vi.fn();
-
-    render(
-      <OAuth2Auth
-        {...defaultProps}
-        grantType="client_credentials"
-        onRedirectUriChange={onRedirectUriChange}
-      />,
-    );
-
-    expect(onRedirectUriChange).not.toHaveBeenCalled();
   });
 
   it("only offers the password grant option when already selected (legacy)", () => {
@@ -236,8 +217,14 @@ describe("OAuth2Auth", () => {
       });
     });
 
-    it("copies the redirect URI to clipboard when the copy button is clicked", async () => {
-      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+    it("copies a stored redirect URI to clipboard when the copy button is clicked", async () => {
+      render(
+        <OAuth2Auth
+          {...defaultProps}
+          grantType="authorization_code"
+          redirectUri="https://public.example.com/oauth/callback"
+        />,
+      );
 
       const copyButton = screen.getByRole("button", { name: /Copy to clipboard/i });
       await act(async () => {
@@ -245,14 +232,20 @@ describe("OAuth2Auth", () => {
       });
 
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        `${window.location.origin}/oauth/callback`,
+        "https://public.example.com/oauth/callback",
       );
     });
 
     it("shows a check icon immediately after clicking copy and reverts after 2 s", async () => {
       vi.useFakeTimers();
 
-      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+      render(
+        <OAuth2Auth
+          {...defaultProps}
+          grantType="authorization_code"
+          redirectUri="https://public.example.com/oauth/callback"
+        />,
+      );
 
       const copyButton = screen.getByRole("button", { name: /Copy to clipboard/i });
       await act(async () => {
@@ -271,13 +264,14 @@ describe("OAuth2Auth", () => {
   });
 
   describe("localhost warning", () => {
-    it("shows a localhost warning when the derived redirect URI points to localhost", () => {
-      // jsdom sets window.location.origin to 'http://localhost'
+    it("does not show the localhost warning with no stored redirect URI, even though jsdom's own origin is localhost", () => {
+      // jsdom sets window.location.origin to 'http://localhost' -- must not
+      // leak into the warning now that nothing is derived from it.
       render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
 
       expect(
-        screen.getByText(/Redirect URIs derived from localhost will not work/i),
-      ).toBeInTheDocument();
+        screen.queryByText(/Redirect URIs derived from localhost will not work/i),
+      ).not.toBeInTheDocument();
     });
 
     it("does not show the localhost warning when a non-localhost stored redirect URI is used", () => {

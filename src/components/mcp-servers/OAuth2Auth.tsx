@@ -2,7 +2,7 @@ import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,6 @@ interface OAuth2AuthProps {
   password: string; // pragma: allowlist secret
   onGrantTypeChange: (value: string) => void;
   onIssuerUrlChange: (value: string) => void;
-  onRedirectUriChange: (value: string) => void;
   onClientIdChange: (value: string) => void;
   onClientSecretChange: (value: string) => void;
   onTokenUrlChange: (value: string) => void;
@@ -56,7 +55,6 @@ export function OAuth2Auth({
   password,
   onGrantTypeChange,
   onIssuerUrlChange,
-  onRedirectUriChange,
   onClientIdChange,
   onClientSecretChange,
   onTokenUrlChange,
@@ -69,23 +67,22 @@ export function OAuth2Auth({
   errors,
 }: OAuth2AuthProps) {
   const intl = useIntl();
-  const derivedRedirectUri = `${window.location.origin}/oauth/callback`;
-  const displayRedirectUri = redirectUri || derivedRedirectUri;
-  const isLocalRedirect = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(
-    displayRedirectUri,
-  );
+  // Deliberately NOT derived from window.location.origin: the browser's own
+  // address is the web UI's origin, but the OAuth callback is served by the
+  // gateway (mcpgateway) at its own configured APP_DOMAIN, which can differ
+  // in any split deployment. Guessing wrong here means registering the wrong
+  // redirect URI with the OAuth provider with no warning (see
+  // mcp-context-forge#6458). When the operator hasn't set one, leave
+  // redirect_uri unsubmitted (see useMCPServerForm.ts) so the gateway's own
+  // default (based on its APP_DOMAIN) applies server-side instead.
+  const hasStoredRedirectUri = Boolean(redirectUri);
+  const isLocalRedirect =
+    hasStoredRedirectUri &&
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(redirectUri);
   const [copied, setCopied] = useState(false);
 
-  // The displayed URI is what the OAuth app is registered with, so it has to be the value we
-  // store and send to the IdP — a display-only derivation submits no redirect_uri at all.
-  useEffect(() => {
-    if (grantType === "authorization_code" && !redirectUri) {
-      onRedirectUriChange(derivedRedirectUri);
-    }
-  }, [grantType, redirectUri, derivedRedirectUri, onRedirectUriChange]);
-
   const handleCopyRedirect = () => {
-    void navigator.clipboard?.writeText(displayRedirectUri);
+    void navigator.clipboard?.writeText(redirectUri);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   };
@@ -161,27 +158,44 @@ export function OAuth2Auth({
           >
             {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
           </label>
-          <div className="flex items-center gap-2">
+          {hasStoredRedirectUri ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="oauth-redirect-uri"
+                  type="text"
+                  readOnly
+                  value={redirectUri}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriCopy" })}
+                  onClick={handleCopyRedirect}
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-500">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
+              </p>
+            </>
+          ) : (
             <Input
               id="oauth-redirect-uri"
               type="text"
               readOnly
-              value={displayRedirectUri}
-              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+              value={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriAutoPlaceholder" })}
+              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-500 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-500"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriCopy" })}
-              onClick={handleCopyRedirect}
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-500">
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
-          </p>
+          )}
+          {!hasStoredRedirectUri && (
+            <p className="text-xs text-neutral-600 dark:text-neutral-500">
+              {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriAutoHelp" })}
+            </p>
+          )}
           {isLocalRedirect && (
             <p className="text-xs text-amber-600 dark:text-amber-500">
               {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLocalWarning" })}

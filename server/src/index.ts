@@ -23,6 +23,8 @@ import loginRoute from "./routes/auth/login.js";
 import logoutRoute from "./routes/auth/logout.js";
 import sessionRoute from "./routes/auth/session.js";
 import catchAllProxyRoute from "./routes/proxy/catch-all.js";
+import oauthAuthorizeProxyRoute from "./routes/proxy/oauth-authorize.js";
+import oauthCallbackProxyRoute from "./routes/proxy/oauth-callback.js";
 import publicPasswordResetRoute from "./routes/proxy/public-password-reset.js";
 import { startRevocationSubscriber } from "./routes/sse/revocation-subscriber.js";
 import sseRoutes from "./routes/sse/routes.js";
@@ -49,6 +51,8 @@ await fastify.register(sessionRoute);
 await fastify.register(changePasswordRequiredRoute);
 await fastify.register(sseRoutes);
 await fastify.register(publicPasswordResetRoute);
+await fastify.register(oauthAuthorizeProxyRoute);
+await fastify.register(oauthCallbackProxyRoute);
 await fastify.register(catchAllProxyRoute);
 await fastify.register(appRoute);
 

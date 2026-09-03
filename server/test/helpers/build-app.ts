@@ -18,6 +18,8 @@ import loginRoute from "../../src/routes/auth/login.js";
 import logoutRoute from "../../src/routes/auth/logout.js";
 import sessionRoute from "../../src/routes/auth/session.js";
 import catchAllProxyRoute from "../../src/routes/proxy/catch-all.js";
+import oauthAuthorizeProxyRoute from "../../src/routes/proxy/oauth-authorize.js";
+import oauthCallbackProxyRoute from "../../src/routes/proxy/oauth-callback.js";
 import publicPasswordResetRoute from "../../src/routes/proxy/public-password-reset.js";
 
 export class FakeRedis {
@@ -64,6 +66,8 @@ export async function buildTestApp(opts: { withProxy?: boolean } = {}): Promise<
   await fastify.register(publicPasswordResetRoute);
 
   if (opts.withProxy) {
+    await fastify.register(oauthAuthorizeProxyRoute);
+    await fastify.register(oauthCallbackProxyRoute);
     await fastify.register(catchAllProxyRoute);
   }
 
