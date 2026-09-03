@@ -151,7 +151,7 @@ describe("HeaderProfileMenu", () => {
     await user.click(screen.getByRole("combobox", { name: "Language" }));
     await user.click(await screen.findByRole("option", { name: "Español" }));
 
-    expect(screen.getByText("Configuración")).toBeInTheDocument();
+    expect(screen.getByText("bobo@cf.com")).toBeInTheDocument();
   });
 
   it("reaches every control by keyboard", async () => {
@@ -160,19 +160,25 @@ describe("HeaderProfileMenu", () => {
 
     await user.click(screen.getByRole("button", { name: "Bobo Example" }));
 
-    const reachable: string[] = [];
-    for (let i = 0; i < 6; i++) {
-      await user.tab();
+    const focused = () => {
       const active = document.activeElement;
-      reachable.push(active?.getAttribute("aria-label") ?? active?.textContent ?? "");
+      return active?.getAttribute("aria-label") ?? active?.textContent ?? "";
+    };
+
+    const reachable = [focused()];
+    for (let i = 0; i < 5; i++) {
+      await user.tab();
+      reachable.push(focused());
     }
 
-    expect(reachable).toContain("Light mode");
-    expect(reachable).toContain("Dark mode");
-    expect(reachable).toContain("System theme");
-    expect(reachable).toContain("Language");
-    expect(reachable).toContain("Settings");
-    expect(reachable).toContain("Sign Out");
+    expect(reachable).toEqual([
+      "Light mode",
+      "Dark mode",
+      "System theme",
+      "Language",
+      "Settings",
+      "Sign Out",
+    ]);
   });
 
   it("does not scroll-lock the body while the menu is open", async () => {
