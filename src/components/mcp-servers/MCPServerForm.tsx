@@ -7,22 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
-import { QuickAddServerDialog } from "@/components/mcp-servers/QuickAddServerDialog";
+import {
+  QuickAddServerDialog,
+  type QuickAddConnection,
+} from "@/components/mcp-servers/QuickAddServerDialog";
 import { ExposeComponentsForm } from "@/components/gateways/ExposeComponentsForm";
 import { useRouter } from "@/router";
-import {
-  useMCPServerForm,
-  type MCPServerFormInitialValues,
-  type TransportType,
-} from "@/hooks/useMCPServerForm";
+import { useMCPServerForm, type TransportType } from "@/hooks/useMCPServerForm";
 import { STATUS_ICON } from "@/lib/status";
-import type { CatalogServer } from "@/generated/types";
-
-// QuickAddServerDialog only surfaces entries with SSE, STREAMABLEHTTP, or no
-// transport set, so anything else here defaults to STREAMABLEHTTP.
-function mapCatalogTransport(transport: string | null | undefined): TransportType {
-  return transport === "SSE" ? "SSE" : "STREAMABLEHTTP";
-}
+import type { Visibility } from "@/types/server";
 
 interface MCPServerFormProps {
   isOpen: boolean;
@@ -34,6 +27,9 @@ interface MCPServerFormProps {
 interface CreatedGatewayInfo {
   id: string;
   name: string;
+  /** Scope for the virtual server built at the components step. Quick Add picks its own. */
+  visibility: Visibility;
+  teamId: string;
 }
 
 export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServerFormProps) {
@@ -41,7 +37,6 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
   const { navigate } = useRouter();
   const [createdGateway, setCreatedGateway] = useState<CreatedGatewayInfo | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [prefill, setPrefill] = useState<MCPServerFormInitialValues | undefined>();
   const {
     fetchError,
     name,
@@ -110,7 +105,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     setQueryParamName,
     queryParamApiKey,
     setQueryParamApiKey,
-  } = useMCPServerForm(serverId, prefill);
+  } = useMCPServerForm(serverId);
 
   const handleRedirectUriChange = useCallback(
     (uri: string) => {
@@ -124,12 +119,15 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     onToggle();
   };
 
-  const handleQuickAddSelect = useCallback((server: CatalogServer) => {
-    setPrefill({
-      name: server.name,
-      url: server.url,
-      description: server.description,
-      transport: mapCatalogTransport(server.transport),
+  // Quick Add registers through the catalog endpoint, so the gateway already exists by the
+  // time this runs and the connect form is skipped entirely. Its scope comes from the dialog
+  // rather than the form, which the user never passed through.
+  const handleQuickAddConnected = useCallback((connection: QuickAddConnection) => {
+    setCreatedGateway({
+      id: connection.gatewayId,
+      name: connection.serverName,
+      visibility: connection.visibility,
+      teamId: connection.teamId,
     });
     setQuickAddOpen(false);
   }, []);
@@ -154,6 +152,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
         const gatewayInfo: CreatedGatewayInfo = {
           id: gatewayId,
           name: name,
+          visibility,
+          teamId,
         };
         setCreatedGateway(gatewayInfo);
       } else {
@@ -175,8 +175,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
       <ExposeComponentsForm
         gatewayId={createdGateway.id}
         gatewayName={createdGateway.name}
-        visibility={visibility}
-        teamId={teamId}
+        visibility={createdGateway.visibility}
+        teamId={createdGateway.teamId}
         oauthNotification={oauthNotification}
         clearOAuthNotification={clearOAuthNotification}
         fetchToolsNotification={fetchToolsNotification}
@@ -217,7 +217,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                           setQuickAddOpen(true);
                         }
                       }}
-                      className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
+                      className="inline h-auto p-0 font-medium text-cyan-700 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:hover:text-cyan-300"
                     >
                       {chunks}
                     </Button>
@@ -482,12 +482,15 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
         </div>
       </div>
 
-      <QuickAddServerDialog
-        open={quickAddOpen}
-        onOpenChange={setQuickAddOpen}
-        onSelect={handleQuickAddSelect}
-        onBrowseCatalog={handleBrowseCatalog}
-      />
+      {/* Mounted only while open: the dialog loads the catalog and the caller's teams. */}
+      {quickAddOpen && (
+        <QuickAddServerDialog
+          open
+          onOpenChange={setQuickAddOpen}
+          onConnected={handleQuickAddConnected}
+          onBrowseCatalog={handleBrowseCatalog}
+        />
+      )}
     </>
   );
 }

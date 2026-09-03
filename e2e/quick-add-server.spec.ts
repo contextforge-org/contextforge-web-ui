@@ -41,6 +41,36 @@ async function mockCatalog(page: import("@playwright/test").Page, servers: Catal
   });
 }
 
+async function mockRegister(
+  page: import("@playwright/test").Page,
+  { status = 200 }: { status?: number } = {},
+) {
+  await page.route("**/v1/catalog/*/register", async (route) => {
+    await route.fulfill({
+      status,
+      contentType: "application/json",
+      body: JSON.stringify(
+        status === 200
+          ? { success: true, server_id: "new-gateway-1", message: "registered" }
+          : { detail: "boom" },
+      ),
+    });
+  });
+}
+
+// The detected-components step lists the gateway's tools, resources, and prompts.
+async function mockComponentLists(page: import("@playwright/test").Page) {
+  for (const resource of ["tools", "resources", "prompts"]) {
+    await page.route(`**/${resource}?*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+  }
+}
+
 async function openQuickAddDialog(page: import("@playwright/test").Page) {
   await page.route("**/gateways?*", async (route) => {
     await route.fulfill({
@@ -70,10 +100,12 @@ test.describe("Quick Add server dialog", () => {
     });
   });
 
-  test("pre-fills the connect form from a picked catalog entry and submits a new gateway", async ({
+  test("registers a picked catalog entry and lands on the detected components step", async ({
     page,
   }) => {
     await mockCatalog(page, [DEEPWIKI, EXA_SEARCH]);
+    await mockComponentLists(page);
+    await mockRegister(page);
     await openQuickAddDialog(page);
 
     // Only the curated entries render, in the configured order.
@@ -88,38 +120,41 @@ test.describe("Quick Add server dialog", () => {
     await page.getByText("DeepWiki", { exact: true }).click();
     await expect(page.getByRole("radio", { name: /DeepWiki/i })).toBeChecked();
     await expect(continueButton).toBeEnabled();
+
+    const registerRequest = page.waitForRequest(
+      (request) =>
+        request.url().includes("/v1/catalog/deepwiki/register") && request.method() === "POST",
+    );
     await continueButton.click();
+    // The dialog owns the scope now, so the register body has to carry it.
+    expect((await registerRequest).postDataJSON()).toMatchObject({
+      visibility: "private",
+      team_id: null,
+    });
 
+    // The connect form is skipped: Quick Add registers through the catalog endpoint.
+    await expect(
+      page.getByRole("heading", { name: "Expose MCP tools, resources, and prompts" }),
+    ).toBeVisible();
     await expect(page.getByRole("dialog")).not.toBeVisible();
-    await expect(page.getByLabel(/Name/i)).toHaveValue("DeepWiki");
-    await expect(page.getByLabel(/URL/i)).toHaveValue("https://mcp.deepwiki.com/mcp");
-    await expect(page.getByPlaceholder(/Add an optional description/i)).toHaveValue(
-      "Knowledge base with deep learning integration",
-    );
-    await expect(page.getByRole("radio", { name: "Streamable HTTP" })).toBeChecked();
+    await expect(page.getByLabel(/URL/i)).not.toBeVisible();
+  });
 
-    const createRequest = page.waitForRequest(
-      (request) => request.url().includes("/gateways") && request.method() === "POST",
-    );
-    await page.route(
-      (url) => url.pathname.endsWith("/gateways") || url.pathname.endsWith("/api/gateways"),
-      async (route) => {
-        if (route.request().method() !== "POST") return route.fallback();
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ id: "new-gateway-1", name: "DeepWiki" }),
-        });
-      },
-    );
+  test("keeps the dialog open and reports the failure when registration fails", async ({
+    page,
+  }) => {
+    await mockCatalog(page, [DEEPWIKI, EXA_SEARCH]);
+    await mockRegister(page, { status: 500 });
+    await openQuickAddDialog(page);
 
-    await page.getByRole("button", { name: /Connect server/i }).click();
+    await page.getByText("DeepWiki", { exact: true }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
 
-    const request = await createRequest;
-    const body = request.postDataJSON() as { name?: string; url?: string; transport?: string };
-    expect(body.name).toBe("DeepWiki");
-    expect(body.url).toBe("https://mcp.deepwiki.com/mcp");
-    expect(body.transport).toBe("STREAMABLEHTTP");
+    await expect(page.getByText("Unable to connect this server. Try again.")).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Expose MCP tools, resources, and prompts" }),
+    ).not.toBeVisible();
   });
 
   test("Browse full catalog closes the connect form and navigates to the full catalog", async ({
