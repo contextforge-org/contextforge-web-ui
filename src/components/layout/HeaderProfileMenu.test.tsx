@@ -144,8 +144,6 @@ describe("HeaderProfileMenu", () => {
   });
 
   it("keeps the profile menu open while the language list is used", async () => {
-    // Regression: the select portals outside the menu content, so a careless
-    // setup dismisses the whole dropdown on the first click.
     const user = userEvent.setup();
     renderMenu();
 
@@ -154,6 +152,27 @@ describe("HeaderProfileMenu", () => {
     await user.click(await screen.findByRole("option", { name: "Español" }));
 
     expect(screen.getByText("Configuración")).toBeInTheDocument();
+  });
+
+  it("reaches every control by keyboard", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Bobo Example" }));
+
+    const reachable: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      await user.tab();
+      const active = document.activeElement;
+      reachable.push(active?.getAttribute("aria-label") ?? active?.textContent ?? "");
+    }
+
+    expect(reachable).toContain("Light mode");
+    expect(reachable).toContain("Dark mode");
+    expect(reachable).toContain("System theme");
+    expect(reachable).toContain("Language");
+    expect(reachable).toContain("Settings");
+    expect(reachable).toContain("Sign Out");
   });
 
   it("does not scroll-lock the body while the menu is open", async () => {
