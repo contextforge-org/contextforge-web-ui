@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.8"
+    "version": "1.0.9"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -4243,6 +4243,70 @@
         }
       }
     },
+    "/v1/gateways/{gateway_id}/impact-preview": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get Gateway Impact Preview",
+        "description": "Preview visible virtual servers affected by deleting a gateway.\n\nArgs:\n    gateway_id: Gateway ID, exact name, or slug.\n    request: Incoming request used for scoped access validation.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Layer-1-scoped virtual server IDs and names.\n\nRaises:\n    HTTPException: 404 if the gateway is missing or hidden; 409 for an ambiguous identifier.",
+        "operationId": "get_gateway_impact_preview_v1_gateways__gateway_id__impact_preview_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayImpactPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/gateways/{gateway_id}/tools/refresh": {
       "post": {
         "tags": [
@@ -5740,6 +5804,79 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/servers/{server_id}/test-handshake": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Test Server Mcp Handshake",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "operationId": "test_server_mcp_handshake_v1_servers__server_id__test_handshake_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerHandshakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
                 }
               }
             }
@@ -7286,6 +7423,172 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Unified Search V1 Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/metrics/timeseries": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Get Metrics Timeseries",
+        "description": "Get execution counts bucketed over time.\n\nArgs:\n    request: FastAPI request object (required by the permission decorator)\n    hours: Number of hours to look back (1-168)\n    interval_minutes: Aggregation interval in minutes (5-1440)\n    user: Authenticated user context (required by the permission decorator)\n    db: Database session\n\nReturns:\n    TimeseriesResponse: Sparse buckets with one execution count each. Empty\n    series when observability is disabled.\n\nRaises:\n    HTTPException: 500 if aggregation fails",
+        "operationId": "get_metrics_timeseries_v1_observability_metrics_timeseries_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Time range in hours",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Time range in hours"
+          },
+          {
+            "name": "interval_minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1440,
+              "minimum": 5,
+              "description": "Aggregation interval in minutes",
+              "default": 60,
+              "title": "Interval Minutes"
+            },
+            "description": "Aggregation interval in minutes"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeseriesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/metrics/percentiles": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Get Metrics Percentiles",
+        "description": "Get latency percentiles (p50/p95/p99) bucketed over time.\n\nArgs:\n    request: FastAPI request object (required by the permission decorator)\n    hours: Number of hours to look back (1-168)\n    interval_minutes: Aggregation interval in minutes (5-1440)\n    user: Authenticated user context (required by the permission decorator)\n    db: Database session\n\nReturns:\n    PercentilesResponse: Sparse buckets with p50/p95/p99 latency in\n    milliseconds. Empty series when observability is disabled.\n\nRaises:\n    HTTPException: 500 if aggregation fails",
+        "operationId": "get_metrics_percentiles_v1_observability_metrics_percentiles_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Time range in hours",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Time range in hours"
+          },
+          {
+            "name": "interval_minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1440,
+              "minimum": 5,
+              "description": "Aggregation interval in minutes",
+              "default": 60,
+              "title": "Interval Minutes"
+            },
+            "description": "Aggregation interval in minutes"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PercentilesResponse"
                 }
               }
             }
@@ -9867,79 +10170,6 @@
           }
         }
       },
-      "put": {
-        "tags": [
-          "Email Authentication"
-        ],
-        "summary": "Update User Deprecated",
-        "description": "Update user information (admin only). Deprecated: use PATCH instead.\n\nArgs:\n    user_email: Email of user to update\n    user_request: Updated user information\n    current_user_ctx: Currently authenticated user context with permissions\n    db: Database session\n    response: FastAPI Response object to manipulate the headers\n\nReturns:\n    EmailUserResponse: Updated user information\n\nRaises:\n    HTTPException: If user not found or update fails",
-        "operationId": "update_user_deprecated_v1_auth_email_admin_users__user_email__put",
-        "deprecated": true,
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_email",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Email"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminUserUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailUserResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "tags": [
           "Email Authentication"
@@ -10151,6 +10381,62 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/auth/validate": {
+      "get": {
+        "tags": [
+          "Main Authentication",
+          "Authentication"
+        ],
+        "summary": "Validate Session",
+        "description": "Validate the current session and report its expiry, source, and config hints.\n\nArgs:\n    request: FastAPI request object\n    current_user: Currently authenticated user\n\nReturns:\n    SessionValidateResponse: Session expiry, user profile, session source, and config hints",
+        "operationId": "validate_session_v1_auth_validate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionValidateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Main Authentication",
+          "Authentication"
+        ],
+        "summary": "Refresh Session",
+        "description": "Refresh the current session by issuing a new JWT with extended expiry.\n\nArgs:\n    request: FastAPI request object\n    current_user: Currently authenticated user\n\nReturns:\n    SessionRefreshResponse: New access token, expiry, and rotated CSRF token\n\nRaises:\n    HTTPException: 401 if the session token is missing, malformed, past the\n        absolute lifetime cap, or cannot be rotated (already refreshed or\n        revocation not persisted); 403 for non-session tokens",
+        "operationId": "refresh_session_v1_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionRefreshResponse"
+                }
               }
             }
           }
@@ -23971,6 +24257,80 @@
         }
       }
     },
+    "/v1/admin/gateways/{gateway_id}/transfer-ownership": {
+      "post": {
+        "tags": [
+          "Admin UI"
+        ],
+        "summary": "Transfer Gateway Ownership",
+        "description": "Transfer ownership of a gateway to another user.\n\nArgs:\n    gateway_id: The ID of the gateway to transfer.\n    transfer: Transfer request with target owner email and optional team.\n    db: Database session.\n    _user: Authenticated admin user.\n\nReturns:\n    Updated GatewayRead with new ownership.",
+        "operationId": "transfer_gateway_ownership_v1_admin_gateways__gateway_id__transfer_ownership_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayOwnershipTransferRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/gateways/{gateway_id}/edit": {
       "post": {
         "tags": [
@@ -25892,7 +26252,7 @@
           "Admin UI"
         ],
         "summary": "Admin Get Log File",
-        "description": "Download log file.\n\nArgs:\n    filename: Specific log file to download (optional)\n    user: Authenticated user\n    _db: Database session for permission checks.\n\nReturns:\n    File download response or list of available files\n\nRaises:\n    HTTPException: If file doesn't exist or access denied",
+        "description": "Download log file.\n\nArgs:\n    request: Incoming request, used to read a conditional/range header for resumable downloads.\n    filename: Specific log file to download (optional)\n    user: Authenticated user\n    _db: Database session for permission checks.\n\nReturns:\n    File download response or list of available files\n\nRaises:\n    HTTPException: If file doesn't exist or access denied",
         "operationId": "admin_get_log_file_v1_admin_logs_file_get",
         "security": [
           {
@@ -28777,7 +29137,7 @@
           "Admin UI"
         ],
         "summary": "Bulk Register Catalog Servers",
-        "description": "Register multiple catalog servers at once.\n\nArgs:\n    request: Bulk registration request with server IDs\n    db: Database session\n    _user: Authenticated user\n\nReturns:\n    Bulk registration response with success/failure details\n\nRaises:\n    HTTPException: If the catalog feature is disabled.",
+        "description": "Register multiple catalog servers at once.\n\nArgs:\n    http_request: FastAPI request object\n    request: Bulk registration request with server IDs\n    db: Database session\n    _user: Authenticated user\n\nReturns:\n    Bulk registration response with success/failure details\n\nRaises:\n    HTTPException: If the catalog feature is disabled or scope is invalid.",
         "operationId": "bulk_register_catalog_servers_v1_admin_mcp_registry_bulk_register_post",
         "security": [
           {
@@ -32170,6 +32530,2298 @@
         }
       }
     },
+    "/v1/mcp-servers/{gateway_id}/state": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Set Gateway State",
+        "description": "Set the activation status of a gateway.\n\nArgs:\n    gateway_id (str): String ID of the gateway to update.\n    activate (bool): ``True`` to activate, ``False`` to deactivate.\n    db (Session): Active SQLAlchemy session.\n    user (str): Authenticated username. Email extracted via get_user_email() with email-over-sub precedence.\n\nReturns:\n    Dict[str, Any]: A dict containing the operation status, a message, and the updated gateway object.\n\nRaises:\n    HTTPException: Returned with **400 Bad Request** if the state change fails (e.g., the gateway does not exist or the database raises an unexpected error).",
+        "operationId": "set_gateway_state_v1_mcp_servers__gateway_id__state_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "activate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Activate"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Set Gateway State V1 Mcp Servers  Gateway Id  State Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers/{gateway_id}/toggle": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Toggle Gateway Status",
+        "description": "DEPRECATED: Use /state endpoint instead. This endpoint will be removed in a future release.\n\nSet the activation status of a gateway.\n\nArgs:\n    gateway_id: The gateway ID.\n    activate: Whether to activate (True) or deactivate (False) the gateway.\n    db: Database session.\n    user: Authenticated user context.\n\nReturns:\n    Status message with gateway state.",
+        "operationId": "toggle_gateway_status_v1_mcp_servers__gateway_id__toggle_post",
+        "deprecated": true,
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "activate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Activate"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Toggle Gateway Status V1 Mcp Servers  Gateway Id  Toggle Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers/": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "List Gateways",
+        "description": "List all gateways with cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of gateways to return.\n    include_inactive: Include inactive gateways.\n    team_id (Optional): Filter by specific team ID.\n    visibility (Optional): Filter by visibility (private, team, public).\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[GatewayRead], Dict[str, Any]]: List of gateway records or paginated response with nextCursor.",
+        "operationId": "list_gateways_v1_mcp_servers__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500,
+                  "pattern": "^[a-zA-Z0-9_=+/-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for pagination",
+              "title": "Cursor"
+            },
+            "description": "Cursor for pagination"
+          },
+          {
+            "name": "include_pagination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include cursor pagination metadata in response",
+              "default": false,
+              "title": "Include Pagination"
+            },
+            "description": "Include cursor pagination metadata in response"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum number of gateways to return",
+              "title": "Limit"
+            },
+            "description": "Maximum number of gateways to return"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by team ID",
+              "title": "Team Id"
+            },
+            "description": "Filter by team ID"
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(private|team|public)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by visibility: private, team, public",
+              "title": "Visibility"
+            },
+            "description": "Filter by visibility: private, team, public"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GatewayRead"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/CursorPaginatedGatewaysResponse"
+                    }
+                  ],
+                  "title": "Response List Gateways V1 Mcp Servers  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Register Gateway",
+        "description": "Register a new gateway.\n\nArgs:\n    gateway: Gateway creation data.\n    request: The FastAPI request object for metadata extraction.\n    response: Outgoing response used to set `202 Accepted` for async lifecycle.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Created gateway.",
+        "operationId": "register_gateway_v1_mcp_servers__post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "List Gateways",
+        "description": "List all gateways with cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of gateways to return.\n    include_inactive: Include inactive gateways.\n    team_id (Optional): Filter by specific team ID.\n    visibility (Optional): Filter by visibility (private, team, public).\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[GatewayRead], Dict[str, Any]]: List of gateway records or paginated response with nextCursor.",
+        "operationId": "list_gateways_v1_mcp_servers_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500,
+                  "pattern": "^[a-zA-Z0-9_=+/-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for pagination",
+              "title": "Cursor"
+            },
+            "description": "Cursor for pagination"
+          },
+          {
+            "name": "include_pagination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include cursor pagination metadata in response",
+              "default": false,
+              "title": "Include Pagination"
+            },
+            "description": "Include cursor pagination metadata in response"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum number of gateways to return",
+              "title": "Limit"
+            },
+            "description": "Maximum number of gateways to return"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by team ID",
+              "title": "Team Id"
+            },
+            "description": "Filter by team ID"
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(private|team|public)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by visibility: private, team, public",
+              "title": "Visibility"
+            },
+            "description": "Filter by visibility: private, team, public"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GatewayRead"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/CursorPaginatedGatewaysResponse"
+                    }
+                  ],
+                  "title": "Response List Gateways V1 Mcp Servers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Register Gateway",
+        "description": "Register a new gateway.\n\nArgs:\n    gateway: Gateway creation data.\n    request: The FastAPI request object for metadata extraction.\n    response: Outgoing response used to set `202 Accepted` for async lifecycle.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Created gateway.",
+        "operationId": "register_gateway_v1_mcp_servers_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers/{gateway_id}": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get Gateway",
+        "description": "Retrieve a gateway by ID.\n\nArgs:\n    gateway_id: ID of the gateway.\n    request: Incoming request used for scoped access validation.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Gateway data.\n\nRaises:\n    HTTPException: 404 if gateway not found.",
+        "operationId": "get_gateway_v1_mcp_servers__gateway_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Update Gateway",
+        "description": "Update a gateway.\n\nArgs:\n    gateway_id: Gateway ID.\n    gateway: Gateway update data.\n    request (Request): The FastAPI request object for metadata extraction.\n    response: Outgoing response used to set `202 Accepted` for async lifecycle.\n    db: Database session.\n    user: Authenticated user. Email extracted via get_user_email() with email-over-sub precedence.\n\nReturns:\n    Updated gateway.",
+        "operationId": "update_gateway_v1_mcp_servers__gateway_id__put",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Delete Gateway",
+        "description": "Delete a gateway by ID.\n\nArgs:\n    gateway_id: ID of the gateway.\n    request: Incoming FastAPI request (for visibility scope resolution).\n    response: Outgoing response used to set `202 Accepted` for async lifecycle.\n    db: Database session.\n    user: Authenticated user. Email extracted via get_user_email() with email-over-sub precedence.\n\nReturns:\n    Status message.\n\nRaises:\n    HTTPException: If permission denied (403), gateway not found (404), or other gateway error (400).",
+        "operationId": "delete_gateway_v1_mcp_servers__gateway_id__delete",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/GatewayRead"
+                    }
+                  ],
+                  "title": "Response Delete Gateway V1 Mcp Servers  Gateway Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers/{gateway_id}/impact-preview": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get Gateway Impact Preview",
+        "description": "Preview visible virtual servers affected by deleting a gateway.\n\nArgs:\n    gateway_id: Gateway ID, exact name, or slug.\n    request: Incoming request used for scoped access validation.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Layer-1-scoped virtual server IDs and names.\n\nRaises:\n    HTTPException: 404 if the gateway is missing or hidden; 409 for an ambiguous identifier.",
+        "operationId": "get_gateway_impact_preview_v1_mcp_servers__gateway_id__impact_preview_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayImpactPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp-servers/{gateway_id}/tools/refresh": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Refresh Gateway Tools",
+        "description": "Manually trigger a refresh of tools/resources/prompts from a gateway's MCP server.\n\nThis endpoint forces an immediate re-discovery of tools, resources, and prompts\nfrom the specified gateway. It returns counts of added, updated, and removed items,\nalong with any validation errors encountered.\n\nArgs:\n    gateway_id: ID of the gateway to refresh.\n    request: The FastAPI request object.\n    include_resources: Whether to include resources in the refresh.\n    include_prompts: Whether to include prompts in the refresh.\n    db: Database session used to validate gateway access.\n    user: Authenticated user. Email extracted via get_user_email() with email-over-sub precedence.\n\nReturns:\n    GatewayRefreshResponse with counts of changes and any validation errors.\n\nRaises:\n    HTTPException: 404 if gateway not found, 409 if refresh already in progress.",
+        "operationId": "refresh_gateway_tools_v1_mcp_servers__gateway_id__tools_refresh_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "include_resources",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include resources in refresh",
+              "default": false,
+              "title": "Include Resources"
+            },
+            "description": "Include resources in refresh"
+          },
+          {
+            "name": "include_prompts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include prompts in refresh",
+              "default": false,
+              "title": "Include Prompts"
+            },
+            "description": "Include prompts in refresh"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayRefreshResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "List Servers",
+        "description": "Lists servers accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The incoming request object for team_id retrieval.\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of servers to return.\n    include_inactive (bool): Whether to include inactive servers in the response.\n    include_metrics (bool): Whether to include aggregated metrics in the response.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    Union[List[ServerRead], Dict[str, Any]]: A list of server objects or paginated response with nextCursor.",
+        "operationId": "list_servers_v1_virtual_servers__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500,
+                  "pattern": "^[a-zA-Z0-9_=+/-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for pagination",
+              "title": "Cursor"
+            },
+            "description": "Cursor for pagination"
+          },
+          {
+            "name": "include_pagination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include cursor pagination metadata in response",
+              "default": false,
+              "title": "Include Pagination"
+            },
+            "description": "Include cursor pagination metadata in response"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum number of servers to return",
+              "title": "Limit"
+            },
+            "description": "Maximum number of servers to return"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "include_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Metrics"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Visibility"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ServerRead"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/CursorPaginatedServersResponse"
+                    }
+                  ],
+                  "title": "Response List Servers V1 Virtual Servers  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Create Server",
+        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "operationId": "create_server_v1_virtual_servers__post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_server_v1_virtual_servers__post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "List Servers",
+        "description": "Lists servers accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The incoming request object for team_id retrieval.\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of servers to return.\n    include_inactive (bool): Whether to include inactive servers in the response.\n    include_metrics (bool): Whether to include aggregated metrics in the response.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    Union[List[ServerRead], Dict[str, Any]]: A list of server objects or paginated response with nextCursor.",
+        "operationId": "list_servers_v1_virtual_servers_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500,
+                  "pattern": "^[a-zA-Z0-9_=+/-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Cursor for pagination",
+              "title": "Cursor"
+            },
+            "description": "Cursor for pagination"
+          },
+          {
+            "name": "include_pagination",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include cursor pagination metadata in response",
+              "default": false,
+              "title": "Include Pagination"
+            },
+            "description": "Include cursor pagination metadata in response"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum number of servers to return",
+              "title": "Limit"
+            },
+            "description": "Maximum number of servers to return"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "include_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Metrics"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags"
+            }
+          },
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team Id"
+            }
+          },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Visibility"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ServerRead"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/CursorPaginatedServersResponse"
+                    }
+                  ],
+                  "title": "Response List Servers V1 Virtual Servers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Create Server",
+        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "operationId": "create_server_v1_virtual_servers_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_server_v1_virtual_servers_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Get Server",
+        "description": "Retrieves a server by its ID.\n\nArgs:\n    server_id (str): The ID of the server to retrieve.\n    request (Request): The incoming request used for scoped access validation.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The server object with the specified ID.\n\nRaises:\n    HTTPException: If the server is not found.",
+        "operationId": "get_server_v1_virtual_servers__server_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Update Server",
+        "description": "Updates the information of an existing server.\n\nArgs:\n    server_id (str): The ID of the server to update.\n    server (ServerUpdate): The updated server data.\n    request (Request): The incoming request object containing metadata.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The updated server object.\n\nRaises:\n    HTTPException: If the server is not found, there is a name conflict, or other errors.",
+        "operationId": "update_server_v1_virtual_servers__server_id__put",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Delete Server",
+        "description": "Deletes a server by its ID.\n\nArgs:\n    server_id (str): The ID of the server to delete.\n    request (Request): Incoming FastAPI request (for visibility scope resolution).\n    purge_metrics (bool): Whether to delete raw + hourly rollup metrics for this server.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request. Email extracted via get_user_email() with email-over-sub precedence.\n\nReturns:\n    Dict[str, str]: A success message indicating the server was deleted.\n\nRaises:\n    HTTPException: If the server is not found or there is an error.",
+        "operationId": "delete_server_v1_virtual_servers__server_id__delete",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "purge_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Purge raw + rollup metrics for this server",
+              "default": false,
+              "title": "Purge Metrics"
+            },
+            "description": "Purge raw + rollup metrics for this server"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Server V1 Virtual Servers  Server Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/state": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Set Server State",
+        "description": "Sets the status of a server (activate or deactivate).\n\nArgs:\n    server_id (str): The ID of the server to set state for.\n    activate (bool): Whether to activate or deactivate the server.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The server object after the status change.\n\nRaises:\n    HTTPException: If the server is not found or there is an error.",
+        "operationId": "set_server_state_v1_virtual_servers__server_id__state_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "activate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Activate"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/toggle": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Toggle Server Status",
+        "description": "DEPRECATED: Use /state endpoint instead. This endpoint will be removed in a future release.\n\nSets the status of a server (activate or deactivate).\n\nArgs:\n    server_id: The server ID.\n    activate: Whether to activate (True) or deactivate (False) the server.\n    db: Database session.\n    user: Authenticated user context.\n\nReturns:\n    The updated server.",
+        "operationId": "toggle_server_status_v1_virtual_servers__server_id__toggle_post",
+        "deprecated": true,
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "activate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Activate"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/test-handshake": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Test Server Mcp Handshake",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "operationId": "test_server_mcp_handshake_v1_virtual_servers__server_id__test_handshake_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerHandshakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/sse": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Sse Endpoint",
+        "description": "Establishes a Server-Sent Events (SSE) connection for real-time updates about a server.\n\nArgs:\n    request (Request): The incoming request.\n    server_id (str): The ID of the server for which updates are received.\n    db (Session): The database session used for server existence and scope checks.\n    user (str): The authenticated user making the request.\n\nReturns:\n    The SSE response object for the established connection.\n\nRaises:\n    HTTPException: If there is an error in establishing the SSE connection.\n    asyncio.CancelledError: If the request is cancelled during SSE setup.",
+        "operationId": "sse_endpoint_v1_virtual_servers__server_id__sse_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/message": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Message Endpoint",
+        "description": "Handles incoming messages for a specific server.\n\nArgs:\n    request (Request): The incoming message request.\n    server_id (str): The ID of the server receiving the message.\n    user (str): The authenticated user making the request.\n\nReturns:\n    JSONResponse: A success status after processing the message.\n\nRaises:\n    HTTPException: If there are errors processing the message.",
+        "operationId": "message_endpoint_v1_virtual_servers__server_id__message_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/tools": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Server Get Tools",
+        "description": "List tools for the server  with an option to include inactive tools.\n\nThis endpoint retrieves a list of tools from the database, optionally including\nthose that are inactive. The inactive filter helps administrators manage tools\nthat have been deactivated but not deleted from the system.\n\nArgs:\n    request (Request): FastAPI request object.\n    server_id (str): ID of the server\n    include_inactive (bool): Whether to include inactive tools in the results.\n    include_metrics (bool): Whether to include metrics in the tools results.\n    db (Session): Database session dependency.\n    user (str): Authenticated user dependency.\n\nReturns:\n    List[ToolRead]: A list of tool records formatted with by_alias=True.",
+        "operationId": "server_get_tools_v1_virtual_servers__server_id__tools_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "include_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Metrics"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ToolRead"
+                  },
+                  "title": "Response Server Get Tools V1 Virtual Servers  Server Id  Tools Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/resources": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Server Get Resources",
+        "description": "List resources for the server with an option to include inactive resources.\n\nThis endpoint retrieves a list of resources from the database, optionally including\nthose that are inactive. The inactive filter is useful for administrators who need\nto view or manage resources that have been deactivated but not deleted.\n\nArgs:\n    request (Request): FastAPI request object.\n    server_id (str): ID of the server\n    include_inactive (bool): Whether to include inactive resources in the results.\n    include_metrics (bool): Whether to include aggregated metrics in the results.\n    db (Session): Database session dependency.\n    user (str): Authenticated user dependency.\n\nReturns:\n    List[ResourceRead]: A list of resource records formatted with by_alias=True.",
+        "operationId": "server_get_resources_v1_virtual_servers__server_id__resources_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "include_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Metrics"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceRead"
+                  },
+                  "title": "Response Server Get Resources V1 Virtual Servers  Server Id  Resources Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/virtual-servers/{server_id}/prompts": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Server Get Prompts",
+        "description": "List prompts for the server with an option to include inactive prompts.\n\nThis endpoint retrieves a list of prompts from the database, optionally including\nthose that are inactive. The inactive filter helps administrators see and manage\nprompts that have been deactivated but not deleted from the system.\n\nArgs:\n    request (Request): FastAPI request object.\n    server_id (str): ID of the server\n    include_inactive (bool): Whether to include inactive prompts in the results.\n    include_metrics (bool): Whether to include aggregated metrics in the results.\n    db (Session): Database session dependency.\n    user (str): Authenticated user dependency.\n\nReturns:\n    List[PromptRead]: A list of prompt records formatted with by_alias=True.",
+        "operationId": "server_get_prompts_v1_virtual_servers__server_id__prompts_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Inactive"
+            }
+          },
+          {
+            "name": "include_metrics",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Metrics"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PromptRead"
+                  },
+                  "title": "Response Server Get Prompts V1 Virtual Servers  Server Id  Prompts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/catalog": {
       "get": {
         "tags": [
@@ -34919,6 +37571,47 @@
         }
       }
     },
+    "/v1/virtual-servers/{server_id}/.well-known/oauth-protected-resource": {
+      "get": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Server Oauth Protected Resource",
+        "description": "DEPRECATED: OAuth 2.0 Protected Resource Metadata endpoint (server-scoped, non-compliant).\n\nThis endpoint is deprecated and non-compliant with RFC 9728. It returns a 301 redirect.\n\nRFC 9728 Section 3.1 requires the well-known path to be constructed by inserting\n/.well-known/oauth-protected-resource/ into the resource URL, not appending it.\n\nOld (non-compliant): /servers/{server_id}/.well-known/oauth-protected-resource\nNew (RFC 9728):      /.well-known/oauth-protected-resource/servers/{server_id}/mcp\n\nArgs:\n    request: FastAPI request object for building redirect URL.\n    server_id: The ID of the server.\n\nRaises:\n    HTTPException: 404 if well-known disabled, 301 redirect to compliant endpoint.",
+        "operationId": "server_oauth_protected_resource_v1_virtual_servers__server_id___well_known_oauth_protected_resource_get",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tools/generate-schemas-from-openapi": {
       "post": {
         "tags": [
@@ -36002,6 +38695,89 @@
         }
       }
     },
+    "/v1/mcp-servers/test-handshake": {
+      "post": {
+        "tags": [
+          "MCP Servers"
+        ],
+        "summary": "Check Mcp Server Handshake",
+        "description": "Test whether an MCP server URL speaks MCP via a protocol handshake.\n\nDelegates to ``test_gateway_handshake`` in\n``mcpgateway.services.gateway_service``, which tries the stateless\n``server/discover`` method first and falls back to a stateful SDK\n``initialize`` round-trip, classifying failures for actionable UI copy.\n\nArgs:\n    request (GatewayHandshakeRequest): The request object containing the server URL and optional headers.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nExamples:\n    >>> callable(check_mcp_server_handshake)\n    True\n    >>> check_mcp_server_handshake.__name__\n    'check_mcp_server_handshake'",
+        "operationId": "check_mcp_server_handshake_v1_mcp_servers_test_handshake_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by team ID",
+              "title": "Team Id"
+            },
+            "description": "Filter by team ID"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GatewayHandshakeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/logs/search": {
       "post": {
         "tags": [
@@ -36489,6 +39265,90 @@
         }
       }
     },
+    "/api/logs/activity": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "summary": "Get Activity Feed",
+        "description": "Get the recent activity feed as a union of audit trails and security events.\n\nEntry is gated by ``audit:read``. Security events are additive: they are included\nonly when the caller also holds ``security:read``, and their absence narrows the\nfeed rather than rejecting the request.\n\nArgs:\n    request: Incoming request, used to resolve token-scoped access context.\n    limit: Maximum number of merged items to return.\n    since: Only return items strictly newer than this timestamp.\n    user: Current authenticated user.\n    db: Database session.\n\nReturns:\n    ActivityListResponse: Newest-first merged feed entries.\n\nRaises:\n    HTTPException: On database or validation errors",
+        "operationId": "get_activity_feed_api_logs_activity_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/logs/performance-metrics": {
       "get": {
         "tags": [
@@ -36802,162 +39662,6 @@
             "ConfigurableHTTPBearer": []
           }
         ]
-      }
-    },
-    "/v1/mcp-servers/test-handshake": {
-      "post": {
-        "tags": [
-          "MCP Servers"
-        ],
-        "summary": "Check Mcp Server Handshake",
-        "description": "Test whether an MCP server URL speaks MCP via a protocol handshake.\n\nDelegates to ``test_gateway_handshake`` in\n``mcpgateway.services.gateway_service``, which tries the stateless\n``server/discover`` method first and falls back to a stateful SDK\n``initialize`` round-trip, classifying failures for actionable UI copy.\n\nArgs:\n    request (GatewayHandshakeRequest): The request object containing the server URL and optional headers.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nExamples:\n    >>> callable(check_mcp_server_handshake)\n    True\n    >>> check_mcp_server_handshake.__name__\n    'check_mcp_server_handshake'",
-        "operationId": "check_mcp_server_handshake_v1_mcp_servers_test_handshake_post",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "team_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Filter by team ID",
-              "title": "Team Id"
-            },
-            "description": "Filter by team ID"
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GatewayHandshakeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/virtual-servers/{server_id}/test-handshake": {
-      "post": {
-        "tags": [
-          "Servers"
-        ],
-        "summary": "Test Server Mcp Handshake",
-        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
-        "operationId": "test_server_mcp_handshake_v1_virtual_servers__server_id__test_handshake_post",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "server_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Server Id"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ServerHandshakeRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GatewayHandshakeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     }
   },
@@ -38547,6 +41251,93 @@
         "description": "Schema for updating an existing A2A agent.\n\nSimilar to A2AAgentCreate but all fields are optional to allow partial updates.",
         "nullable": true
       },
+      "ActivityItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "audit",
+              "security"
+            ],
+            "title": "Source"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error",
+              "warning",
+              "info"
+            ],
+            "title": "Status"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "resource_name": {
+            "type": "string",
+            "title": "Resource Name"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "timestamp",
+          "source",
+          "title",
+          "description",
+          "status",
+          "resource_type",
+          "resource_name",
+          "actor",
+          "correlation_id"
+        ],
+        "title": "ActivityItem",
+        "description": "Unified feed entry derived from AuditTrail or SecurityEvent rows.\n\nThe server owns presentation: title, description, and status are rendered\nhere and MUST NOT be re-derived by clients (contract: #5129 / #5944)."
+      },
+      "ActivityListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ActivityListResponse",
+        "description": "Response envelope for GET /api/logs/activity."
+      },
       "AdminCreateUserRequest": {
         "properties": {
           "email": {
@@ -39340,6 +42131,78 @@
         ],
         "title": "Body_create_server_v1_servers_post"
       },
+      "Body_create_server_v1_virtual_servers__post": {
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerCreate"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID to assign server to"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Server visibility: private, team, public"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server"
+        ],
+        "title": "Body_create_server_v1_virtual_servers__post"
+      },
+      "Body_create_server_v1_virtual_servers_post": {
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerCreate"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID to assign server to"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Server visibility: private, team, public"
+          }
+        },
+        "type": "object",
+        "required": [
+          "server"
+        ],
+        "title": "Body_create_server_v1_virtual_servers_post"
+      },
       "Body_create_tool_v1_tools__post": {
         "properties": {
           "tool": {
@@ -39640,6 +42503,35 @@
             "title": "Skip Errors",
             "description": "Continue on error",
             "default": true
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "private",
+                  "team",
+                  "public"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Visibility level for all registered servers"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID for team-scoped registration"
           }
         },
         "type": "object",
@@ -40001,6 +42893,35 @@
             ],
             "title": "Oauth Credentials",
             "description": "OAuth credentials if required"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "private",
+                  "team",
+                  "public"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Visibility level: private, team, or public"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID for team-scoped registration"
           }
         },
         "type": "object",
@@ -41642,6 +44563,250 @@
         "description": "Schema for creating a new gateway.\n\nAttributes:\n    model_config (ConfigDict): Configuration for the model.\n    name (str): Unique name for the gateway.\n    url (Union[str, AnyHttpUrl]): Gateway endpoint URL.\n    description (Optional[str]): Optional description of the gateway.\n    transport (str): Transport used by the MCP server, default is \"SSE\".\n    auth_type (Optional[str]): Type of authentication (basic, bearer, authheaders, or none).\n    auth_username (Optional[str]): Username for basic authentication.\n    auth_password (Optional[str]): Password for basic authentication.\n    auth_token (Optional[str]): Token for bearer authentication.\n    auth_header_key (Optional[str]): Key for custom headers authentication.\n    auth_header_value (Optional[str]): Value for custom headers authentication.\n    auth_headers (Optional[List[Dict[str, str]]]): List of custom headers for authentication.\n    auth_value (Optional[str]): Alias for authentication value, used for better access post-validation.",
         "nullable": true
       },
+      "GatewayHandshakeRequest": {
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri",
+            "title": "Baseurl",
+            "description": "Base URL of the MCP server to test"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Optional path appended to the base URL"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers",
+            "description": "Optional headers (e.g. Authorization) sent with the handshake"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseUrl"
+        ],
+        "title": "GatewayHandshakeRequest",
+        "description": "Request to run an MCP handshake test against a server URL.",
+        "nullable": true
+      },
+      "GatewayHandshakeResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "latencyMs": {
+            "type": "integer",
+            "title": "Latencyms"
+          },
+          "negotiationPath": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "server_discover",
+                  "initialize"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Negotiationpath",
+            "description": "Which handshake path produced the result"
+          },
+          "protocolVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocolversion"
+          },
+          "serverName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servername"
+          },
+          "serverVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serverversion"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
+          },
+          "componentCounts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Componentcounts",
+            "description": "Counts for tools/resources/prompts; a key is absent when the capability is not advertised"
+          },
+          "countsPartial": {
+            "type": "boolean",
+            "title": "Countspartial",
+            "description": "True when any list result had a nextCursor (counts are first-page lower bounds)",
+            "default": false
+          },
+          "credentialSource": {
+            "type": "string",
+            "enum": [
+              "stored",
+              "form",
+              "none",
+              "session"
+            ],
+            "title": "Credentialsource",
+            "default": "none"
+          },
+          "failureClass": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "transport",
+                  "protocol",
+                  "auth",
+                  "invalid_response"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failureclass"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "rawPreview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rawpreview",
+            "description": "Size-capped JSON preview of the final handshake payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "latencyMs"
+        ],
+        "title": "GatewayHandshakeResponse",
+        "description": "Result of an MCP handshake test.",
+        "nullable": true
+      },
+      "GatewayImpactPreview": {
+        "properties": {
+          "gatewayId": {
+            "type": "string",
+            "title": "Gatewayid",
+            "description": "ID of the gateway being evaluated"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/GatewayImpactServer"
+            },
+            "type": "array",
+            "title": "Servers",
+            "description": "Visible virtual servers associated through this gateway's tools, resources, or prompts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gatewayId"
+        ],
+        "title": "GatewayImpactPreview",
+        "description": "Layer-1-scoped preview of virtual servers affected by gateway deletion.",
+        "nullable": true
+      },
+      "GatewayImpactServer": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "ID of the affected virtual server"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Name of the affected virtual server"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "GatewayImpactServer",
+        "description": "Virtual server affected by a gateway deletion.",
+        "nullable": true
+      },
       "GatewayModelInfo": {
         "properties": {
           "id": {
@@ -41723,6 +44888,34 @@
         ],
         "title": "GatewayModelsResponse",
         "description": "Response for /llmchat/gateway/models endpoint."
+      },
+      "GatewayOwnershipTransferRequest": {
+        "properties": {
+          "target_owner_email": {
+            "type": "string",
+            "format": "email",
+            "title": "Target Owner Email",
+            "description": "Email of the new gateway owner"
+          },
+          "target_team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Team Id",
+            "description": "New team ID for the gateway"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_owner_email"
+        ],
+        "title": "GatewayOwnershipTransferRequest",
+        "description": "Request to transfer gateway ownership to another user."
       },
       "GatewayRead": {
         "properties": {
@@ -45470,6 +48663,47 @@
         "title": "PasswordResetTokenValidationResponse",
         "description": "Response schema for reset-token validation."
       },
+      "PercentilesResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "p50": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "P50"
+          },
+          "p95": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "P95"
+          },
+          "p99": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "P99"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buckets",
+          "p50",
+          "p95",
+          "p99"
+        ],
+        "title": "PercentilesResponse",
+        "description": "Latency percentiles (ms) bucketed over time."
+      },
       "PerformanceMetricResponse": {
         "properties": {
           "id": {
@@ -48866,6 +52100,29 @@
         "title": "ServerCreate",
         "description": "Schema for creating a new server.\n\nAttributes:\n    model_config (ConfigDict): Configuration for the model, such as stripping whitespace from strings.\n    name (str): The server's name.\n    description (Optional[str]): Optional description of the server.\n    icon (Optional[str]): Optional URL for the server's icon.\n    associated_tools (Optional[List[str]]): Optional list of associated tool IDs.\n    associated_resources (Optional[List[str]]): Optional list of associated resource IDs.\n    associated_prompts (Optional[List[str]]): Optional list of associated prompt IDs."
       },
+      "ServerHandshakeRequest": {
+        "properties": {
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers",
+            "description": "Optional header overrides for the handshake's credentials. Only 'Authorization' and the configured AUTH_HEADER_NAME (when customized) are honored -- any other header (including proxy-identity, client-IP, session, or hop-by-hop headers) is ignored."
+          }
+        },
+        "type": "object",
+        "title": "ServerHandshakeRequest",
+        "description": "Request to run an MCP handshake test against a virtual server's own endpoint.\n\nUnlike :class:`GatewayHandshakeRequest`, the target is derived from the\ntrusted, already-registered virtual server ID (path parameter) rather than\nan arbitrary caller-supplied URL, so no ``base_url``/``path`` fields exist here.",
+        "nullable": true
+      },
       "ServerInput": {
         "properties": {
           "url": {
@@ -49525,6 +52782,97 @@
         "title": "ServerUpdate",
         "description": "Schema for updating an existing server.\n\nAll fields are optional to allow partial updates.",
         "nullable": true
+      },
+      "SessionRefreshResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "csrf_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Csrf Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "expires_at"
+        ],
+        "title": "SessionRefreshResponse",
+        "description": "Response payload for POST /auth/refresh."
+      },
+      "SessionValidateResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          },
+          "user": {
+            "$ref": "#/components/schemas/EmailUserResponse"
+          },
+          "session_source": {
+            "type": "string",
+            "title": "Session Source"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "user",
+          "session_source",
+          "config"
+        ],
+        "title": "SessionValidateResponse",
+        "description": "Response payload for GET /auth/validate."
       },
       "SuccessResponse": {
         "properties": {
@@ -50567,6 +53915,31 @@
         "title": "TeamUpdateRequest",
         "description": "Schema for updating a team.\n\nAttributes:\n    name: Team display name\n    description: Team description\n    visibility: Team visibility level\n    max_members: Maximum number of members allowed\n\nExamples:\n    >>> request = TeamUpdateRequest(\n    ...     name=\"Updated Engineering Team\",\n    ...     description=\"Updated description\"\n    ... )\n    >>> request.name\n    'Updated Engineering Team'"
       },
+      "TimeseriesResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "values": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buckets",
+          "values"
+        ],
+        "title": "TimeseriesResponse",
+        "description": "Execution counts bucketed over time."
+      },
       "TokenCreateRequest": {
         "properties": {
           "name": {
@@ -50680,6 +54053,14 @@
             "type": "string",
             "title": "Access Token",
             "description": "The actual token string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Non-fatal advisories about the created token's effective scope"
           }
         },
         "type": "object",
@@ -50688,7 +54069,7 @@
           "access_token"
         ],
         "title": "TokenCreateResponse",
-        "description": "Schema for token creation response.\n\nAttributes:\n    token: Token information\n    access_token: The actual token string (only returned on creation)\n\nExamples:\n    >>> from datetime import datetime\n    >>> token_info = TokenResponse(\n    ...     id=\"token-123\", name=\"Test Token\", description=None,\n    ...     user_email=\"test@example.com\", server_id=None, resource_scopes=[], ip_restrictions=[],\n    ...     time_restrictions={}, usage_limits={}, created_at=datetime.now(),\n    ...     expires_at=None, last_used=None, is_active=True, tags=[]\n    ... )\n    >>> response = TokenCreateResponse(\n    ...     token=token_info,\n    ...     access_token=\"abc123xyz\"\n    ... )\n    >>> response.access_token\n    'abc123xyz'"
+        "description": "Schema for token creation response.\n\nAttributes:\n    token: Token information\n    access_token: The actual token string (only returned on creation)\n    warnings: Non-fatal advisories about the created token's effective scope\n\nExamples:\n    >>> from datetime import datetime\n    >>> token_info = TokenResponse(\n    ...     id=\"token-123\", name=\"Test Token\", description=None,\n    ...     user_email=\"test@example.com\", server_id=None, resource_scopes=[], ip_restrictions=[],\n    ...     time_restrictions={}, usage_limits={}, created_at=datetime.now(),\n    ...     expires_at=None, last_used=None, is_active=True, tags=[]\n    ... )\n    >>> response = TokenCreateResponse(\n    ...     token=token_info,\n    ...     access_token=\"abc123xyz\"\n    ... )\n    >>> response.access_token\n    'abc123xyz'\n    >>> response.warnings\n    []"
       },
       "TokenListResponse": {
         "properties": {
@@ -53033,227 +56414,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "GatewayHandshakeRequest": {
-        "properties": {
-          "baseUrl": {
-            "type": "string",
-            "minLength": 1,
-            "format": "uri",
-            "title": "Baseurl",
-            "description": "Base URL of the MCP server to test"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Path",
-            "description": "Optional path appended to the base URL"
-          },
-          "headers": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Headers",
-            "description": "Optional headers (e.g. Authorization) sent with the handshake"
-          }
-        },
-        "type": "object",
-        "required": [
-          "baseUrl"
-        ],
-        "title": "GatewayHandshakeRequest",
-        "description": "Request to run an MCP handshake test against a server URL.",
-        "nullable": true
-      },
-      "GatewayHandshakeResponse": {
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "title": "Success"
-          },
-          "latencyMs": {
-            "type": "integer",
-            "title": "Latencyms"
-          },
-          "negotiationPath": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "server_discover",
-                  "initialize"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Negotiationpath",
-            "description": "Which handshake path produced the result"
-          },
-          "protocolVersion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Protocolversion"
-          },
-          "serverName": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Servername"
-          },
-          "serverVersion": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Serverversion"
-          },
-          "capabilities": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Capabilities"
-          },
-          "componentCounts": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "integer"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Componentcounts",
-            "description": "Counts for tools/resources/prompts; a key is absent when the capability is not advertised"
-          },
-          "countsPartial": {
-            "type": "boolean",
-            "title": "Countspartial",
-            "description": "True when any list result had a nextCursor (counts are first-page lower bounds)",
-            "default": false
-          },
-          "credentialSource": {
-            "type": "string",
-            "enum": [
-              "stored",
-              "form",
-              "none",
-              "session"
-            ],
-            "title": "Credentialsource",
-            "default": "none"
-          },
-          "failureClass": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "transport",
-                  "protocol",
-                  "auth",
-                  "invalid_response"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Failureclass"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          },
-          "rawPreview": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rawpreview",
-            "description": "Size-capped JSON preview of the final handshake payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "success",
-          "latencyMs"
-        ],
-        "title": "GatewayHandshakeResponse",
-        "description": "Result of an MCP handshake test.",
-        "nullable": true
-      },
-      "ServerHandshakeRequest": {
-        "properties": {
-          "headers": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Headers",
-            "description": "Optional headers (e.g. Authorization) overriding the caller's own forwarded credentials"
-          }
-        },
-        "type": "object",
-        "title": "ServerHandshakeRequest",
-        "description": "Request to run an MCP handshake test against a virtual server's own endpoint.\n\nUnlike :class:`GatewayHandshakeRequest`, the target is derived from the\ntrusted, already-registered virtual server ID (path parameter) rather than\nan arbitrary caller-supplied URL, so no ``base_url``/``path`` fields exist here.",
-        "nullable": true
       }
     },
     "securitySchemes": {

@@ -34,7 +34,7 @@ services:
 
   gateway:
     # Keep in sync with openapi.json's `info.version` — the API surface this repo's BFF proxies to.
-    image: ghcr.io/ibm/mcp-context-forge:v1.0.8
+    image: ghcr.io/ibm/mcp-context-forge:v1.0.9
     environment:
       HOST: 0.0.0.0
       DATABASE_URL: sqlite:///./data/mcp.db
