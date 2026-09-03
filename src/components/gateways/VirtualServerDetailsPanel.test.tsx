@@ -583,7 +583,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
         HttpResponse.json({
           success: true,
           latencyMs: 10,
-          componentCounts: { tools: 1 },
+          componentCounts: { tools: 1, resources: 2 },
         }),
       ),
     );
