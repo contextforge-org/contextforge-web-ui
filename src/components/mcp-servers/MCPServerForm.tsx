@@ -217,7 +217,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                           setQuickAddOpen(true);
                         }
                       }}
-                      className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
+                      className="inline h-auto p-0 font-medium text-cyan-700 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:hover:text-cyan-300"
                     >
                       {chunks}
                     </Button>
