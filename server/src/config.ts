@@ -37,6 +37,13 @@ export const config = {
   // default), so this must stay above the upstream email-delivery timeout.
   passwordResetRequestTimeoutMs: Number(optional("PASSWORD_RESET_REQUEST_TIMEOUT_MS", "30000")),
 
+  // Shared by both OAuth popup proxy routes (routes/proxy/oauth-authorize.ts,
+  // oauth-callback.ts). GET /oauth/authorize/{id} can synchronously run DCR
+  // registration (an outbound call to the IdP's own registration/discovery
+  // endpoints) before it redirects, so this is sized for that -- more
+  // headroom than a plain API call needs.
+  oauthProxyTimeoutMs: Number(optional("OAUTH_PROXY_TIMEOUT_MS", "30000")),
+
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
   // local dev process. optionalUnset so REDIS_URL="" also falls through
@@ -102,6 +109,10 @@ if (
   config.passwordResetRequestTimeoutMs <= 0
 ) {
   throw new Error("PASSWORD_RESET_REQUEST_TIMEOUT_MS must be a positive integer");
+}
+
+if (!Number.isSafeInteger(config.oauthProxyTimeoutMs) || config.oauthProxyTimeoutMs <= 0) {
+  throw new Error("OAUTH_PROXY_TIMEOUT_MS must be a positive integer");
 }
 
 // COOKIE_SECURE=true (prod default) with neither PUBLIC_ORIGIN nor TRUST_PROXY
