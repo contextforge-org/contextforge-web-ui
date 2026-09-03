@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 
 import { registerCatalogServer } from "@/api/catalog";
@@ -114,6 +114,9 @@ export function QuickAddServerDialog({
   // Curated ids the backend 404s on. The list comes from the query cache rather than local
   // state, so entries are dropped here instead of being spliced out of the cached response.
   const [unavailableIds, setUnavailableIds] = useState<ReadonlySet<string>>(new Set());
+  // Re-entrancy guard for the register call. Held in a ref rather than read off isConnecting so
+  // it is set in the same tick as the click, without depending on a render having committed.
+  const isRegisteringRef = useRef(false);
   const { teams, onTeamChange } = useTeamScope({ visibility, teamId, onTeamIdChange: setTeamId });
 
   const { data, error, isLoading } = useQuery<CatalogListResponse>(CATALOG_PATH, {
@@ -148,7 +151,7 @@ export function QuickAddServerDialog({
   const showScopeFields = isLoadingCatalog || servers.length > 0;
 
   const handleContinue = useCallback(async () => {
-    if (!selectedServer || isConnecting) return;
+    if (!selectedServer || isRegisteringRef.current) return;
     setConnectError(null);
 
     if (visibility === "team" && !teamId) {
@@ -170,6 +173,7 @@ export function QuickAddServerDialog({
       return;
     }
 
+    isRegisteringRef.current = true;
     setIsConnecting(true);
     try {
       const result = await registerCatalogServer(selectedServer.id, {
@@ -209,9 +213,10 @@ export function QuickAddServerDialog({
 
       setConnectError(intl.formatMessage({ id: "mcpServer.quickAdd.connectError" }));
     } finally {
+      isRegisteringRef.current = false;
       setIsConnecting(false);
     }
-  }, [intl, isConnecting, onConnected, selectedServer, teamId, visibility]);
+  }, [intl, onConnected, selectedServer, teamId, visibility]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {

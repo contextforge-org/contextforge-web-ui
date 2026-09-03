@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { registerCatalogServer } from "@/api/catalog";
@@ -181,6 +181,36 @@ describe("QuickAddServerDialog", () => {
         teamId: "",
       });
     });
+  });
+
+  it("registers once when Continue fires twice before a render commits", async () => {
+    mockCatalogQuery();
+    mockRegister.mockResolvedValue({
+      success: true,
+      server_id: "gateway-1",
+      message: "registered",
+    });
+    const user = userEvent.setup();
+    renderWithProviders(
+      <QuickAddServerDialog
+        open
+        onOpenChange={vi.fn()}
+        onConnected={vi.fn()}
+        onBrowseCatalog={vi.fn()}
+      />,
+    );
+
+    await selectFirstCuratedCard(user);
+
+    // Dispatched natively and inside one act scope, so neither the isConnecting re-render nor
+    // the disabled attribute lands between the two clicks. Only the ref guard stops the second.
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    await act(async () => {
+      continueButton.click();
+      continueButton.click();
+    });
+
+    expect(mockRegister).toHaveBeenCalledTimes(1);
   });
 
   it("skips registration when the picked entry is already connected", async () => {
