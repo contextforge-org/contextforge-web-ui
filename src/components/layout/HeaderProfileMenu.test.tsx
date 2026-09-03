@@ -120,6 +120,42 @@ describe("HeaderProfileMenu", () => {
     expect(localStorage.getItem("theme-preference")).toBe("system");
   });
 
+  it("shows the active language on the trigger", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("user-locale", "pt-BR");
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Bobo Example" }));
+
+    expect(screen.getByText("Idioma")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Idioma" })).toHaveTextContent("Português");
+  });
+
+  it("updates the saved locale preference", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Bobo Example" }));
+    await user.click(screen.getByRole("combobox", { name: "Language" }));
+    await user.click(await screen.findByRole("option", { name: "Español" }));
+
+    expect(localStorage.getItem("user-locale")).toBe("es-ES");
+    expect(document.documentElement.lang).toBe("es-ES");
+  });
+
+  it("keeps the profile menu open while the language list is used", async () => {
+    // Regression: the select portals outside the menu content, so a careless
+    // setup dismisses the whole dropdown on the first click.
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Bobo Example" }));
+    await user.click(screen.getByRole("combobox", { name: "Language" }));
+    await user.click(await screen.findByRole("option", { name: "Español" }));
+
+    expect(screen.getByText("Configuración")).toBeInTheDocument();
+  });
+
   it("does not scroll-lock the body while the menu is open", async () => {
     // Regression: a modal dropdown wraps its content in react-remove-scroll,
     // which locks the body (overflow:hidden + compensating padding) on open and

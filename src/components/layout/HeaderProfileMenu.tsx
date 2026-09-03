@@ -2,8 +2,17 @@ import { ChevronDown, LogOut, Monitor, Moon, Settings2, Sun } from "lucide-react
 import { useIntl } from "react-intl";
 import { useAuth } from "../../auth/useAuth";
 import { useTheme } from "../../hooks/useTheme";
+import { LOCALE_LABELS, SUPPORTED_LOCALES, useI18n } from "../../i18n";
+import type { SupportedLocale } from "../../i18n";
 import { useRouter } from "../../router";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
@@ -19,6 +28,7 @@ export function HeaderProfileMenu() {
   const { user, logout } = useAuth();
   const { navigate } = useRouter();
   const { theme, setTheme } = useTheme();
+  const { locale, setLocale } = useI18n();
 
   if (!user) return null;
 
@@ -76,6 +86,25 @@ export function HeaderProfileMenu() {
               <Monitor className="size-4" />
             </Button>
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <span className="text-sm">{intl.formatMessage({ id: "common.language" })}</span>
+          <Select value={locale} onValueChange={(value) => setLocale(value as SupportedLocale)}>
+            <SelectTrigger
+              size="sm"
+              aria-label={intl.formatMessage({ id: "common.language" })}
+              className="h-auto gap-1.5 border-0 bg-transparent px-2 py-1 text-xs font-medium text-secondary-foreground shadow-none"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" side="bottom" align="end" sideOffset={4}>
+              {SUPPORTED_LOCALES.map((supported) => (
+                <SelectItem key={supported} value={supported}>
+                  {LOCALE_LABELS[supported]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <DropdownMenuItem
           onClick={() => navigate("/app/settings")}
