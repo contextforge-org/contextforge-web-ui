@@ -50,11 +50,11 @@ describe("InlineNotification", () => {
   });
 
   describe("info type", () => {
-    it("renders with role='status' and full-contrast text", () => {
+    it("renders with role='status' and neutral text", () => {
       render(<InlineNotification type="info" message="Disconnect pending" />);
 
       expect(screen.getByRole("status")).toHaveTextContent("Disconnect pending");
-      expect(screen.getByText("Disconnect pending")).toHaveClass("text-foreground");
+      expect(screen.getByText("Disconnect pending")).toHaveClass("text-muted-foreground");
     });
   });
 

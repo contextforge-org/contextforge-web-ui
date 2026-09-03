@@ -33,7 +33,7 @@ export const InlineNotification = forwardRef<HTMLDivElement, InlineNotificationP
       >
         <div className="flex items-center gap-2">
           <Icon className={`h-4 w-4 shrink-0 ${toneClass}`} aria-hidden="true" />
-          <p className={`text-sm ${type === "info" ? "text-foreground" : toneClass}`}>{message}</p>
+          <p className={`text-sm ${toneClass}`}>{message}</p>
         </div>
         {(action || onDismiss) && (
           <div className="ml-2 flex shrink-0 items-center gap-1">
