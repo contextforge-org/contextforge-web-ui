@@ -17,7 +17,7 @@ import type { HeadlineCondition } from "@/components/dashboard/resolveHeadline";
 import { useMiniCardStatuses } from "@/hooks/useMiniCardStatuses";
 import type { SystemHealthResult } from "@/hooks/useSystemHealth";
 import { StatusHeadline } from "@/components/dashboard/StatusHeadline";
-import { SystemStatsCardConnected } from "@/components/dashboard/SystemStatsCardConnected";
+import { SystemSparklinesCardConnected } from "@/components/dashboard/SystemSparklinesCardConnected";
 import { SystemView } from "@/components/dashboard/SystemView";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/useAuth";
@@ -146,7 +146,7 @@ export function Dashboard() {
 
 /**
  * Default (resting) state: status summary with the activity-feed entry point,
- * the all-time system stats card, and the inline source cards. No right column.
+ * the 24 hour sparklines card, and the inline source cards. No right column.
  */
 function DefaultState({
   statuses,
@@ -158,7 +158,7 @@ function DefaultState({
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <StatusHeadline condition={headlineCondition} action={<ActivityFeedButton />} />
-      <SystemStatsCardConnected />
+      <SystemSparklinesCardConnected />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {DEFAULT_SOURCE_CARDS.map((id) => (
           <MiniCard key={id} id={id} status={<MiniCardStatusIndicator status={statuses[id]} />} />
