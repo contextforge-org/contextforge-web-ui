@@ -97,7 +97,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.grantTypeLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Select value={grantType} onValueChange={onGrantTypeChange}>
@@ -137,7 +137,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -198,7 +198,7 @@ export function OAuth2Auth({
               className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.usernameLabel" })}
-              <span className="text-red-500">*</span>
+              <span className="text-destructive">*</span>
               <span className="sr-only">
                 {intl.formatMessage({ id: "mcpServer.form.required" })}
               </span>
@@ -214,7 +214,7 @@ export function OAuth2Auth({
               className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
             {errors?.username && (
-              <p id="oauth-username-error" className="text-sm text-red-500">
+              <p id="oauth-username-error" className="text-sm text-destructive">
                 {errors.username}
               </p>
             )}
@@ -225,7 +225,7 @@ export function OAuth2Auth({
               className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.passwordLabel" })}
-              <span className="text-red-500">*</span>
+              <span className="text-destructive">*</span>
               <span className="sr-only">
                 {intl.formatMessage({ id: "mcpServer.form.required" })}
               </span>
@@ -241,7 +241,7 @@ export function OAuth2Auth({
               className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
             {errors?.password && (
-              <p id="oauth-password-error" className="text-sm text-red-500">
+              <p id="oauth-password-error" className="text-sm text-destructive">
                 {errors.password}
               </p>
             )}
@@ -295,7 +295,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -318,7 +318,7 @@ export function OAuth2Auth({
             className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
           >
             {intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-            <span className="text-red-500">*</span>
+            <span className="text-destructive">*</span>
             <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
           </label>
           <Input
