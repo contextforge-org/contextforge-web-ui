@@ -33,10 +33,12 @@ function catalogResults(
       addingServerIds={addingServerIds}
       onTest={vi.fn()}
       onDisconnect={vi.fn()}
+      onAuthorize={vi.fn()}
       testingServerIds={testingServerIds}
       disconnectingServerIds={disconnectingServerIds}
       canTest={false}
       canDisconnect={false}
+      canAuthorize={false}
     />
   );
 }

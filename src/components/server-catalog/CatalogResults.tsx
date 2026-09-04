@@ -81,22 +81,28 @@ function CatalogCard({
   onAdd,
   onTest,
   onDisconnect,
+  onAuthorize,
   isAdding,
   isTesting,
   isDisconnecting,
+  isAuthorizing,
   canTest,
   canDisconnect,
+  canAuthorize,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
   onTest: () => void;
   onDisconnect: () => void;
+  onAuthorize: () => void;
   isAdding: boolean;
   isTesting: boolean;
   isDisconnecting: boolean;
+  isAuthorizing: boolean;
   canTest: boolean;
   canDisconnect: boolean;
+  canAuthorize: boolean;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -140,15 +146,45 @@ function CatalogCard({
                     <span role="status" className="text-sm font-medium text-muted-foreground">
                       {intl.formatMessage({ id: "mcpServer.catalog.disconnecting" })}
                     </span>
+                  ) : isAuthorizing ? (
+                    <span role="status" className="text-sm font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.catalog.authorizing" })}
+                    </span>
                   ) : isTesting ? (
                     <span role="status" className="text-sm font-medium text-muted-foreground">
                       {intl.formatMessage({ id: "mcpServer.catalog.testing" })}
+                    </span>
+                  ) : server.requires_oauth_config ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <STATUS_ICON.warning className="size-4 text-warning" aria-hidden="true" />
+                      {intl.formatMessage({ id: "mcpServer.catalog.needsAuthorization" })}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
                       <STATUS_ICON.success className="size-4 text-success" aria-hidden="true" />
                       {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
                     </span>
+                  )}
+                  {server.requires_oauth_config && canAuthorize && !isDisconnecting && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      disabled={isAuthorizing}
+                      aria-label={intl.formatMessage(
+                        {
+                          id: isAuthorizing
+                            ? "mcpServer.catalog.authorizingServer"
+                            : "mcpServer.catalog.authorizeServer",
+                        },
+                        { name: server.name },
+                      )}
+                      onClick={onAuthorize}
+                    >
+                      {isAuthorizing
+                        ? intl.formatMessage({ id: "mcpServer.catalog.authorizing" })
+                        : intl.formatMessage({ id: "mcpServer.catalog.authorize" })}
+                    </Button>
                   )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -186,7 +222,12 @@ function CatalogCard({
                       </DropdownMenuItem>
                       {canTest && (
                         <DropdownMenuItem
-                          disabled={server.requires_oauth_config || isTesting || isDisconnecting}
+                          disabled={
+                            server.requires_oauth_config ||
+                            isTesting ||
+                            isDisconnecting ||
+                            isAuthorizing
+                          }
                           onSelect={onTest}
                           title={
                             server.requires_oauth_config
@@ -199,7 +240,7 @@ function CatalogCard({
                       )}
                       {canDisconnect && server.gateway_id && (
                         <DropdownMenuItem
-                          disabled={isTesting || isDisconnecting}
+                          disabled={isTesting || isDisconnecting || isAuthorizing}
                           onSelect={onDisconnect}
                         >
                           {intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}
@@ -340,10 +381,13 @@ export function CatalogResults({
   addingServerIds,
   onTest,
   onDisconnect,
+  onAuthorize,
   testingServerIds = EMPTY_PENDING_IDS,
   disconnectingServerIds = EMPTY_PENDING_IDS,
+  authorizingServerIds = EMPTY_PENDING_IDS,
   canTest,
   canDisconnect,
+  canAuthorize,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -352,10 +396,13 @@ export function CatalogResults({
   addingServerIds: ReadonlySet<string>;
   onTest: (server: CatalogServer) => void;
   onDisconnect: (server: CatalogServer) => void;
+  onAuthorize: (server: CatalogServer) => void;
   testingServerIds?: ReadonlySet<string>;
   disconnectingServerIds?: ReadonlySet<string>;
+  authorizingServerIds?: ReadonlySet<string>;
   canTest: boolean;
   canDisconnect: boolean;
+  canAuthorize: boolean;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -378,11 +425,14 @@ export function CatalogResults({
               onAdd={() => onAdd(server)}
               onTest={() => onTest(server)}
               onDisconnect={() => onDisconnect(server)}
+              onAuthorize={() => onAuthorize(server)}
               isAdding={addingServerIds.has(server.id)}
               isTesting={testingServerIds.has(server.id)}
               isDisconnecting={disconnectingServerIds.has(server.id)}
+              isAuthorizing={authorizingServerIds.has(server.id)}
               canTest={canTest}
               canDisconnect={canDisconnect}
+              canAuthorize={canAuthorize}
             />
           ))}
         </ul>

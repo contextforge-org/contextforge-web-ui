@@ -39924,6 +39924,19 @@
             "title": "Api Key",
             "description": "API key if the catalog entry requires one"
           },
+          "oauth_credentials": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oauth Credentials",
+            "description": "OAuth credentials if the catalog entry requires OAuth"
+          },
           "visibility": {
             "anyOf": [
               {
@@ -39956,7 +39969,7 @@
         },
         "type": "object",
         "title": "CatalogServerRegisterBody",
-        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides. OAuth configuration is out of scope here (#5967)."
+        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides."
       },
       "CatalogServerRegisterRequest": {
         "properties": {

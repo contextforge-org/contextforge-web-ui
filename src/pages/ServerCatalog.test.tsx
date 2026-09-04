@@ -7,6 +7,7 @@ import {
   disconnectCatalogGateway,
   getGatewayImpactPreview,
   registerCatalogServer,
+  runOAuthAuthorization,
   testCatalogServer,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
@@ -45,6 +46,7 @@ vi.mock("@/api/catalog", () => ({
   disconnectCatalogGateway: vi.fn(),
   getGatewayImpactPreview: vi.fn(),
   testCatalogServer: vi.fn(),
+  runOAuthAuthorization: vi.fn(),
 }));
 
 const mockUseQuery = vi.mocked(useQuery);
@@ -52,6 +54,7 @@ const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
 const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
 const mockTestCatalogServer = vi.mocked(testCatalogServer);
+const mockRunOAuthAuthorization = vi.mocked(runOAuthAuthorization);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -88,6 +91,18 @@ const apiKeyServer: CatalogServer = {
   provider: "SecureCo",
   description: "Requires a secret API key",
   tags: ["security"],
+  is_registered: false,
+};
+
+const oauthServer: CatalogServer = {
+  id: "oauth-server",
+  name: "GitHub",
+  category: "Development",
+  url: "https://api.githubcopilot.com/mcp",
+  auth_type: "OAuth2.1",
+  provider: "GitHub",
+  description: "Version control and collaboration",
+  tags: ["development"],
   is_registered: false,
 };
 
@@ -165,6 +180,7 @@ describe("ServerCatalog", () => {
     });
     mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
     mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
+    mockRunOAuthAuthorization.mockResolvedValue({ status: "authorized" });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -306,7 +322,7 @@ describe("ServerCatalog", () => {
     ).toBeVisible();
   });
 
-  it("disables Test when OAuth configuration remains incomplete", async () => {
+  it("disables Test and offers Authorize when OAuth configuration remains incomplete", async () => {
     const user = userEvent.setup();
     mockUseQuery.mockReturnValue(
       queryResult({
@@ -319,12 +335,60 @@ describe("ServerCatalog", () => {
     );
     renderWithRouter(<ServerCatalog />);
 
+    expect(screen.getByText("Needs authorization")).toBeVisible();
+
     await user.click(screen.getByRole("button", { name: "Actions for Globalping" }));
 
     expect(screen.getByRole("menuitem", { name: "Test connection" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
+  });
+
+  it("authorizes a registered-but-unauthorized OAuth server from the card", async () => {
+    const user = userEvent.setup();
+    mockRunOAuthAuthorization.mockResolvedValue({
+      status: "authorized",
+      toolsMessage: "Successfully fetched and created 3 tools",
+    });
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, requires_oauth_config: true }],
+          total: 1,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Authorize Globalping" }));
+
+    expect(mockRunOAuthAuthorization).toHaveBeenCalledWith("gateway-globalping");
+    expect(await screen.findByText("Globalping authorized successfully.")).toBeVisible();
+  });
+
+  it("reports an in-progress add rather than an error when the popup is cancelled", async () => {
+    const user = userEvent.setup();
+    mockRunOAuthAuthorization.mockResolvedValue({ status: "cancelled" });
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...openConnected, requires_oauth_config: true }],
+          total: 1,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Authorize Globalping" }));
+
+    expect(
+      await screen.findByText(
+        "Globalping was added but not yet authorized. Use Authorize on the card to finish.",
+      ),
+    ).toBeVisible();
   });
 
   it("hides connected-server mutations without their permissions", async () => {
@@ -700,6 +764,82 @@ describe("ServerCatalog", () => {
     expect(await screen.findByText("Secret Service is already connected.")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Add Secret Service" })).not.toBeInTheDocument();
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("opens an OAuth dialog, registers, and authorizes in one flow", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [...response.servers, oauthServer], total: 4 },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    await user.type(within(dialog).getByLabelText(/^Issuer URL/), "https://github.com/login/oauth");
+    await user.type(within(dialog).getByLabelText(/^Scopes/), "repo read:user");
+    await user.click(within(dialog).getByRole("button", { name: "Add and authorize" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("oauth-server", {
+        name: null,
+        visibility: "private",
+        team_id: null,
+        oauth_credentials: {
+          issuer: "https://github.com/login/oauth",
+          scopes: ["repo", "read:user"],
+          client_id: undefined,
+          client_secret: undefined,
+          token_url: undefined,
+          authorization_url: undefined,
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(mockRunOAuthAuthorization).toHaveBeenCalledWith("registered-server"),
+    );
+    expect(screen.queryByRole("dialog", { name: "Add GitHub" })).not.toBeInTheDocument();
+    expect(await screen.findByText("GitHub authorized, but no tools were found.")).toBeVisible();
+  });
+
+  it("requires an issuer URL and scopes before OAuth registration", async () => {
+    const user = userEvent.setup();
+    const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
+    const authorizeCallCount = mockRunOAuthAuthorization.mock.calls.length;
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [...response.servers, oauthServer], total: 4 },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    await user.click(within(dialog).getByRole("button", { name: "Add and authorize" }));
+
+    expect(await within(dialog).findByText("Issuer URL is required.")).toBeInTheDocument();
+    expect(within(dialog).getByText("At least one scope is required.")).toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
+    expect(mockRunOAuthAuthorization).toHaveBeenCalledTimes(authorizeCallCount);
+  });
+
+  it("closes the OAuth dialog when cancelled without registering", async () => {
+    const user = userEvent.setup();
+    const registrationCallCount = mockRegisterCatalogServer.mock.calls.length;
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [...response.servers, oauthServer], total: 4 },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog", { name: "Add GitHub" })).not.toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(registrationCallCount);
   });
 
   it("requires a team before submitting team-visible catalog registration", async () => {
