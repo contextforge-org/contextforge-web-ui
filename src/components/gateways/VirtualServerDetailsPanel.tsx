@@ -231,23 +231,29 @@ export function VirtualServerDetailsPanel({
 
   // Fetch components data - only when panel is open and server exists
   const fetchEnabled = open && Boolean(server?.id);
-  const { data: toolsData, isLoading: toolsLoading } = useQuery<{ tools: Tool[] }>(toolsPath, {
+  const {
+    data: toolsData,
+    isLoading: toolsLoading,
+    error: toolsError,
+  } = useQuery<{ tools: Tool[] }>(toolsPath, {
     enabled: fetchEnabled,
   });
 
-  const { data: resourcesData, isLoading: resourcesLoading } = useQuery<{ resources: Resource[] }>(
-    resourcesPath,
-    {
-      enabled: fetchEnabled,
-    },
-  );
+  const {
+    data: resourcesData,
+    isLoading: resourcesLoading,
+    error: resourcesError,
+  } = useQuery<{ resources: Resource[] }>(resourcesPath, {
+    enabled: fetchEnabled,
+  });
 
-  const { data: promptsData, isLoading: promptsLoading } = useQuery<{ prompts: Prompt[] }>(
-    promptsPath,
-    {
-      enabled: fetchEnabled,
-    },
-  );
+  const {
+    data: promptsData,
+    isLoading: promptsLoading,
+    error: promptsError,
+  } = useQuery<{ prompts: Prompt[] }>(promptsPath, {
+    enabled: fetchEnabled,
+  });
 
   const fetchedComponents = useMemo((): ComponentWithType[] => {
     const tools = Array.isArray(toolsData) ? toolsData : toolsData?.tools || [];
@@ -292,14 +298,33 @@ export function VirtualServerDetailsPanel({
   // MCP endpoint, which only ever see enabled components — so a disabled
   // component here must be excluded too, or a server with one disabled tool
   // would show a permanent, spurious mismatch.
+  //
+  // Only computed from `fetchedComponents` (never the `buildComponentItems`
+  // fallback, which carries no `enabled` field and can't be filtered) and
+  // only when all three component queries succeeded — a failed query would
+  // otherwise silently contribute 0 and trigger a false mismatch. Also
+  // withheld until all three have resolved at least once, since `useQuery`
+  // never clears `data` on a later error and the pre-resolve state would
+  // otherwise compare a `{ tools: 0, resources: 0, prompts: 0 }` aggregate
+  // against a handshake that already has real counts.
   const aggregatedComponentCounts = useMemo(() => {
+    if (toolsError || resourcesError || promptsError) return undefined;
+    if (!toolsData || !resourcesData || !promptsData) return undefined;
     const counts: Record<string, number> = { tools: 0, resources: 0, prompts: 0 };
-    for (const component of allComponents) {
+    for (const component of fetchedComponents) {
       if (component.enabled === false) continue;
       counts[component.type] = (counts[component.type] ?? 0) + 1;
     }
     return counts;
-  }, [allComponents]);
+  }, [
+    fetchedComponents,
+    toolsError,
+    resourcesError,
+    promptsError,
+    toolsData,
+    resourcesData,
+    promptsData,
+  ]);
 
   const sourceIds = useMemo(
     () =>

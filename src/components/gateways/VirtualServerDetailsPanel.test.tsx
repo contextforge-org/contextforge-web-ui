@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { server as mswServer } from "@/test/mocks/server";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { VirtualServerDetailsPanel } from "./VirtualServerDetailsPanel";
@@ -551,6 +551,129 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     render(
       <VirtualServerDetailsPanel
         server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
+  it("suppresses the mismatch banner when one component query fails", async () => {
+    // If the resources query errors while tools succeeds, the aggregate must
+    // not silently treat the failed query as a count of 0 — that would flag
+    // a mismatch against a handshake that actually agrees.
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/servers/:id/tools", () =>
+        HttpResponse.json({ tools: [{ id: "t1", name: "tool-1", originalName: "tool-1" }] }),
+      ),
+      http.get("*/servers/:id/resources", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 10,
+          componentCounts: { tools: 1, resources: 2 },
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
+  it("suppresses the mismatch banner when all component queries fail, even with a disabled component", async () => {
+    // When every component query fails, the panel would otherwise fall back
+    // to buildComponentItems(server), which carries no `enabled` field and
+    // can't exclude disabled components from the aggregate.
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/servers/:id/tools", () => HttpResponse.json({ error: "boom" }, { status: 500 })),
+      http.get("*/servers/:id/resources", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+      http.get("*/servers/:id/prompts", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 10,
+          componentCounts: { tools: 1 },
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          associatedTools: ["tool-1", "tool-2"],
+          associatedToolIds: ["t1", "t2"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Try it" }));
+    await user.click(screen.getByRole("button", { name: /^test connection$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^connection test$/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/counts don.t match/i)).not.toBeInTheDocument();
+  });
+
+  it("suppresses the mismatch banner while a component query is still loading", async () => {
+    // Before all three queries have resolved, the aggregate must not stand
+    // in as {0,0,0} and get compared against the handshake — that flags a
+    // spurious mismatch during the loading window, which is longest when a
+    // query hangs rather than erroring outright.
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/servers/:id/tools", async () => {
+        await delay("infinite");
+        return HttpResponse.json({ tools: [] });
+      }),
+      http.post(HANDSHAKE_ENDPOINT, () =>
+        HttpResponse.json({
+          success: true,
+          latencyMs: 10,
+          componentCounts: { tools: 1 },
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ associatedTools: ["tool-1"], associatedToolIds: ["t1"] })}
         error={null}
         open
         onClose={vi.fn()}
