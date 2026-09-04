@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -7,24 +7,28 @@ import { MCPServerForm } from "./MCPServerForm";
 import { RouterProvider } from "@/router";
 import { I18nProvider } from "@/i18n";
 import { AuthProvider } from "@/auth/AuthContext";
+import { QUICK_ADD_CATALOG_IDS } from "@/config/quickAddServers";
 
 let mockHookActive = false;
 let mockHookReturnValue: Record<string, unknown> | null = null;
 
 vi.mock("@/hooks/useMCPServerForm", async (importOriginal) => {
   const actual = (await importOriginal()) as {
-    useMCPServerForm: (serverId?: string) => Record<string, unknown>;
+    useMCPServerForm: (
+      serverId?: string,
+      initialValues?: Record<string, unknown>,
+    ) => Record<string, unknown>;
   };
   return {
     ...actual,
-    useMCPServerForm: (serverId?: string) => {
+    useMCPServerForm: (serverId?: string, initialValues?: Record<string, unknown>) => {
       if (mockHookActive) {
         return {
-          ...actual.useMCPServerForm(serverId),
+          ...actual.useMCPServerForm(serverId, initialValues),
           ...mockHookReturnValue,
         };
       }
-      return actual.useMCPServerForm(serverId);
+      return actual.useMCPServerForm(serverId, initialValues);
     },
   };
 });
@@ -63,6 +67,37 @@ const server = setupServer(
   http.get("/api/teams", () => {
     return HttpResponse.json({
       teams: [{ id: "team-personal", name: "Personal team", is_personal: true }],
+    });
+  }),
+  // Quick Add dialog's catalog fetch — one curated entry is enough to exercise selection/prefill.
+  http.get("/api/v1/catalog", () => {
+    return HttpResponse.json({
+      servers: [
+        {
+          id: QUICK_ADD_CATALOG_IDS[0],
+          name: "DeepWiki",
+          category: "RAG-as-a-Service",
+          url: "https://mcp.deepwiki.com/mcp",
+          auth_type: "Open",
+          provider: "Devin",
+          description: "Knowledge base with deep learning integration",
+          transport: null,
+        },
+        {
+          id: QUICK_ADD_CATALOG_IDS[1],
+          name: "Exa Search",
+          category: "RAG-as-a-Service",
+          url: "https://mcp.exa.ai/sse",
+          auth_type: "Open",
+          provider: "Exa",
+          description: "AI-powered search engine for retrieving web content",
+          transport: "SSE",
+        },
+      ],
+      total: 2,
+      categories: [],
+      auth_types: [],
+      providers: [],
     });
   }),
 );
@@ -127,13 +162,6 @@ describe("MCPServerForm", () => {
     it("shows 'Save changes' submit button in edit mode", () => {
       renderWithRouter(<MCPServerForm isOpen={true} onToggle={vi.fn()} serverId="edit-123" />);
       expect(screen.getByRole("button", { name: /Save changes/i })).toBeInTheDocument();
-    });
-
-    it("should render link to server catalog", () => {
-      renderWithRouter(<MCPServerForm {...defaultProps} />);
-
-      const catalogLink = screen.getByRole("button", { name: /mcp server catalog/i });
-      expect(catalogLink).toBeInTheDocument();
     });
   });
 
@@ -609,23 +637,6 @@ describe("MCPServerForm", () => {
       await user.click(cancelButton);
 
       expect(onToggle).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("Server Catalog Navigation", () => {
-    it("should navigate to server catalog when link is clicked", async () => {
-      const user = userEvent.setup();
-      const onToggle = vi.fn();
-      renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggle} />);
-
-      const catalogLink = screen.getByRole("button", { name: /mcp server catalog/i });
-      await user.click(catalogLink);
-
-      expect(onToggle).toHaveBeenCalledTimes(1);
-      // Verify navigation by checking window location
-      await waitFor(() => {
-        expect(window.location.pathname).toBe("/app/server-catalog");
-      });
     });
   });
 
@@ -1215,6 +1226,65 @@ describe("MCPServerForm", () => {
           consoleErrorSpy.mockRestore();
         }
       });
+    });
+  });
+
+  describe("Quick Add", () => {
+    it("navigates directly to the full catalog in edit mode instead of opening quick add", async () => {
+      const user = userEvent.setup();
+      const onToggleSpy = vi.fn();
+      renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggleSpy} serverId="edit-123" />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(onToggleSpy).toHaveBeenCalled();
+      expect(window.location.pathname).toBe("/app/server-catalog");
+    });
+
+    it("opens the dialog from the catalog link and pre-fills the form on selection", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<MCPServerForm {...defaultProps} />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+      const dialog = screen.getByRole("dialog");
+      expect(
+        within(dialog).getByRole("heading", { name: "Connect MCP server" }),
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole("radio", { name: /DeepWiki/i }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/Name/i)).toHaveValue("DeepWiki");
+      expect(screen.getByLabelText(/URL/i)).toHaveValue("https://mcp.deepwiki.com/mcp");
+      expect(screen.getByPlaceholderText(/Add an optional description/i)).toHaveValue(
+        "Knowledge base with deep learning integration",
+      );
+      expect(screen.getByRole("radio", { name: "Streamable HTTP" })).toBeChecked();
+    });
+
+    it("maps a catalog entry's declared SSE transport onto the transport radio", async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<MCPServerForm {...defaultProps} />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+      await user.click(screen.getByRole("radio", { name: /Exa Search/i }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(screen.getByRole("radio", { name: "SSE" })).toBeChecked();
+    });
+
+    it("navigates to the full catalog and closes the form when Browse full catalog is clicked", async () => {
+      const user = userEvent.setup();
+      const onToggleSpy = vi.fn();
+      renderWithRouter(<MCPServerForm isOpen={true} onToggle={onToggleSpy} />);
+
+      await user.click(screen.getByRole("button", { name: /mcp server catalog/i }));
+      await user.click(screen.getByRole("button", { name: "server catalog" }));
+
+      expect(onToggleSpy).toHaveBeenCalled();
+      expect(window.location.pathname).toBe("/app/server-catalog");
     });
   });
 });
