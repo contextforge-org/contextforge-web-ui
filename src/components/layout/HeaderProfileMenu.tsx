@@ -101,6 +101,7 @@ export function HeaderProfileMenu() {
           </Select>
         </div>
         <Button
+          type="button"
           variant="ghost"
           className="h-auto w-full justify-start gap-2 rounded-lg px-3 py-2 font-normal"
           onClick={() => {
@@ -112,6 +113,7 @@ export function HeaderProfileMenu() {
           {intl.formatMessage({ id: "navigation.settings" })}
         </Button>
         <Button
+          type="button"
           variant="ghost"
           className="h-auto w-full justify-start gap-2 rounded-lg px-3 py-2 font-normal"
           onClick={() => {
