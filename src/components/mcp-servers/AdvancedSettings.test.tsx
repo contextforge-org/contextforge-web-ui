@@ -76,7 +76,6 @@ const makeProps = (overrides: Partial<AdvancedSettingsProps> = {}): AdvancedSett
   onOAuthTokenUrlChange: vi.fn(),
   onOAuthGrantTypeChange: vi.fn(),
   onOAuthIssuerUrlChange: vi.fn(),
-  onOAuthRedirectUriChange: vi.fn(),
   onOAuthAuthorizationUrlChange: vi.fn(),
   onOAuthScopesChange: vi.fn(),
   onOAuthStoreTokensChange: vi.fn(),

@@ -62,7 +62,6 @@ interface AdvancedSettingsProps {
   onOAuthTokenUrlChange: (value: string) => void;
   onOAuthGrantTypeChange: (value: string) => void;
   onOAuthIssuerUrlChange: (value: string) => void;
-  onOAuthRedirectUriChange: (value: string) => void;
   onOAuthAuthorizationUrlChange: (value: string) => void;
   onOAuthScopesChange: (value: string) => void;
   onOAuthStoreTokensChange: (checked: boolean) => void;
@@ -115,7 +114,6 @@ export function AdvancedSettings({
   onOAuthTokenUrlChange,
   onOAuthGrantTypeChange,
   onOAuthIssuerUrlChange,
-  onOAuthRedirectUriChange,
   onOAuthAuthorizationUrlChange,
   onOAuthScopesChange,
   onOAuthStoreTokensChange,
@@ -180,7 +178,6 @@ export function AdvancedSettings({
             onTokenUrlChange={onOAuthTokenUrlChange}
             onGrantTypeChange={onOAuthGrantTypeChange}
             onIssuerUrlChange={onOAuthIssuerUrlChange}
-            onRedirectUriChange={onOAuthRedirectUriChange}
             onAuthorizationUrlChange={onOAuthAuthorizationUrlChange}
             onScopesChange={onOAuthScopesChange}
             onStoreTokensChange={onOAuthStoreTokensChange}

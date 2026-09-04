@@ -186,6 +186,8 @@
   "mcpServer.auth.oauth.redirectUriLabel": "URI de redirecionamento",
   "mcpServer.auth.oauth.redirectUriCopy": "Copiar para a área de transferência",
   "mcpServer.auth.oauth.redirectUriHelp": "Configure seu aplicativo OAuth para usar esta URI de redirecionamento.",
+  "mcpServer.auth.oauth.redirectUriAutoPlaceholder": "Determinado automaticamente pelo servidor",
+  "mcpServer.auth.oauth.redirectUriAutoHelp": "O gateway preenche este valor a partir de sua própria URL pública configurada (APP_DOMAIN) quando a autorização é iniciada. Defina um valor explicitamente apenas se este gateway precisar de uma URI de redirecionamento diferente registrada no provedor.",
   "mcpServer.auth.oauth.redirectUriLocalWarning": "A URL pública do servidor não está configurada. URIs de redirecionamento derivadas de localhost não funcionarão com provedores OAuth externos.",
   "mcpServer.auth.oauth.usernameLabel": "Nome de usuário",
   "mcpServer.auth.oauth.usernamePlaceholder": "ex.: service-account",
