@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("sonner", () => ({
   toast: {
@@ -83,11 +83,6 @@ describe("Tools", () => {
     server.resetHandlers();
     mockPermissionsLoading = false;
     mockHasPermission.mockReturnValue(true);
-    vi.stubEnv("VITE_ENABLE_TOOL_PREVIEW", "true");
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it("hides the add-tool card when the caller lacks tools.create", async () => {

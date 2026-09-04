@@ -35,6 +35,7 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.preview;
+  const resolvedArguments = response?.resolved_arguments ?? response?.resolvedArguments;
   const toolResultIsError = response ? getToolResultIsError(response) : false;
   const succeeded = result !== null;
   const statusOk = succeeded && !toolResultIsError;
@@ -97,13 +98,13 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
       {response && <ToolResultRenderer response={response} />}
 
-      {response?.resolved_arguments && (
+      {resolvedArguments && (
         <section className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground">
             {intl.formatMessage({ id: "tools.details.preview.resolvedArguments" })}
           </h4>
           <CodeBlock
-            code={JSON.stringify(response.resolved_arguments, null, 2)}
+            code={JSON.stringify(resolvedArguments, null, 2)}
             language="json"
             copyLabel={intl.formatMessage({ id: "tools.details.preview.copyResolvedArguments" })}
           />
