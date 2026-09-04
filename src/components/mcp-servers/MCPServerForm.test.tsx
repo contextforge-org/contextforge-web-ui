@@ -39,11 +39,11 @@ const server = setupServer(
     return HttpResponse.json({ authenticated: false });
   }),
   // Mock gateway creation
-  http.post("/api/gateways", () => {
+  http.post("/api/v1/mcp-servers", () => {
     return HttpResponse.json({ id: "test-gateway-123", name: "Test Server" });
   }),
   // Mock single gateway fetch (used in edit mode)
-  http.get("/api/gateways/:id", ({ params }) => {
+  http.get("/api/v1/mcp-servers/:id", ({ params }) => {
     return HttpResponse.json({
       id: params.id,
       name: "Test Server",
@@ -355,7 +355,7 @@ describe("MCPServerForm", () => {
               ],
             }),
           ),
-          http.get("/api/gateways/:id", ({ params }) =>
+          http.get("/api/v1/mcp-servers/:id", ({ params }) =>
             HttpResponse.json({
               id: params.id,
               name: "Test Server",

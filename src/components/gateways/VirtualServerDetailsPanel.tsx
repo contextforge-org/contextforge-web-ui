@@ -214,19 +214,19 @@ export function VirtualServerDetailsPanel({
   const toolsPath = useMemo(() => {
     if (!server?.id) return "";
     const params = new URLSearchParams({ include_inactive: "true" });
-    return `/servers/${encodeURIComponent(server.id)}/tools?${params}`;
+    return `/v1/virtual-servers/${encodeURIComponent(server.id)}/tools?${params}`;
   }, [server?.id]);
 
   const resourcesPath = useMemo(() => {
     if (!server?.id) return "";
     const params = new URLSearchParams({ include_inactive: "true" });
-    return `/servers/${encodeURIComponent(server.id)}/resources?${params}`;
+    return `/v1/virtual-servers/${encodeURIComponent(server.id)}/resources?${params}`;
   }, [server?.id]);
 
   const promptsPath = useMemo(() => {
     if (!server?.id) return "";
     const params = new URLSearchParams({ include_inactive: "true" });
-    return `/servers/${encodeURIComponent(server.id)}/prompts?${params}`;
+    return `/v1/virtual-servers/${encodeURIComponent(server.id)}/prompts?${params}`;
   }, [server?.id]);
 
   // Fetch components data - only when panel is open and server exists
@@ -340,7 +340,7 @@ export function VirtualServerDetailsPanel({
 
   const sourcesPath = useMemo(() => {
     const params = new URLSearchParams({ limit: "100", include_inactive: "true" });
-    return `/gateways?${params}`;
+    return `/v1/mcp-servers?${params}`;
   }, []);
 
   const { data: sourcesData, isLoading: sourcesLoading } = useQuery<

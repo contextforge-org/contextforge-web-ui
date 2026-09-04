@@ -24,7 +24,7 @@ describe("virtualServers API", () => {
     vi.mocked(api.put).mockReset();
   });
 
-  it("builds the create payload expected by POST /servers", () => {
+  it("builds the create payload expected by POST /v1/virtual-servers", () => {
     expect(
       buildCreateVirtualServerPayload({
         name: "Research server",
@@ -241,7 +241,7 @@ describe("virtualServers API", () => {
 
     await deleteVirtualServer("gateway/1?mode=delete");
 
-    expect(api.delete).toHaveBeenCalledWith("/servers/gateway%2F1%3Fmode%3Ddelete");
+    expect(api.delete).toHaveBeenCalledWith("/v1/virtual-servers/gateway%2F1%3Fmode%3Ddelete");
   });
 
   it("sets a virtual server state using an encoded id and explicit target state", async () => {
@@ -250,11 +250,11 @@ describe("virtualServers API", () => {
 
     const result = await setVirtualServerState("gateway/1", false);
 
-    expect(api.post).toHaveBeenCalledWith("/servers/gateway%2F1/state?activate=false");
+    expect(api.post).toHaveBeenCalledWith("/v1/virtual-servers/gateway%2F1/state?activate=false");
     expect(result).toBe(updated);
   });
 
-  it("builds the update payload expected by PUT /servers/{id}", () => {
+  it("builds the update payload expected by PUT /v1/virtual-servers/{id}", () => {
     const payload = buildUpdateVirtualServerPayload({
       name: "Updated research server",
       description: "",
@@ -298,13 +298,13 @@ describe("virtualServers API", () => {
     expect(payload).not.toHaveProperty("oauth_config");
   });
 
-  it("PUTs /servers/:id with a tags-only body via updateVirtualServerTags", async () => {
+  it("PUTs /v1/virtual-servers/:id with a tags-only body via updateVirtualServerTags", async () => {
     const updated = { id: "server-1", tags: [{ id: "prod", label: "prod" }] };
     vi.mocked(api.put).mockResolvedValue(updated);
 
     const result = await updateVirtualServerTags("server-1", ["prod"]);
 
-    expect(api.put).toHaveBeenCalledWith("/servers/server-1", { tags: ["prod"] });
+    expect(api.put).toHaveBeenCalledWith("/v1/virtual-servers/server-1", { tags: ["prod"] });
     expect(result).toBe(updated);
   });
 
@@ -313,7 +313,7 @@ describe("virtualServers API", () => {
 
     await updateVirtualServerTags("team/1", ["x"]);
 
-    expect(api.put).toHaveBeenCalledWith("/servers/team%2F1", { tags: ["x"] });
+    expect(api.put).toHaveBeenCalledWith("/v1/virtual-servers/team%2F1", { tags: ["x"] });
   });
 
   describe("testVirtualServerHandshake", () => {

@@ -91,9 +91,9 @@ describe("VirtualServerDetailsPanel components list", () => {
     // The panel fetches tools/resources/prompts when open; return empty so it
     // falls back to the server's associated* arrays for rendering.
     mswServer.use(
-      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })),
-      http.get("*/servers/:id/resources", () => HttpResponse.json({ resources: [] })),
-      http.get("*/servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [] })),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
     );
     vi.mocked(copyToClipboard).mockClear();
   });
@@ -178,7 +178,7 @@ describe("VirtualServerDetailsPanel components list", () => {
     const user = userEvent.setup();
     // Fetched components carry a gateway_id, which drives the source tabs.
     mswServer.use(
-      http.get("*/servers/:id/tools", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({
           tools: [
             { id: "t1", name: "Tool One", originalName: "tool_one", gateway_id: "gwA" },
@@ -186,7 +186,7 @@ describe("VirtualServerDetailsPanel components list", () => {
           ],
         }),
       ),
-      http.get("*/gateways", () =>
+      http.get("*/v1/mcp-servers", () =>
         HttpResponse.json({
           gateways: [
             { id: "gwA", name: "Gateway A" },
@@ -258,9 +258,9 @@ describe("VirtualServerDetailsPanel components list", () => {
 describe("VirtualServerDetailsPanel render variants", () => {
   beforeEach(() => {
     mswServer.use(
-      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })),
-      http.get("*/servers/:id/resources", () => HttpResponse.json({ resources: [] })),
-      http.get("*/servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [] })),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
     );
   });
 
@@ -374,11 +374,11 @@ describe("VirtualServerDetailsPanel render variants", () => {
   it("handles component responses returned as bare arrays", async () => {
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json([{ id: "t1", name: "arr_tool", originalName: "arr_tool" }]),
       ),
-      http.get("*/servers/:id/resources", () => HttpResponse.json([])),
-      http.get("*/servers/:id/prompts", () => HttpResponse.json([])),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json([])),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json([])),
     );
     render(
       <VirtualServerDetailsPanel
@@ -419,9 +419,9 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
 
   beforeEach(() => {
     mswServer.use(
-      http.get("*/servers/:id/tools", () => HttpResponse.json({ tools: [] })),
-      http.get("*/servers/:id/resources", () => HttpResponse.json({ resources: [] })),
-      http.get("*/servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [] })),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
     );
   });
 
@@ -492,7 +492,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
   it("flags a component-count mismatch using the panel's own aggregated counts", async () => {
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({ tools: [{ id: "t1", name: "tool-1", originalName: "tool-1" }] }),
       ),
       http.post(HANDSHAKE_ENDPOINT, () =>
@@ -531,7 +531,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     // must not count toward the aggregate or it would permanently mismatch.
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({
           tools: [
             { id: "t1", name: "tool-1", originalName: "tool-1", enabled: true },

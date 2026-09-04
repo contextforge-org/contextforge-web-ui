@@ -122,7 +122,7 @@ describe("CreateServer", () => {
     componentMockState.mockForm = true;
     routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
     server.use(
-      http.get("*/servers/gateway-1", () =>
+      http.get("*/v1/virtual-servers/gateway-1", () =>
         HttpResponse.json({
           id: "gateway-1",
           name: "GH repo tasks",
@@ -215,7 +215,7 @@ describe("CreateServer", () => {
   it("shows an error when edit server details cannot be loaded", async () => {
     routerMock.path = "/app/gateways/create-server?editServerId=missing-server";
     server.use(
-      http.get("*/servers/missing-server", () =>
+      http.get("*/v1/virtual-servers/missing-server", () =>
         HttpResponse.json({ detail: "Virtual server not found" }, { status: 404 }),
       ),
     );
@@ -231,7 +231,7 @@ describe("CreateServer", () => {
     routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
     mockUpdateVirtualServer.mockRejectedValueOnce(new Error("Update failed"));
     server.use(
-      http.get("*/servers/gateway-1", () =>
+      http.get("*/v1/virtual-servers/gateway-1", () =>
         HttpResponse.json({
           id: "gateway-1",
           name: "GH repo tasks",
@@ -337,7 +337,7 @@ describe("CreateServer", () => {
     let gatewaysRequestCount = 0;
     const toolCursors: Array<string | null> = [];
     server.use(
-      http.get("*/gateways", () => {
+      http.get("*/v1/mcp-servers", () => {
         gatewaysRequestCount += 1;
         return HttpResponse.json({
           gateways: [
@@ -552,7 +552,7 @@ describe("CreateServer", () => {
   it("lists connected MCP servers with computed status and visibility", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/gateways", () =>
+      http.get("*/v1/mcp-servers", () =>
         HttpResponse.json({
           gateways: [
             {
@@ -660,7 +660,7 @@ describe("CreateServer", () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
 
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return new Promise(() => {
             // never resolves
           });
@@ -675,7 +675,7 @@ describe("CreateServer", () => {
     it("renders error state when fetch fails in edit mode", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({ detail: "Not found" }, { status: 404 });
         }),
       );
@@ -691,7 +691,7 @@ describe("CreateServer", () => {
     it("renders the edit form when data is loaded successfully", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -701,7 +701,7 @@ describe("CreateServer", () => {
             description: "A test server for editing",
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({ gateways: [] }, { status: 200 });
         }),
       );
@@ -719,7 +719,7 @@ describe("CreateServer", () => {
     it("renders MCP servers section in edit mode and allows source selection", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -727,7 +727,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({
             gateways: [
               {
@@ -795,10 +795,10 @@ describe("CreateServer", () => {
     it("renders every MCP server status and visibility in the edit accordion", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () =>
+        http.get("*/v1/virtual-servers/gateway-1", () =>
           HttpResponse.json({ id: "gateway-1", name: "Test Edit Server", visibility: "team" }),
         ),
-        http.get("*/gateways", () =>
+        http.get("*/v1/mcp-servers", () =>
           HttpResponse.json({
             gateways: [
               {
@@ -849,7 +849,7 @@ describe("CreateServer", () => {
     it("renders warning alert when mcpServers fails to load", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -857,7 +857,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.error();
         }),
       );
@@ -872,7 +872,7 @@ describe("CreateServer", () => {
     it("renders componentError alert when tools fetch fails inside accordion", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -880,7 +880,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({
             gateways: [
               {
@@ -919,10 +919,10 @@ describe("CreateServer", () => {
     it("renders fallback error message when editServerError has no message", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json(null);
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({ gateways: [] });
         }),
       );
@@ -939,7 +939,7 @@ describe("CreateServer", () => {
     it("calls updateVirtualServer and navigates when form is successfully submitted in edit mode", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -947,7 +947,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({ gateways: [] });
         }),
       );
@@ -981,7 +981,7 @@ describe("CreateServer", () => {
     it("shows error when updateVirtualServer fails", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -989,7 +989,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({ gateways: [] });
         }),
       );
@@ -1027,7 +1027,7 @@ describe("CreateServer", () => {
     it("displays a message when there are no connected MCP servers", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
-        http.get("*/servers/gateway-1", () => {
+        http.get("*/v1/virtual-servers/gateway-1", () => {
           return HttpResponse.json({
             id: "gateway-1",
             name: "Test Edit Server",
@@ -1035,7 +1035,7 @@ describe("CreateServer", () => {
             oauthEnabled: false,
           });
         }),
-        http.get("*/gateways", () => {
+        http.get("*/v1/mcp-servers", () => {
           return HttpResponse.json({ gateways: [] });
         }),
       );

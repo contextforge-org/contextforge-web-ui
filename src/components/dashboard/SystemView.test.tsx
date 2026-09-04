@@ -67,8 +67,8 @@ const METRICS = {
 function mockByPath(overrides: Record<string, unknown> = {}) {
   const byPath: Record<string, unknown> = {
     "/metrics": METRICS,
-    "/servers?limit=0&include_inactive=true": [{ enabled: true }, { enabled: false }],
-    "/gateways?limit=0&include_inactive=true": [
+    "/v1/virtual-servers?limit=0&include_inactive=true": [{ enabled: true }, { enabled: false }],
+    "/v1/mcp-servers?limit=0&include_inactive=true": [
       { enabled: true },
       { enabled: true },
       { enabled: true, reachable: false },
@@ -137,8 +137,11 @@ describe("SystemView", () => {
         return result(undefined, false, { message: "disabled" });
       const byPath: Record<string, unknown> = {
         "/metrics": METRICS,
-        "/servers?limit=0&include_inactive=true": [{ enabled: true }, { enabled: false }],
-        "/gateways?limit=0&include_inactive=true": [
+        "/v1/virtual-servers?limit=0&include_inactive=true": [
+          { enabled: true },
+          { enabled: false },
+        ],
+        "/v1/mcp-servers?limit=0&include_inactive=true": [
           { enabled: true },
           { enabled: true },
           { enabled: true, reachable: false },
