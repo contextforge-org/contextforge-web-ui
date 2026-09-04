@@ -50,6 +50,7 @@
   "common.tagInput.create": "Criar \"{value}\"",
   "common.tagInput.maxReached": "Máximo de {max} tags atingido.",
   "common.tagInput.remove": "Remover {tag}",
+  "common.language": "Idioma",
   "common.theme": "Tema",
   "common.theme.light": "Modo claro",
   "common.theme.dark": "Modo escuro",
