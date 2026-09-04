@@ -154,6 +154,22 @@ describe("HeaderProfileMenu", () => {
     expect(screen.getByText("bobo@cf.com")).toBeInTheDocument();
   });
 
+  it("switches locale again after the panel re-renders in the new language", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Bobo Example" }));
+    await user.click(screen.getByRole("combobox", { name: "Language" }));
+    await user.click(await screen.findByRole("option", { name: "Español" }));
+
+    await user.click(screen.getByRole("combobox", { name: "Idioma" }));
+    await user.click(await screen.findByRole("option", { name: "Português" }));
+
+    expect(localStorage.getItem("user-locale")).toBe("pt-BR");
+    expect(document.documentElement.lang).toBe("pt-BR");
+    expect(screen.getByText("bobo@cf.com")).toBeInTheDocument();
+  });
+
   it("reaches every control by keyboard", async () => {
     const user = userEvent.setup();
     renderMenu();
