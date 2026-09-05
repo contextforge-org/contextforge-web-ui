@@ -24,6 +24,7 @@ import { useQuery } from "@/hooks/useQuery";
 import { Loading } from "@/components/ui/loading";
 import { createVirtualServer } from "@/api/virtualServers";
 import { InlineNotification } from "@/components/ui/inline-notification";
+import { STATUS_TONE_CLASS } from "@/lib/status";
 import { useRouter } from "@/router";
 import type { CreateServerDetails } from "@/components/gateways/types";
 import type { Visibility } from "@/types/server";
@@ -159,16 +160,19 @@ export function ExposeComponentsForm({
   // Fetch tools, resources, and prompts for this gateway
   const {
     data: toolsData,
+    error: toolsError,
     isLoading: toolsLoading,
     refetch: refetchTools,
   } = useQuery<ToolsResponse>(`/tools?limit=1000&gateway_id=${gatewayId}`);
   const {
     data: resourcesData,
+    error: resourcesError,
     isLoading: resourcesLoading,
     refetch: refetchResources,
   } = useQuery<ResourcesResponse>(`/resources?limit=1000&gateway_id=${gatewayId}`);
   const {
     data: promptsData,
+    error: promptsError,
     isLoading: promptsLoading,
     refetch: refetchPrompts,
   } = useQuery<PromptsResponse>(`/prompts?limit=1000&gateway_id=${gatewayId}`);
@@ -352,8 +356,14 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {toolCount} {toolCount === 1 ? "tool" : "tools"}
+                <span
+                  className={`text-base font-normal ${
+                    toolsError ? STATUS_TONE_CLASS.error : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {toolsError
+                    ? "Failed to load tools"
+                    : `${toolCount} ${toolCount === 1 ? "tool" : "tools"}`}
                 </span>
               </div>
               {expandedSection === "tools" ? (
@@ -368,6 +378,24 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {toolsError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    toolsError.message
+                      ? `Failed to load tools: ${toolsError.message}`
+                      : "Failed to load tools"
+                  }
+                  action={{
+                    label: "Retry",
+                    onClick: () =>
+                      refetchTools().catch((err) => console.error("Failed to refetch tools:", err)),
+                  }}
+                />
+              </div>
+            )}
 
             {expandedSection === "tools" && tools.length > 0 && (
               <div id="tools-region" role="region" aria-label="Tools">
@@ -400,8 +428,16 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {resourceCount} {resourceCount === 1 ? "resource" : "resources"}
+                <span
+                  className={`text-base font-normal ${
+                    resourcesError
+                      ? STATUS_TONE_CLASS.error
+                      : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {resourcesError
+                    ? "Failed to load resources"
+                    : `${resourceCount} ${resourceCount === 1 ? "resource" : "resources"}`}
                 </span>
               </div>
               {expandedSection === "resources" ? (
@@ -416,6 +452,26 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {resourcesError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    resourcesError.message
+                      ? `Failed to load resources: ${resourcesError.message}`
+                      : "Failed to load resources"
+                  }
+                  action={{
+                    label: "Retry",
+                    onClick: () =>
+                      refetchResources().catch((err) =>
+                        console.error("Failed to refetch resources:", err),
+                      ),
+                  }}
+                />
+              </div>
+            )}
             {expandedSection === "resources" && resources.length > 0 && (
               <div id="resources-region" role="region" aria-label="Resources">
                 <MCPObjectsTable
@@ -447,8 +503,16 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {promptCount} prompt {promptCount === 1 ? "template" : "templates"}
+                <span
+                  className={`text-base font-normal ${
+                    promptsError
+                      ? STATUS_TONE_CLASS.error
+                      : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {promptsError
+                    ? "Failed to load prompt templates"
+                    : `${promptCount} prompt ${promptCount === 1 ? "template" : "templates"}`}
                 </span>
               </div>
               {expandedSection === "prompts" ? (
@@ -463,6 +527,26 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {promptsError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    promptsError.message
+                      ? `Failed to load prompt templates: ${promptsError.message}`
+                      : "Failed to load prompt templates"
+                  }
+                  action={{
+                    label: "Retry",
+                    onClick: () =>
+                      refetchPrompts().catch((err) =>
+                        console.error("Failed to refetch prompts:", err),
+                      ),
+                  }}
+                />
+              </div>
+            )}
             {expandedSection === "prompts" && prompts.length > 0 && (
               <div id="prompts-region" role="region" aria-label="Prompt templates">
                 <MCPObjectsTable
