@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -591,6 +591,53 @@ describe("ExposeComponentsForm", () => {
       await waitFor(() => {
         expect(screen.getByText("0 prompt templates")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("Failed list loads", () => {
+    it("should distinguish a failed load from a successful empty list", async () => {
+      server.use(http.get("/api/tools", () => new HttpResponse(null, { status: 500 })));
+
+      renderWithProviders(<ExposeComponentsForm {...defaultProps} />);
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Failed to load tools");
+      expect(screen.queryByText("0 tools")).not.toBeInTheDocument();
+      // Sections whose own request succeeded keep showing their real counts.
+      expect(screen.getByText("2 resources")).toBeInTheDocument();
+      expect(screen.getByText("3 prompt templates")).toBeInTheDocument();
+    });
+
+    it("should restore the count and clear the error after a successful retry", async () => {
+      server.use(http.get("/api/tools", () => new HttpResponse(null, { status: 500 })));
+
+      const user = userEvent.setup();
+      renderWithProviders(<ExposeComponentsForm {...defaultProps} />);
+
+      const alert = await screen.findByRole("alert");
+      server.resetHandlers();
+      await user.click(within(alert).getByRole("button", { name: "Retry" }));
+
+      await waitFor(() => {
+        expect(screen.getByText("3 tools")).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("should show a failed state for each section that failed to load", async () => {
+      server.use(
+        http.get("/api/tools", () => new HttpResponse(null, { status: 500 })),
+        http.get("/api/prompts", () => new HttpResponse(null, { status: 500 })),
+      );
+
+      renderWithProviders(<ExposeComponentsForm {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Failed to load tools")).toBeInTheDocument();
+      });
+      expect(screen.getByText("Failed to load prompt templates")).toBeInTheDocument();
+      // The section whose request succeeded keeps showing its real count.
+      expect(screen.getByText("2 resources")).toBeInTheDocument();
     });
   });
 });
