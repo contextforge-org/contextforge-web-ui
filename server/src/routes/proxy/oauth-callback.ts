@@ -36,20 +36,24 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import { forwardOAuthGet } from "../../lib/oauth-upstream-forward.js";
+import { forwardOAuthGet, htmlizeOAuthPopupErrors } from "../../lib/oauth-upstream-forward.js";
 import { setNoStore } from "../../lib/no-store.js";
 
 export default async function oauthCallbackProxyRoute(fastify: FastifyInstance): Promise<void> {
-  fastify.get("/oauth/callback", async (request: FastifyRequest, reply: FastifyReply) => {
-    setNoStore(reply);
+  fastify.get(
+    "/oauth/callback",
+    { onSend: htmlizeOAuthPopupErrors },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      setNoStore(reply);
 
-    const queryIndex = request.url.indexOf("?");
-    const query = queryIndex === -1 ? "" : request.url.slice(queryIndex);
-    const upstreamUrl = `${config.contextforgeUrl}/oauth/callback${query}`;
+      const queryIndex = request.url.indexOf("?");
+      const query = queryIndex === -1 ? "" : request.url.slice(queryIndex);
+      const upstreamUrl = `${config.contextforgeUrl}/oauth/callback${query}`;
 
-    return forwardOAuthGet(request, reply, upstreamUrl, {
-      timeoutMs: config.oauthProxyTimeoutMs,
-      logLabel: "OAuth callback",
-    });
-  });
+      return forwardOAuthGet(request, reply, upstreamUrl, {
+        timeoutMs: config.oauthProxyTimeoutMs,
+        logLabel: "OAuth callback",
+      });
+    },
+  );
 }

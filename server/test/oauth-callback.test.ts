@@ -20,6 +20,14 @@ beforeAll(async () => {
   upstream = createServer((req: IncomingMessage, res) => {
     lastRequest = { path: req.url ?? "" };
 
+    if (req.url?.startsWith("/oauth/callback?network-error")) {
+      // No response at all -- destroying the socket is what makes fetch()
+      // reject inside forwardOAuthGet's catch, the actual trigger for its
+      // 502, as opposed to a well-formed non-2xx upstream response.
+      req.socket.destroy();
+      return;
+    }
+
     // Mirrors mcpgateway's oauth_callback popup branch: an HTML page whose
     // inline script posts the result to window.opener and closes itself.
     res.writeHead(200, {
@@ -68,6 +76,20 @@ describe("GET /oauth/callback", () => {
     });
 
     expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("posts an oauth_callback error instead of raw JSON when the upstream connection fails", async () => {
+    const app = await buildApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?network-error=1&state=popup.xyz",
+    });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain('"error":"upstream_unavailable"');
+    expect(response.body).toContain("window.close()");
   });
 
   it("forwards an OAuth provider error callback", async () => {

@@ -42,7 +42,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import { forwardOAuthGet } from "../../lib/oauth-upstream-forward.js";
+import { forwardOAuthGet, htmlizeOAuthPopupErrors } from "../../lib/oauth-upstream-forward.js";
 import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
@@ -54,7 +54,7 @@ interface AuthorizeParams {
 export default async function oauthAuthorizeProxyRoute(fastify: FastifyInstance): Promise<void> {
   fastify.get<{ Params: AuthorizeParams }>(
     "/oauth/authorize/:gatewayId",
-    { preHandler: fastify.sessionAuth },
+    { preHandler: fastify.sessionAuth, onSend: htmlizeOAuthPopupErrors },
     async (request: FastifyRequest<{ Params: AuthorizeParams }>, reply: FastifyReply) => {
       setNoStore(reply);
 

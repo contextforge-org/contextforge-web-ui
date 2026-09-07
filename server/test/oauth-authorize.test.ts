@@ -31,6 +31,14 @@ beforeAll(async () => {
       return;
     }
 
+    if (req.url?.startsWith("/oauth/authorize/network-error")) {
+      // No response at all -- destroying the socket is what makes fetch()
+      // reject inside forwardOAuthGet's catch, the actual trigger for its
+      // 502, as opposed to a well-formed non-2xx upstream response.
+      req.socket.destroy();
+      return;
+    }
+
     // Mirrors mcpgateway's initiate_oauth_flow: redirect to the IdP's own
     // absolute authorization URL.
     res.writeHead(302, { location: "https://idp.example.com/authorize?client_id=abc" });
@@ -59,13 +67,18 @@ async function seedSession(app: Awaited<ReturnType<typeof buildApp>>) {
 }
 
 describe("GET /oauth/authorize/:gatewayId", () => {
-  it("401s without a session cookie", async () => {
+  it("401s without a session cookie, posting an oauth_callback error the opener can read", async () => {
     const app = await buildApp();
     const response = await app.fastify.inject({
       method: "GET",
       url: "/oauth/authorize/gw-1?popup=true",
     });
     expect(response.statusCode).toBe(401);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain("window.opener");
+    expect(response.body).toContain('"type":"oauth_callback"');
+    expect(response.body).toContain('"status":"error"');
+    expect(response.body).toContain("window.close()");
   });
 
   it("injects the bearer token and forwards the provider redirect untouched", async () => {
@@ -119,12 +132,14 @@ describe("GET /oauth/authorize/:gatewayId", () => {
     });
 
     expect(response.statusCode).toBe(403);
-    expect(response.json()).toEqual({ error: "cross_site_request_forbidden" });
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain('"error":"cross_site_request_forbidden"');
+    expect(response.body).toContain("window.close()");
     // Rejected before ever reaching upstream.
     expect(lastRequest).toBeUndefined();
   });
 
-  it("forwards a non-redirect upstream error response", async () => {
+  it("forwards a non-redirect upstream error response as-is, not the popup HTML shape", async () => {
     const app = await buildApp();
     const { cookie } = await seedSession(app);
 
@@ -136,5 +151,21 @@ describe("GET /oauth/authorize/:gatewayId", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toEqual({ detail: "Gateway is not configured for OAuth" });
+  });
+
+  it("posts an oauth_callback error instead of raw JSON when the upstream connection fails", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/authorize/network-error",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain('"error":"upstream_unavailable"');
+    expect(response.body).toContain("window.close()");
   });
 });

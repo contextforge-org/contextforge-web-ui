@@ -270,7 +270,7 @@ describe("OAuth2Auth", () => {
       render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
 
       expect(
-        screen.queryByText(/Redirect URIs derived from localhost will not work/i),
+        screen.queryByText(/will not work for external OAuth providers/i),
       ).not.toBeInTheDocument();
     });
 
@@ -284,7 +284,7 @@ describe("OAuth2Auth", () => {
       );
 
       expect(
-        screen.queryByText(/Redirect URIs derived from localhost will not work/i),
+        screen.queryByText(/will not work for external OAuth providers/i),
       ).not.toBeInTheDocument();
     });
 
@@ -297,9 +297,7 @@ describe("OAuth2Auth", () => {
         />,
       );
 
-      expect(
-        screen.getByText(/Redirect URIs derived from localhost will not work/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/will not work for external OAuth providers/i)).toBeInTheDocument();
     });
   });
 });

@@ -17,8 +17,64 @@
 // which only rewrites Location values pointing back at config.contextforgeUrl
 // -- because both hops here only ever redirect to an external OAuth
 // provider's own absolute URL.
+//
+// htmlizeOAuthPopupErrors turns the JSON errors the BFF itself can produce on
+// these two routes (401 from sessionAuth, 403 from isForbiddenCrossOrigin,
+// 502 from the fetch failure below) into the same postMessage-and-close HTML
+// shape mcpgateway's own callback page uses on success. Without this, those
+// three failures leave the popup rendering raw JSON: nothing posts a
+// message, so triggerOAuthAuthorization (src/api/servers.ts) never resolves
+// or rejects until the user closes the popup by hand, at which point it
+// reports "cancelled" -- which isn't what happened. Registered as this
+// route's `onSend` hook, which still runs (and can still rewrite the
+// payload) even though sessionAuth's preHandler is what called reply.send().
+// Upstream (mcpgateway) error responses forwarded as-is are untouched here --
+// they're whatever status/body mcpgateway itself chose to send, not one of
+// these three BFF-generated cases.
 
 import type { FastifyReply, FastifyRequest } from "fastify";
+
+const OAUTH_POPUP_ERROR_MESSAGES: Record<number, { error: string; errorDescription: string }> = {
+  401: {
+    error: "unauthenticated",
+    errorDescription: "Your session has expired. Please sign in again and retry.",
+  },
+  403: {
+    error: "cross_site_request_forbidden",
+    errorDescription: "This request could not be verified. Please retry from the original page.",
+  },
+  502: {
+    error: "upstream_unavailable",
+    errorDescription: "The OAuth provider could not be reached. Please try again.",
+  },
+};
+
+function oauthPopupErrorHtml(error: string, errorDescription: string): string {
+  const payload = JSON.stringify({
+    type: "oauth_callback",
+    status: "error",
+    error,
+    errorDescription,
+  });
+  return `<!DOCTYPE html><html><body><script>
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(${payload}, "*");
+    }
+    window.close();
+  </script></body></html>`;
+}
+
+export async function htmlizeOAuthPopupErrors(
+  _request: FastifyRequest,
+  reply: FastifyReply,
+  payload: unknown,
+): Promise<unknown> {
+  const mapped = OAUTH_POPUP_ERROR_MESSAGES[reply.statusCode];
+  if (!mapped) return payload;
+
+  reply.header("content-type", "text/html; charset=utf-8");
+  return oauthPopupErrorHtml(mapped.error, mapped.errorDescription);
+}
 
 interface ForwardOAuthGetOptions {
   /** Extra headers merged into the upstream request (e.g. the injected bearer token). */
