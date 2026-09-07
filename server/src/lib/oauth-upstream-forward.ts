@@ -118,6 +118,25 @@ export async function forwardOAuthGet(
   const contentType = upstreamResponse.headers.get("content-type");
   if (contentType) reply.header("content-type", contentType);
 
-  const body = await upstreamResponse.text();
+  let body: string;
+  try {
+    body = await upstreamResponse.text();
+  } catch (err) {
+    // Headers already arrived (2xx/3xx/4xx status committed above), but the
+    // connection dropped mid-body -- e.g. the IdP redirect's response closing
+    // early. Without this, the thrown error would escape this function
+    // entirely and Fastify would emit a bare 500 with no body: a worse dead
+    // end for the popup than the 502 the pre-fetch failure above already
+    // produces, and one htmlizeOAuthPopupErrors can't help with since it only
+    // runs on a normal reply.send() completion. Clear the Location header set
+    // above so a stale redirect target doesn't ride along on a 502.
+    reply.removeHeader("location");
+    request.log.error(
+      { errorType: err instanceof Error ? err.name : typeof err },
+      `upstream ${logLabel} response body read failed`,
+    );
+    return reply.code(502).send({ error: "upstream_unavailable" });
+  }
+
   return reply.code(upstreamResponse.status).send(body || undefined);
 }

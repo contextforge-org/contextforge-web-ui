@@ -67,14 +67,16 @@ export function OAuth2Auth({
   errors,
 }: OAuth2AuthProps) {
   const intl = useIntl();
-  // Deliberately NOT derived from window.location.origin: the browser's own
-  // address is the web UI's origin, but the OAuth callback is served by the
-  // gateway (mcpgateway) at its own configured APP_DOMAIN, which can differ
-  // in any split deployment. Guessing wrong here means registering the wrong
-  // redirect URI with the OAuth provider with no warning (see
-  // mcp-context-forge#6458). When the operator hasn't set one, leave
-  // redirect_uri unsubmitted (see useMCPServerForm.ts) so the gateway's own
-  // default (based on its APP_DOMAIN) applies server-side instead.
+  // Deliberately NOT derived from window.location.origin here: useMCPServerForm.ts
+  // fetches this deployment's own /oauth/callback proxy URL from the BFF
+  // (GET /oauth/callback-url, server-side-derived the same trustworthy way
+  // origin-guard.ts validates Origin) and defaults redirectUri to it as soon
+  // as the grant type is authorization_code, rather than leaving the field
+  // unset for mcpgateway's own APP_DOMAIN-based default to apply -- that
+  // default only works when mcpgateway is independently browser-reachable,
+  // not the common split deployment where only this web UI is (see
+  // mcp-context-forge#6458). This still briefly renders the placeholder
+  // branch below while that fetch is in flight.
   const hasStoredRedirectUri = Boolean(redirectUri);
   const isLocalRedirect =
     hasStoredRedirectUri &&

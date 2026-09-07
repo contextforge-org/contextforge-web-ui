@@ -28,6 +28,17 @@ beforeAll(async () => {
       return;
     }
 
+    if (req.url?.startsWith("/oauth/callback?truncated-body")) {
+      // Headers commit (fetch() resolves, status/Location/Content-Type are
+      // already readable), then the connection dies before the declared
+      // Content-Length is satisfied -- unlike network-error above, this
+      // fails inside upstreamResponse.text(), not the fetch() call itself.
+      res.writeHead(200, { "content-type": "text/html", "content-length": "1000" });
+      res.write("<html>");
+      res.socket?.destroy();
+      return;
+    }
+
     // Mirrors mcpgateway's oauth_callback popup branch: an HTML page whose
     // inline script posts the result to window.opener and closes itself.
     res.writeHead(200, {
@@ -84,6 +95,20 @@ describe("GET /oauth/callback", () => {
     const response = await app.fastify.inject({
       method: "GET",
       url: "/oauth/callback?network-error=1&state=popup.xyz",
+    });
+
+    expect(response.statusCode).toBe(502);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain('"error":"upstream_unavailable"');
+    expect(response.body).toContain("window.close()");
+  });
+
+  it("posts an oauth_callback error instead of a raw 500 when the body read fails after headers arrive", async () => {
+    const app = await buildApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?truncated-body=1&state=popup.xyz",
     });
 
     expect(response.statusCode).toBe(502);

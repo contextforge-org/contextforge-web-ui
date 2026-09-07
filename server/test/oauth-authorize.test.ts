@@ -63,7 +63,16 @@ async function seedSession(app: Awaited<ReturnType<typeof buildApp>>) {
     bearerToken: "test-bearer-token", // pragma: allowlist secret
     user: { email: "user@example.com", isAdmin: false },
   });
-  return { cookie: `bff_sid=${sessionId}` };
+  return { cookie: `bff_sid=${sessionId}`, sessionId };
+}
+
+// Bypasses the HTTP-level POST /oauth/authorize-nonce route (covered in its
+// own test file) the same way seedSession bypasses POST /auth/login --
+// exercises the authorize route's *consumption* of a nonce, not the minting
+// route.
+async function mintNonce(app: Awaited<ReturnType<typeof buildApp>>, sessionId: string) {
+  const { mintOAuthAuthorizeNonce } = await import("../src/lib/oauth-authorize-nonce.js");
+  return mintOAuthAuthorizeNonce(app.redis as never, sessionId);
 }
 
 describe("GET /oauth/authorize/:gatewayId", () => {
@@ -83,11 +92,12 @@ describe("GET /oauth/authorize/:gatewayId", () => {
 
   it("injects the bearer token and forwards the provider redirect untouched", async () => {
     const app = await buildApp();
-    const { cookie } = await seedSession(app);
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
 
     const response = await app.fastify.inject({
       method: "GET",
-      url: "/oauth/authorize/gw-1?popup=true",
+      url: `/oauth/authorize/gw-1?popup=true&nonce=${nonce}`,
       headers: { cookie },
     });
 
@@ -96,17 +106,20 @@ describe("GET /oauth/authorize/:gatewayId", () => {
     // catch-all.ts rewrites upstream /api/* redirects would send the popup
     // back into the BFF instead of out to the IdP.
     expect(response.headers.location).toBe("https://idp.example.com/authorize?client_id=abc");
+    // nonce is BFF-internal and consumed before forwarding -- mcpgateway
+    // never sees it.
     expect(lastRequest?.path).toBe("/oauth/authorize/gw-1?popup=true");
     expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
   });
 
   it("never lets the browser override the injected Authorization header", async () => {
     const app = await buildApp();
-    const { cookie } = await seedSession(app);
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
 
     await app.fastify.inject({
       method: "GET",
-      url: "/oauth/authorize/gw-1",
+      url: `/oauth/authorize/gw-1?nonce=${nonce}`,
       headers: { cookie, authorization: "Bearer attacker-supplied-token" }, // pragma: allowlist secret
     });
 
@@ -141,11 +154,12 @@ describe("GET /oauth/authorize/:gatewayId", () => {
 
   it("forwards a non-redirect upstream error response as-is, not the popup HTML shape", async () => {
     const app = await buildApp();
-    const { cookie } = await seedSession(app);
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
 
     const response = await app.fastify.inject({
       method: "GET",
-      url: "/oauth/authorize/missing-config",
+      url: `/oauth/authorize/missing-config?nonce=${nonce}`,
       headers: { cookie },
     });
 
@@ -155,11 +169,12 @@ describe("GET /oauth/authorize/:gatewayId", () => {
 
   it("posts an oauth_callback error instead of raw JSON when the upstream connection fails", async () => {
     const app = await buildApp();
-    const { cookie } = await seedSession(app);
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
 
     const response = await app.fastify.inject({
       method: "GET",
-      url: "/oauth/authorize/network-error",
+      url: `/oauth/authorize/network-error?nonce=${nonce}`,
       headers: { cookie },
     });
 
@@ -167,5 +182,99 @@ describe("GET /oauth/authorize/:gatewayId", () => {
     expect(response.headers["content-type"]).toContain("text/html");
     expect(response.body).toContain('"error":"upstream_unavailable"');
     expect(response.body).toContain("window.close()");
+  });
+
+  describe("nonce requirement", () => {
+    it("rejects a missing nonce before calling upstream", async () => {
+      const app = await buildApp();
+      const { cookie } = await seedSession(app);
+      lastRequest = undefined;
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/oauth/authorize/gw-1?popup=true",
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.body).toContain('"error":"cross_site_request_forbidden"');
+      expect(lastRequest).toBeUndefined();
+    });
+
+    it("rejects a nonce that was never minted", async () => {
+      const app = await buildApp();
+      const { cookie } = await seedSession(app);
+      lastRequest = undefined;
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/oauth/authorize/gw-1?popup=true&nonce=00000000-0000-0000-0000-000000000000",
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(lastRequest).toBeUndefined();
+    });
+
+    it("rejects a nonce reused for a second request", async () => {
+      const app = await buildApp();
+      const { cookie, sessionId } = await seedSession(app);
+      const nonce = await mintNonce(app, sessionId);
+
+      const first = await app.fastify.inject({
+        method: "GET",
+        url: `/oauth/authorize/gw-1?popup=true&nonce=${nonce}`,
+        headers: { cookie },
+      });
+      expect(first.statusCode).toBe(302);
+
+      lastRequest = undefined;
+      const replay = await app.fastify.inject({
+        method: "GET",
+        url: `/oauth/authorize/gw-1?popup=true&nonce=${nonce}`,
+        headers: { cookie },
+      });
+
+      expect(replay.statusCode).toBe(403);
+      expect(lastRequest).toBeUndefined();
+    });
+
+    it("rejects a nonce minted for a different session", async () => {
+      const app = await buildApp();
+      const { cookie } = await seedSession(app);
+      const { sessionId: otherSessionId } = await seedSession(app);
+      const nonceForOtherSession = await mintNonce(app, otherSessionId);
+      lastRequest = undefined;
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: `/oauth/authorize/gw-1?popup=true&nonce=${nonceForOtherSession}`,
+        headers: { cookie },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(lastRequest).toBeUndefined();
+    });
+
+    // Regression for the gap isForbiddenCrossOrigin leaves on its own: a
+    // top-level GET navigation from a hostile *sibling* subdomain sends no
+    // Origin header and a Sec-Fetch-Site of "same-site" (not "cross-site"),
+    // so the origin guard alone would let it through carrying the victim's
+    // SameSite=Lax session cookie. The nonce requirement is what actually
+    // stops it, since the sibling has no way to have minted one.
+    it("rejects a same-site request with no Origin header and no nonce", async () => {
+      const app = await buildApp();
+      const { cookie } = await seedSession(app);
+      lastRequest = undefined;
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/oauth/authorize/gw-1?popup=true",
+        headers: { cookie, host: "app.example.test", "sec-fetch-site": "same-site" },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(lastRequest).toBeUndefined();
+    });
   });
 });

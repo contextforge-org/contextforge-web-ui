@@ -63,6 +63,17 @@ test.describe("OAuth authorization-code popup flow", () => {
       });
     });
 
+    // triggerOAuthAuthorization mints this before navigating the popup (see
+    // src/api/servers.ts) -- a same-origin, CSRF-protected POST the popup's
+    // own window.open() navigation can't carry itself.
+    await page.route("**/oauth/authorize-nonce", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ nonce: "e2e-test-nonce" }),
+      });
+    });
+
     await page.route(`**/gateways/${GATEWAY_ID}/state*`, async (route) => {
       await route.fulfill({
         status: 200,
@@ -143,6 +154,14 @@ test.describe("OAuth authorization-code popup flow", () => {
       });
     });
 
+    await page.route("**/oauth/authorize-nonce", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ nonce: "e2e-test-nonce" }),
+      });
+    });
+
     await page.goto(APP.SERVERS);
     await page.waitForLoadState("networkidle");
 
@@ -164,5 +183,60 @@ test.describe("OAuth authorization-code popup flow", () => {
     await expect(page.getByText(/User cancelled/i)).toBeVisible();
     // The form must stay open on error so the user can see it and retry.
     await expect(page.getByRole("button", { name: "Connect server" })).toBeVisible();
+  });
+
+  test("defaults redirect_uri to the BFF's own callback URL and submits it -- the split-deployment case", async ({
+    page,
+  }) => {
+    // Stands in for server/src/routes/proxy/oauth-callback-url.ts's real
+    // response: a public origin distinct from this page's own origin, the
+    // way it would differ when mcpgateway itself isn't independently
+    // browser-reachable (see that route's doc comment for why the field
+    // can't just be left unset in that topology).
+    const BFF_CALLBACK_URL = "https://web.example.com/oauth/callback";
+    await page.route("**/oauth/callback-url", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ redirectUri: BFF_CALLBACK_URL }),
+      });
+    });
+
+    const createRequest = page.waitForRequest(
+      (request) => request.url().includes("/gateways") && request.method() === "POST",
+    );
+    await page.route("**/gateways", async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ id: GATEWAY_ID, name: GATEWAY_NAME }),
+      });
+    });
+
+    await page.goto(APP.SERVERS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: /Connect/i }).click();
+    await page.getByLabel("Name").fill(GATEWAY_NAME);
+    await page.getByLabel("URL").fill("https://api.githubcopilot.com/mcp");
+    await page.getByRole("button", { name: "Advanced settings" }).click();
+    await page.getByText("OAuth 2.0", { exact: true }).click();
+    await page.getByLabel(/Grant type/).click();
+    await page.getByRole("option", { name: /Authorization code/i }).click();
+
+    await expect(page.getByLabel(/Redirect URI/i)).toHaveValue(BFF_CALLBACK_URL);
+
+    await page.getByLabel("Issuer URL").fill("https://github.com");
+    await page.getByLabel("Client ID").fill("test-client-id");
+    await page.getByLabel("Client Secret").fill("test-client-secret"); // pragma: allowlist secret
+    await page.getByLabel("Authorization URL").fill("https://github.com/login/oauth/authorize");
+    await page.getByLabel("Token URL").fill("https://github.com/login/oauth/access_token");
+
+    await page.getByRole("button", { name: "Connect server" }).click();
+
+    const request = await createRequest;
+    const body = request.postDataJSON() as { oauth_config?: { redirect_uri?: string } };
+    expect(body.oauth_config?.redirect_uri).toBe(BFF_CALLBACK_URL);
   });
 });

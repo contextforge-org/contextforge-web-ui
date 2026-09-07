@@ -33,6 +33,18 @@
 // category (cookie-authenticated, can't carry a CSRF token) -- see
 // lib/origin-guard.ts.
 //
+// isForbiddenCrossOrigin alone still leaves a gap here that it doesn't for
+// login.ts/proxy-sse.ts: a top-level GET navigation carries no Origin header
+// at all (browsers only send Origin on non-GET or non-navigate requests), so
+// the guard falls back to Sec-Fetch-Site -- which reports "same-site" rather
+// than "cross-site" for a hostile *sibling* subdomain under the same
+// registrable domain, and the SameSite=Lax session cookie rides along
+// regardless. The `nonce` query param closes that: it must have been minted
+// moments earlier by a same-origin, CSRF-protected POST (see
+// routes/proxy/oauth-authorize-nonce.ts, lib/oauth-authorize-nonce.ts) that a
+// sibling subdomain has no way to forge, and it is single-use, so a captured
+// or replayed authorize URL can't be reused even by the session that minted it.
+//
 // redirect: "manual" (in forwardOAuthGet) so mcpgateway's 302 Location (the
 // OAuth provider's own absolute URL) is forwarded to the browser as-is
 // rather than followed server-side -- undici's fetch would otherwise try to
@@ -42,6 +54,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
+import { consumeOAuthAuthorizeNonce } from "../../lib/oauth-authorize-nonce.js";
 import { forwardOAuthGet, htmlizeOAuthPopupErrors } from "../../lib/oauth-upstream-forward.js";
 import { isForbiddenCrossOrigin } from "../../lib/origin-guard.js";
 import { setNoStore } from "../../lib/no-store.js";
@@ -51,21 +64,43 @@ interface AuthorizeParams {
   gatewayId: string;
 }
 
+interface AuthorizeQuerystring {
+  nonce?: string;
+}
+
 export default async function oauthAuthorizeProxyRoute(fastify: FastifyInstance): Promise<void> {
-  fastify.get<{ Params: AuthorizeParams }>(
+  fastify.get<{ Params: AuthorizeParams; Querystring: AuthorizeQuerystring }>(
     "/oauth/authorize/:gatewayId",
     { preHandler: fastify.sessionAuth, onSend: htmlizeOAuthPopupErrors },
-    async (request: FastifyRequest<{ Params: AuthorizeParams }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{ Params: AuthorizeParams; Querystring: AuthorizeQuerystring }>,
+      reply: FastifyReply,
+    ) => {
       setNoStore(reply);
 
       if (isForbiddenCrossOrigin(request)) {
         return reply.code(403).send({ error: "cross_site_request_forbidden" });
       }
 
+      const sessionId = request.session!.sessionId;
+      const nonceIsValid = await consumeOAuthAuthorizeNonce(
+        fastify.redis,
+        sessionId,
+        request.query.nonce,
+      );
+      if (!nonceIsValid) {
+        return reply.code(403).send({ error: "cross_site_request_forbidden" });
+      }
+
       const bearerToken = request.session!.bearerToken;
       const queryIndex = request.url.indexOf("?");
-      const query = queryIndex === -1 ? "" : request.url.slice(queryIndex);
-      const upstreamUrl = `${config.contextforgeUrl}/oauth/authorize/${encodeURIComponent(request.params.gatewayId)}${query}`;
+      const rawQuery = queryIndex === -1 ? "" : request.url.slice(queryIndex + 1);
+      // Strip the now-consumed nonce before forwarding -- mcpgateway's own
+      // /oauth/authorize/{id} has no use for it and shouldn't see it.
+      const forwardedParams = new URLSearchParams(rawQuery);
+      forwardedParams.delete("nonce");
+      const query = forwardedParams.toString();
+      const upstreamUrl = `${config.contextforgeUrl}/oauth/authorize/${encodeURIComponent(request.params.gatewayId)}${query ? `?${query}` : ""}`;
 
       return forwardOAuthGet(request, reply, upstreamUrl, {
         headers: upstreamAuthHeader(bearerToken),
