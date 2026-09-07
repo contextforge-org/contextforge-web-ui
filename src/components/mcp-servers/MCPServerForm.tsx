@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
