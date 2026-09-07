@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.9"
+    "version": "1.0.9+ (ref: 589c69)"
   },
   "paths": {
     "/metrics/prometheus": {
