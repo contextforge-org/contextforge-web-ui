@@ -9,6 +9,7 @@
   "common.button.close": "Cerrar",
   "common.button.confirm": "Confirmar",
   "common.button.back": "Volver",
+  "common.button.retry": "Reintentar",
   "common.button.submitting": "Enviando...",
   "common.copyValue": "Copiar {label}",
   "common.copyCode": "Copiar código",
