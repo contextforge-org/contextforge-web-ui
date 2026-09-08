@@ -16,7 +16,7 @@ This repository holds the BFF and client that sit in front of it. The table belo
 Throughout this README, "the API", "the BFF", and "the client" refer to those
 three. The browser only ever talks to the BFF, never directly to the API.
 
-This UI targets **ContextForge API v1.0.7**, matching [`openapi.json`](./openapi.json) committed at repo root.
+This UI targets **ContextForge API v1.0.10**, matching [`openapi.json`](./openapi.json) committed at repo root.
 
 ## Tech Stack
 
@@ -138,7 +138,7 @@ npm run preview
 
 ## API Types
 
-TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.7, not re-fetched at build time.
+TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.0.10, not re-fetched at build time.
 
 ```bash
 npm run generate   # regenerate src/generated/ from ./openapi.json

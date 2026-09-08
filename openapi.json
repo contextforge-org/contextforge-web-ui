@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.9+ (ref: 589c69)"
+    "version": "1.0.10+13d549"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -10454,7 +10454,7 @@
           "Teams"
         ],
         "summary": "Create Team",
-        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    background_tasks: Response-scoped background task scheduler\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException: If team creation fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
+        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    background_tasks: Response-scoped background task scheduler\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException 400: Active team with same name exists (platform admin callers).\n    HTTPException 403: Team creation disabled; caller is not platform admin.\n    HTTPException 409: Active team with same name exists (non-admin; generic message prevents name enumeration).\n    HTTPException 500: Unexpected service error.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
         "operationId": "create_team_v1_teams__post",
         "security": [
           {
