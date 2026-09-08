@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import React from "react";
 import { Label } from "./label";
+import { cn } from "@/lib/utils";
+
+// The CVA base string itself, mirroring label.tsx: leading-none is no longer
+// in it, so a call-site "text-sm" can never strip it via tailwind-merge.
+const labelBaseClasses =
+  "text-sm font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70";
 
 describe("Label", () => {
   beforeEach(() => {
@@ -57,7 +63,13 @@ describe("Label", () => {
 
       expect(el).toHaveClass("text-sm");
       expect(el).toHaveClass("font-medium");
-      expect(el).toHaveClass("leading-none");
+    });
+
+    it("should carry data-slot=label so globals.css can set its line-height", () => {
+      const { container } = render(<Label>Label</Label>);
+      const el = container.querySelector("label");
+
+      expect(el).toHaveAttribute("data-slot", "label");
     });
 
     it("should have peer-disabled styling classes", () => {
@@ -77,7 +89,13 @@ describe("Label", () => {
       expect(el).toHaveClass("custom-label");
       expect(el).toHaveClass("text-sm");
       expect(el).toHaveClass("font-medium");
-      expect(el).toHaveClass("leading-none");
+    });
+
+    it("preserves the label's line-height when text-sm is re-passed as className", () => {
+      // text-sm can no longer collide with leading-none in twMerge, since
+      // leading-none isn't in the CVA string at all anymore (it's CSS-only).
+      const merged = cn(labelBaseClasses, "text-sm");
+      expect(merged).not.toMatch(/\bleading-(?!none)\w+/);
     });
 
     it("should merge multiple custom classes with default classes", () => {
@@ -488,7 +506,6 @@ describe("Label", () => {
 
       expect(el).toHaveClass("text-sm");
       expect(el).toHaveClass("font-medium");
-      expect(el).toHaveClass("leading-none");
       expect(el).toHaveClass("custom");
     });
 
@@ -545,7 +562,6 @@ describe("Label", () => {
       const el = container.querySelector("label");
       expect(el).toHaveClass("text-sm");
       expect(el).toHaveClass("font-medium");
-      expect(el).toHaveClass("leading-none");
       expect(el).toHaveClass("custom");
     });
 
