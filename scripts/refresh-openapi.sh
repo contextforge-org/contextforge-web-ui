@@ -116,9 +116,7 @@ BRANCH="chore/openapi-${API_VERSION}-${API_COMMIT_SHORT}"
 echo "==> Creating branch $BRANCH"
 git -C "$REPO_ROOT" checkout -B "$BRANCH"
 git -C "$REPO_ROOT" add openapi.json README.md
-git -C "$REPO_ROOT" commit -m "chore: refresh openapi.json to API v${PINNED_VERSION}
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+git -C "$REPO_ROOT" commit --signoff -m "chore: refresh openapi.json to API v${PINNED_VERSION}"
 
 echo "==> Pushing and opening PR"
 git -C "$REPO_ROOT" push -u origin "$BRANCH"
