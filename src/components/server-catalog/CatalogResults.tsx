@@ -2,7 +2,8 @@ import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { EllipsisVertical, FileText, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
-import { STATUS_ICON } from "@/lib/status";
+import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
+import type { OAuthGatewayStatus } from "@/api/catalog";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
@@ -27,29 +28,67 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
+const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthGatewayStatus>> = {};
+
+function getOAuthCardState(server: CatalogServer, status?: OAuthGatewayStatus) {
+  const tokenState = status?.user_token_status?.status;
+  if (tokenState === "valid")
+    return {
+      messageId: "mcpServer.catalog.connected",
+      severity: "success" as const,
+      canAuthorize: false,
+    };
+  if (tokenState === "near_expiry")
+    return {
+      messageId: "mcpServer.catalog.oauth.nearExpiry",
+      severity: "warning" as const,
+      canAuthorize: false,
+    };
+  if (tokenState === "expired")
+    return {
+      messageId: "mcpServer.catalog.oauth.expired",
+      severity: "error" as const,
+      canAuthorize: true,
+    };
+  if (server.requires_oauth_config || tokenState === "missing")
+    return {
+      messageId: "mcpServer.catalog.oauth.needsAuthorization",
+      severity: "info" as const,
+      canAuthorize: true,
+    };
+  return {
+    messageId: "mcpServer.catalog.connected",
+    severity: "success" as const,
+    canAuthorize: false,
+  };
+}
 
 function CatalogCard({
   server,
   onView,
   onAdd,
   onTest,
+  onAuthorize,
   onDisconnect,
   isAdding,
   isTesting,
   isDisconnecting,
   canTest,
   canDisconnect,
+  oauthStatuses,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
   onTest: () => void;
+  onAuthorize: () => void;
   onDisconnect: () => void;
   isAdding: boolean;
   isTesting: boolean;
   isDisconnecting: boolean;
   canTest: boolean;
   canDisconnect: boolean;
+  oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -57,6 +96,11 @@ function CatalogCard({
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const pendingDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const shouldTransferAddFocusRef = useRef(false);
+  const oauthState = getOAuthCardState(
+    server,
+    server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
+  );
+  const StatusIcon = STATUS_ICON[oauthState.severity];
 
   useEffect(() => {
     if (server.is_registered && shouldTransferAddFocusRef.current) {
@@ -99,8 +143,11 @@ function CatalogCard({
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <STATUS_ICON.success className="size-4 text-success" aria-hidden="true" />
-                      {intl.formatMessage({ id: "mcpServer.catalog.connected" })}
+                      <StatusIcon
+                        className={`size-4 ${STATUS_TONE_CLASS[oauthState.severity]}`}
+                        aria-hidden="true"
+                      />
+                      {intl.formatMessage({ id: oauthState.messageId })}
                     </span>
                   )}
                   <DropdownMenu>
@@ -148,6 +195,14 @@ function CatalogCard({
                           }
                         >
                           {intl.formatMessage({ id: "mcpServer.catalog.test" })}
+                        </DropdownMenuItem>
+                      )}
+                      {oauthState.canAuthorize && server.gateway_id && (
+                        <DropdownMenuItem
+                          disabled={isAdding || isDisconnecting}
+                          onSelect={onAuthorize}
+                        >
+                          {intl.formatMessage({ id: "mcpServer.catalog.oauth.authorize" })}
                         </DropdownMenuItem>
                       )}
                       {canDisconnect && server.gateway_id && (
@@ -292,11 +347,13 @@ export function CatalogResults({
   onAdd,
   addingServerIds,
   onTest,
+  onAuthorize,
   onDisconnect,
   testingServerIds = EMPTY_PENDING_IDS,
   disconnectingServerIds = EMPTY_PENDING_IDS,
   canTest,
   canDisconnect,
+  oauthStatuses = EMPTY_OAUTH_STATUSES,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -304,11 +361,13 @@ export function CatalogResults({
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
   onTest: (server: CatalogServer) => void;
+  onAuthorize: (server: CatalogServer) => void;
   onDisconnect: (server: CatalogServer) => void;
   testingServerIds?: ReadonlySet<string>;
   disconnectingServerIds?: ReadonlySet<string>;
   canTest: boolean;
   canDisconnect: boolean;
+  oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -330,12 +389,14 @@ export function CatalogResults({
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
               onTest={() => onTest(server)}
+              onAuthorize={() => onAuthorize(server)}
               onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}
               isTesting={testingServerIds.has(server.id)}
               isDisconnecting={disconnectingServerIds.has(server.id)}
               canTest={canTest}
               canDisconnect={canDisconnect}
+              oauthStatuses={oauthStatuses}
             />
           ))}
         </ul>
