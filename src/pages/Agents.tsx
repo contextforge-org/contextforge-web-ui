@@ -60,8 +60,10 @@ function AgentCard({ agent }: { agent: AgentCardFields }) {
         )}
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {visibleTags.map((tag) => (
-              <CardTag key={tag}>{tag}</CardTag>
+            {visibleTags.map((tag, index) => (
+              // Index in the key too: labels aren't guaranteed unique, and the
+              // label alone would collide for a repeated tag on one agent.
+              <CardTag key={`${tag}-${index}`}>{tag}</CardTag>
             ))}
             {remainingCount > 0 && <CardTag>+{remainingCount}</CardTag>}
           </div>
@@ -131,8 +133,10 @@ export function Agents() {
 
       {!isLoading && !error && agents.length > 0 && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-          {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+          {agents.map((agent, index) => (
+            // `A2AAgentRead.id` types as string | null | undefined; fall back
+            // to index so a null/missing id can't collide with another card.
+            <AgentCard key={agent.id ?? index} agent={agent} />
           ))}
         </div>
       )}
