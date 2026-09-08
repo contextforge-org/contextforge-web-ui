@@ -93,7 +93,9 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     oauthIssuerUrl,
     setOAuthIssuerUrl,
     oauthRedirectUri,
-    setOAuthRedirectUri,
+    isOAuthRedirectUriLoading,
+    oauthRedirectUriError,
+    retryOAuthRedirectUri,
     oauthAuthorizationUrl,
     setOAuthAuthorizationUrl,
     oauthScopes,
@@ -111,13 +113,6 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     queryParamApiKey,
     setQueryParamApiKey,
   } = useMCPServerForm(serverId, prefill);
-
-  const handleRedirectUriChange = useCallback(
-    (uri: string) => {
-      setOAuthRedirectUri(uri);
-    },
-    [setOAuthRedirectUri],
-  );
 
   const handleCancel = () => {
     setCreatedGateway(null);
@@ -381,6 +376,16 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   oauthGrantType={oauthGrantType}
                   oauthIssuerUrl={oauthIssuerUrl}
                   oauthRedirectUri={oauthRedirectUri}
+                  isOAuthRedirectUriLoading={isOAuthRedirectUriLoading}
+                  oauthRedirectUriError={oauthRedirectUriError}
+                  onRetryOAuthRedirectUri={() => {
+                    // useQuery's execute() rejects on failure in addition to
+                    // setting its own error state (which this component
+                    // reads back as oauthRedirectUriError) -- swallow the
+                    // rejection here so a repeat failure doesn't surface as
+                    // an unhandled promise rejection.
+                    retryOAuthRedirectUri().catch(() => {});
+                  }}
                   oauthAuthorizationUrl={oauthAuthorizationUrl}
                   oauthScopes={oauthScopes}
                   oauthStoreTokens={oauthStoreTokens}
@@ -392,7 +397,6 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onOAuthTokenUrlChange={setOAuthTokenUrl}
                   onOAuthGrantTypeChange={setOAuthGrantType}
                   onOAuthIssuerUrlChange={setOAuthIssuerUrl}
-                  onOAuthRedirectUriChange={handleRedirectUriChange}
                   onOAuthAuthorizationUrlChange={setOAuthAuthorizationUrl}
                   onOAuthScopesChange={setOAuthScopes}
                   onOAuthStoreTokensChange={setOAuthStoreTokens}

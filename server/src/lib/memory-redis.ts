@@ -54,6 +54,13 @@ export class MemoryRedis extends EventEmitter {
     return "OK";
   }
 
+  async getdel(key: string): Promise<string | null> {
+    const entry = store.get(key);
+    store.delete(key);
+    if (!entry || isExpired(entry)) return null;
+    return entry.value;
+  }
+
   async del(key: string): Promise<number> {
     return store.delete(key) ? 1 : 0;
   }
