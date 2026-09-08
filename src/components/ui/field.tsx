@@ -2,6 +2,13 @@ import * as React from "react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+/** Props Field computes for its control: id, invalid state, describedby chain. */
+export interface FieldControlProps {
+  id: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+}
+
 interface FieldProps {
   /** `id` that links the label to its control via `htmlFor`. */
   id: string;
@@ -10,11 +17,18 @@ interface FieldProps {
   hint?: React.ReactNode;
   /** Validation message; when present the error colour applies. */
   error?: string;
-  /** The control (Input, SelectTrigger, Textarea, …). */
-  children: React.ReactNode;
+  /**
+   * The control. A single element (Input, Textarea) gets `id`/`aria-invalid`/
+   * `aria-describedby` cloned onto it directly. For a composite control whose
+   * DOM-facing node isn't the top-level child Field sees — e.g. `<Select>`,
+   * whose child `<SelectTrigger>` is the one that actually needs the
+   * attributes — pass a render function instead so the caller decides
+   * exactly where they land.
+   */
+  children: React.ReactElement | ((controlProps: FieldControlProps) => React.ReactNode);
   className?: string;
-  /** Additional props forwarded to the label. */
-  labelProps?: React.ComponentPropsWithoutRef<typeof Label>;
+  /** Additional props forwarded to the label. `htmlFor` always comes from `id`. */
+  labelProps?: Omit<React.ComponentPropsWithoutRef<typeof Label>, "htmlFor">;
 }
 
 /**
@@ -23,22 +37,36 @@ interface FieldProps {
  */
 function Field({ id, label, hint, error, children, className, labelProps }: FieldProps) {
   const errorId = error ? `${id}-error` : undefined;
+  const hintId = hint && !error ? `${id}-hint` : undefined;
+
+  const controlProps: FieldControlProps = {
+    id,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": errorId ?? hintId,
+  };
 
   return (
     <div className={cn("space-y-2.5", className)}>
-      <Label htmlFor={id} {...labelProps}>
+      {/* labelProps spreads before htmlFor so it can never override which control this labels. */}
+      <Label {...labelProps} htmlFor={id}>
         {label}
       </Label>
-      {/* Clone the control to inject aria-describedby / aria-invalid from the error state. */}
-      {React.Children.map(children, (child) => {
-        if (!React.isValidElement(child)) return child;
-        return React.cloneElement(child as React.ReactElement<Record<string, unknown>>, {
-          "aria-describedby":
-            errorId ?? (child.props as Record<string, unknown>)["aria-describedby"],
-          "aria-invalid": error ? true : (child.props as Record<string, unknown>)["aria-invalid"],
-        });
-      })}
-      {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {typeof children === "function"
+        ? children(controlProps)
+        : React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+            ...controlProps,
+            "aria-describedby":
+              controlProps["aria-describedby"] ??
+              (children.props as Record<string, unknown>)["aria-describedby"],
+            "aria-invalid":
+              controlProps["aria-invalid"] ??
+              (children.props as Record<string, unknown>)["aria-invalid"],
+          })}
+      {hintId && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
       {error && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {error}
