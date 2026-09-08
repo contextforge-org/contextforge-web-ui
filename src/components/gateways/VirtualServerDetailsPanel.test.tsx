@@ -573,10 +573,10 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     // a mismatch against a handshake that actually agrees.
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({ tools: [{ id: "t1", name: "tool-1", originalName: "tool-1" }] }),
       ),
-      http.get("*/servers/:id/resources", () =>
+      http.get("*/v1/virtual-servers/:id/resources", () =>
         HttpResponse.json({ error: "boom" }, { status: 500 }),
       ),
       http.post(HANDSHAKE_ENDPOINT, () =>
@@ -613,11 +613,13 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     // can't exclude disabled components from the aggregate.
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", () => HttpResponse.json({ error: "boom" }, { status: 500 })),
-      http.get("*/servers/:id/resources", () =>
+      http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({ error: "boom" }, { status: 500 }),
       ),
-      http.get("*/servers/:id/prompts", () =>
+      http.get("*/v1/virtual-servers/:id/resources", () =>
+        HttpResponse.json({ error: "boom" }, { status: 500 }),
+      ),
+      http.get("*/v1/virtual-servers/:id/prompts", () =>
         HttpResponse.json({ error: "boom" }, { status: 500 }),
       ),
       http.post(HANDSHAKE_ENDPOINT, () =>
@@ -658,7 +660,7 @@ describe("VirtualServerDetailsPanel test connection tab", () => {
     // query hangs rather than erroring outright.
     const user = userEvent.setup();
     mswServer.use(
-      http.get("*/servers/:id/tools", async () => {
+      http.get("*/v1/virtual-servers/:id/tools", async () => {
         await delay("infinite");
         return HttpResponse.json({ tools: [] });
       }),
