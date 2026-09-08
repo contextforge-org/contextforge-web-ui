@@ -32,6 +32,19 @@ test.describe("OAuth authorization-code popup flow", () => {
         body: JSON.stringify({ gateways: [], nextCursor: null }),
       });
     });
+    // Default happy-path stub for the redirect_uri default fetch (see the
+    // dedicated test below for the split-deployment value it actually
+    // returns). Submission is gated on this resolving (useMCPServerForm.ts's
+    // oauthRedirectUriUnresolved), so leaving it unmocked would leave
+    // "Connect server" permanently disabled here the way it correctly does
+    // for a real deployment where this fetch fails.
+    await page.route("**/oauth/callback-url", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ redirectUri: "https://app.example.com/oauth/callback" }),
+      });
+    });
   });
 
   test("create -> popup -> postMessage -> activate -> fetch tools", async ({ page, context }) => {
@@ -110,10 +123,11 @@ test.describe("OAuth authorization-code popup flow", () => {
     await page.getByLabel("Authorization URL").fill("https://github.com/login/oauth/authorize");
     await page.getByLabel("Token URL").fill("https://github.com/login/oauth/access_token");
 
-    // The auto-placeholder from the redirect_uri fix (mcp-context-forge#6458):
-    // never guessed from window.location.origin, never submitted as a value.
+    // Defaulted from the beforeEach's /oauth/callback-url stub (the
+    // redirect_uri fix, mcp-context-forge#6458) -- never guessed from
+    // window.location.origin.
     await expect(page.getByLabel(/Redirect URI/i)).toHaveValue(
-      "Determined automatically by the server",
+      "https://app.example.com/oauth/callback",
     );
 
     await page.getByRole("button", { name: "Connect server" }).click();
