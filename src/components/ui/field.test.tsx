@@ -8,7 +8,7 @@ describe("Field", () => {
   it("renders label linked to control via htmlFor", () => {
     render(
       <Field id="name" label="Name">
-        <Input id="name" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     const label = screen.getByText("Name");
@@ -19,7 +19,7 @@ describe("Field", () => {
   it("renders error message with matching id", () => {
     render(
       <Field id="email" label="Email" error="Required">
-        <Input id="email" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     const error = screen.getByRole("alert");
@@ -30,7 +30,7 @@ describe("Field", () => {
   it("injects aria-invalid=true on the control when error is set", () => {
     render(
       <Field id="email" label="Email" error="Required">
-        <Input id="email" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
@@ -39,7 +39,7 @@ describe("Field", () => {
   it("injects aria-describedby pointing to error id on the control", () => {
     render(
       <Field id="email" label="Email" error="Required">
-        <Input id="email" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-describedby", "email-error");
@@ -48,7 +48,7 @@ describe("Field", () => {
   it("does not render error block when no error", () => {
     render(
       <Field id="name" label="Name">
-        <Input id="name" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("Field", () => {
   it("renders hint text with an id, wired into aria-describedby, when no error", () => {
     render(
       <Field id="name" label="Name" hint="Help text">
-        <Input id="name" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     const hint = screen.getByText("Help text");
@@ -68,29 +68,11 @@ describe("Field", () => {
   it("prefers the error over the hint: hides hint and points describedby at the error", () => {
     render(
       <Field id="name" label="Name" hint="Help text" error="Required">
-        <Input id="name" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     expect(screen.queryByText("Help text")).not.toBeInTheDocument();
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-describedby", "name-error");
-  });
-
-  it("only clones aria attributes onto the control it was given, not siblings the caller renders alongside it", () => {
-    // The control prop takes exactly one element, so a second control can't
-    // slip in and get tagged aria-invalid/aria-describedby by accident (a
-    // caller who wants a trailing action renders it outside <Field>, e.g.
-    // `<div><Field ...>...</Field><Button>Clear</Button></div>`).
-    render(
-      <div>
-        <Field id="name" label="Name" error="Required">
-          <Input id="name" />
-        </Field>
-        <button type="button">Clear</button>
-      </div>,
-    );
-    const clearButton = screen.getByRole("button", { name: "Clear" });
-    expect(clearButton).not.toHaveAttribute("aria-invalid");
-    expect(clearButton).not.toHaveAttribute("aria-describedby");
   });
 
   it("does not let labelProps override which control the label targets", () => {
@@ -103,7 +85,7 @@ describe("Field", () => {
         // runtime still wins.
         labelProps={{ htmlFor: "wrong-id" }}
       >
-        <Input id="email" />
+        {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
     expect(screen.getByText("Email")).toHaveAttribute("for", "email");
@@ -111,9 +93,9 @@ describe("Field", () => {
 
   it("supports a render-prop child for composite controls, applying props to the caller-chosen element", () => {
     // A Select-shaped composite: the top-level element (the "Select" stand-in)
-    // renders no DOM node of its own, and forwards nothing to its child.
-    // cloneElement onto it would silently drop aria-invalid/aria-describedby;
-    // the render-prop form lets the caller put them on the actual control.
+    // renders no DOM node of its own, and forwards nothing to its child. The
+    // render-prop form lets the caller put the control props on the actual
+    // DOM-facing element instead.
     function FakeSelectRoot({ children }: { children: ReactNode }) {
       return <div data-testid="select-root">{children}</div>;
     }

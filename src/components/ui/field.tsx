@@ -17,15 +17,8 @@ interface FieldProps {
   hint?: React.ReactNode;
   /** Validation message; when present the error colour applies. */
   error?: string;
-  /**
-   * The control. A single element (Input, Textarea) gets `id`/`aria-invalid`/
-   * `aria-describedby` cloned onto it directly. For a composite control whose
-   * DOM-facing node isn't the top-level child Field sees — e.g. `<Select>`,
-   * whose child `<SelectTrigger>` is the one that actually needs the
-   * attributes — pass a render function instead so the caller decides
-   * exactly where they land.
-   */
-  children: React.ReactElement | ((controlProps: FieldControlProps) => React.ReactNode);
+  /** Render prop for the control; receives `id`/`aria-invalid`/`aria-describedby` to spread onto whichever element is DOM-facing (e.g. `SelectTrigger` inside `Select`). */
+  children: (controlProps: FieldControlProps) => React.ReactNode;
   className?: string;
   /** Additional props forwarded to the label. `htmlFor` always comes from `id`. */
   labelProps?: Omit<React.ComponentPropsWithoutRef<typeof Label>, "htmlFor">;
@@ -51,17 +44,7 @@ function Field({ id, label, hint, error, children, className, labelProps }: Fiel
       <Label {...labelProps} htmlFor={id}>
         {label}
       </Label>
-      {typeof children === "function"
-        ? children(controlProps)
-        : React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-            ...controlProps,
-            "aria-describedby":
-              controlProps["aria-describedby"] ??
-              (children.props as Record<string, unknown>)["aria-describedby"],
-            "aria-invalid":
-              controlProps["aria-invalid"] ??
-              (children.props as Record<string, unknown>)["aria-invalid"],
-          })}
+      {children(controlProps)}
       {hintId && (
         <p id={hintId} className="text-xs text-muted-foreground">
           {hint}

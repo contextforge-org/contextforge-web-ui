@@ -263,14 +263,16 @@
   }
 }
 
-@layer components {
-  /* Set here instead of as a "leading-none" utility on the component: twMerge
-     treats line-height utilities as conflicting with font-size ones, so a
-     call-site "text-sm" would silently strip "leading-none" from the class
-     string. A CSS rule can't be stripped by className merging. */
-  [data-slot="label"] {
-    line-height: 1;
-  }
+/* Set here instead of as a "leading-none" utility on the component: twMerge
+   treats line-height utilities as conflicting with font-size ones, so a
+   call-site "text-sm" would silently strip "leading-none" from the class
+   string. A CSS rule can't be stripped by className merging.
+   Unlayered on purpose: Tailwind emits `.text-sm` (with its own line-height)
+   into `@layer utilities`, which under cascade layers beats any rule in
+   `@layer components` regardless of specificity — this has to stay outside
+   any layer to outrank it. */
+[data-slot="label"] {
+  line-height: 1;
 }
 
 /* Fallback for browsers without scrollbar-gutter (Safari < 18.2): always reserve
