@@ -100,6 +100,12 @@ const server = setupServer(
       providers: [],
     });
   }),
+  // Default happy path for the OAuth authorization_code redirect-uri default
+  // (see the "OAuth redirect URI default" describe block for slow/failing
+  // overrides of this).
+  http.get("/oauth/callback-url", () => {
+    return HttpResponse.json({ redirectUri: "https://app.example.com/oauth/callback" });
+  }),
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
@@ -926,6 +932,65 @@ describe("MCPServerForm", () => {
           screen.queryByText("Username is required for password grant"),
         ).not.toBeInTheDocument();
       });
+    });
+  });
+
+  // Regression for the split-deployment bug the /oauth/callback-url default
+  // exists to fix: submitting while that fetch is still pending, or after it
+  // has failed, must not be possible -- otherwise oauthRedirectUri stays
+  // empty and the request falls back to mcpgateway's own APP_DOMAIN default.
+  describe("OAuth redirect URI default", () => {
+    async function selectOAuthAuthorizationCode() {
+      const user = userEvent.setup();
+      renderWithRouter(<MCPServerForm {...defaultProps} />);
+      await user.click(screen.getByRole("button", { name: /Advanced settings/i }));
+      await user.click(screen.getByRole("radio", { name: /OAuth 2\.0/i }));
+      await user.click(screen.getByRole("combobox", { name: /Grant type/i }));
+      await user.click(screen.getByRole("option", { name: /Authorization code/i }));
+      fireEvent.change(screen.getByLabelText(/^Name/i), { target: { value: "Test Server" } });
+      fireEvent.change(screen.getByLabelText(/^URL/i), {
+        target: { value: "http://localhost:3000" },
+      });
+      return user;
+    }
+
+    it("disables submit while the default redirect URI is still loading", async () => {
+      server.use(
+        http.get("/oauth/callback-url", async () => {
+          await new Promise(() => {}); // never resolves within the test
+          return HttpResponse.json({ redirectUri: "https://app.example.com/oauth/callback" });
+        }),
+      );
+
+      await selectOAuthAuthorizationCode();
+
+      const submitButton = screen.getByRole("button", { name: /Connect server/i });
+      expect(submitButton).toBeDisabled();
+    });
+
+    it("shows a retryable error and keeps submit disabled when the fetch fails, then enables it once retried successfully", async () => {
+      let callCount = 0;
+      server.use(
+        http.get("/oauth/callback-url", () => {
+          callCount += 1;
+          if (callCount === 1) {
+            return HttpResponse.json({ detail: "unavailable" }, { status: 502 });
+          }
+          return HttpResponse.json({ redirectUri: "https://app.example.com/oauth/callback" });
+        }),
+      );
+
+      const user = await selectOAuthAuthorizationCode();
+
+      const submitButton = await screen.findByRole("button", { name: /Connect server/i });
+      await waitFor(() => expect(submitButton).toBeDisabled());
+      expect(screen.getByText(/Couldn't load the default redirect URI/i)).toBeInTheDocument();
+
+      const retryButton = screen.getByRole("button", { name: /Retry/i });
+      await user.click(retryButton);
+
+      await waitFor(() => expect(submitButton).toBeEnabled());
+      expect(screen.queryByText(/Couldn't load the default redirect URI/i)).not.toBeInTheDocument();
     });
   });
 

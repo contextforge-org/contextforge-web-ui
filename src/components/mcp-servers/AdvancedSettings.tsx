@@ -51,6 +51,9 @@ interface AdvancedSettingsProps {
   oauthGrantType: string;
   oauthIssuerUrl: string;
   oauthRedirectUri: string;
+  isOAuthRedirectUriLoading?: boolean;
+  oauthRedirectUriError?: string;
+  onRetryOAuthRedirectUri?: () => void;
   oauthAuthorizationUrl: string;
   oauthScopes: string;
   oauthStoreTokens: boolean;
@@ -103,6 +106,9 @@ export function AdvancedSettings({
   oauthGrantType,
   oauthIssuerUrl,
   oauthRedirectUri,
+  isOAuthRedirectUriLoading,
+  oauthRedirectUriError,
+  onRetryOAuthRedirectUri,
   oauthAuthorizationUrl,
   oauthScopes,
   oauthStoreTokens,
@@ -167,6 +173,9 @@ export function AdvancedSettings({
             grantType={oauthGrantType}
             issuerUrl={oauthIssuerUrl}
             redirectUri={oauthRedirectUri}
+            isRedirectUriLoading={isOAuthRedirectUriLoading}
+            redirectUriError={oauthRedirectUriError}
+            onRetryRedirectUri={onRetryOAuthRedirectUri}
             authorizationUrl={oauthAuthorizationUrl}
             scopes={oauthScopes}
             storeTokens={oauthStoreTokens}

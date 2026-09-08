@@ -18,6 +18,11 @@ export const SESSION_COOKIE_NAME = "bff_sid";
 // ioredis with its own generics) and lets tests pass an in-memory fake.
 export interface RedisLike {
   get(key: string): Promise<string | null>;
+  // Atomic read-then-delete (Redis GETDEL, >=6.2). Needed anywhere a value
+  // is consumed exactly once -- see oauth-authorize-nonce.ts -- since a
+  // separate get() + del() leaves a window between the two awaits where a
+  // second concurrent caller's get() can still observe the value.
+  getdel(key: string): Promise<string | null>;
   setex(key: string, ttlSeconds: number, value: string): Promise<unknown>;
   del(key: string): Promise<unknown>;
   publish(channel: string, message: string): Promise<unknown>;

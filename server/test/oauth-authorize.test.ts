@@ -239,6 +239,34 @@ describe("GET /oauth/authorize/:gatewayId", () => {
       expect(lastRequest).toBeUndefined();
     });
 
+    // Regression: consumeOAuthAuthorizeNonce used to be a plain
+    // GET-then-DEL, leaving a window between the two awaits where a second
+    // concurrent request for the same nonce could still read its session
+    // binding before either request's DEL ran, letting both proceed. Fired
+    // together (not awaited sequentially, unlike the reuse test above) to
+    // actually exercise that interleaving.
+    it("lets exactly one of two concurrent requests for the same nonce through", async () => {
+      const app = await buildApp();
+      const { cookie, sessionId } = await seedSession(app);
+      const nonce = await mintNonce(app, sessionId);
+
+      const [first, second] = await Promise.all([
+        app.fastify.inject({
+          method: "GET",
+          url: `/oauth/authorize/gw-1?popup=true&nonce=${nonce}`,
+          headers: { cookie },
+        }),
+        app.fastify.inject({
+          method: "GET",
+          url: `/oauth/authorize/gw-1?popup=true&nonce=${nonce}`,
+          headers: { cookie },
+        }),
+      ]);
+
+      const statusCodes = [first.statusCode, second.statusCode].sort();
+      expect(statusCodes).toEqual([302, 403]);
+    });
+
     it("rejects a nonce minted for a different session", async () => {
       const app = await buildApp();
       const { cookie } = await seedSession(app);

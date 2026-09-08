@@ -42,17 +42,18 @@ export async function mintOAuthAuthorizeNonce(
   return nonce;
 }
 
-// Deletes the nonce whether or not it matches -- a captured query string
-// (browser history, a proxy access log, a copy-pasted URL) must not be
-// replayable even by the same session that minted it.
+// GETDEL, not GET-then-DEL: reading and deleting must be one atomic op, or
+// two concurrent requests for the same nonce can both read its session
+// binding before either delete runs, letting both proceed. That deletes the
+// nonce whether or not it matches -- a captured query string (browser
+// history, a proxy access log, a copy-pasted URL) must not be replayable
+// even by the same session that minted it.
 export async function consumeOAuthAuthorizeNonce(
   redis: RedisLike,
   sessionId: string,
   nonce: string | undefined,
 ): Promise<boolean> {
   if (!nonce) return false;
-  const key = nonceRedisKey(nonce);
-  const mintedForSession = await redis.get(key);
-  await redis.del(key);
+  const mintedForSession = await redis.getdel(nonceRedisKey(nonce));
   return mintedForSession === sessionId;
 }

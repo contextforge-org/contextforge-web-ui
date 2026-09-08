@@ -93,6 +93,9 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     oauthIssuerUrl,
     setOAuthIssuerUrl,
     oauthRedirectUri,
+    isOAuthRedirectUriLoading,
+    oauthRedirectUriError,
+    retryOAuthRedirectUri,
     oauthAuthorizationUrl,
     setOAuthAuthorizationUrl,
     oauthScopes,
@@ -373,6 +376,16 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   oauthGrantType={oauthGrantType}
                   oauthIssuerUrl={oauthIssuerUrl}
                   oauthRedirectUri={oauthRedirectUri}
+                  isOAuthRedirectUriLoading={isOAuthRedirectUriLoading}
+                  oauthRedirectUriError={oauthRedirectUriError}
+                  onRetryOAuthRedirectUri={() => {
+                    // useQuery's execute() rejects on failure in addition to
+                    // setting its own error state (which this component
+                    // reads back as oauthRedirectUriError) -- swallow the
+                    // rejection here so a repeat failure doesn't surface as
+                    // an unhandled promise rejection.
+                    retryOAuthRedirectUri().catch(() => {});
+                  }}
                   oauthAuthorizationUrl={oauthAuthorizationUrl}
                   oauthScopes={oauthScopes}
                   oauthStoreTokens={oauthStoreTokens}

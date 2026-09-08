@@ -17,6 +17,9 @@ interface OAuth2AuthProps {
   grantType: string;
   issuerUrl: string;
   redirectUri: string;
+  isRedirectUriLoading?: boolean;
+  redirectUriError?: string;
+  onRetryRedirectUri?: () => void;
   clientId: string;
   clientSecret: string;
   tokenUrl: string;
@@ -44,6 +47,9 @@ export function OAuth2Auth({
   grantType,
   issuerUrl,
   redirectUri,
+  isRedirectUriLoading,
+  redirectUriError,
+  onRetryRedirectUri,
   clientId,
   clientSecret,
   tokenUrl,
@@ -189,11 +195,35 @@ export function OAuth2Auth({
               id="oauth-redirect-uri"
               type="text"
               readOnly
-              value={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriAutoPlaceholder" })}
+              value={intl.formatMessage({
+                id: redirectUriError
+                  ? "mcpServer.auth.oauth.redirectUriLoadError"
+                  : isRedirectUriLoading
+                    ? "mcpServer.auth.oauth.redirectUriLoading"
+                    : "mcpServer.auth.oauth.redirectUriAutoPlaceholder",
+              })}
               className="rounded-md border-neutral-300 px-4 text-sm text-neutral-500 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-500"
             />
           )}
-          {!hasStoredRedirectUri && (
+          {!hasStoredRedirectUri && redirectUriError && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-destructive">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoadError" })}
+              </p>
+              {onRetryRedirectUri && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={onRetryRedirectUri}
+                >
+                  {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriRetry" })}
+                </Button>
+              )}
+            </div>
+          )}
+          {!hasStoredRedirectUri && !redirectUriError && (
             <p className="text-xs text-neutral-600 dark:text-neutral-500">
               {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriAutoHelp" })}
             </p>

@@ -5,7 +5,7 @@
 // Test fixture: a Fastify instance wired the same way as src/index.ts, but
 // with an in-memory fake in place of plugins/redis.ts so tests don't need a
 // real Redis instance. Only the ioredis surface the app actually touches
-// (get/setex/del/publish) is implemented.
+// (get/getdel/setex/del/publish) is implemented.
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Redis } from "ioredis";
@@ -30,6 +30,12 @@ export class FakeRedis {
 
   async get(key: string): Promise<string | null> {
     return this.store.has(key) ? this.store.get(key)! : null;
+  }
+
+  async getdel(key: string): Promise<string | null> {
+    const value = this.store.has(key) ? this.store.get(key)! : null;
+    this.store.delete(key);
+    return value;
   }
 
   async setex(key: string, _ttlSeconds: number, value: string): Promise<"OK"> {
