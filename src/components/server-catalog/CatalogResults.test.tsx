@@ -32,6 +32,7 @@ function catalogResults(
       onAdd={vi.fn()}
       addingServerIds={addingServerIds}
       onTest={vi.fn()}
+      onAuthorize={vi.fn()}
       onDisconnect={vi.fn()}
       testingServerIds={testingServerIds}
       disconnectingServerIds={disconnectingServerIds}
@@ -88,6 +89,46 @@ describe("CatalogResults", () => {
 
     expect(screen.getByText("Disconnecting…")).toHaveAttribute("role", "status");
     expect(screen.queryByText("Connected")).not.toBeInTheDocument();
+  });
+
+  it("shows caller-scoped expired OAuth state and offers authorization retry", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    const oauthServer: CatalogServer = {
+      ...availableServer,
+      id: "github",
+      name: "GitHub",
+      auth_type: "OAuth2.1",
+      is_registered: true,
+      gateway_id: "gateway-github",
+    };
+
+    renderWithProviders(
+      <CatalogResults
+        servers={[oauthServer]}
+        emptyStateMessageId="mcpServer.catalog.empty"
+        onView={vi.fn()}
+        onAdd={vi.fn()}
+        addingServerIds={new Set()}
+        onTest={vi.fn()}
+        onAuthorize={onAuthorize}
+        onDisconnect={vi.fn()}
+        canTest={false}
+        canDisconnect={false}
+        oauthStatuses={{
+          "gateway-github": {
+            oauth_enabled: true,
+            user_token_status: { status: "expired", authorized: false },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Authorization expired")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions for GitHub" }));
+    await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
+
+    expect(onAuthorize).toHaveBeenCalledOnce();
   });
 
   it("routes bundled catalog logos through the BFF", () => {

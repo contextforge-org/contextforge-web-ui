@@ -10,6 +10,7 @@ import {
   testCatalogServer,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
+import { serversApi } from "@/api/servers";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
@@ -46,12 +47,22 @@ vi.mock("@/api/catalog", () => ({
   getGatewayImpactPreview: vi.fn(),
   testCatalogServer: vi.fn(),
 }));
+vi.mock("@/api/servers", () => ({
+  serversApi: {
+    triggerOAuthAuthorization: vi.fn(),
+    toggleEnabled: vi.fn(),
+    fetchToolsAfterOAuth: vi.fn(),
+  },
+}));
 
 const mockUseQuery = vi.mocked(useQuery);
 const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
 const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
 const mockTestCatalogServer = vi.mocked(testCatalogServer);
+const mockTriggerOAuthAuthorization = vi.mocked(serversApi.triggerOAuthAuthorization);
+const mockToggleEnabled = vi.mocked(serversApi.toggleEnabled);
+const mockFetchToolsAfterOAuth = vi.mocked(serversApi.fetchToolsAfterOAuth);
 
 const openConnected: CatalogServer = {
   id: "open-connected",
@@ -91,13 +102,25 @@ const apiKeyServer: CatalogServer = {
   is_registered: false,
 };
 
+const oauthServer: CatalogServer = {
+  id: "oauth",
+  name: "GitHub",
+  category: "Developer Tools",
+  url: "https://api.githubcopilot.com/mcp/",
+  auth_type: "OAuth2.1",
+  provider: "GitHub",
+  description: "Requires user OAuth authorization",
+  tags: ["developer-tools"],
+  is_registered: false,
+};
+
 const response: CatalogListResponse = {
-  servers: [openConnected, openAvailable, apiKeyServer],
-  total: 3,
-  categories: ["Monitoring", "Productivity", "Security"],
-  auth_types: ["API Key", "Open"],
-  providers: ["Example", "jsDelivr", "SecureCo"],
-  all_tags: ["documents", "network", "observability", "search", "security"],
+  servers: [openConnected, openAvailable, apiKeyServer, oauthServer],
+  total: 4,
+  categories: ["Developer Tools", "Monitoring", "Productivity", "Security"],
+  auth_types: ["API Key", "OAuth2.1", "Open"],
+  providers: ["Example", "GitHub", "jsDelivr", "SecureCo"],
+  all_tags: ["developer-tools", "documents", "network", "observability", "search", "security"],
 };
 
 function queryResult(overrides: Partial<ReturnType<typeof useQuery>> = {}) {
@@ -149,6 +172,7 @@ describe("ServerCatalog", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
     mockUseQuery.mockReturnValue(queryResult());
+    mockRegisterCatalogServer.mockReset();
     mockRegisterCatalogServer.mockResolvedValue({
       success: true,
       server_id: "registered-server",
@@ -165,6 +189,12 @@ describe("ServerCatalog", () => {
     });
     mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
     mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
+    mockTriggerOAuthAuthorization.mockReset();
+    mockToggleEnabled.mockReset();
+    mockFetchToolsAfterOAuth.mockReset();
+    mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
+    mockToggleEnabled.mockResolvedValue({ status: "success", message: "Activated" });
+    mockFetchToolsAfterOAuth.mockResolvedValue({ success: true, message: "Tools fetched" });
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -174,6 +204,24 @@ describe("ServerCatalog", () => {
 
     expect(mockUseQuery).toHaveBeenCalledWith("/v1/catalog?limit=1000");
     expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
+  });
+
+  it("loads caller-scoped OAuth status in one batch for registered OAuth cards", () => {
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [{ ...oauthServer, is_registered: true, gateway_id: "gateway-github" }],
+          total: 1,
+        },
+      }),
+    );
+
+    renderWithRouter(<ServerCatalog />);
+
+    expect(mockUseQuery).toHaveBeenCalledWith("/oauth/status?gateway_ids=gateway-github", {
+      enabled: true,
+    });
   });
 
   it("keeps cached catalog data visible during refreshes and refresh failures", () => {
@@ -191,23 +239,96 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText("Unable to load server catalog. Try again.")).not.toBeInTheDocument();
   });
 
-  it("renders supported Open and API-key entries and marks registered servers connected", () => {
+  it("renders Open, API-key, and OAuth entries and marks registered servers connected", () => {
     renderWithRouter(<ServerCatalog />);
 
     expect(screen.getByRole("region", { name: "Server catalog" })).toBeInTheDocument();
     const catalogList = screen.getByRole("list", { name: "Catalog servers" });
-    expect(within(catalogList).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(catalogList).getAllByRole("listitem")).toHaveLength(4);
     expect(screen.getByRole("heading", { name: "Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Public Notes" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "GitHub" })).toBeInTheDocument();
     expect(within(catalogList).getByText("Connected")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("3 servers shown");
+    expect(screen.getByRole("status")).toHaveTextContent("4 servers shown");
     expect(screen.getByRole("button", { name: "Actions for Globalping" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Public Notes" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add Secret Service" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add GitHub" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "View Globalping" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View Public Notes" })).toBeInTheDocument();
     expect(screen.queryByText(/registration coming soon/i)).not.toBeInTheDocument();
+  });
+
+  it("collects OAuth credentials in the catalog dialog and registers them in one call", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+
+    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo read:user");
+    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(
+      within(dialog).getByLabelText(/^Authorization URL/i),
+      "https://github.com/login/oauth/authorize",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/^Token URL/i),
+      "https://github.com/login/oauth/access_token",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("oauth", {
+        name: null,
+        visibility: "private",
+        team_id: null,
+        oauth_credentials: {
+          grant_type: "authorization_code",
+          issuer: "https://github.com",
+          client_id: "github-client",
+          client_secret: "github-secret",
+          authorization_url: "https://github.com/login/oauth/authorize",
+          token_url: "https://github.com/login/oauth/access_token",
+          scopes: ["repo", "read:user"],
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(mockTriggerOAuthAuthorization).toHaveBeenCalledWith("registered-server"),
+    );
+    expect(mockToggleEnabled).toHaveBeenCalledWith("registered-server", true);
+    expect(mockFetchToolsAfterOAuth).toHaveBeenCalledWith("registered-server");
+  });
+
+  it("keeps the OAuth dialog open after a cancelled authorization so it can retry", async () => {
+    const user = userEvent.setup();
+    mockTriggerOAuthAuthorization.mockRejectedValue(new Error("OAuth authorization was cancelled"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(
+      within(dialog).getByLabelText(/^Authorization URL/i),
+      "https://github.com/login/oauth/authorize",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/^Token URL/i),
+      "https://github.com/login/oauth/access_token",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+
+    expect(
+      await within(dialog).findByText("OAuth authorization was cancelled"),
+    ).toBeInTheDocument();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
   });
 
   it("offers API auth entries through the API-key add flow", async () => {
@@ -784,7 +905,7 @@ describe("ServerCatalog", () => {
       current: CatalogListResponse | undefined,
     ) => CatalogListResponse | undefined;
     expect(updateCatalog(response)?.servers).not.toContainEqual(openAvailable);
-    expect(updateCatalog(response)?.total).toBe(2);
+    expect(updateCatalog(response)?.total).toBe(3);
     expect(refetch).toHaveBeenCalledOnce();
     expect(screen.queryByText("Catalog server not found")).not.toBeInTheDocument();
 
