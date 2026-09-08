@@ -10,6 +10,7 @@ import type { ServersResponse, MCPServer } from "../types/server";
 import type {
   GatewayHandshakeRequest,
   GatewayHandshakeResponse,
+  GatewayRefreshResponse,
   GatewayTestRequest,
   GatewayTestResponse,
 } from "@/generated/types";
@@ -157,6 +158,18 @@ export const serversApi = {
   toggleEnabled: (id: string, enabled: boolean): Promise<{ status: string; message: string }> => {
     const validId = validateServerId(id);
     return api.post(`/gateways/${validId}/state?activate=${enabled}`);
+  },
+
+  /**
+   * Re-sync a server's tools, resources, and prompts from the upstream MCP server.
+   *
+   * Unversioned path to match every other call in this file — see Issue #6550.
+   */
+  refreshTools: (id: string): Promise<GatewayRefreshResponse> => {
+    const validId = validateServerId(id);
+    return api.post(
+      `/gateways/${validId}/tools/refresh?include_resources=true&include_prompts=true`,
+    );
   },
 
   /**
