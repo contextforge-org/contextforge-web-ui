@@ -1,1 +1,2 @@
 npx lint-staged
+uv tool run --from 'git+https://github.com/ibm/detect-secrets.git@076672a9a01abdfc7ecee2e7d14f08cdccb73976' detect-secrets-hook --baseline .secrets.baseline --use-all-plugins --fail-on-unaudited -- $(git diff --cached --name-only --diff-filter=d)
