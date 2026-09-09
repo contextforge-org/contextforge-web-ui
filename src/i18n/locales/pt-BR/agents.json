@@ -5,5 +5,5 @@
   "agents.card.status.active": "Ativo",
   "agents.card.status.inactive": "Inativo",
   "agents.empty.title": "Ainda não há agentes",
-  "agents.empty.description": "Os agentes aparecerão aqui assim que forem registrados no gateway."
+  "agents.empty.description": "Os agentes aparecerão aqui assim que forem registrados no servidor."
 }
