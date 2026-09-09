@@ -195,11 +195,9 @@ npm run secrets:scan
 npm run secrets:audit
 ```
 
-The scan also runs automatically as a **pre-commit hook** (via Husky) and as a **GitHub Actions workflow** ([`detect-secrets.yml`](./.github/workflows/detect-secrets.yml)) on every PR and push to `main`.
+The scan also runs automatically as a **pre-commit hook** (via Husky).
 
 **If the pre-commit hook blocks your commit:** a new secret-like pattern was found. Either remove the value, or run `npm run secrets:audit` to review and mark it as a false positive, then re-commit.
-
-**If CI fails with "baseline is out of date":** run `npm run secrets:scan` locally, audit any new findings, and commit the updated `.secrets.baseline`.
 
 ## Testing
 
