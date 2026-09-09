@@ -81,7 +81,7 @@ describe("Agents", () => {
       expect(screen.getByText("No agents yet")).toBeInTheDocument();
     });
     expect(
-      screen.getByText("Agents will appear here once they're registered with the gateway."),
+      screen.getByText("Agents will appear here once they're registered with the server."),
     ).toBeInTheDocument();
     expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
   });
