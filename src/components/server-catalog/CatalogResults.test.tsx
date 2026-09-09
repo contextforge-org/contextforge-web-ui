@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { CatalogServer } from "@/generated/types";
 import { renderWithProviders } from "@/test/test-utils";
-import { CatalogResults } from "./CatalogResults";
+import { CatalogResults, CatalogServerDetailsDialog } from "./CatalogResults";
 
 const availableServer: CatalogServer = {
   id: "public-notes",
@@ -129,6 +129,123 @@ describe("CatalogResults", () => {
     await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
 
     expect(onAuthorize).toHaveBeenCalledOnce();
+  });
+
+  it("shows valid and near-expiry caller OAuth states", () => {
+    const validServer: CatalogServer = {
+      ...availableServer,
+      id: "github-valid",
+      name: "GitHub valid",
+      auth_type: "OAuth2.1",
+      is_registered: true,
+      gateway_id: "gateway-valid",
+    };
+    const expiringServer: CatalogServer = {
+      ...availableServer,
+      id: "github-expiring",
+      name: "GitHub expiring",
+      auth_type: "OAuth2.1",
+      is_registered: true,
+      gateway_id: "gateway-expiring",
+    };
+
+    renderWithProviders(
+      <CatalogResults
+        servers={[validServer, expiringServer]}
+        emptyStateMessageId="mcpServer.catalog.empty"
+        onView={vi.fn()}
+        onAdd={vi.fn()}
+        addingServerIds={new Set()}
+        onTest={vi.fn()}
+        onAuthorize={vi.fn()}
+        onDisconnect={vi.fn()}
+        canTest={false}
+        canDisconnect={false}
+        oauthStatuses={{
+          "gateway-valid": {
+            oauth_enabled: true,
+            user_token_status: { status: "valid", authorized: true },
+          },
+          "gateway-expiring": {
+            oauth_enabled: true,
+            user_token_status: { status: "near_expiry", authorized: true },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Authorization expires soon")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+  });
+
+  it("shows authorization needed when OAuth configuration is incomplete", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn();
+    const server = {
+      ...availableServer,
+      id: "github-pending",
+      name: "GitHub pending",
+      auth_type: "OAuth2.1",
+      is_registered: true,
+      gateway_id: "gateway-pending",
+      requires_oauth_config: true,
+    };
+
+    renderWithProviders(
+      <CatalogResults
+        servers={[server]}
+        emptyStateMessageId="mcpServer.catalog.empty"
+        onView={vi.fn()}
+        onAdd={vi.fn()}
+        addingServerIds={new Set()}
+        onTest={vi.fn()}
+        onAuthorize={onAuthorize}
+        onDisconnect={vi.fn()}
+        canTest={false}
+        canDisconnect={false}
+      />,
+    );
+
+    expect(screen.getByText("Needs authorization")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions for GitHub pending" }));
+    await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
+    expect(onAuthorize).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a registered OAuth card connected while token status is unavailable", () => {
+    const server = {
+      ...availableServer,
+      id: "github-status-pending",
+      name: "GitHub status pending",
+      auth_type: "OAuth2.1",
+      is_registered: true,
+      gateway_id: "gateway-status-pending",
+    };
+
+    renderWithProviders(
+      <CatalogResults
+        servers={[server]}
+        emptyStateMessageId="mcpServer.catalog.empty"
+        onView={vi.fn()}
+        onAdd={vi.fn()}
+        addingServerIds={new Set()}
+        onTest={vi.fn()}
+        onAuthorize={vi.fn()}
+        onDisconnect={vi.fn()}
+        canTest={false}
+        canDisconnect={false}
+      />,
+    );
+
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+  });
+
+  it("shows unregistered catalog servers as not connected in details", async () => {
+    renderWithProviders(
+      <CatalogServerDetailsDialog server={availableServer} onOpenChange={vi.fn()} />,
+    );
+
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
   });
 
   it("routes bundled catalog logos through the BFF", () => {
