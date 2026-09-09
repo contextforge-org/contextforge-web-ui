@@ -1,0 +1,9 @@
+{
+  "agents.title": "Agentes",
+  "agents.loading": "Cargando agentes, por favor espere...",
+  "agents.error.loading": "Error al cargar los agentes",
+  "agents.card.status.active": "Activo",
+  "agents.card.status.inactive": "Inactivo",
+  "agents.empty.title": "Aún no hay agentes",
+  "agents.empty.description": "Los agentes aparecerán aquí una vez que se registren en la puerta de enlace."
+}
