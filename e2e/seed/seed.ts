@@ -8,8 +8,8 @@
 const GATEWAY_URL = process.env.E2E_GATEWAY_URL ?? "http://localhost:4444";
 const AUTH_HEADER_NAME = process.env.CONTEXTFORGE_AUTH_HEADER_NAME ?? "Authorization";
 const EMAIL = process.env.E2E_TEST_EMAIL;
-const BOOTSTRAP_PASSWORD = process.env.E2E_BOOTSTRAP_PASSWORD ?? "changeme-e2e-bootstrap-pwd1";  //pragma: allowlist secret
-const NEW_PASSWORD = process.env.E2E_TEST_PASSWORD;  //pragma: allowlist secret
+const BOOTSTRAP_PASSWORD = process.env.E2E_BOOTSTRAP_PASSWORD ?? "changeme-e2e-bootstrap-pwd1"; //pragma: allowlist secret
+const NEW_PASSWORD = process.env.E2E_TEST_PASSWORD; //pragma: allowlist secret
 
 const HEALTH_RETRIES = 30;
 const HEALTH_RETRY_DELAY_MS = 2000;

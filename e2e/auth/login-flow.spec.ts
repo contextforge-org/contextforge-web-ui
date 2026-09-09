@@ -4,7 +4,7 @@ import { APP, TOKEN_STORAGE_KEY } from "../utils/paths";
 const IS_REAL_API = process.env.E2E_REAL_API === "true";
 // Only the "successful login" test needs a user that really exists.
 const VALID_EMAIL = IS_REAL_API ? (process.env.E2E_TEST_EMAIL ?? "") : "test@example.com";
-const VALID_PASSWORD = IS_REAL_API ? (process.env.E2E_TEST_PASSWORD ?? "") : "password123";  //pragma: allowlist secret
+const VALID_PASSWORD = IS_REAL_API ? (process.env.E2E_TEST_PASSWORD ?? "") : "password123"; //pragma: allowlist secret
 
 test.describe("Login flow", () => {
   test.beforeEach(async ({ page, apiMock }) => {
