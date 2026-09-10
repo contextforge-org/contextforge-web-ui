@@ -187,7 +187,9 @@ function CatalogCard({
                       </DropdownMenuItem>
                       {canTest && (
                         <DropdownMenuItem
-                          disabled={server.requires_oauth_config || isTesting || isDisconnecting}
+                          disabled={
+                            server.requires_oauth_config || isAdding || isTesting || isDisconnecting
+                          }
                           onSelect={onTest}
                           title={
                             server.requires_oauth_config
@@ -208,7 +210,7 @@ function CatalogCard({
                       )}
                       {canDisconnect && server.gateway_id && (
                         <DropdownMenuItem
-                          disabled={isTesting || isDisconnecting}
+                          disabled={isAdding || isTesting || isDisconnecting}
                           onSelect={onDisconnect}
                         >
                           {intl.formatMessage({ id: "mcpServer.catalog.disconnect" })}

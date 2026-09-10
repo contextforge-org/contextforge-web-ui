@@ -49,6 +49,7 @@ vi.mock("@/api/catalog", () => ({
 }));
 vi.mock("@/api/servers", () => ({
   serversApi: {
+    openOAuthAuthorizationPopup: vi.fn(),
     triggerOAuthAuthorization: vi.fn(),
     toggleEnabled: vi.fn(),
     fetchToolsAfterOAuth: vi.fn(),
@@ -60,6 +61,7 @@ const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
 const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
 const mockTestCatalogServer = vi.mocked(testCatalogServer);
+const mockOpenOAuthAuthorizationPopup = vi.mocked(serversApi.openOAuthAuthorizationPopup);
 const mockTriggerOAuthAuthorization = vi.mocked(serversApi.triggerOAuthAuthorization);
 const mockToggleEnabled = vi.mocked(serversApi.toggleEnabled);
 const mockFetchToolsAfterOAuth = vi.mocked(serversApi.fetchToolsAfterOAuth);
@@ -189,9 +191,11 @@ describe("ServerCatalog", () => {
     });
     mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
     mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
+    mockOpenOAuthAuthorizationPopup.mockReset();
     mockTriggerOAuthAuthorization.mockReset();
     mockToggleEnabled.mockReset();
     mockFetchToolsAfterOAuth.mockReset();
+    mockOpenOAuthAuthorizationPopup.mockReturnValue({ close: vi.fn() } as unknown as Window);
     mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
     mockToggleEnabled.mockResolvedValue({ status: "success", message: "Activated" });
     mockFetchToolsAfterOAuth.mockResolvedValue({ success: true, message: "Tools fetched" });
@@ -260,8 +264,60 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText(/registration coming soon/i)).not.toBeInTheDocument();
   });
 
+  it("hides catalog servers with unsupported authentication", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [
+            ...response.servers,
+            {
+              ...openAvailable,
+              id: "mtls-server",
+              name: "mTLS Server",
+              auth_type: "mTLS",
+            },
+            {
+              ...openAvailable,
+              id: "basic-server",
+              name: "Basic Server",
+              auth_type: "Basic",
+            },
+          ],
+          total: 6,
+          auth_types: [...response.auth_types, "Basic", "mTLS"],
+        },
+      }),
+    );
+
+    renderWithRouter(<ServerCatalog />);
+
+    expect(screen.queryByRole("heading", { name: "mTLS Server" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Basic Server" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add mTLS Server" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Basic Server" })).not.toBeInTheDocument();
+
+    await openFilters(user);
+    await user.click(
+      within(getFilterSection("Authentication")).getByRole("radio", { name: "Select" }),
+    );
+    expect(
+      within(getFilterSection("Authentication")).queryByRole("checkbox", { name: "Basic" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(getFilterSection("Authentication")).queryByRole("checkbox", { name: "mTLS" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("collects OAuth credentials in the catalog dialog and registers them in one call", async () => {
     const user = userEvent.setup();
+    const authWindow = { close: vi.fn() } as unknown as Window;
+    mockOpenOAuthAuthorizationPopup.mockReturnValue(authWindow);
+    mockRegisterCatalogServer.mockImplementation(async () => {
+      expect(mockOpenOAuthAuthorizationPopup).toHaveBeenCalledOnce();
+      return { success: true, server_id: "registered-server", message: "Registered" };
+    });
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));
@@ -298,10 +354,39 @@ describe("ServerCatalog", () => {
       }),
     );
     await waitFor(() =>
-      expect(mockTriggerOAuthAuthorization).toHaveBeenCalledWith("registered-server"),
+      expect(mockTriggerOAuthAuthorization).toHaveBeenCalledWith("registered-server", authWindow),
     );
     expect(mockToggleEnabled).toHaveBeenCalledWith("registered-server", true);
     expect(mockFetchToolsAfterOAuth).toHaveBeenCalledWith("registered-server");
+  });
+
+  it("does not register OAuth credentials when popup creation is blocked", async () => {
+    const user = userEvent.setup();
+    mockOpenOAuthAuthorizationPopup.mockImplementation(() => {
+      throw new Error("Failed to open OAuth authorization window");
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(
+      within(dialog).getByLabelText(/^Authorization URL/i),
+      "https://github.com/login/oauth/authorize",
+    );
+    await user.type(
+      within(dialog).getByLabelText(/^Token URL/i),
+      "https://github.com/login/oauth/access_token",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+
+    expect(
+      await within(dialog).findByText("Failed to open OAuth authorization window"),
+    ).toBeVisible();
+    expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
   });
 
   it("keeps the OAuth dialog open after a cancelled authorization so it can retry", async () => {
