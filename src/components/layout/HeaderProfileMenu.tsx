@@ -87,7 +87,7 @@ export function HeaderProfileMenu() {
             <SelectTrigger
               size="sm"
               aria-label={intl.formatMessage({ id: "common.language" })}
-              className="h-auto gap-1.5 border-0 bg-transparent px-2 py-1 text-xs font-medium text-secondary-foreground shadow-none"
+              className="h-auto w-fit gap-1.5 border-0 bg-transparent px-2 py-1 text-xs font-medium text-secondary-foreground shadow-none"
             >
               <SelectValue />
             </SelectTrigger>
