@@ -180,7 +180,6 @@ export function CatalogApiKeyDialog({
                 }}
                 disabled={isSubmitting}
               >
-                {/* SelectTrigger is w-fit by default; full width lines it up with the inputs above. */}
                 <SelectTrigger id="catalog-server-visibility" className="w-full">
                   <SelectValue
                     placeholder={intl.formatMessage({
