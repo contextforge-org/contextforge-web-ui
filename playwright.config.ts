@@ -54,7 +54,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command: "VITE_ENABLE_TOOL_PREVIEW=true npm run dev:e2e",
+        command: "npm run dev:e2e",
         url: BASE_URL,
         reuseExistingServer: REUSE_EXISTING_SERVER,
         timeout: 120_000,
