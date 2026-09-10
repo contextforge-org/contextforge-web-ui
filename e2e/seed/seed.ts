@@ -79,7 +79,7 @@ async function clearForcedPasswordChange(): Promise<string> {
       "content-type": "application/json",
       [AUTH_HEADER_NAME]: `Bearer ${bypassToken}`,
     },
-    body: JSON.stringify({ old_password: BOOTSTRAP_PASSWORD, new_password: NEW_PASSWORD }),
+    body: JSON.stringify({ old_password: BOOTSTRAP_PASSWORD, new_password: NEW_PASSWORD }), // pragma: allowlist secret
   });
   if (!changeRes.ok) {
     throw new Error(`Password change failed: ${changeRes.status} ${await changeRes.text()}`);

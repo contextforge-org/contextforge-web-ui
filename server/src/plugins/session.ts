@@ -38,6 +38,6 @@ export default fp(
 
 declare module "fastify" {
   interface FastifyInstance {
-    sessionAuth: typeof sessionAuth;
+    sessionAuth: typeof sessionAuth; // pragma: allowlist secret
   }
 }

@@ -64,7 +64,7 @@ const defaultAdvancedProps = {
   authType: "none" as const,
   onAuthTypeChange: vi.fn(),
   basicAuthUsername: "",
-  basicAuthPassword: "",
+  basicAuthPassword: "", // pragma: allowlist secret
   onBasicAuthUsernameChange: vi.fn(),
   onBasicAuthPasswordChange: vi.fn(),
   bearerToken: "",

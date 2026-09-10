@@ -491,7 +491,7 @@ describe("ToolForm", () => {
             authType: "bearer",
             token: "tok",
             username: "",
-            password: "",
+            password: "", // pragma: allowlist secret
             authHeaderKey: "",
             authHeaderValue: "",
           },
@@ -502,7 +502,7 @@ describe("ToolForm", () => {
     });
 
     it("does not open advanced settings when tool has no auth", () => {
-      renderForm({ tool: createMockTool({ auth: undefined }) });
+      renderForm({ tool: createMockTool({ auth: undefined }) }); // pragma: allowlist secret
       const btn = screen.getByRole("button", { name: /Advanced settings/i });
       expect(btn).toHaveAttribute("aria-expanded", "false");
     });
