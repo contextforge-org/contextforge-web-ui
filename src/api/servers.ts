@@ -35,6 +35,26 @@ function validateServerId(id: string): string {
   return id;
 }
 
+function openOAuthAuthorizationPopup(): Window {
+  const width = 600;
+  const height = 700;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2;
+  const authWindow = window.open(
+    "",
+    "oauth_authorization",
+    `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`,
+  );
+
+  if (!authWindow) {
+    throw new Error(
+      "Failed to open OAuth authorization window. Please check your popup blocker settings.",
+    );
+  }
+
+  return authWindow;
+}
+
 export const serversApi = {
   /**
    * List all MCP servers with cursor-based pagination
@@ -171,6 +191,16 @@ export const serversApi = {
   },
 
   /**
+   * Open blank OAuth popup during an active user gesture.
+   *
+   * Catalog setup must register credentials before it knows the gateway ID. It
+   * opens this blank window first, then passes it to triggerOAuthAuthorization
+   * once registration returns. Keeping window.open synchronous prevents popup
+   * blockers from rejecting first-time setup.
+   */
+  openOAuthAuthorizationPopup,
+
+  /**
    * Trigger OAuth authorization flow for a gateway via a popup window.
    *
    * Opens /oauth/authorize/{id}?popup=true&nonce=... in a centered popup. The
@@ -188,27 +218,16 @@ export const serversApi = {
    *
    * Returns a Promise that resolves on success or rejects on error / cancellation.
    */
-  triggerOAuthAuthorization: (id: string): Promise<OAuthCallbackResult> => {
+  triggerOAuthAuthorization: (
+    id: string,
+    existingAuthWindow?: Window,
+  ): Promise<OAuthCallbackResult> => {
     const validId = validateServerId(id);
 
     return new Promise((resolve, reject) => {
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-
-      const authWindow = window.open(
-        "",
-        "oauth_authorization",
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`,
-      );
-
-      if (!authWindow) {
-        reject(
-          new Error(
-            "Failed to open OAuth authorization window. Please check your popup blocker settings.",
-          ),
-        );
+      const authWindow = existingAuthWindow ?? openOAuthAuthorizationPopup();
+      if (authWindow.closed) {
+        reject(new Error("OAuth authorization window was closed"));
         return;
       }
 
