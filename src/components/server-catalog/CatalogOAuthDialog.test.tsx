@@ -73,6 +73,15 @@ describe("CatalogOAuthDialog", () => {
     expect(screen.getByText("Client secret is required.")).toBeInTheDocument();
     expect(screen.getByText("Enter a valid authorization URL.")).toBeInTheDocument();
     expect(screen.getByText("Enter a valid token URL.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Issuer URL/i)).toHaveAttribute("aria-required", "true");
+    expect(screen.getByLabelText(/Issuer URL/i)).toHaveAttribute(
+      "aria-describedby",
+      "catalog-oauth-issuer-error",
+    );
+    expect(screen.getByText("Enter a valid issuer URL.")).toHaveAttribute(
+      "id",
+      "catalog-oauth-issuer-error",
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
