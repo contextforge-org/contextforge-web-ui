@@ -310,7 +310,7 @@ describe("POST /auth/change-password-required", () => {
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         const headers = (init?.headers as Record<string, string> | undefined) ?? {};
-        const bodyPassword = init?.body
+        const bodyPassword = init?.body // pragma: allowlist secret
           ? (JSON.parse(String(init.body)) as { password?: string }).password
           : undefined;
         calls.push({ url: String(url), authorization: headers.authorization, headers });
@@ -320,7 +320,7 @@ describe("POST /auth/change-password-required", () => {
         else if (String(url).endsWith("/auth/logout")) leg = legs.revoke;
         else if (String(url).endsWith("/auth/login")) leg = legs.bypassLogin;
         else if (String(url).endsWith("/auth/email/login")) {
-          leg = bodyPassword === NEW_PASSWORD ? legs.realLogin : legs.precondition;
+          leg = bodyPassword === NEW_PASSWORD ? legs.realLogin : legs.precondition; // pragma: allowlist secret
         } else throw new Error(`unexpected upstream fetch: ${url}`);
 
         return {
@@ -340,8 +340,8 @@ describe("POST /auth/change-password-required", () => {
       url: "/auth/change-password-required",
       payload: payload ?? {
         email: "user@example.com",
-        oldPassword: OLD_PASSWORD,
-        newPassword: NEW_PASSWORD,
+        oldPassword: OLD_PASSWORD, // pragma: allowlist secret
+        newPassword: NEW_PASSWORD, // pragma: allowlist secret
       },
     });
   }
@@ -515,7 +515,7 @@ describe("POST /auth/change-password-required", () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
-    const response = await requestChange({ email: "user@example.com", oldPassword: OLD_PASSWORD });
+    const response = await requestChange({ email: "user@example.com", oldPassword: OLD_PASSWORD }); // pragma: allowlist secret
 
     expect(response.statusCode).toBe(400);
     expect(fetchSpy).not.toHaveBeenCalled();

@@ -88,7 +88,7 @@ export function CatalogApiKeyDialog({
 
       const registered = await onSubmit({
         name: name.trim() || null,
-        api_key: apiKey,
+        api_key: apiKey, // pragma: allowlist secret
         visibility,
         team_id: visibility === "team" ? teamId : null,
       });

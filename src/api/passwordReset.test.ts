@@ -36,7 +36,7 @@ describe("passwordReset API", () => {
     await resetPassword("token/one", "new-password", "new-password");
     expect(api.post).toHaveBeenCalledWith(
       "/auth/email/reset-password/token%2Fone",
-      { new_password: "new-password", confirm_password: "new-password" },
+      { new_password: "new-password", confirm_password: "new-password" }, // pragma: allowlist secret
       { authenticated: false },
     );
   });

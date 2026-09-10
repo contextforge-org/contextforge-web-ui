@@ -91,7 +91,7 @@ describe("public password-reset proxy", () => {
     const completion = await app.fastify.inject({
       method: "POST",
       url: "/api/auth/email/reset-password/token%20with%20space",
-      payload: { new_password: "New-password1", confirm_password: "New-password1" },
+      payload: { new_password: "New-password1", confirm_password: "New-password1" }, // pragma: allowlist secret
     });
     expect(completion.statusCode).toBe(200);
 
@@ -103,8 +103,8 @@ describe("public password-reset proxy", () => {
     expect(calls[0]?.init.body).toBeUndefined();
     expect(calls[1]?.init.method).toBe("POST");
     expect(JSON.parse(String(calls[1]?.init.body))).toEqual({
-      new_password: "New-password1",
-      confirm_password: "New-password1",
+      new_password: "New-password1", // pragma: allowlist secret
+      confirm_password: "New-password1", // pragma: allowlist secret
     });
   });
 

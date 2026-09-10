@@ -43,7 +43,7 @@ type TestStatus = "idle" | "testing" | "success" | "error";
 const FAILURE_CLASS_COPY_MESSAGE_IDS: Record<string, string> = {
   transport: "mcpServer.testConnection.virtualServer.failureCopy.transport",
   protocol: "mcpServer.testConnection.virtualServer.failureCopy.protocol",
-  auth: "mcpServer.testConnection.virtualServer.failureCopy.auth",
+  auth: "mcpServer.testConnection.virtualServer.failureCopy.auth", // pragma: allowlist secret
   invalid_response: "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse",
 };
 
@@ -51,7 +51,7 @@ const FAILURE_CLASS_COPY_MESSAGE_IDS: Record<string, string> = {
 const FAILURE_CLASS_MESSAGE_IDS: Record<string, string> = {
   transport: "mcpServer.testConnection.failureClass.transport",
   protocol: "mcpServer.testConnection.failureClass.protocol",
-  auth: "mcpServer.testConnection.failureClass.auth",
+  auth: "mcpServer.testConnection.failureClass.auth", // pragma: allowlist secret
   invalid_response: "mcpServer.testConnection.failureClass.invalidResponse",
 };
 

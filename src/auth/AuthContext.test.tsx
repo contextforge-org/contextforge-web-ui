@@ -387,7 +387,7 @@ describe("AuthContext", () => {
 
     expect(api.post).toHaveBeenCalledWith(
       "/auth/change-password-required",
-      { email: "test@example.com", oldPassword: "old-pass", newPassword: "new-pass" },
+      { email: "test@example.com", oldPassword: "old-pass", newPassword: "new-pass" }, // pragma: allowlist secret
       { authenticated: false },
     );
     expect(setCsrfToken).toHaveBeenCalledWith("test-csrf-token");

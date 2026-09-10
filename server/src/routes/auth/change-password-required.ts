@@ -128,7 +128,7 @@ export default async function changePasswordRequiredRoute(fastify: FastifyInstan
             "x-real-ip": request.ip,
             ...upstreamAuthHeader(bypassToken),
           },
-          body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+          body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }), // pragma: allowlist secret
           signal: AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS),
         });
       } catch (err) {

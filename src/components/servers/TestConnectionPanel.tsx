@@ -33,7 +33,7 @@ type TestMode = "http" | "handshake";
 const FAILURE_CLASS_MESSAGE_IDS: Record<string, string> = {
   transport: "mcpServer.testConnection.failureClass.transport",
   protocol: "mcpServer.testConnection.failureClass.protocol",
-  auth: "mcpServer.testConnection.failureClass.auth",
+  auth: "mcpServer.testConnection.failureClass.auth", // pragma: allowlist secret
   invalid_response: "mcpServer.testConnection.failureClass.invalidResponse",
 };
 

@@ -8,7 +8,7 @@ import type { Page } from "@playwright/test";
 // Returns the real csrfToken the BFF issued, for tests that assert on it.
 export async function realLogin(page: Page): Promise<string> {
   const email = process.env.E2E_TEST_EMAIL;
-  const password = process.env.E2E_TEST_PASSWORD;
+  const password = process.env.E2E_TEST_PASSWORD; // pragma: allowlist secret
   if (!email || !password) {
     throw new Error(
       "E2E_REAL_API=true requires E2E_TEST_EMAIL and E2E_TEST_PASSWORD (see .env.example).",

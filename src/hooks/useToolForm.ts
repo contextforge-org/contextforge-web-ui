@@ -303,9 +303,10 @@ export function useToolForm({
   const [authUsername, setAuthUsername] = useState(
     initialValues?.authUsername ?? initialState.authUsername,
   );
-  const [authPassword, setAuthPassword] = useState(
-    initialValues?.authPassword ?? initialState.authPassword,
-  ); // pragma: allowlist secret
+  const [
+    authPassword, // pragma: allowlist secret
+    setAuthPassword,
+  ] = useState(initialValues?.authPassword ?? initialState.authPassword);
   const [bearerToken, setBearerToken] = useState(
     initialValues?.bearerToken ?? initialState.bearerToken,
   );
@@ -565,7 +566,7 @@ export function useToolForm({
             // fields when the user entered a real (non-masked, non-empty) secret,
             // otherwise omit them entirely so the backend leaves the stored
             // credential untouched — a plain URL/description edit must not clobber it.
-            const isRealSecret = (value?: string) => Boolean(value && value !== MASKED_AUTH_VALUE);
+            const isRealSecret = (value?: string) => Boolean(value && value !== MASKED_AUTH_VALUE); // pragma: allowlist secret
             let authFields: Record<string, unknown> = {};
 
             if (authType === "none") {
