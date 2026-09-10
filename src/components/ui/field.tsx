@@ -29,12 +29,16 @@ interface FieldProps {
  * Defines the label-to-control gap once so forms don't diverge.
  */
 function Field({ id, label, hint, error, children, className, labelProps }: FieldProps) {
-  const errorId = error ? `${id}-error` : undefined;
-  const hintId = hint && !error ? `${id}-hint` : undefined;
+  // Presence check, not truthiness: an explicit error="" still means invalid
+  // (e.g. a message that hasn't resolved yet), so it must not be treated the
+  // same as "no error" and silently drop aria-invalid/aria-describedby.
+  const hasError = error !== undefined;
+  const errorId = hasError ? `${id}-error` : undefined;
+  const hintId = hint && !hasError ? `${id}-hint` : undefined;
 
   const controlProps: FieldControlProps = {
     id,
-    "aria-invalid": error ? true : undefined,
+    "aria-invalid": hasError ? true : undefined,
     "aria-describedby": errorId ?? hintId,
   };
 
@@ -50,7 +54,7 @@ function Field({ id, label, hint, error, children, className, labelProps }: Fiel
           {hint}
         </p>
       )}
-      {error && (
+      {hasError && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
           {error}
         </p>

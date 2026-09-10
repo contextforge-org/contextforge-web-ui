@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import React from "react";
+import fs from "node:fs";
+import path from "node:path";
 import { Label } from "./label";
 import { cn } from "@/lib/utils";
 
@@ -587,6 +589,54 @@ describe("Label", () => {
 
       expect(el).toBeInTheDocument();
       expect(el).toHaveAttribute("for", "test");
+    });
+  });
+
+  // Regression test for the cascade-layer bug: [data-slot="label"] lives
+  // unlayered in index.css so it can outrank Tailwind's `.text-sm` (which is
+  // in `@layer utilities`). Being unlayered means it would otherwise beat
+  // *any* layered rule unconditionally, regardless of specificity —
+  // permanently blocking a caller's own "leading-*" override. The
+  // :not([class*="leading-"]) guard is what makes that override possible
+  // again; this fails if the guard is ever dropped.
+  describe('[data-slot="label"] line-height CSS rule', () => {
+    const css = fs.readFileSync(path.resolve(__dirname, "../../index.css"), "utf-8");
+    const rule = css.match(/\[data-slot="label"\][^{]*\{[^}]*\}/);
+
+    it("exists and is guarded against callers that already set a leading-* class", () => {
+      expect(rule).not.toBeNull();
+      expect(rule![0]).toMatch(/:not\(\[class\*="leading-"\]\)/);
+    });
+
+    describe("applied behaviour", () => {
+      const injected = document.createElement("style");
+
+      afterEach(() => {
+        injected.remove();
+        document.body.innerHTML = "";
+      });
+
+      function renderLabel(className: string) {
+        injected.textContent = rule![0];
+        document.head.appendChild(injected);
+        const el = document.createElement("label");
+        el.setAttribute("data-slot", "label");
+        el.className = className;
+        document.body.appendChild(el);
+        return el;
+      }
+
+      it("forces line-height:1 on a label with no leading-* class", () => {
+        const el = renderLabel("text-sm font-medium");
+        expect(getComputedStyle(el).lineHeight).toBe("1");
+      });
+
+      it("does not clobber a label that carries an explicit leading-* class (e.g. ExposeComponentsForm's OAuth description)", () => {
+        const el = renderLabel(
+          "text-sm font-normal leading-relaxed text-neutral-600 dark:text-neutral-400 cursor-pointer",
+        );
+        expect(getComputedStyle(el).lineHeight).not.toBe("1");
+      });
     });
   });
 });

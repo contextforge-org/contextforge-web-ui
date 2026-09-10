@@ -270,8 +270,12 @@
    Unlayered on purpose: Tailwind emits `.text-sm` (with its own line-height)
    into `@layer utilities`, which under cascade layers beats any rule in
    `@layer components` regardless of specificity — this has to stay outside
-   any layer to outrank it. */
-[data-slot="label"] {
+   any layer to outrank it.
+   :not([class*="leading-"]) scopes this to labels that don't already ask for
+   a line-height: being unlayered means this would otherwise beat *any*
+   layered rule unconditionally (layer order trumps specificity), permanently
+   blocking a caller's own "leading-relaxed" etc. */
+[data-slot="label"]:not([class*="leading-"]) {
   line-height: 1;
 }
 

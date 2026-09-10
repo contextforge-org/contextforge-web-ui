@@ -45,6 +45,17 @@ describe("Field", () => {
     expect(screen.getByRole("textbox")).toHaveAttribute("aria-describedby", "email-error");
   });
 
+  it('treats error="" as invalid (not the same as no error): wires aria-invalid/describedby and renders the alert', () => {
+    render(
+      <Field id="email" label="Email" error="">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-describedby", "email-error");
+    expect(screen.getByRole("alert")).toHaveAttribute("id", "email-error");
+  });
+
   it("does not render error block when no error", () => {
     render(
       <Field id="name" label="Name">
