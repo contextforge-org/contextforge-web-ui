@@ -46,6 +46,7 @@ const OPEN_AUTH_TYPE = "Open";
 const API_KEY_AUTH_TYPES = new Set(["API Key", "API"]);
 const OAUTH_AUTH_TYPES = new Set(["OAuth", "OAuth2.1", "OAuth2.1 & API Key"]);
 const CATALOG_AUTH_TYPES = [OPEN_AUTH_TYPE, ...API_KEY_AUTH_TYPES, ...OAUTH_AUTH_TYPES];
+const SUPPORTED_AUTH_TYPE_SET = new Set(CATALOG_AUTH_TYPES);
 const PAGE_HEADING_ID = "server-catalog-heading";
 
 interface CatalogFilters {
@@ -191,6 +192,10 @@ function sortedUnique(values: Array<string | undefined>): string[] {
 
 function isOAuthServer(server: CatalogServer): boolean {
   return OAUTH_AUTH_TYPES.has(server.auth_type);
+}
+
+function getSupportedServers(servers: CatalogServer[]): CatalogServer[] {
+  return servers.filter((server) => SUPPORTED_AUTH_TYPE_SET.has(server.auth_type));
 }
 
 function getOAuthStatusesPath(servers: CatalogServer[]): string | null {
@@ -342,7 +347,12 @@ export function ServerCatalog() {
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [selectedServer, setSelectedServer] = useState<CatalogServer | null>(null);
-  const { pendingIds: addingServerIds, begin: beginAdding, end: endAdding } = usePendingIds();
+  const {
+    pendingIds: addingServerIds,
+    begin: beginAdding,
+    end: endAdding,
+    isPending: isAdding,
+  } = usePendingIds();
   const {
     pendingIds: testingServerIds,
     begin: beginTesting,
@@ -451,7 +461,7 @@ export function ServerCatalog() {
   // URL the moment they are ticked in the filters popover.
   const activeFilters = useMemo(() => ({ ...filters, search }), [filters, search]);
 
-  const supportedServers = useMemo(() => data?.servers ?? [], [data?.servers]);
+  const supportedServers = useMemo(() => getSupportedServers(data?.servers ?? []), [data?.servers]);
   const servers = useMemo(
     () => filterSupportedServers(supportedServers, activeFilters),
     [supportedServers, activeFilters],
@@ -596,7 +606,7 @@ export function ServerCatalog() {
         setOAuthServer(server);
         return;
       }
-      void registerServer(server);
+      if (server.auth_type === OPEN_AUTH_TYPE) void registerServer(server);
     },
     [registerServer],
   );
@@ -621,13 +631,36 @@ export function ServerCatalog() {
     async (body: CatalogOAuthRegisterBody) => {
       if (!oauthServer) return false;
       setOAuthDialogNotification(undefined);
+      let authWindow: Window;
+      try {
+        // Must happen before the first await below. Browsers only allow popups
+        // opened directly from this form submit gesture.
+        authWindow = serversApi.openOAuthAuthorizationPopup();
+      } catch (error) {
+        setOAuthDialogNotification({
+          id: `oauth:${oauthServer.id}`,
+          type: "info",
+          message:
+            error instanceof Error
+              ? error.message
+              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+        });
+        return false;
+      }
+
       let gatewayId = pendingOAuthGatewayId;
       if (!gatewayId) {
         const registration = await registerServer(oauthServer, body, (notification) =>
           setOAuthDialogNotification(notification),
         );
-        if (!registration.success) return false;
-        if (!registration.gatewayId) return true;
+        if (!registration.success) {
+          authWindow.close();
+          return false;
+        }
+        if (!registration.gatewayId) {
+          authWindow.close();
+          return true;
+        }
         gatewayId = registration.gatewayId;
         setPendingOAuthGatewayId(gatewayId);
       }
@@ -635,7 +668,7 @@ export function ServerCatalog() {
       setOAuthAuthorizing(true);
       setOAuthDialogNotification(undefined);
       try {
-        await serversApi.triggerOAuthAuthorization(gatewayId);
+        await serversApi.triggerOAuthAuthorization(gatewayId, authWindow);
         await serversApi.toggleEnabled(gatewayId, true);
         try {
           await serversApi.fetchToolsAfterOAuth(gatewayId);
@@ -655,6 +688,7 @@ export function ServerCatalog() {
         setFocusActionsForServerId(oauthServer.id);
         return true;
       } catch (error) {
+        authWindow.close();
         setOAuthDialogNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
@@ -726,7 +760,12 @@ export function ServerCatalog() {
 
   const handleTest = useCallback(
     async (server: CatalogServer) => {
-      if (server.requires_oauth_config || isDisconnecting(server.id) || !beginTesting(server.id)) {
+      if (
+        server.requires_oauth_config ||
+        isAdding(server.id) ||
+        isDisconnecting(server.id) ||
+        !beginTesting(server.id)
+      ) {
         return;
       }
 
@@ -785,6 +824,7 @@ export function ServerCatalog() {
       dismissRegistrationNotification,
       endTesting,
       intl,
+      isAdding,
       isDisconnecting,
       showRegistrationNotification,
     ],
@@ -792,7 +832,14 @@ export function ServerCatalog() {
 
   const handleDisconnect = useCallback(
     (server: CatalogServer) => {
-      if (!server.gateway_id || isTesting(server.id) || isDisconnecting(server.id)) return;
+      if (
+        !server.gateway_id ||
+        isAdding(server.id) ||
+        isTesting(server.id) ||
+        isDisconnecting(server.id)
+      ) {
+        return;
+      }
 
       setDisconnectServer(server);
       setImpactPreview(null);
@@ -817,7 +864,7 @@ export function ServerCatalog() {
           }
         });
     },
-    [canDisconnect, isDisconnecting, isTesting],
+    [canDisconnect, isAdding, isDisconnecting, isTesting],
   );
 
   const handleDisconnectDialogOpenChange = useCallback((open: boolean) => {
