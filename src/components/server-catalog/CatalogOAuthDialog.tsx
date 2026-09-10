@@ -191,8 +191,13 @@ export function CatalogOAuthDialog({
       {intl.formatMessage({ id: "common.required" })}
     </span>
   );
+  const fieldErrorId = (field: OAuthField) => `catalog-oauth-${field}-error`;
   const fieldError = (field: OAuthField) =>
-    errors[field] ? <p className="text-sm text-destructive">{errors[field]}</p> : null;
+    errors[field] ? (
+      <p id={fieldErrorId(field)} className="text-sm text-destructive">
+        {errors[field]}
+      </p>
+    ) : null;
 
   return (
     <Dialog open onOpenChange={handleOpenChange}>
@@ -248,7 +253,9 @@ export function CatalogOAuthDialog({
                 placeholder={intl.formatMessage({
                   id: "mcpServer.auth.oauth.issuerUrlPlaceholder",
                 })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.issuer)}
+                aria-describedby={errors.issuer ? fieldErrorId("issuer") : undefined}
                 disabled={isSubmitting}
               />
               {fieldError("issuer")}
@@ -267,7 +274,9 @@ export function CatalogOAuthDialog({
                   setErrors((current) => ({ ...current, scopes: undefined }));
                 }}
                 placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesPlaceholder" })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.scopes)}
+                aria-describedby={errors.scopes ? fieldErrorId("scopes") : undefined}
                 disabled={isSubmitting}
               />
               <p className="text-xs text-muted-foreground">
@@ -303,7 +312,9 @@ export function CatalogOAuthDialog({
                   setErrors((current) => ({ ...current, clientId: undefined }));
                 }}
                 placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdPlaceholder" })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.clientId)}
+                aria-describedby={errors.clientId ? fieldErrorId("clientId") : undefined}
                 disabled={isSubmitting}
               />
               {fieldError("clientId")}
@@ -326,7 +337,9 @@ export function CatalogOAuthDialog({
                 placeholder={intl.formatMessage({
                   id: "mcpServer.auth.oauth.clientSecretPlaceholder",
                 })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.clientSecret)}
+                aria-describedby={errors.clientSecret ? fieldErrorId("clientSecret") : undefined}
                 disabled={isSubmitting}
               />
               {fieldError("clientSecret")}
@@ -349,7 +362,11 @@ export function CatalogOAuthDialog({
                 placeholder={intl.formatMessage({
                   id: "mcpServer.auth.oauth.authorizationUrlPlaceholder",
                 })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.authorizationUrl)}
+                aria-describedby={
+                  errors.authorizationUrl ? fieldErrorId("authorizationUrl") : undefined
+                }
                 disabled={isSubmitting}
               />
               {fieldError("authorizationUrl")}
@@ -370,7 +387,9 @@ export function CatalogOAuthDialog({
                   setErrors((current) => ({ ...current, tokenUrl: undefined }));
                 }}
                 placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlPlaceholder" })}
+                aria-required="true"
                 aria-invalid={Boolean(errors.tokenUrl)}
+                aria-describedby={errors.tokenUrl ? fieldErrorId("tokenUrl") : undefined}
                 disabled={isSubmitting}
               />
               {fieldError("tokenUrl")}
