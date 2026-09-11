@@ -68,7 +68,7 @@
   "mcpServer.table.actions.deactivate": "Desativar",
   "mcpServer.table.actions.delete": "Excluir",
   "mcpServer.refresh.pending": "Atualizando {name}…",
-  "mcpServer.refresh.success": "{name} atualizado. {toolsAdded, plural, =0 {} one {+# ferramenta} other {+# ferramentas}}{toolsUpdated, plural, =0 {} one { ~# ferramenta} other { ~# ferramentas}}{toolsRemoved, plural, =0 {} one { -# ferramenta} other { -# ferramentas}}.",
+  "mcpServer.refresh.success": "{name} atualizado. {toolsAdded, plural, =0 {} one {+# ferramenta} other {+# ferramentas}}{toolsUpdated, plural, =0 {} one { ~# ferramenta} other { ~# ferramentas}}{toolsRemoved, plural, =0 {} one { -# ferramenta} other { -# ferramentas}}{resourcesAdded, plural, =0 {} one { +# recurso} other { +# recursos}}{resourcesUpdated, plural, =0 {} one { ~# recurso} other { ~# recursos}}{resourcesRemoved, plural, =0 {} one { -# recurso} other { -# recursos}}{promptsAdded, plural, =0 {} one { +# prompt} other { +# prompts}}{promptsUpdated, plural, =0 {} one { ~# prompt} other { ~# prompts}}{promptsRemoved, plural, =0 {} one { -# prompt} other { -# prompts}}.",
   "mcpServer.refresh.successSimple": "{name} atualizado com sucesso.",
   "mcpServer.refresh.error": "Falha ao atualizar {name}: {detail}",
   "mcpServer.refresh.errorTitle": "Erro ao atualizar servidor MCP",

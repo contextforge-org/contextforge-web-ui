@@ -235,11 +235,26 @@ export function Servers() {
           hasChanges
             ? intl.formatMessage(
                 { id: "mcpServer.refresh.success" },
-                { name, toolsAdded, toolsUpdated, toolsRemoved },
+                {
+                  name,
+                  toolsAdded,
+                  toolsUpdated,
+                  toolsRemoved,
+                  resourcesAdded,
+                  resourcesUpdated,
+                  resourcesRemoved,
+                  promptsAdded,
+                  promptsUpdated,
+                  promptsRemoved,
+                },
               )
             : intl.formatMessage({ id: "mcpServer.refresh.successSimple" }, { name }),
         );
-        await refetch();
+        try {
+          await refetch();
+        } catch (refreshErr) {
+          console.error("Failed to refresh servers after refresh:", sanitizeError(refreshErr));
+        }
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
           toast.error(intl.formatMessage({ id: "mcpServer.refresh.conflict" }, { name }));
