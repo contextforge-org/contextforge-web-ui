@@ -126,7 +126,10 @@ describe("App", () => {
     // wrapper — the heavier pages already get their own dedicated tests.
     const stubRoutesAndHeadings: [string, RegExp][] = [
       ["/app/change-password", /change password/i],
-      ["/app/agents", /agents/i],
+      // Anchored: the page renders real content now (not a bare stub), and its
+      // empty state ("No agents yet") also contains the word "agents" — a loose
+      // /agents/i would match both and throw on ambiguity.
+      ["/app/agents", /^agents$/i],
       ["/app/rest-api", /rest api/i],
       ["/app/grpc", /grpc/i],
       ["/app/llm/providers", /llm providers/i],

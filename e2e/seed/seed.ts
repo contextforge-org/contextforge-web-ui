@@ -8,8 +8,8 @@
 const GATEWAY_URL = process.env.E2E_GATEWAY_URL ?? "http://localhost:4444";
 const AUTH_HEADER_NAME = process.env.CONTEXTFORGE_AUTH_HEADER_NAME ?? "Authorization";
 const EMAIL = process.env.E2E_TEST_EMAIL;
-const BOOTSTRAP_PASSWORD = process.env.E2E_BOOTSTRAP_PASSWORD ?? "changeme-e2e-bootstrap-pwd1";
-const NEW_PASSWORD = process.env.E2E_TEST_PASSWORD;
+const BOOTSTRAP_PASSWORD = process.env.E2E_BOOTSTRAP_PASSWORD ?? "changeme-e2e-bootstrap-pwd1"; //pragma: allowlist secret
+const NEW_PASSWORD = process.env.E2E_TEST_PASSWORD; //pragma: allowlist secret
 
 const HEALTH_RETRIES = 30;
 const HEALTH_RETRY_DELAY_MS = 2000;
@@ -79,7 +79,7 @@ async function clearForcedPasswordChange(): Promise<string> {
       "content-type": "application/json",
       [AUTH_HEADER_NAME]: `Bearer ${bypassToken}`,
     },
-    body: JSON.stringify({ old_password: BOOTSTRAP_PASSWORD, new_password: NEW_PASSWORD }),
+    body: JSON.stringify({ old_password: BOOTSTRAP_PASSWORD, new_password: NEW_PASSWORD }), // pragma: allowlist secret
   });
   if (!changeRes.ok) {
     throw new Error(`Password change failed: ${changeRes.status} ${await changeRes.text()}`);

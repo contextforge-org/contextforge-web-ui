@@ -60,7 +60,9 @@
   --color-chart-1: var(--chart-1);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -69,6 +71,7 @@
   --color-tool-icon-bg: var(--tool-icon-bg);
   --color-prompt-icon-bg: var(--prompt-icon-bg);
   --color-server-icon-bg: var(--server-icon-bg);
+  --color-agent-icon-bg: var(--agent-icon-bg);
   --color-tool-status-active: var(--tool-status-active);
   --color-tool-status-inactive: var(--tool-status-inactive);
   --color-tool-badge-bg: var(--tool-badge-bg);
@@ -81,6 +84,10 @@
 
   /* Status-headline icon accent */
   --color-status-icon: var(--status-icon);
+
+  /* Sparkline stroke. Separate from --status-icon because a 1px line has to
+     clear 3:1 as a non-text graphic, which cyan-500 does not on white. */
+  --color-sparkline-stroke: var(--sparkline-stroke);
 
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
@@ -137,12 +144,20 @@
      instead of a raw Tailwind shade, so every call site stays in sync. */
   --success: var(--color-green-600);
   --warning: var(--color-amber-600);
+  /* Badge text sits on the token's own 15% tint, which needs 4.5:1 — the
+     600 shades above only clear the 3:1 bar icons need. 700 shades cover
+     both; dark mode already passes at --success/--warning (see #94). */
+  --success-foreground: var(--color-green-700);
+  --warning-foreground: var(--color-amber-700);
   --tool-icon-bg: var(--color-fuchsia-400);
   --prompt-icon-bg: #6fff9f;
   /* Brand cyan. Like the two above it this is a chip *background* carrying a
      black glyph, so it needs no `.dark` override — only `--status-icon`, which
      paints a foreground, has to step down on white. */
   --server-icon-bg: #70f9ff;
+  /* Same rationale as the icon-bg tokens above: a chip background carrying a
+     black glyph, no `.dark` override needed. */
+  --agent-icon-bg: #ffc078;
   /* emerald-400 falls under 3:1 on white; .dark restores it */
   --tool-status-active: var(--color-emerald-600);
   --tool-status-inactive: var(--color-neutral-500);
@@ -153,6 +168,7 @@
   /* Status-headline icon accent — cyan for the light background; the .dark
      override restores the brand cyan (#70f9ff). */
   --status-icon: var(--color-cyan-500);
+  --sparkline-stroke: var(--color-cyan-700);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -185,6 +201,8 @@
   --destructive: oklch(0.704 0.191 22.216);
   --success: var(--color-green-400);
   --warning: var(--color-amber-400);
+  --success-foreground: var(--color-green-400);
+  --warning-foreground: var(--color-amber-400);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -210,6 +228,7 @@
   --selection: var(--color-orange-500);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
+  --sparkline-stroke: #70f9ff;
 }
 /* A transparent track so the scrollbar doesn't paint a solid bar over the
    rounded corners of the box it scrolls in. */
@@ -242,6 +261,22 @@
        don't shift centered content when their height crosses the viewport. */
     scrollbar-gutter: stable;
   }
+}
+
+/* Set here instead of as a "leading-none" utility on the component: twMerge
+   treats line-height utilities as conflicting with font-size ones, so a
+   call-site "text-sm" would silently strip "leading-none" from the class
+   string. A CSS rule can't be stripped by className merging.
+   Unlayered on purpose: Tailwind emits `.text-sm` (with its own line-height)
+   into `@layer utilities`, which under cascade layers beats any rule in
+   `@layer components` regardless of specificity — this has to stay outside
+   any layer to outrank it.
+   :not([class*="leading-"]) scopes this to labels that don't already ask for
+   a line-height: being unlayered means this would otherwise beat *any*
+   layered rule unconditionally (layer order trumps specificity), permanently
+   blocking a caller's own "leading-relaxed" etc. */
+[data-slot="label"]:not([class*="leading-"]) {
+  line-height: 1;
 }
 
 /* Fallback for browsers without scrollbar-gutter (Safari < 18.2): always reserve

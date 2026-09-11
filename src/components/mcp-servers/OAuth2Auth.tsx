@@ -2,7 +2,7 @@ import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,9 @@ interface OAuth2AuthProps {
   grantType: string;
   issuerUrl: string;
   redirectUri: string;
+  isRedirectUriLoading?: boolean;
+  redirectUriError?: string;
+  onRetryRedirectUri?: () => void;
   clientId: string;
   clientSecret: string;
   tokenUrl: string;
@@ -28,7 +31,6 @@ interface OAuth2AuthProps {
   password: string; // pragma: allowlist secret
   onGrantTypeChange: (value: string) => void;
   onIssuerUrlChange: (value: string) => void;
-  onRedirectUriChange: (value: string) => void;
   onClientIdChange: (value: string) => void;
   onClientSecretChange: (value: string) => void;
   onTokenUrlChange: (value: string) => void;
@@ -45,6 +47,9 @@ export function OAuth2Auth({
   grantType,
   issuerUrl,
   redirectUri,
+  isRedirectUriLoading,
+  redirectUriError,
+  onRetryRedirectUri,
   clientId,
   clientSecret,
   tokenUrl,
@@ -56,7 +61,6 @@ export function OAuth2Auth({
   password,
   onGrantTypeChange,
   onIssuerUrlChange,
-  onRedirectUriChange,
   onClientIdChange,
   onClientSecretChange,
   onTokenUrlChange,
@@ -69,23 +73,24 @@ export function OAuth2Auth({
   errors,
 }: OAuth2AuthProps) {
   const intl = useIntl();
-  const derivedRedirectUri = `${window.location.origin}/oauth/callback`;
-  const displayRedirectUri = redirectUri || derivedRedirectUri;
-  const isLocalRedirect = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(
-    displayRedirectUri,
-  );
+  // Deliberately NOT derived from window.location.origin here: useMCPServerForm.ts
+  // fetches this deployment's own /oauth/callback proxy URL from the BFF
+  // (GET /oauth/callback-url, server-side-derived the same trustworthy way
+  // origin-guard.ts validates Origin) and defaults redirectUri to it as soon
+  // as the grant type is authorization_code, rather than leaving the field
+  // unset for mcpgateway's own APP_DOMAIN-based default to apply -- that
+  // default only works when mcpgateway is independently browser-reachable,
+  // not the common split deployment where only this web UI is (see
+  // mcp-context-forge#6458). This still briefly renders the placeholder
+  // branch below while that fetch is in flight.
+  const hasStoredRedirectUri = Boolean(redirectUri);
+  const isLocalRedirect =
+    hasStoredRedirectUri &&
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(redirectUri);
   const [copied, setCopied] = useState(false);
 
-  // The displayed URI is what the OAuth app is registered with, so it has to be the value we
-  // store and send to the IdP — a display-only derivation submits no redirect_uri at all.
-  useEffect(() => {
-    if (grantType === "authorization_code" && !redirectUri) {
-      onRedirectUriChange(derivedRedirectUri);
-    }
-  }, [grantType, redirectUri, derivedRedirectUri, onRedirectUriChange]);
-
   const handleCopyRedirect = () => {
-    void navigator.clipboard?.writeText(displayRedirectUri);
+    void navigator.clipboard?.writeText(redirectUri);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
   };
@@ -97,7 +102,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.grantTypeLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Select value={grantType} onValueChange={onGrantTypeChange}>
@@ -137,7 +142,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -161,27 +166,68 @@ export function OAuth2Auth({
           >
             {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
           </label>
-          <div className="flex items-center gap-2">
+          {hasStoredRedirectUri ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="oauth-redirect-uri"
+                  type="text"
+                  readOnly
+                  value={redirectUri}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriCopy" })}
+                  onClick={handleCopyRedirect}
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-500">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
+              </p>
+            </>
+          ) : (
             <Input
               id="oauth-redirect-uri"
               type="text"
               readOnly
-              value={displayRedirectUri}
-              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+              value={intl.formatMessage({
+                id: redirectUriError
+                  ? "mcpServer.auth.oauth.redirectUriLoadError"
+                  : isRedirectUriLoading
+                    ? "mcpServer.auth.oauth.redirectUriLoading"
+                    : "mcpServer.auth.oauth.redirectUriAutoPlaceholder",
+              })}
+              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-500 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-500"
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriCopy" })}
-              onClick={handleCopyRedirect}
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
-          </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-500">
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
-          </p>
+          )}
+          {!hasStoredRedirectUri && redirectUriError && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-destructive">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoadError" })}
+              </p>
+              {onRetryRedirectUri && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={onRetryRedirectUri}
+                >
+                  {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriRetry" })}
+                </Button>
+              )}
+            </div>
+          )}
+          {!hasStoredRedirectUri && !redirectUriError && (
+            <p className="text-xs text-neutral-600 dark:text-neutral-500">
+              {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriAutoHelp" })}
+            </p>
+          )}
           {isLocalRedirect && (
             <p className="text-xs text-amber-600 dark:text-amber-500">
               {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLocalWarning" })}
@@ -198,7 +244,7 @@ export function OAuth2Auth({
               className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.usernameLabel" })}
-              <span className="text-red-500">*</span>
+              <span className="text-destructive">*</span>
               <span className="sr-only">
                 {intl.formatMessage({ id: "mcpServer.form.required" })}
               </span>
@@ -214,7 +260,7 @@ export function OAuth2Auth({
               className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
             {errors?.username && (
-              <p id="oauth-username-error" className="text-sm text-red-500">
+              <p id="oauth-username-error" className="text-sm text-destructive">
                 {errors.username}
               </p>
             )}
@@ -225,7 +271,7 @@ export function OAuth2Auth({
               className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.passwordLabel" })}
-              <span className="text-red-500">*</span>
+              <span className="text-destructive">*</span>
               <span className="sr-only">
                 {intl.formatMessage({ id: "mcpServer.form.required" })}
               </span>
@@ -241,7 +287,7 @@ export function OAuth2Auth({
               className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             />
             {errors?.password && (
-              <p id="oauth-password-error" className="text-sm text-red-500">
+              <p id="oauth-password-error" className="text-sm text-destructive">
                 {errors.password}
               </p>
             )}
@@ -295,7 +341,7 @@ export function OAuth2Auth({
           className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-          <span className="text-red-500">*</span>
+          <span className="text-destructive">*</span>
           <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
@@ -318,7 +364,7 @@ export function OAuth2Auth({
             className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
           >
             {intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-            <span className="text-red-500">*</span>
+            <span className="text-destructive">*</span>
             <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
           </label>
           <Input

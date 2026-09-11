@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { STATUS_ICON } from "@/lib/status";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
 import type { ToolPreviewResponse, ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
 import { ToolResultRenderer } from "./ToolResultRenderer";
@@ -34,6 +35,7 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.preview;
+  const resolvedArguments = response?.resolved_arguments ?? response?.resolvedArguments;
   const toolResultIsError = response ? getToolResultIsError(response) : false;
   const succeeded = result !== null;
   const statusOk = succeeded && !toolResultIsError;
@@ -58,9 +60,9 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
         {statusOk ? (
-          <CheckCircle2 className="size-4 text-tool-status-active" />
+          <STATUS_ICON.success className="size-4 text-success" />
         ) : (
-          <AlertCircle className="size-4 text-destructive" />
+          <STATUS_ICON.error className="size-4 text-destructive" />
         )}
         <span className={cn("font-medium", statusOk ? "text-foreground" : "text-destructive")}>
           {statusLabel}
@@ -96,13 +98,13 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
       {response && <ToolResultRenderer response={response} />}
 
-      {response?.resolved_arguments && (
+      {resolvedArguments && (
         <section className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground">
             {intl.formatMessage({ id: "tools.details.preview.resolvedArguments" })}
           </h4>
           <CodeBlock
-            code={JSON.stringify(response.resolved_arguments, null, 2)}
+            code={JSON.stringify(resolvedArguments, null, 2)}
             language="json"
             copyLabel={intl.formatMessage({ id: "tools.details.preview.copyResolvedArguments" })}
           />

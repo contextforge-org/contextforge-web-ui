@@ -10,6 +10,8 @@
 const CHARACTER_CLASS_PATTERNS = [/[a-z]/, /[A-Z]/, /\d/, /[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~]/];
 export const MIN_PASSWORD_CHARACTER_CLASSES = 3;
 
-export function countPasswordCharacterClasses(password: string): number {
+/* pragma: allowlist secret */ export function countPasswordCharacterClasses(
+  password: string,
+): number {
   return CHARACTER_CLASS_PATTERNS.filter((pattern) => pattern.test(password)).length;
 }

@@ -5,7 +5,7 @@ export type ChangePasswordRequiredError =
   | { kind: "invalidOldPassword" }
   // Correct old password, but the account doesn't currently need a change
   // (stale link, flag cleared elsewhere, ...). Distinct from
-  // invalidOldPassword: credentials were fine, so the forgot-password
+  // invalidOldPassword: credentials were fine, so the forgot-password // pragma: allowlist secret
   // fallback would be the wrong next step to offer.
   | { kind: "notRequired" }
   | { kind: "policyViolation"; message: string | null }

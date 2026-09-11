@@ -37,6 +37,21 @@ export const config = {
   // default), so this must stay above the upstream email-delivery timeout.
   passwordResetRequestTimeoutMs: Number(optional("PASSWORD_RESET_REQUEST_TIMEOUT_MS", "30000")),
 
+  // Shared by both OAuth popup proxy routes (routes/proxy/oauth-authorize.ts,
+  // oauth-callback.ts). GET /oauth/authorize/{id} can synchronously run DCR
+  // registration (an outbound call to the IdP's own registration/discovery
+  // endpoints) before it redirects, so this is sized for that -- more
+  // headroom than a plain API call needs.
+  oauthProxyTimeoutMs: Number(optional("OAUTH_PROXY_TIMEOUT_MS", "30000")),
+
+  // TTL for the one-time nonce minted by POST /oauth/authorize-nonce and
+  // required by GET /oauth/authorize/:gatewayId (see
+  // lib/oauth-authorize-nonce.ts). Short-lived on purpose: the SPA consumes
+  // it within milliseconds of minting it, so this only needs to cover
+  // however long a client can plausibly sit on a minted-but-unused nonce
+  // (e.g. a popup blocked before it navigates), not the OAuth flow itself.
+  oauthAuthorizeNonceTtlSeconds: Number(optional("OAUTH_AUTHORIZE_NONCE_TTL_SECONDS", "120")),
+
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
   // local dev process. optionalUnset so REDIS_URL="" also falls through
@@ -112,6 +127,17 @@ if (
   config.passwordResetRequestTimeoutMs <= 0
 ) {
   throw new Error("PASSWORD_RESET_REQUEST_TIMEOUT_MS must be a positive integer");
+}
+
+if (!Number.isSafeInteger(config.oauthProxyTimeoutMs) || config.oauthProxyTimeoutMs <= 0) {
+  throw new Error("OAUTH_PROXY_TIMEOUT_MS must be a positive integer");
+}
+
+if (
+  !Number.isSafeInteger(config.oauthAuthorizeNonceTtlSeconds) ||
+  config.oauthAuthorizeNonceTtlSeconds <= 0
+) {
+  throw new Error("OAUTH_AUTHORIZE_NONCE_TTL_SECONDS must be a positive integer");
 }
 
 // COOKIE_SECURE=true (prod default) with neither PUBLIC_ORIGIN nor TRUST_PROXY

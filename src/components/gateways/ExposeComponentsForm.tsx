@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useIntl } from "react-intl";
 import {
   ChevronDown,
   ChevronRight,
@@ -24,6 +25,7 @@ import { useQuery } from "@/hooks/useQuery";
 import { Loading } from "@/components/ui/loading";
 import { createVirtualServer } from "@/api/virtualServers";
 import { InlineNotification } from "@/components/ui/inline-notification";
+import { STATUS_TONE_CLASS } from "@/lib/status";
 import { useRouter } from "@/router";
 import type { CreateServerDetails } from "@/components/gateways/types";
 import type { Visibility } from "@/types/server";
@@ -145,6 +147,7 @@ export function ExposeComponentsForm({
   clearFetchToolsNotification,
 }: ExposeComponentsFormProps) {
   const { navigate } = useRouter();
+  const intl = useIntl();
   const [expandedSection, setExpandedSection] = useState<string | null>("tools");
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set());
@@ -159,16 +162,19 @@ export function ExposeComponentsForm({
   // Fetch tools, resources, and prompts for this gateway
   const {
     data: toolsData,
+    error: toolsError,
     isLoading: toolsLoading,
     refetch: refetchTools,
   } = useQuery<ToolsResponse>(`/tools?limit=1000&gateway_id=${gatewayId}`);
   const {
     data: resourcesData,
+    error: resourcesError,
     isLoading: resourcesLoading,
     refetch: refetchResources,
   } = useQuery<ResourcesResponse>(`/resources?limit=1000&gateway_id=${gatewayId}`);
   const {
     data: promptsData,
+    error: promptsError,
     isLoading: promptsLoading,
     refetch: refetchPrompts,
   } = useQuery<PromptsResponse>(`/prompts?limit=1000&gateway_id=${gatewayId}`);
@@ -194,6 +200,16 @@ export function ExposeComponentsForm({
   const promptCount = prompts.length;
 
   const isLoading = toolsLoading || resourcesLoading || promptsLoading;
+  // Only the very first load (before any section has resolved) replaces the whole
+  // form with a spinner; a per-section retry must keep the healthy sections visible.
+  const isInitialLoad =
+    isLoading &&
+    toolsData === undefined &&
+    resourcesData === undefined &&
+    promptsData === undefined &&
+    !toolsError &&
+    !resourcesError &&
+    !promptsError;
 
   const toggleSection = useCallback((section: string) => {
     setExpandedSection((prev) => (prev === section ? null : section));
@@ -275,7 +291,7 @@ export function ExposeComponentsForm({
     }
   };
 
-  if (isLoading) {
+  if (isInitialLoad) {
     return (
       <div className="mx-auto mt-6 w-full max-w-5xl rounded-xl border border-neutral-200 bg-inherit p-0 shadow-[0_12px_40px_rgba(15,23,42,0.12)] dark:border-neutral-800">
         <div className="flex items-center justify-center p-12">
@@ -352,8 +368,16 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {toolCount} {toolCount === 1 ? "tool" : "tools"}
+                <span
+                  className={`text-base font-normal ${
+                    toolsError ? STATUS_TONE_CLASS.error : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {toolsLoading
+                    ? intl.formatMessage({ id: "common.loading" })
+                    : toolsError
+                      ? intl.formatMessage({ id: "gateways.exposeComponents.error.tools" })
+                      : intl.formatMessage({ id: "gateways.card.toolCount" }, { count: toolCount })}
                 </span>
               </div>
               {expandedSection === "tools" ? (
@@ -368,6 +392,27 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {toolsError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    toolsError.message
+                      ? intl.formatMessage(
+                          { id: "gateways.exposeComponents.error.toolsWithDetail" },
+                          { detail: toolsError.message },
+                        )
+                      : intl.formatMessage({ id: "gateways.exposeComponents.error.tools" })
+                  }
+                  action={{
+                    label: intl.formatMessage({ id: "common.button.retry" }),
+                    onClick: () =>
+                      refetchTools().catch((err) => console.error("Failed to refetch tools:", err)),
+                  }}
+                />
+              </div>
+            )}
 
             {expandedSection === "tools" && tools.length > 0 && (
               <div id="tools-region" role="region" aria-label="Tools">
@@ -400,8 +445,21 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {resourceCount} {resourceCount === 1 ? "resource" : "resources"}
+                <span
+                  className={`text-base font-normal ${
+                    resourcesError
+                      ? STATUS_TONE_CLASS.error
+                      : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {resourcesLoading
+                    ? intl.formatMessage({ id: "common.loading" })
+                    : resourcesError
+                      ? intl.formatMessage({ id: "gateways.exposeComponents.error.resources" })
+                      : intl.formatMessage(
+                          { id: "gateways.card.resourceCount" },
+                          { count: resourceCount },
+                        )}
                 </span>
               </div>
               {expandedSection === "resources" ? (
@@ -416,6 +474,29 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {resourcesError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    resourcesError.message
+                      ? intl.formatMessage(
+                          { id: "gateways.exposeComponents.error.resourcesWithDetail" },
+                          { detail: resourcesError.message },
+                        )
+                      : intl.formatMessage({ id: "gateways.exposeComponents.error.resources" })
+                  }
+                  action={{
+                    label: intl.formatMessage({ id: "common.button.retry" }),
+                    onClick: () =>
+                      refetchResources().catch((err) =>
+                        console.error("Failed to refetch resources:", err),
+                      ),
+                  }}
+                />
+              </div>
+            )}
             {expandedSection === "resources" && resources.length > 0 && (
               <div id="resources-region" role="region" aria-label="Resources">
                 <MCPObjectsTable
@@ -447,8 +528,21 @@ export function ExposeComponentsForm({
                     aria-hidden="true"
                   />
                 </div>
-                <span className="text-base font-normal text-neutral-600 dark:text-neutral-400">
-                  {promptCount} prompt {promptCount === 1 ? "template" : "templates"}
+                <span
+                  className={`text-base font-normal ${
+                    promptsError
+                      ? STATUS_TONE_CLASS.error
+                      : "text-neutral-600 dark:text-neutral-400"
+                  }`}
+                >
+                  {promptsLoading
+                    ? intl.formatMessage({ id: "common.loading" })
+                    : promptsError
+                      ? intl.formatMessage({ id: "gateways.exposeComponents.error.prompts" })
+                      : intl.formatMessage(
+                          { id: "gateways.exposeComponents.promptCount" },
+                          { count: promptCount },
+                        )}
                 </span>
               </div>
               {expandedSection === "prompts" ? (
@@ -463,6 +557,29 @@ export function ExposeComponentsForm({
                 />
               )}
             </Button>
+
+            {promptsError && (
+              <div className="px-6 pb-4">
+                <InlineNotification
+                  type="error"
+                  message={
+                    promptsError.message
+                      ? intl.formatMessage(
+                          { id: "gateways.exposeComponents.error.promptsWithDetail" },
+                          { detail: promptsError.message },
+                        )
+                      : intl.formatMessage({ id: "gateways.exposeComponents.error.prompts" })
+                  }
+                  action={{
+                    label: intl.formatMessage({ id: "common.button.retry" }),
+                    onClick: () =>
+                      refetchPrompts().catch((err) =>
+                        console.error("Failed to refetch prompts:", err),
+                      ),
+                  }}
+                />
+              </div>
+            )}
             {expandedSection === "prompts" && prompts.length > 0 && (
               <div id="prompts-region" role="region" aria-label="Prompt templates">
                 <MCPObjectsTable

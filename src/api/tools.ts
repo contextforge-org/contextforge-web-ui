@@ -5,6 +5,13 @@
 import { api } from "./client";
 import type { Tool } from "@/types/tool";
 import type { GenerateSchemaRequest } from "@/generated/types/generateSchemaRequest";
+import type {
+  ToolPreviewResponse as GeneratedToolPreviewResponse,
+  ToolPreviewTarget as GeneratedToolPreviewTarget,
+  ToolPreviewWarning as GeneratedToolPreviewWarning,
+  ToolResultContentBlock as GeneratedToolResultContentBlock,
+  ToolResultResource as GeneratedToolResultResource,
+} from "@/generated/types";
 
 /**
  * Request body for {@link toolsApi.generateSchemasFromOpenapi}.
@@ -35,57 +42,11 @@ export interface ToolPreviewRequest {
   arguments: Record<string, unknown>;
 }
 
-export interface ToolPreviewWarning {
-  code?: string;
-  message?: string;
-  hook?: string;
-  hooks?: string[];
-  [key: string]: unknown;
-}
-
-export interface ToolPreviewTarget {
-  kind?: "local" | "federated" | string;
-  gateway_name?: string | null;
-  gatewayName?: string | null;
-  name?: string | null;
-  [key: string]: unknown;
-}
-
-export interface ToolResultResource {
-  uri?: string;
-  mimeType?: string;
-  mime_type?: string;
-  text?: string;
-  blob?: string;
-  data?: string;
-  [key: string]: unknown;
-}
-
-export interface ToolResultContentBlock {
-  type?: string;
-  text?: string;
-  data?: string;
-  blob?: string;
-  mimeType?: string;
-  mime_type?: string;
-  uri?: string;
-  resource?: ToolResultResource;
-  [key: string]: unknown;
-}
-
-export interface ToolPreviewResponse {
-  content?: ToolResultContentBlock[];
-  resolved_arguments?: Record<string, unknown>;
-  structured_output?: unknown;
-  structuredOutput?: unknown;
-  isError?: boolean;
-  is_error?: boolean;
-  target?: "local" | "federated" | ToolPreviewTarget | null;
-  annotations?: Record<string, unknown> | null;
-  pre_hooks_run?: unknown[] | number | null;
-  warnings?: ToolPreviewWarning[];
-  [key: string]: unknown;
-}
+export type ToolPreviewWarning = GeneratedToolPreviewWarning;
+export type ToolPreviewTarget = GeneratedToolPreviewTarget;
+export type ToolResultResource = GeneratedToolResultResource;
+export type ToolResultContentBlock = GeneratedToolResultContentBlock;
+export type ToolPreviewResponse = GeneratedToolPreviewResponse;
 
 export interface ToolPreviewResult {
   preview: ToolPreviewResponse;

@@ -111,7 +111,7 @@ describe("Auth Components", () => {
   describe("QueryParameterAuth", () => {
     const defaultProps = {
       parameterName: "",
-      apiKey: "",
+      apiKey: "", // pragma: allowlist secret
       onParameterNameChange: vi.fn(),
       onApiKeyChange: vi.fn(),
     };

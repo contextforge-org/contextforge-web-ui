@@ -88,6 +88,25 @@ describe("aggregateSystemStats", () => {
     const result = aggregateSystemStats(metrics({ tools: entity({ totalExecutions: 4 }) }));
     expect(result?.avgResponseTime).toBeNull();
   });
+
+  it("skips an entity the gateway omitted from the response", () => {
+    const partial = metrics({ tools: entity({ totalExecutions: 4 }) });
+    // Older gateways omit whole sections rather than sending a zeroed entity.
+    delete (partial as Partial<MetricsResponse>).prompts;
+
+    const result = aggregateSystemStats(partial as MetricsResponse);
+    expect(result?.executions).toBe(4);
+  });
+
+  it("treats a missing execution total as zero", () => {
+    const result = aggregateSystemStats(
+      metrics({
+        tools: entity({ totalExecutions: undefined as unknown as number }),
+        a2aAgents: { avgResponseTime: 3 },
+      }),
+    );
+    expect(result?.executions).toBe(0);
+  });
 });
 
 describe("countActiveTotal", () => {
@@ -110,9 +129,16 @@ describe("countActiveTotal", () => {
 });
 
 describe("formatters", () => {
-  it("formats response times with three decimals and a ms suffix", () => {
+  it("formats sub-millisecond response times with three decimals", () => {
     expect(formatResponseTime(0.472)).toBe("0.472ms");
     expect(formatResponseTime(0)).toBe("0.000ms");
+  });
+
+  it("drops precision as the magnitude grows, rather than reporting 123.930ms", () => {
+    expect(formatResponseTime(8.93)).toBe("8.93ms");
+    expect(formatResponseTime(99.76)).toBe("99.8ms");
+    expect(formatResponseTime(123.93)).toBe("124ms");
+    expect(formatResponseTime(1580.4)).toBe("1580ms");
   });
 
   it("returns the placeholder for missing response times", () => {

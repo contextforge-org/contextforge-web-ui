@@ -19,7 +19,7 @@ import type { UpstreamAuthenticationResponse } from "./establish-session.js";
 const UPSTREAM_LOGIN_TIMEOUT_MS = 3000;
 
 export type UpstreamLoginResult =
-  | { ok: true; auth: UpstreamAuthenticationResponse }
+  | { ok: true; auth: UpstreamAuthenticationResponse } // pragma: allowlist secret
   | { ok: false; kind: "unavailable" }
   | { ok: false; kind: "rejected"; status: number; detail: string }
   | { ok: false; kind: "invalid_response" };
@@ -60,7 +60,7 @@ export async function upstreamLogin(
 
   let auth: UpstreamAuthenticationResponse; // pragma: allowlist secret
   try {
-    auth = (await response.json()) as UpstreamAuthenticationResponse;
+    auth = (await response.json()) as UpstreamAuthenticationResponse; // pragma: allowlist secret
   } catch (err) {
     request.log.error({ err, path }, "upstream login returned a non-JSON 2xx body");
     return { ok: false, kind: "invalid_response" };

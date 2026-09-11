@@ -17,6 +17,14 @@ import {
 export type TransportType = "SSE" | "STREAMABLEHTTP";
 export type AuthType = "none" | "basic" | "bearer" | "custom" | "oauth" | "query";
 
+/** Seeds a freshly-opened create-mode form, e.g. from a picked Quick Add catalog entry. */
+export interface MCPServerFormInitialValues {
+  name?: string;
+  url?: string;
+  description?: string;
+  transport?: TransportType;
+}
+
 export interface CustomHeader {
   id: string;
   key: string;
@@ -204,6 +212,9 @@ export interface UseMCPServerFormReturn {
   oauthGrantType: string;
   oauthIssuerUrl: string;
   oauthRedirectUri: string;
+  isOAuthRedirectUriLoading: boolean;
+  oauthRedirectUriError: string | undefined;
+  retryOAuthRedirectUri: () => Promise<unknown>;
   oauthAuthorizationUrl: string;
   oauthScopes: string;
   oauthStoreTokens: boolean;
@@ -300,7 +311,10 @@ const initialState = {
   queryParamApiKey: "", // pragma: allowlist secret
 };
 
-export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
+export function useMCPServerForm(
+  gatewayId?: string,
+  initialValues?: MCPServerFormInitialValues,
+): UseMCPServerFormReturn {
   const [name, setName] = useState(initialState.name);
   const [url, setUrl] = useState(initialState.url);
   const [description, setDescription] = useState(initialState.description);
@@ -349,6 +363,45 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
   const successCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isEditMode = Boolean(gatewayId);
+
+  // Defaults oauthRedirectUri to this deployment's own /oauth/callback proxy
+  // (server/src/routes/proxy/oauth-callback-url.ts) rather than leaving the
+  // field unset. Unset relies on mcpgateway's own APP_DOMAIN-based default,
+  // which only works when the gateway is independently browser-reachable —
+  // not the case in a split deployment where only this web UI is
+  // public-facing. Fetched (not derived from window.location.origin) for the
+  // same reason redirect_uri stopped being guessed client-side in the first
+  // place: behind a reverse proxy the browser's own address isn't reliably
+  // this deployment's public one (see oauth-callback-url.ts).
+  const oauthRedirectUriNeeded = authType === "oauth" && oauthGrantType === "authorization_code";
+
+  const {
+    data: defaultOAuthRedirectUri,
+    isLoading: isOAuthRedirectUriLoading,
+    error: oauthRedirectUriFetchError,
+    refetch: retryOAuthRedirectUri,
+  } = useQuery<{ redirectUri: string }>("/oauth/callback-url", {
+    enabled: oauthRedirectUriNeeded,
+  });
+
+  useEffect(() => {
+    // Only fills a genuinely empty field — a value already loaded from a
+    // stored gateway (the effect below) or restored some other way always
+    // wins, and this never overwrites it.
+    if (defaultOAuthRedirectUri?.redirectUri && !oauthRedirectUri) {
+      setOAuthRedirectUri(defaultOAuthRedirectUri.redirectUri);
+    }
+  }, [defaultOAuthRedirectUri, oauthRedirectUri]);
+
+  // True while the field this deployment's own redirect_uri belongs in is
+  // still empty for a reason the user hasn't chosen -- the fetch above is
+  // in flight or failed. Submitting in that window would send redirect_uri:
+  // undefined and silently fall back to mcpgateway's APP_DOMAIN default,
+  // reintroducing the split-deployment failure this fetch exists to fix.
+  const oauthRedirectUriUnresolved =
+    oauthRedirectUriNeeded &&
+    !oauthRedirectUri &&
+    (isOAuthRedirectUriLoading || Boolean(oauthRedirectUriFetchError));
 
   // Fetch server data when in edit mode
   // API response uses camelCase outer keys (via alias_generator), but oauth_config dict stays snake_case
@@ -454,6 +507,18 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
       }
     }
   }, [serverData, gatewayId]);
+
+  // Seeds a freshly-opened create-mode form from caller-supplied defaults (e.g. a
+  // picked Quick Add catalog entry). Runs once per new initialValues reference —
+  // the caller is expected to hand in a new object only when a fresh pick is made,
+  // not on every render. Edit mode owns its own prefill via the effect above.
+  useEffect(() => {
+    if (!initialValues || gatewayId) return;
+    if (initialValues.name !== undefined) setName(initialValues.name);
+    if (initialValues.url !== undefined) setUrl(initialValues.url);
+    if (initialValues.description !== undefined) setDescription(initialValues.description);
+    if (initialValues.transport !== undefined) setTransport(initialValues.transport);
+  }, [initialValues, gatewayId]);
 
   // Use useQuery for POST request to create MCP gateway
   const { execute: createGateway, isLoading: isCreating } = useQuery<unknown, MCPServerFormData>(
@@ -732,6 +797,18 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
     async (event: FormEvent<HTMLFormElement>, onSuccess?: (response?: unknown) => void) => {
       event.preventDefault();
 
+      // Backstop for the isValid gate the submit button already applies --
+      // an implicit form submit (Enter in a text field) isn't blocked by a
+      // disabled button, and this field going empty here would silently
+      // fall back to mcpgateway's APP_DOMAIN default (see
+      // oauthRedirectUriUnresolved above).
+      if (oauthRedirectUriUnresolved) {
+        setErrors({
+          submit: "Still determining this deployment's OAuth redirect URI. Please try again.",
+        });
+        return;
+      }
+
       const formValid = validateForm();
 
       if (formValid) {
@@ -789,6 +866,7 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
       authType,
       pendingOAuthGatewayId,
       handleOAuthFlow,
+      oauthRedirectUriUnresolved,
     ],
   );
 
@@ -808,8 +886,19 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
     if (visibility === "team" && (!teamId || !teamId.trim())) {
       return false;
     }
+    if (oauthRedirectUriUnresolved) return false;
     return true;
-  }, [name, url, authType, oauthGrantType, oauthUsername, oauthPassword, visibility, teamId]);
+  }, [
+    name,
+    url,
+    authType,
+    oauthGrantType,
+    oauthUsername,
+    oauthPassword,
+    visibility,
+    teamId,
+    oauthRedirectUriUnresolved,
+  ]);
 
   return {
     // State
@@ -853,6 +942,9 @@ export function useMCPServerForm(gatewayId?: string): UseMCPServerFormReturn {
     clearOAuthNotification,
     fetchToolsNotification,
     clearFetchToolsNotification,
+    isOAuthRedirectUriLoading,
+    oauthRedirectUriError: oauthRedirectUriFetchError?.message,
+    retryOAuthRedirectUri,
 
     // Setters
     setName,

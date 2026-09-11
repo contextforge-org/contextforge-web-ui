@@ -23,11 +23,19 @@
 const LOGIN_PATH = "/app/login";
 const API_PREFIX = "/api";
 const SESSION_CHECK_PATH = "/auth/session";
-const BFF_OWNED_AUTH_PATHS = new Set([
+// Bare paths the BFF serves itself (not proxied to the upstream API) and
+// that callers reach through this client rather than a raw window.open()
+// navigation. /oauth/authorize-nonce joins the /auth/* routes here for the
+// same reason: mintOAuthAuthorizeNonce (src/api/servers.ts) needs the
+// session cookie + CSRF header this client already attaches to POSTs, and
+// /api/* would route it to the upstream gateway, which has no such endpoint.
+const BFF_OWNED_PATHS = new Set([
   "/auth/login",
   "/auth/logout",
   "/auth/change-password-required",
   SESSION_CHECK_PATH,
+  "/oauth/authorize-nonce",
+  "/oauth/callback-url",
 ]);
 
 export class ApiError extends Error {
@@ -69,7 +77,7 @@ function isAbsoluteUrl(path: string): boolean {
 /** Bare paths get /api/* (BFF proxy to the API); the BFF's own auth routes and absolute URLs pass through untouched. */
 function resolveApiPath(path: string): string {
   if (isAbsoluteUrl(path)) return path;
-  if (BFF_OWNED_AUTH_PATHS.has(path)) return path;
+  if (BFF_OWNED_PATHS.has(path)) return path;
   if (path === API_PREFIX || path.startsWith(`${API_PREFIX}/`)) return path;
   return path.startsWith("/") ? `${API_PREFIX}${path}` : `${API_PREFIX}/${path}`;
 }

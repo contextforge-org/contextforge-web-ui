@@ -173,15 +173,23 @@ export const serversApi = {
   /**
    * Trigger OAuth authorization flow for a gateway via a popup window.
    *
-   * Opens /oauth/authorize/{id}?popup=true in a centered popup. The backend
-   * encodes a "popup." prefix in the OAuth state so the callback page responds
-   * with window.opener.postMessage instead of rendering a full HTML page.
+   * Opens /oauth/authorize/{id}?popup=true&nonce=... in a centered popup. The
+   * backend encodes a "popup." prefix in the OAuth state so the callback page
+   * responds with window.opener.postMessage instead of rendering a full HTML
+   * page.
+   *
+   * The popup itself is a raw window.open() navigation, so it can't carry a
+   * CSRF header the way this client's other POSTs do — the nonce is the
+   * substitute (see server/src/lib/oauth-authorize-nonce.ts). Minting it is
+   * an async POST, so the popup window is opened blank *first*, synchronously
+   * within this click handler, and only navigated once the nonce comes back;
+   * doing the fetch before window.open() would lose the "opened from a user
+   * gesture" status popup blockers require.
    *
    * Returns a Promise that resolves on success or rejects on error / cancellation.
    */
   triggerOAuthAuthorization: (id: string): Promise<OAuthCallbackResult> => {
     const validId = validateServerId(id);
-    const authUrl = `/oauth/authorize/${validId}?popup=true`;
 
     return new Promise((resolve, reject) => {
       const width = 600;
@@ -190,7 +198,7 @@ export const serversApi = {
       const top = window.screenY + (window.outerHeight - height) / 2;
 
       const authWindow = window.open(
-        authUrl,
+        "",
         "oauth_authorization",
         `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`,
       );
@@ -242,6 +250,24 @@ export const serversApi = {
           }
         }
       }, 1000);
+
+      api
+        // {} — not omitted — so this isn't a Content-Type: application/json
+        // POST with a truly empty body, which Fastify's default JSON parser
+        // rejects with FST_ERR_CTP_EMPTY_JSON_BODY before the route handler
+        // (or even sessionAuth) ever runs. Same reasoning as /auth/logout.
+        .post<{ nonce: string }>("/oauth/authorize-nonce", {})
+        .then(({ nonce }) => {
+          if (settled) return;
+          authWindow.location.href = `/oauth/authorize/${validId}?popup=true&nonce=${encodeURIComponent(nonce)}`;
+        })
+        .catch((err: unknown) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          authWindow.close();
+          reject(err instanceof Error ? err : new Error("Failed to start OAuth authorization"));
+        });
     });
   },
 };

@@ -7,10 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
+import { QuickAddServerDialog } from "@/components/mcp-servers/QuickAddServerDialog";
 import { ExposeComponentsForm } from "@/components/gateways/ExposeComponentsForm";
 import { useRouter } from "@/router";
-import { useMCPServerForm, type TransportType } from "@/hooks/useMCPServerForm";
+import {
+  useMCPServerForm,
+  type MCPServerFormInitialValues,
+  type TransportType,
+} from "@/hooks/useMCPServerForm";
 import { STATUS_ICON } from "@/lib/status";
+import type { CatalogServer } from "@/generated/types";
+
+// QuickAddServerDialog only surfaces entries with SSE, STREAMABLEHTTP, or no
+// transport set, so anything else here defaults to STREAMABLEHTTP.
+function mapCatalogTransport(transport: string | null | undefined): TransportType {
+  return transport === "SSE" ? "SSE" : "STREAMABLEHTTP";
+}
 
 interface MCPServerFormProps {
   isOpen: boolean;
@@ -28,6 +40,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
   const intl = useIntl();
   const { navigate } = useRouter();
   const [createdGateway, setCreatedGateway] = useState<CreatedGatewayInfo | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [prefill, setPrefill] = useState<MCPServerFormInitialValues | undefined>();
   const {
     fetchError,
     name,
@@ -79,7 +93,9 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     oauthIssuerUrl,
     setOAuthIssuerUrl,
     oauthRedirectUri,
-    setOAuthRedirectUri,
+    isOAuthRedirectUriLoading,
+    oauthRedirectUriError,
+    retryOAuthRedirectUri,
     oauthAuthorizationUrl,
     setOAuthAuthorizationUrl,
     oauthScopes,
@@ -96,19 +112,28 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     setQueryParamName,
     queryParamApiKey,
     setQueryParamApiKey,
-  } = useMCPServerForm(serverId);
-
-  const handleRedirectUriChange = useCallback(
-    (uri: string) => {
-      setOAuthRedirectUri(uri);
-    },
-    [setOAuthRedirectUri],
-  );
+  } = useMCPServerForm(serverId, prefill);
 
   const handleCancel = () => {
     setCreatedGateway(null);
     onToggle();
   };
+
+  const handleQuickAddSelect = useCallback((server: CatalogServer) => {
+    setPrefill({
+      name: server.name,
+      url: server.url,
+      description: server.description,
+      transport: mapCatalogTransport(server.transport),
+    });
+    setQuickAddOpen(false);
+  }, []);
+
+  const handleBrowseCatalog = useCallback(() => {
+    setQuickAddOpen(false);
+    onToggle();
+    navigate("/app/server-catalog");
+  }, [onToggle, navigate]);
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     handleSubmit(event, (response) => {
@@ -180,10 +205,14 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                       type="button"
                       variant="link"
                       onClick={() => {
-                        onToggle();
-                        navigate("/app/server-catalog");
+                        if (serverId) {
+                          onToggle();
+                          navigate("/app/server-catalog");
+                        } else {
+                          setQuickAddOpen(true);
+                        }
                       }}
-                      className="font-medium text-cyan-700 underline decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
+                      className="inline h-auto p-0 font-medium text-cyan-700 decoration-cyan-300 underline-offset-4 transition hover:text-cyan-800 hover:no-underline dark:text-cyan-400 dark:decoration-cyan-700 dark:hover:text-cyan-300"
                     >
                       {chunks}
                     </Button>
@@ -347,6 +376,16 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   oauthGrantType={oauthGrantType}
                   oauthIssuerUrl={oauthIssuerUrl}
                   oauthRedirectUri={oauthRedirectUri}
+                  isOAuthRedirectUriLoading={isOAuthRedirectUriLoading}
+                  oauthRedirectUriError={oauthRedirectUriError}
+                  onRetryOAuthRedirectUri={() => {
+                    // useQuery's execute() rejects on failure in addition to
+                    // setting its own error state (which this component
+                    // reads back as oauthRedirectUriError) -- swallow the
+                    // rejection here so a repeat failure doesn't surface as
+                    // an unhandled promise rejection.
+                    retryOAuthRedirectUri().catch(() => {});
+                  }}
                   oauthAuthorizationUrl={oauthAuthorizationUrl}
                   oauthScopes={oauthScopes}
                   oauthStoreTokens={oauthStoreTokens}
@@ -358,7 +397,6 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onOAuthTokenUrlChange={setOAuthTokenUrl}
                   onOAuthGrantTypeChange={setOAuthGrantType}
                   onOAuthIssuerUrlChange={setOAuthIssuerUrl}
-                  onOAuthRedirectUriChange={handleRedirectUriChange}
                   onOAuthAuthorizationUrlChange={setOAuthAuthorizationUrl}
                   onOAuthScopesChange={setOAuthScopes}
                   onOAuthStoreTokensChange={setOAuthStoreTokens}
@@ -447,6 +485,13 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
           </form>
         </div>
       </div>
+
+      <QuickAddServerDialog
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        onSelect={handleQuickAddSelect}
+        onBrowseCatalog={handleBrowseCatalog}
+      />
     </>
   );
 }

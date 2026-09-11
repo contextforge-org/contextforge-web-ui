@@ -22,17 +22,26 @@ export function isCrossSiteRequest(request: FastifyRequest): boolean {
   return request.headers["sec-fetch-site"] === "cross-site";
 }
 
-// null = no Origin header to check (caller falls back to isCrossSiteRequest).
 // config.publicOrigin, when set, is the source of truth (needed behind a
 // reverse proxy that isn't reflected in request.protocol/host — e.g.
 // TLS-terminated without TRUST_PROXY=true). Otherwise fall back to this
 // request's own scheme://host, which is only as trustworthy as
 // trustProxy's X-Forwarded-* handling (see config.ts).
+//
+// Also the source of truth for where *this* deployment's own /oauth/callback
+// proxy is reachable (see routes/proxy/oauth-callback-url.ts) — the same
+// value, for the same reason: it must not be guessed client-side from
+// window.location.origin, which this exact derivation replaced for
+// redirect_uri in the first place (mcp-context-forge#6458).
+export function resolvePublicOrigin(request: FastifyRequest): string {
+  return config.publicOrigin ?? `${request.protocol}://${request.host}`;
+}
+
+// null = no Origin header to check (caller falls back to isCrossSiteRequest).
 function originMismatch(request: FastifyRequest): boolean | null {
   const origin = request.headers.origin;
   if (typeof origin !== "string" || !origin) return null;
-  const expected = config.publicOrigin ?? `${request.protocol}://${request.host}`;
-  return origin !== expected;
+  return origin !== resolvePublicOrigin(request);
 }
 
 export function isForbiddenCrossOrigin(request: FastifyRequest): boolean {

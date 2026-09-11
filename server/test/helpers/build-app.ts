@@ -5,7 +5,7 @@
 // Test fixture: a Fastify instance wired the same way as src/index.ts, but
 // with an in-memory fake in place of plugins/redis.ts so tests don't need a
 // real Redis instance. Only the ioredis surface the app actually touches
-// (get/setex/del/publish) is implemented.
+// (get/getdel/setex/del/publish) is implemented.
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { type Redis } from "ioredis";
@@ -18,6 +18,10 @@ import loginRoute from "../../src/routes/auth/login.js";
 import logoutRoute from "../../src/routes/auth/logout.js";
 import sessionRoute from "../../src/routes/auth/session.js";
 import catchAllProxyRoute from "../../src/routes/proxy/catch-all.js";
+import oauthAuthorizeProxyRoute from "../../src/routes/proxy/oauth-authorize.js";
+import oauthAuthorizeNonceRoute from "../../src/routes/proxy/oauth-authorize-nonce.js";
+import oauthCallbackProxyRoute from "../../src/routes/proxy/oauth-callback.js";
+import oauthCallbackUrlRoute from "../../src/routes/proxy/oauth-callback-url.js";
 import publicPasswordResetRoute from "../../src/routes/proxy/public-password-reset.js";
 
 export class FakeRedis {
@@ -26,6 +30,12 @@ export class FakeRedis {
 
   async get(key: string): Promise<string | null> {
     return this.store.has(key) ? this.store.get(key)! : null;
+  }
+
+  async getdel(key: string): Promise<string | null> {
+    const value = this.store.has(key) ? this.store.get(key)! : null;
+    this.store.delete(key);
+    return value;
   }
 
   async setex(key: string, _ttlSeconds: number, value: string): Promise<"OK"> {
@@ -64,6 +74,10 @@ export async function buildTestApp(opts: { withProxy?: boolean } = {}): Promise<
   await fastify.register(publicPasswordResetRoute);
 
   if (opts.withProxy) {
+    await fastify.register(oauthAuthorizeNonceRoute);
+    await fastify.register(oauthAuthorizeProxyRoute);
+    await fastify.register(oauthCallbackProxyRoute);
+    await fastify.register(oauthCallbackUrlRoute);
     await fastify.register(catchAllProxyRoute);
   }
 

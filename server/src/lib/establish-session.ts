@@ -46,7 +46,7 @@ export async function establishSession(
   fastify: FastifyInstance,
   request: FastifyRequest,
   reply: FastifyReply,
-  auth: UpstreamAuthenticationResponse,
+  auth: UpstreamAuthenticationResponse, // pragma: allowlist secret
 ): Promise<{ user: SessionUser; csrfToken: string }> {
   if (auth.user?.password_change_required === true) {
     throw new PasswordChangeStillRequiredError();

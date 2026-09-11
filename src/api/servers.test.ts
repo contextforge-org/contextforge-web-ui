@@ -1,7 +1,22 @@
+import { waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { serversApi } from "./servers";
 import { setCsrfToken } from "./client";
 import type { GatewayTestRequest, GatewayHandshakeRequest } from "@/generated/types";
+
+function nonceResponse(nonce = "test-nonce"): Response {
+  return new Response(JSON.stringify({ nonce }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function mockAuthPopup(): Window & { location: { href: string }; close: () => void } {
+  return { closed: false, location: { href: "" }, close: vi.fn() } as unknown as Window & {
+    location: { href: string };
+    close: () => void;
+  };
+}
 
 describe("serversApi", () => {
   const mockFetch = vi.fn();
@@ -146,25 +161,50 @@ describe("serversApi", () => {
       await expect(serversApi.triggerOAuthAuthorization("server-123")).rejects.toThrow(
         "Failed to open OAuth authorization window",
       );
+      // Blocked before ever needing a nonce.
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("opens the popup with the correct URL and popup=true flag", () => {
-      const mockAuthWindow = { closed: false } as unknown as Window;
+    it("opens a blank popup synchronously, then navigates it to the authorize URL once the nonce arrives", async () => {
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse("minted-nonce"));
 
-      // Don't await — just trigger the call
+      // Don't await — just trigger the call. window.open() must happen
+      // synchronously within this call (a user-gesture requirement popup
+      // blockers enforce), before the async nonce fetch below resolves.
       serversApi.triggerOAuthAuthorization("server-abc");
 
-      expect(window.open).toHaveBeenCalledWith(
-        expect.stringContaining("/oauth/authorize/server-abc?popup=true"),
-        "oauth_authorization",
-        expect.any(String),
+      expect(window.open).toHaveBeenCalledWith("", "oauth_authorization", expect.any(String));
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/oauth/authorize-nonce"),
+        expect.objectContaining({ method: "POST" }),
       );
+
+      await waitFor(() => {
+        expect(mockAuthWindow.location.href).toContain(
+          "/oauth/authorize/server-abc?popup=true&nonce=minted-nonce",
+        );
+      });
+    });
+
+    it("closes the popup and rejects when minting the nonce fails", async () => {
+      const mockAuthWindow = mockAuthPopup();
+      vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+      const promise = serversApi.triggerOAuthAuthorization("server-123");
+
+      await expect(promise).rejects.toThrow();
+      expect(mockAuthWindow.close).toHaveBeenCalled();
+      // Never navigated -- the popup must not sit on a blank page silently.
+      expect(mockAuthWindow.location.href).toBe("");
     });
 
     it("resolves with success data when popup sends a success postMessage", async () => {
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -182,8 +222,9 @@ describe("serversApi", () => {
     });
 
     it("rejects with errorDescription when popup sends an error postMessage", async () => {
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -202,8 +243,9 @@ describe("serversApi", () => {
     });
 
     it("falls back to the error code when errorDescription is absent", async () => {
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -217,8 +259,9 @@ describe("serversApi", () => {
     });
 
     it("falls back to generic message when neither errorDescription nor error is present", async () => {
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -233,8 +276,9 @@ describe("serversApi", () => {
 
     it("ignores postMessages from other sources", async () => {
       vi.useFakeTimers();
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -256,8 +300,9 @@ describe("serversApi", () => {
 
     it("ignores non-oauth_callback messages from the popup", async () => {
       vi.useFakeTimers();
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
@@ -281,8 +326,9 @@ describe("serversApi", () => {
 
     it("rejects with cancellation message when user closes the popup", async () => {
       vi.useFakeTimers();
-      const mockAuthWindow = { closed: false } as unknown as Window;
+      const mockAuthWindow = mockAuthPopup();
       vi.spyOn(window, "open").mockReturnValue(mockAuthWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
 
       const promise = serversApi.triggerOAuthAuthorization("server-123");
 
