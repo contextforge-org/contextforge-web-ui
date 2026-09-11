@@ -65,7 +65,7 @@ describe("SourceSelection", () => {
     const user = userEvent.setup();
     let gatewaysRequestCount = 0;
     server.use(
-      http.get("*/gateways", () => {
+      http.get("*/v1/mcp-servers", () => {
         gatewaysRequestCount += 1;
         return HttpResponse.json({
           gateways: [
@@ -143,7 +143,7 @@ describe("SourceSelection", () => {
   it("shows an empty message when no MCP servers are available", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/gateways", () =>
+      http.get("*/v1/mcp-servers", () =>
         HttpResponse.json({
           gateways: [],
         }),
@@ -172,7 +172,7 @@ describe("SourceSelection", () => {
   it("shows an alert when MCP server loading fails", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/gateways", () =>
+      http.get("*/v1/mcp-servers", () =>
         HttpResponse.json({ detail: "Gateway list failed" }, { status: 500 }),
       ),
     );

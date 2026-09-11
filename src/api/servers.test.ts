@@ -46,7 +46,7 @@ describe("serversApi", () => {
       expect(result).toEqual({ status: "success", message: "Server activated" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123/state?activate=true"),
+        expect.stringContaining("/v1/mcp-servers/server-123/state?activate=true"),
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -70,7 +70,7 @@ describe("serversApi", () => {
 
       expect(result).toEqual({ status: "success", message: "Server deactivated" });
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123/state?activate=false"),
+        expect.stringContaining("/v1/mcp-servers/server-123/state?activate=false"),
         expect.anything(),
       );
     });
@@ -100,7 +100,7 @@ describe("serversApi", () => {
       await serversApi.toggleEnabled("server-123", true);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123/state?activate=true"),
+        expect.stringContaining("/v1/mcp-servers/server-123/state?activate=true"),
         expect.objectContaining({
           headers: expect.objectContaining({
             "Content-Type": "application/json",
@@ -342,7 +342,7 @@ describe("serversApi", () => {
   });
 
   describe("updateTags", () => {
-    it("PUTs /gateways/:id with a tags-only body and returns the updated server", async () => {
+    it("PUTs /v1/mcp-servers/:id with a tags-only body and returns the updated server", async () => {
       const updated = { id: "server-123", tags: [{ id: "prod", label: "prod" }] };
       mockFetch.mockResolvedValueOnce(
         new Response(JSON.stringify(updated), {
@@ -354,7 +354,7 @@ describe("serversApi", () => {
       const result = await serversApi.updateTags("server-123", ["prod"]);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123"),
+        expect.stringContaining("/v1/mcp-servers/server-123"),
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ tags: ["prod"] }),
@@ -387,7 +387,7 @@ describe("serversApi", () => {
         headers: { "Content-Type": "application/json" },
       });
 
-    it("requests /gateways with only include_pagination by default", async () => {
+    it("requests /v1/mcp-servers with only include_pagination by default", async () => {
       const body = { servers: [], pagination: { nextCursor: null } };
       mockFetch.mockResolvedValueOnce(jsonResponse(body));
 
@@ -395,7 +395,7 @@ describe("serversApi", () => {
 
       expect(result).toEqual(body);
       const url = mockFetch.mock.calls[0][0] as string;
-      expect(url).toContain("/gateways?");
+      expect(url).toContain("/v1/mcp-servers?");
       expect(url).toContain("include_pagination=true");
       expect(url).not.toContain("cursor=");
       expect(url).not.toContain("limit=");
@@ -446,7 +446,7 @@ describe("serversApi", () => {
         headers: { "Content-Type": "application/json" },
       });
 
-    it("fetches /gateways/:id and returns the server", async () => {
+    it("fetches /v1/mcp-servers/:id and returns the server", async () => {
       const server = { id: "get-basic", name: "Basic" };
       mockFetch.mockResolvedValueOnce(jsonResponse(server));
 
@@ -454,7 +454,7 @@ describe("serversApi", () => {
 
       expect(result).toEqual(server);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/get-basic"),
+        expect.stringContaining("/v1/mcp-servers/get-basic"),
         expect.objectContaining({ method: "GET" }),
       );
     });
@@ -490,7 +490,7 @@ describe("serversApi", () => {
   });
 
   describe("testConnection", () => {
-    it("POSTs /gateways/:id/test and returns the result", async () => {
+    it("POSTs /v1/mcp-servers/:id/test and returns the result", async () => {
       mockFetch.mockResolvedValueOnce(
         new Response(JSON.stringify({ success: true, message: "Reachable" }), {
           status: 200,
@@ -502,7 +502,7 @@ describe("serversApi", () => {
 
       expect(result).toEqual({ success: true, message: "Reachable" });
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123/test"),
+        expect.stringContaining("/v1/mcp-servers/server-123/test"),
         expect.objectContaining({ method: "POST" }),
       );
     });
@@ -513,7 +513,7 @@ describe("serversApi", () => {
   });
 
   describe("delete", () => {
-    it("DELETEs /gateways/:id", async () => {
+    it("DELETEs /v1/mcp-servers/:id", async () => {
       mockFetch.mockResolvedValueOnce(
         new Response(JSON.stringify({}), {
           status: 200,
@@ -524,7 +524,7 @@ describe("serversApi", () => {
       await serversApi.delete("server-123");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/gateways/server-123"),
+        expect.stringContaining("/v1/mcp-servers/server-123"),
         expect.objectContaining({ method: "DELETE" }),
       );
     });

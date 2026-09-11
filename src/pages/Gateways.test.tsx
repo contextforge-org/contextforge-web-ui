@@ -143,7 +143,7 @@ describe("Gateways", () => {
     renderWithProviders(<Gateways />);
 
     expect(mockUseQuery).toHaveBeenCalledWith(
-      "/servers?limit=12&include_inactive=true&include_pagination=true",
+      "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true",
     );
     expect(mockUseQuery).toHaveBeenCalledTimes(1);
   });
@@ -384,7 +384,7 @@ describe("Gateways", () => {
     const setServerDetails = vi.fn();
 
     mockUseQuery.mockImplementation((path) => {
-      if (path === "/servers?limit=12&include_inactive=true&include_pagination=true") {
+      if (path === "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true") {
         return {
           data: { servers: [server] },
           error: null,
@@ -395,7 +395,7 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway-1") {
+      if (path === "/v1/virtual-servers/gateway-1") {
         return {
           data: server,
           error: null,
@@ -683,7 +683,7 @@ describe("Gateways", () => {
     };
 
     mockUseQuery.mockImplementation((path) => {
-      if (path === "/servers/gateway%2F1%3Fmode%3Ddetail") {
+      if (path === "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail") {
         return {
           data: detailServer,
           error: null,
@@ -694,7 +694,7 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway%2F1%3Fmode%3Ddetail/tools?include_inactive=true") {
+      if (path === "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/tools?include_inactive=true") {
         return {
           data: [
             {
@@ -718,7 +718,9 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway%2F1%3Fmode%3Ddetail/resources?include_inactive=true") {
+      if (
+        path === "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/resources?include_inactive=true"
+      ) {
         return {
           data: [
             {
@@ -735,7 +737,9 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway%2F1%3Fmode%3Ddetail/prompts?include_inactive=true") {
+      if (
+        path === "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/prompts?include_inactive=true"
+      ) {
         return {
           data: [
             {
@@ -772,24 +776,27 @@ describe("Gateways", () => {
 
     await user.click(viewDetails);
 
-    expect(mockUseQuery).toHaveBeenCalledWith("/servers/gateway%2F1%3Fmode%3Ddetail");
+    expect(mockUseQuery).toHaveBeenCalledWith("/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail");
     expect(mockUseQuery).toHaveBeenCalledWith(
-      "/servers/gateway%2F1%3Fmode%3Ddetail/tools?include_inactive=true",
+      "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/tools?include_inactive=true",
       { enabled: true },
     );
     expect(mockUseQuery).toHaveBeenCalledWith(
-      "/servers/gateway%2F1%3Fmode%3Ddetail/resources?include_inactive=true",
+      "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/resources?include_inactive=true",
       { enabled: true },
     );
     expect(mockUseQuery).toHaveBeenCalledWith(
-      "/servers/gateway%2F1%3Fmode%3Ddetail/prompts?include_inactive=true",
+      "/v1/virtual-servers/gateway%2F1%3Fmode%3Ddetail/prompts?include_inactive=true",
       { enabled: true },
     );
     expect(mockUseQuery).not.toHaveBeenCalledWith(
       expect.stringContaining("virtual_server_id"),
       expect.anything(),
     );
-    expect(mockUseQuery).not.toHaveBeenCalledWith("/servers/__pending__", expect.anything());
+    expect(mockUseQuery).not.toHaveBeenCalledWith(
+      "/v1/virtual-servers/__pending__",
+      expect.anything(),
+    );
     const detailsPanel = screen.getByRole("region", { name: "GH repo tasks details" });
     expect(screen.getByText("Virtual server details")).toBeInTheDocument();
     expect(
@@ -1081,7 +1088,7 @@ describe("Gateways", () => {
     const mockServer = makeServer({ id: "gateway-details-rollback", name: "Details Server" });
 
     mockUseQuery.mockImplementation((path) => {
-      if (path === "/servers/gateway-details-rollback") {
+      if (path === "/v1/virtual-servers/gateway-details-rollback") {
         return {
           data: mockServer,
           error: null,
@@ -1178,7 +1185,7 @@ describe("Gateways", () => {
     const mockServer = makeServer({ associatedToolIds: ["tool1"] });
 
     mockUseQuery.mockImplementation((path) => {
-      if (path === "/servers/gateway-1") {
+      if (path === "/v1/virtual-servers/gateway-1") {
         return {
           data: mockServer,
           error: null,
@@ -1189,7 +1196,7 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway-1/tools?include_inactive=true") {
+      if (path === "/v1/virtual-servers/gateway-1/tools?include_inactive=true") {
         return {
           data: null,
           error: { message: "Failed to fetch tools" },
@@ -1200,7 +1207,7 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway-1/resources?include_inactive=true") {
+      if (path === "/v1/virtual-servers/gateway-1/resources?include_inactive=true") {
         return {
           data: null,
           error: { message: "Failed to fetch resources" },
@@ -1211,7 +1218,7 @@ describe("Gateways", () => {
         };
       }
 
-      if (path === "/servers/gateway-1/prompts?include_inactive=true") {
+      if (path === "/v1/virtual-servers/gateway-1/prompts?include_inactive=true") {
         return {
           data: null,
           error: { message: "Failed to fetch prompts" },
@@ -1358,8 +1365,8 @@ describe("Gateways", () => {
         refetch: vi.fn(),
         setData: vi.fn(),
       };
-      if (path === "/servers/gateway-1") return { ...base, data: detailServer };
-      if (path?.startsWith("/servers/gateway-1/")) return { ...base, data: [] };
+      if (path === "/v1/virtual-servers/gateway-1") return { ...base, data: detailServer };
+      if (path?.startsWith("/v1/virtual-servers/gateway-1/")) return { ...base, data: [] };
       return { ...base, data: { servers: [detailServer] } };
     });
     mockUpdateVirtualServerTags.mockResolvedValue({
@@ -1391,8 +1398,8 @@ describe("Gateways", () => {
         refetch: vi.fn(),
         setData: vi.fn(),
       };
-      if (path === "/servers/gateway-1") return { ...base, data: detailServer };
-      if (path?.startsWith("/servers/gateway-1/")) return { ...base, data: [] };
+      if (path === "/v1/virtual-servers/gateway-1") return { ...base, data: detailServer };
+      if (path?.startsWith("/v1/virtual-servers/gateway-1/")) return { ...base, data: [] };
       return { ...base, data: { servers: [detailServer] } };
     });
     mockUpdateVirtualServerTags.mockRejectedValue(new Error("boom"));
