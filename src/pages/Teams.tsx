@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -9,6 +9,8 @@ import { TeamForm } from "@/components/teams/TeamForm";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { ManageTeamMembersDialog } from "@/components/teams/ManageTeamMembersDialog";
 import { SettingsToolbar, useHideSettingsTabs } from "@/components/settings/settings-toolbar";
+import { PendingInvitationsChip } from "@/components/invitations/PendingInvitationsChip";
+import { usePendingInvitations } from "@/components/invitations/PendingInvitationsProvider";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { api } from "@/api/client";
@@ -30,6 +32,7 @@ export function Teams() {
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const [teamForMembers, setTeamForMembers] = useState<Team | null>(null);
   const [teamToEdit, setTeamToEdit] = useState<Team | null>(null);
+  const createTeamRef = useRef<HTMLButtonElement>(null);
 
   // While the create/edit form is open it takes over the whole area, so hide
   // the Settings tab strip + toolbar.
@@ -54,6 +57,12 @@ export function Teams() {
       setNextCursor(response.nextCursor ?? null);
     }
   }, [response]);
+
+  // An accepted invitation adds a team, so the list needs refetching.
+  const { acceptedCount } = usePendingInvitations();
+  useEffect(() => {
+    if (acceptedCount > 0) void refetch();
+  }, [acceptedCount, refetch]);
 
   const getTeamText = useCallback(
     (team: Team) => `${team.name} ${team.description ?? ""} ${team.id}`,
@@ -226,6 +235,7 @@ export function Teams() {
                         tab row (via the toolbar slot); standalone they fall back inline. */}
                     <SettingsToolbar>
                       <div className="flex items-center gap-3">
+                        <PendingInvitationsChip fallbackFocusRef={createTeamRef} className="mr-6" />
                         <ListSearch
                           value={query}
                           onChange={setQuery}
@@ -236,6 +246,7 @@ export function Teams() {
                           placeholder={intl.formatMessage({ id: "common.search" })}
                         />
                         <Button
+                          ref={createTeamRef}
                           variant="default"
                           className="h-7 rounded-sm px-4"
                           onClick={() => setCreateFormOpen(true)}

@@ -72,6 +72,7 @@
   --color-prompt-icon-bg: var(--prompt-icon-bg);
   --color-server-icon-bg: var(--server-icon-bg);
   --color-agent-icon-bg: var(--agent-icon-bg);
+  --color-team-icon-bg: var(--team-icon-bg);
   --color-tool-status-active: var(--tool-status-active);
   --color-tool-status-inactive: var(--tool-status-inactive);
   --color-tool-badge-bg: var(--tool-badge-bg);
@@ -158,6 +159,9 @@
   /* Same rationale as the icon-bg tokens above: a chip background carrying a
      black glyph, no `.dark` override needed. */
   --agent-icon-bg: #ffc078;
+  /* Same rationale again: a chip background carrying a black glyph, so no
+     `.dark` override. */
+  --team-icon-bg: #ffd200;
   /* emerald-400 falls under 3:1 on white; .dark restores it */
   --tool-status-active: var(--color-emerald-600);
   --tool-status-inactive: var(--color-neutral-500);

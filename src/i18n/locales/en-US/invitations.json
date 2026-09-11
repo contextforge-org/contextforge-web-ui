@@ -1,0 +1,21 @@
+{
+  "invitations.count": "{count, plural, one {# invitation} other {# invitations}}",
+  "invitations.dialog.title": "{count, plural, one {Join team} other {Join teams}}",
+  "invitations.dialog.summary.sr": "You have {count, plural, one {# pending team invitation} other {# pending team invitations}}",
+  "invitations.sentence": "{inviter} invited you to join {team} as {role}.",
+  "invitations.role.owner": "an owner",
+  "invitations.role.member": "a member",
+  "invitations.action.accept": "Join team",
+  "invitations.action.accept.aria": "Join {team}",
+  "invitations.action.accepting": "Joining...",
+  "invitations.action.decline": "Decline",
+  "invitations.action.decline.aria": "Decline invitation to {team}",
+  "invitations.action.declining": "Declining...",
+  "invitations.status.accepted": "Invite accepted",
+  "invitations.status.declined": "Declined",
+  "invitations.status.allResolved.sr": "All invitations resolved",
+  "invitations.loading.sr": "Loading invitations, please wait...",
+  "invitations.error.load": "Failed to load your invitations",
+  "invitations.error.accept": "Failed to join team",
+  "invitations.error.decline": "Failed to decline invitation"
+}
