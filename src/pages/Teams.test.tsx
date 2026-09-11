@@ -35,6 +35,20 @@ vi.mock("sonner", () => ({
   },
 }));
 
+let mockInvitationCount = 0;
+let mockAcceptedCount = 0;
+
+vi.mock("@/components/invitations/PendingInvitationsProvider", () => ({
+  usePendingInvitations: () => ({
+    count: mockInvitationCount,
+    isLoading: false,
+    error: null,
+    open: vi.fn(),
+    acceptedCount: mockAcceptedCount,
+    register: () => () => {},
+  }),
+}));
+
 import { api } from "@/api/client";
 import { deleteTeam, createTeam, updateTeam, listTeamMembers } from "@/api/teams";
 
@@ -761,5 +775,51 @@ describe("Teams", () => {
     await user.click(await screen.findByRole("menuitem", { name: /manage members/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("Teams pending invitations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockInvitationCount = 0;
+    mockAcceptedCount = 0;
+  });
+
+  it("renders the invitations chip in the toolbar", async () => {
+    mockInvitationCount = 2;
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+
+    renderWithRouter(<Teams />);
+
+    expect(await screen.findByRole("button", { name: "2 invitations" })).toBeInTheDocument();
+  });
+
+  it("renders no chip when nothing is pending", async () => {
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+
+    renderWithRouter(<Teams />);
+    await screen.findByText("Team 1");
+
+    expect(screen.queryByRole("button", { name: /invitation/ })).not.toBeInTheDocument();
+  });
+
+  it("refetches the teams list when an invitation is accepted", async () => {
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+
+    const { rerender } = renderWithRouter(<Teams />);
+    await screen.findByText("Team 1");
+    const callsBefore = vi.mocked(api.get).mock.calls.length;
+
+    mockAcceptedCount = 1;
+    rerender(
+      <RouterProvider>
+        <I18nProvider>
+          <Teams />
+        </I18nProvider>
+      </RouterProvider>,
+    );
+
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
   });
 });
