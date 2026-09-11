@@ -1,14 +1,8 @@
 /**
- * Pending team invitations (#5536).
+ * The pending team invitations chip and dialog, one test per visual state.
  *
- * Doubles as the preview harness while #6010 is outstanding: the inbox and
- * decline routes do not exist yet, and page.route() intercepts by URL pattern
- * without caring whether anything is there upstream. One test per visual
- * state, so `npm run e2e:ui` steps through the whole feature.
- *
- * Once #6010 lands this becomes the integration test under E2E_REAL_API=true,
- * which needs e2e/seed/seed.ts to be able to seed a pending invitation for the
- * test user first.
+ * Running under E2E_REAL_API=true additionally needs e2e/seed/seed.ts to seed
+ * a pending invitation for the test user.
  */
 import { test, expect } from "./fixtures/api-mock";
 import type { Page } from "@playwright/test";
@@ -269,9 +263,8 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    // The toolbar the chip lives in renders only when a team exists, so the
-    // likeliest invitee, someone with no team yet, has no way in. See the
-    // note on #5536.
+    // The toolbar the chip lives in renders only when a team exists, so a
+    // user with no team has no way to reach their invitations.
     await expect(page.getByText("No teams yet")).toBeVisible();
     await expect(page.getByRole("button", { name: /invitation/ })).toHaveCount(0);
   });

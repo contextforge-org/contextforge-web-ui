@@ -1,11 +1,6 @@
 /**
  * The Settings > Teams trigger: a count of pending invitations that opens the
- * shared dialog.
- *
- * Deliberately not a Radix DialogTrigger. That would require every trigger to
- * be a descendant of the same Dialog, which forces either a dialog per trigger
- * or all triggers into one subtree, and neither survives a second surface.
- * Focus return is handled by the provider instead.
+ * shared dialog. Not a DialogTrigger, so focus return is the provider's job.
  */
 import type { ReactNode, RefObject } from "react";
 import { useIntl } from "react-intl";
@@ -28,8 +23,7 @@ export function PendingInvitationsChip({
   className,
 }: PendingInvitationsChipProps) {
   const intl = useIntl();
-  // Called before the early return, so an unmounted-looking chip still counts
-  // as the mounted consumer that enables the fetch.
+  // Registers the consumer that enables the fetch, even when nothing renders.
   const { count, open } = usePendingInvitations();
 
   if (count === 0) return null;

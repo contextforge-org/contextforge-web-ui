@@ -58,9 +58,7 @@ export function Teams() {
     }
   }, [response]);
 
-  // A counter rather than a callback prop, so every surface interested in an
-  // accepted invitation can react independently of whichever one rendered the
-  // trigger.
+  // An accepted invitation adds a team, so the list needs refetching.
   const { acceptedCount } = usePendingInvitations();
   useEffect(() => {
     if (acceptedCount > 0) void refetch();

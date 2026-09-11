@@ -1,10 +1,8 @@
 /**
  * Data and mutations for the invitations addressed to the current user.
  *
- * Consumed by PendingInvitationsProvider, which mounts exactly one instance.
- * Exported for tests and for the unlikely case of a surface needing an
- * isolated copy: a second accidental instance holds its own resolutions, which
- * is the divergent-count bug the provider exists to prevent.
+ * Mount one instance only. Each holds its own resolutions, so a second one
+ * leaves both counts disagreeing. PendingInvitationsProvider owns it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
@@ -15,10 +13,7 @@ import type { InvitationAction, InvitationResolution } from "@/types/invitation"
 import { sanitizeError } from "@/utils/errors";
 
 export interface UsePendingInvitationsDataOptions {
-  /**
-   * Whether to fetch. The provider ties this to a mounted consumer, so pages
-   * with no trigger make no request.
-   */
+  /** Whether to fetch. The provider ties this to having a mounted consumer. */
   enabled?: boolean;
 }
 
@@ -62,8 +57,7 @@ export function usePendingInvitationsData({
       const result = await listMyInvitations();
       if (requestId !== latestRequestId.current) return;
       setInvitations(result);
-      // Resolved invitations are gone from the server response, so drop the
-      // resolutions that went with them rather than accumulating them.
+      // Drop resolutions for invitations the response no longer carries.
       const returnedIds = new Set(result.map((invitation) => invitation.id));
       setResolutions((previous) =>
         Object.fromEntries(Object.entries(previous).filter(([id]) => returnedIds.has(id))),
@@ -86,9 +80,8 @@ export function usePendingInvitationsData({
   }, [enabled, load]);
 
   /**
-   * Commits the outcome only once the server confirms it. Both actions are
-   * irreversible and the dialog stays open, so an optimistic write would
-   * visibly flip a row back on failure.
+   * Commits the outcome only once the server confirms it. Not optimistic: the
+   * dialog stays open, so a rollback would visibly flip a resolved row back.
    */
   const resolve = useCallback(
     async (invitation: TeamInvitation, action: InvitationAction) => {

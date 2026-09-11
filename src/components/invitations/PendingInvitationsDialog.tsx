@@ -1,10 +1,6 @@
 /**
  * The single dialog listing every pending invitation. Presentational: it owns
  * no fetching and is rendered only by PendingInvitationsProvider.
- *
- * The confirmation dwell lives here rather than in the provider because the
- * dwell exists to let the confirmation be read, so it belongs with the
- * component that renders it.
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useIntl } from "react-intl";
@@ -17,10 +13,7 @@ import { PendingInvitationItem } from "./PendingInvitationItem";
 import type { TeamInvitation } from "@/types/team";
 import type { InvitationAction, InvitationResolution } from "@/types/invitation";
 
-/**
- * Matches sonner's default toast duration, which `ui/sonner.tsx` leaves
- * unoverridden, so the app has one dwell for a confirmation rather than two.
- */
+/** Sonner's default toast duration, so confirmations dwell alike. */
 const DEFAULT_AUTO_CLOSE_MS = 4000;
 
 export interface PendingInvitationsDialogProps {
@@ -70,10 +63,8 @@ export function PendingInvitationsDialog({
   const hasRequestInFlight = Object.keys(inFlight).length > 0;
   const allResolved = invitations.length > 0 && pendingCount === 0;
 
-  // Pointer entry cancels the dwell outright rather than pausing it: a timer
-  // that resumes on pointer exit closes at an unpredictable moment. Radix's
-  // usual "pause while focus is inside" signal is unusable here because the
-  // dialog traps focus, so the condition would never be false.
+  // Pointer entry cancels the dwell outright; it never resumes. Focus is no
+  // use as the signal here because the dialog traps it.
   const [dwellCancelled, setDwellCancelled] = useState(false);
 
   useEffect(() => {

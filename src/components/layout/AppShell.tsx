@@ -7,9 +7,7 @@ import { PendingInvitationsProvider } from "../invitations/PendingInvitationsPro
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      {/* Inside the sidebar provider so the Header can consume it later. Its
-          fetch is gated on a mounted trigger, so this costs nothing on pages
-          that have none. */}
+      {/* App-wide, but its fetch is gated on a mounted trigger. */}
       <PendingInvitationsProvider>
         <AppSidebar />
         <SidebarInset>

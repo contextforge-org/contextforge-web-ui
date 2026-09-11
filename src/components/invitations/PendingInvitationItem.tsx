@@ -1,10 +1,7 @@
 /**
  * One pending team invitation: the sentence describing it, and either its two
- * actions or the outcome that replaced them.
- *
- * Purely presentational and exported for reuse, so a surface that wants an
- * invitation rendered inline rather than behind the shared dialog can use it
- * directly.
+ * actions or the outcome that replaced them. Presentational, usable outside
+ * the dialog.
  */
 import type { Ref } from "react";
 import { useIntl } from "react-intl";
@@ -14,10 +11,7 @@ import { cn } from "@/lib/utils";
 import type { TeamInvitation } from "@/types/team";
 import type { InvitationAction, InvitationResolution } from "@/types/invitation";
 
-/**
- * Roles the backend produces today. Anything else falls back to the raw string
- * so an unrecognised role degrades to something readable rather than blank.
- */
+/** `role` is a free string; anything unmapped renders as-is. */
 const ROLE_MESSAGE_IDS: Record<string, string> = {
   owner: "invitations.role.owner",
   member: "invitations.role.member",
@@ -53,8 +47,7 @@ export function PendingInvitationItem({
   const isBusy = busyAction !== undefined;
 
   return (
-    // A block rather than an <li>, so a surface rendering one invitation
-    // inline is not forced into list markup. The dialog supplies the <li>.
+    // A block, not an <li>: the dialog supplies the list markup.
     <div className={cn("flex flex-col gap-4", className)}>
       <p className="px-4 text-sm text-foreground">
         {intl.formatMessage(

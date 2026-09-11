@@ -1,11 +1,4 @@
-/**
- * Transport for the invitee's own team invitations.
- *
- * Two of the three routes do not exist yet; they are the subject of #6010,
- * which also leaves the inbox path undecided between `/users/me/invitations`
- * and `/teams/invitations/mine`. Confining both to this module keeps settling
- * that to a one-line change here.
- */
+/** Transport for the invitations addressed to the current user. */
 import { api } from "@/api/client";
 import type { TeamInvitation, TeamMember } from "@/types/team";
 

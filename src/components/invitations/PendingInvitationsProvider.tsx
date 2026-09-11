@@ -1,11 +1,9 @@
 /**
  * Owns the pending-invitation data for the whole app and mounts the single
- * dialog every trigger opens.
+ * dialog every trigger opens: one provider, one dialog, N triggers.
  *
- * One provider, one dialog, N triggers. Two mounted copies of a self-contained
- * component would hold separate resolutions, so resolving in one would leave
- * the other's count stale with nothing logged. The fetch is gated on a mounted
- * consumer, so pages with no trigger issue no request and pay nothing for it.
+ * The fetch is gated on a mounted consumer, so pages with no trigger issue no
+ * request.
  */
 import {
   createContext,
@@ -37,10 +35,7 @@ export interface PendingInvitationsContextValue {
   register: () => () => void;
 }
 
-/**
- * Defaults to an inert value rather than throwing, matching SettingsTabsContext,
- * so a page rendered in isolation in a test does not explode.
- */
+/** Inert rather than throwing, so a page rendered without the provider works. */
 const PendingInvitationsContext = createContext<PendingInvitationsContextValue>({
   count: 0,
   isLoading: false,
@@ -87,10 +82,9 @@ export function PendingInvitationsProvider({ children }: { children: ReactNode }
   );
 
   /**
-   * Radix restores focus to the trigger it opened from, which this dialog does
-   * not have, and the element that did open it is commonly gone by now:
-   * resolving the last invitation drops the count to 0, unmounting every
-   * trigger. So take it over, and never leave focus on the body.
+   * Restores focus manually, since the opener is commonly gone by close:
+   * resolving the last invitation drops the count to 0 and unmounts every
+   * trigger. Never leave focus on the body.
    */
   const handleCloseAutoFocus = useCallback((event: Event) => {
     event.preventDefault();
@@ -148,10 +142,7 @@ export function PendingInvitationsProvider({ children }: { children: ReactNode }
   );
 }
 
-/**
- * Reads the shared count and opens the shared dialog. Registering here is what
- * enables the fetch, so a page with no trigger mounted makes no request.
- */
+/** Reads the shared count and opens the shared dialog. Registering enables the fetch. */
 export function usePendingInvitations(): PendingInvitationsContextValue {
   const context = useContext(PendingInvitationsContext);
   const { register } = context;
