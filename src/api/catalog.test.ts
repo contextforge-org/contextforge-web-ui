@@ -33,6 +33,40 @@ describe("registerCatalogServer", () => {
     });
   });
 
+  it("preserves OAuth credentials in the catalog registration body", async () => {
+    let body: unknown;
+    server.use(
+      http.post("*/api/v1/catalog/:catalogId/register", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ success: true, server_id: "gateway-1", message: "Registered" });
+      }),
+    );
+
+    await registerCatalogServer("github", {
+      oauth_credentials: {
+        grant_type: "authorization_code",
+        issuer: "https://github.com",
+        client_id: "client-id",
+        client_secret: "client-secret", // pragma: allowlist secret
+        authorization_url: "https://github.com/login/oauth/authorize",
+        token_url: "https://github.com/login/oauth/access_token",
+        scopes: ["repo"],
+      },
+    });
+
+    expect(body).toEqual({
+      oauth_credentials: {
+        grant_type: "authorization_code",
+        issuer: "https://github.com",
+        client_id: "client-id",
+        client_secret: "client-secret", // pragma: allowlist secret
+        authorization_url: "https://github.com/login/oauth/authorize",
+        token_url: "https://github.com/login/oauth/access_token",
+        scopes: ["repo"],
+      },
+    });
+  });
+
   it("DELETEs an encoded gateway ID and preserves async lifecycle metadata", async () => {
     let requestPath = "";
     server.use(
