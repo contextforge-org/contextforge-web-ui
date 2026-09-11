@@ -139,11 +139,9 @@ export function OAuth2Auth({
       <div className="space-y-1">
         <label
           htmlFor="oauth-issuer-url"
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-          <span className="text-destructive">*</span>
-          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="oauth-issuer-url"
@@ -338,11 +336,9 @@ export function OAuth2Auth({
       <div className="space-y-1">
         <label
           htmlFor="oauth-token-url"
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-          <span className="text-destructive">*</span>
-          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="oauth-token-url"
