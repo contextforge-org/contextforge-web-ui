@@ -49,7 +49,7 @@ export function PendingInvitationItem({
   return (
     // A block, not an <li>: the dialog supplies the list markup.
     <div className={cn("flex flex-col gap-4", className)}>
-      <p className="px-4 text-sm text-foreground">
+      <p className="text-sm text-foreground">
         {intl.formatMessage(
           { id: "invitations.sentence" },
           { inviter: invitation.invited_by, team: invitation.team_name, role },
@@ -57,10 +57,10 @@ export function PendingInvitationItem({
       </p>
 
       {resolution ? (
-        <div className="flex items-center justify-end gap-1.5 px-4 text-xs font-medium">
+        <div className="flex h-6 items-center justify-end gap-1.5 text-xs font-medium">
           {resolution === "accepted" ? (
             <>
-              <CircleCheck aria-hidden="true" className="size-4" />
+              <CircleCheck aria-hidden="true" className="size-4 text-success" />
               <span>{intl.formatMessage({ id: "invitations.status.accepted" })}</span>
             </>
           ) : (
@@ -70,7 +70,7 @@ export function PendingInvitationItem({
           )}
         </div>
       ) : (
-        <div className="flex items-center justify-end gap-4 px-4">
+        <div className="flex items-center justify-end gap-4">
           <Button
             variant="outline"
             size="xs"

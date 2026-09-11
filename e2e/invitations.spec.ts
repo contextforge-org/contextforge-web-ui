@@ -129,7 +129,7 @@ test.describe("Pending team invitations", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toHaveAccessibleName("Join team");
     await expect(
-      dialog.getByText("janet.wu@example.com invited you to join Platform Team as Owner."),
+      dialog.getByText("janet.wu@example.com invited you to join Platform Team as an owner."),
     ).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Join Platform Team" })).toBeVisible();
     await expect(
@@ -167,7 +167,7 @@ test.describe("Pending team invitations", () => {
     await expect(dialog.getByText("Invite accepted")).toBeVisible();
     // The row stays, and the second invitation is still actionable.
     await expect(
-      dialog.getByText("janet.wu@example.com invited you to join Platform Team as Owner."),
+      dialog.getByText("janet.wu@example.com invited you to join Platform Team as an owner."),
     ).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Join Design Team" })).toBeVisible();
     await expect(page.getByRole("button", { name: "1 invitation" })).toBeVisible();

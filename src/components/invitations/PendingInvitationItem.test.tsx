@@ -38,7 +38,7 @@ describe("PendingInvitationItem", () => {
     renderItem();
 
     expect(
-      screen.getByText("janet@example.com invited you to join Platform Team as Owner."),
+      screen.getByText("janet@example.com invited you to join Platform Team as an owner."),
     ).toBeInTheDocument();
   });
 
@@ -82,12 +82,24 @@ describe("PendingInvitationItem", () => {
     );
   });
 
-  it("replaces the buttons with a check and 'Invite accepted' once accepted", () => {
+  it("replaces the buttons with a green check and 'Invite accepted' once accepted", () => {
     const { container } = renderItem({ resolution: "accepted" });
 
     expect(screen.getByText("Invite accepted")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(container.querySelector("svg")).toHaveClass("text-success");
+  });
+
+  it("keeps the action row's height once resolved", () => {
+    const { container: unresolved } = renderItem();
+    const { container: accepted } = renderItem({ resolution: "accepted" });
+    const { container: declined } = renderItem({ resolution: "declined" });
+
+    const actionRow = (root: HTMLElement) => root.firstElementChild?.lastElementChild;
+
+    expect(unresolved.querySelector("button")).toHaveClass("h-6");
+    expect(actionRow(accepted)).toHaveClass("h-6");
+    expect(actionRow(declined)).toHaveClass("h-6");
   });
 
   it("replaces the buttons with a muted, icon-less 'Declined' once declined", () => {

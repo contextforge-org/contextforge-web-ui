@@ -111,7 +111,7 @@ export function PendingInvitationsDialog({
         aria-describedby={summaryId}
         onPointerEnter={() => setDwellCancelled(true)}
         onCloseAutoFocus={onCloseAutoFocus}
-        className={cn("gap-6 p-6", className)}
+        className={cn("gap-6 scrollbar-gutter-stable p-6 sm:rounded-[12px]", className)}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-medium">
@@ -141,8 +141,6 @@ export function PendingInvitationsDialog({
           </div>
         ) : (
           <>
-            {/* Above the list rather than instead of it: a refresh that fails
-                should not take rows the user can still act on off the screen. */}
             {error && (
               <div
                 role="alert"
@@ -157,7 +155,7 @@ export function PendingInvitationsDialog({
               </div>
             )}
             {invitations.length > 0 && (
-              <ul className="flex max-h-[60vh] flex-col gap-6 overflow-y-auto scrollbar-thin">
+              <ul className="flex flex-col gap-6">
                 {invitations.map((invitation, index) => (
                   <li key={invitation.id} className="flex flex-col gap-6">
                     {index > 0 && <Separator />}
@@ -176,8 +174,6 @@ export function PendingInvitationsDialog({
           </>
         )}
 
-        {/* One summary on the final resolution, rather than N queued row
-            announcements racing the dwell. */}
         <div role="status" className="sr-only">
           {allResolved ? intl.formatMessage({ id: "invitations.status.allResolved.sr" }) : ""}
         </div>
