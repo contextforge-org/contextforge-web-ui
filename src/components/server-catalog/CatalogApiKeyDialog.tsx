@@ -88,7 +88,7 @@ export function CatalogApiKeyDialog({
 
       const registered = await onSubmit({
         name: name.trim() || null,
-        api_key: apiKey,
+        api_key: apiKey, // pragma: allowlist secret
         visibility,
         team_id: visibility === "team" ? teamId : null,
       });
@@ -180,7 +180,6 @@ export function CatalogApiKeyDialog({
                 }}
                 disabled={isSubmitting}
               >
-                {/* SelectTrigger is w-fit by default; full width lines it up with the inputs above. */}
                 <SelectTrigger id="catalog-server-visibility" className="w-full">
                   <SelectValue
                     placeholder={intl.formatMessage({

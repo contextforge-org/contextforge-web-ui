@@ -618,7 +618,7 @@ describe("ServerCatalog", () => {
     await waitFor(() =>
       expect(mockRegisterCatalogServer).toHaveBeenCalledWith("api-key", {
         name: "My Secret Service",
-        api_key: "test-api-key",
+        api_key: "test-api-key", // pragma: allowlist secret
         visibility: "private",
         team_id: null,
       }),
@@ -738,7 +738,7 @@ describe("ServerCatalog", () => {
     await waitFor(() =>
       expect(mockRegisterCatalogServer).toHaveBeenCalledWith("api-key", {
         name: null,
-        api_key: "test-api-key",
+        api_key: "test-api-key", // pragma: allowlist secret
         visibility: "team",
         team_id: "team-alpha",
       }),

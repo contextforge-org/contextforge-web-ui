@@ -62,7 +62,7 @@ describe("toolsApi", () => {
       const result = await toolsApi.preview(
         "search.issues",
         { query: "cloudflare" },
-        { "X-Api-Key": "session-key" },
+        { "X-Api-Key": "session-key" }, // pragma: allowlist secret
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
@@ -72,7 +72,7 @@ describe("toolsApi", () => {
           body: JSON.stringify({ arguments: { query: "cloudflare" } }),
           headers: expect.objectContaining({
             "X-CSRF-Token": "test-csrf-token",
-            "X-Api-Key": "session-key",
+            "X-Api-Key": "session-key", // pragma: allowlist secret
           }),
           credentials: "same-origin", // pragma: allowlist secret
         }),
@@ -125,7 +125,7 @@ describe("toolsApi", () => {
       const result = await toolsApi.invoke(
         "search.issues",
         { query: "cloudflare" },
-        { "X-Api-Key": "session-key" },
+        { "X-Api-Key": "session-key" }, // pragma: allowlist secret
         { requestId: "invoke-1" },
       );
 
@@ -144,7 +144,7 @@ describe("toolsApi", () => {
           }),
           headers: expect.objectContaining({
             "X-CSRF-Token": "test-csrf-token",
-            "X-Api-Key": "session-key",
+            "X-Api-Key": "session-key", // pragma: allowlist secret
           }),
           credentials: "same-origin", // pragma: allowlist secret
         }),

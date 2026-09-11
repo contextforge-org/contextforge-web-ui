@@ -1,0 +1,9 @@
+{
+  "agents.title": "Agents",
+  "agents.loading": "Loading agents, please wait...",
+  "agents.error.loading": "Error loading agents",
+  "agents.card.status.active": "Active",
+  "agents.card.status.inactive": "Inactive",
+  "agents.empty.title": "No agents yet",
+  "agents.empty.description": "Agents will appear here once they're registered with the server."
+}

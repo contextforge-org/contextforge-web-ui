@@ -37,7 +37,7 @@ export function resetPassword(
 ): Promise<SuccessResponse> {
   return api.post<SuccessResponse>(
     resetPath(token),
-    { new_password: newPassword, confirm_password: confirmPassword },
+    { new_password: newPassword, confirm_password: confirmPassword }, // pragma: allowlist secret
     { authenticated: false },
   );
 }

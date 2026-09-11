@@ -34,6 +34,8 @@
     "i18n:compile": "formatjs compile-folder --ast src/i18n/locales src/i18n/compiled",
     "generate": "orval",
     "openapi:refresh": "bash scripts/refresh-openapi.sh",
+    "secrets:scan": "uv tool run --from 'git+https://github.com/ibm/detect-secrets.git@076672a9a01abdfc7ecee2e7d14f08cdccb73976' detect-secrets scan --update .secrets.baseline --use-all-plugins --exclude-files '(?x)(package-lock\\.json$)|^\\.secrets\\.baseline$|src/i18n/locales/*|openapi.json'",
+    "secrets:audit": "uv tool run --from 'git+https://github.com/ibm/detect-secrets.git@076672a9a01abdfc7ecee2e7d14f08cdccb73976' detect-secrets audit .secrets.baseline",
     "prepare": "husky || true"
   },
   "dependencies": {
@@ -50,6 +52,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-intl": "^10.1.1",
+    "recharts": "^3.10.1",
     "shadcn": "^4.2.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",

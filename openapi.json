@@ -55185,6 +55185,236 @@
         "description": "A single tool plugin binding record returned from the API.\n\nAttributes:\n    id: Unique binding identifier (UUID).\n    team_id: Team the binding belongs to.\n    tool_name: Tool name the policy applies to.\n    plugin_id: Plugin identifier.\n    mode: Execution mode.\n    priority: Execution priority.\n    config: Plugin-specific configuration.\n    created_at: Creation timestamp.\n    created_by: Email of creator.\n    updated_at: Last update timestamp.\n    updated_by: Email of last updater.",
         "nullable": true
       },
+      "ToolResultContentBlock": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "data": {
+            "type": "string",
+            "title": "Data"
+          },
+          "blob": {
+            "type": "string",
+            "title": "Blob"
+          },
+          "mimeType": {
+            "type": "string",
+            "title": "Mimetype"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "uri": {
+            "type": "string",
+            "title": "Uri"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ToolResultResource"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ToolResultContentBlock"
+      },
+      "ToolResultResource": {
+        "properties": {
+          "uri": {
+            "type": "string",
+            "title": "Uri"
+          },
+          "mimeType": {
+            "type": "string",
+            "title": "Mimetype"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "blob": {
+            "type": "string",
+            "title": "Blob"
+          },
+          "data": {
+            "type": "string",
+            "title": "Data"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ToolResultResource"
+      },
+      "ToolPreviewResponse": {
+        "properties": {
+          "content": {
+            "items": {
+              "$ref": "#/components/schemas/ToolResultContentBlock"
+            },
+            "type": "array",
+            "title": "Content"
+          },
+          "resolved_arguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Resolved Arguments"
+          },
+          "resolvedArguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Resolvedarguments"
+          },
+          "structured_output": {
+            "title": "Structured Output"
+          },
+          "structuredOutput": {
+            "title": "Structuredoutput"
+          },
+          "isError": {
+            "type": "boolean",
+            "title": "Iserror"
+          },
+          "is_error": {
+            "type": "boolean",
+            "title": "Is Error"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "federated"
+                ]
+              },
+              {
+                "$ref": "#/components/schemas/ToolPreviewTarget"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "annotations": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annotations"
+          },
+          "pre_hooks_run": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pre Hooks Run"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ToolPreviewWarning"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ToolPreviewResponse",
+        "description": "Response body returned by MCP tool preview and JSON-RPC tool invocation results."
+      },
+      "ToolPreviewTarget": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "gateway_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Name"
+          },
+          "gatewayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatewayname"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ToolPreviewTarget"
+      },
+      "ToolPreviewWarning": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "hook": {
+            "type": "string",
+            "title": "Hook"
+          },
+          "hooks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hooks"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ToolPreviewWarning"
+      },
       "ToolRead": {
         "properties": {
           "id": {

@@ -3,6 +3,11 @@ import { http, HttpResponse } from "msw";
 import { RECENT_ACTIVITY_FIXTURE } from "@/mocks/recentActivity";
 
 export const handlers = [
+  // Mock A2A agents list endpoint — empty by default so any test that
+  // renders <Agents /> without its own server.use(...) override doesn't hit
+  // an unhandled request.
+  http.get("*/api/a2a", () => HttpResponse.json([])),
+
   // Mock Recent Activity endpoint — backed by RECENT_ACTIVITY_FIXTURE.
   http.get("*/api/logs/activity", ({ request }) => {
     const url = new URL(request.url);

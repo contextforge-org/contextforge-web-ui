@@ -183,6 +183,22 @@ npm run format:check
 - Single quotes: `false` (use double quotes)
 - Print width: `100`
 
+### Secrets Scanning
+
+[IBM's hardened detect-secrets fork](https://github.com/ibm/detect-secrets) scans for committed secrets. A `.secrets.baseline` file at the repo root records known false positives so the scanner only alerts on new findings.
+
+```bash
+# Scan the repo and update .secrets.baseline
+npm run secrets:scan
+
+# Interactively audit findings (mark false positives)
+npm run secrets:audit
+```
+
+The scan also runs automatically as a **pre-commit hook** (via Husky).
+
+**If the pre-commit hook blocks your commit:** a new secret-like pattern was found. Either remove the value, or run `npm run secrets:audit` to review and mark it as a false positive, then re-commit.
+
 ## Testing
 
 ### Test Framework
@@ -384,6 +400,8 @@ setup.
 | `npm run e2e:debug`          | Playwright Inspector                                                                |
 | `npm run e2e:install`        | Install Playwright browsers                                                         |
 | `npm run e2e:report`         | Open last Playwright report                                                         |
+| `npm run secrets:scan`       | Scan repo for secrets, update `.secrets.baseline`                                   |
+| `npm run secrets:audit`      | Interactively audit findings in `.secrets.baseline`                                 |
 
 ## Internationalization (i18n)
 

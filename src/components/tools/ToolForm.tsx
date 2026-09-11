@@ -42,7 +42,7 @@ function toolToInitialValues(tool: Tool) {
     teamId: tool.teamId ?? "",
     authType,
     authUsername: tool.auth?.username ?? "",
-    authPassword: tool.auth?.password ?? "",
+    authPassword: tool.auth?.password ?? "", // pragma: allowlist secret
     bearerToken: tool.auth?.token ?? "",
     customHeaders,
     advancedOpen: Boolean(

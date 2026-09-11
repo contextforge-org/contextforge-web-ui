@@ -28,6 +28,30 @@ describe("Select Components", () => {
     expect(screen.getByTestId("trigger")).toBeInTheDocument();
   });
 
+  it("allows className h-10 to override the default h-9 (CVA variant, not data-[size=*])", () => {
+    render(
+      <Select>
+        <SelectTrigger className="h-10" data-testid="trigger-h10">
+          <SelectValue />
+        </SelectTrigger>
+      </Select>,
+    );
+    const trigger = screen.getByTestId("trigger-h10");
+    expect(trigger.className).not.toContain("h-9");
+    expect(trigger.className).toContain("h-10");
+  });
+
+  it("defaults SelectTrigger to w-full", () => {
+    render(
+      <Select>
+        <SelectTrigger data-testid="trigger-width">
+          <SelectValue />
+        </SelectTrigger>
+      </Select>,
+    );
+    expect(screen.getByTestId("trigger-width")).toHaveClass("w-full");
+  });
+
   it("renders SelectTrigger with sm size", () => {
     render(
       <Select>

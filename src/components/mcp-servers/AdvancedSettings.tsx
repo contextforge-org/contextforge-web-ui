@@ -51,6 +51,9 @@ interface AdvancedSettingsProps {
   oauthGrantType: string;
   oauthIssuerUrl: string;
   oauthRedirectUri: string;
+  isOAuthRedirectUriLoading?: boolean;
+  oauthRedirectUriError?: string;
+  onRetryOAuthRedirectUri?: () => void;
   oauthAuthorizationUrl: string;
   oauthScopes: string;
   oauthStoreTokens: boolean;
@@ -62,7 +65,6 @@ interface AdvancedSettingsProps {
   onOAuthTokenUrlChange: (value: string) => void;
   onOAuthGrantTypeChange: (value: string) => void;
   onOAuthIssuerUrlChange: (value: string) => void;
-  onOAuthRedirectUriChange: (value: string) => void;
   onOAuthAuthorizationUrlChange: (value: string) => void;
   onOAuthScopesChange: (value: string) => void;
   onOAuthStoreTokensChange: (checked: boolean) => void;
@@ -104,6 +106,9 @@ export function AdvancedSettings({
   oauthGrantType,
   oauthIssuerUrl,
   oauthRedirectUri,
+  isOAuthRedirectUriLoading,
+  oauthRedirectUriError,
+  onRetryOAuthRedirectUri,
   oauthAuthorizationUrl,
   oauthScopes,
   oauthStoreTokens,
@@ -115,7 +120,6 @@ export function AdvancedSettings({
   onOAuthTokenUrlChange,
   onOAuthGrantTypeChange,
   onOAuthIssuerUrlChange,
-  onOAuthRedirectUriChange,
   onOAuthAuthorizationUrlChange,
   onOAuthScopesChange,
   onOAuthStoreTokensChange,
@@ -169,6 +173,9 @@ export function AdvancedSettings({
             grantType={oauthGrantType}
             issuerUrl={oauthIssuerUrl}
             redirectUri={oauthRedirectUri}
+            isRedirectUriLoading={isOAuthRedirectUriLoading}
+            redirectUriError={oauthRedirectUriError}
+            onRetryRedirectUri={onRetryOAuthRedirectUri}
             authorizationUrl={oauthAuthorizationUrl}
             scopes={oauthScopes}
             storeTokens={oauthStoreTokens}
@@ -180,7 +187,6 @@ export function AdvancedSettings({
             onTokenUrlChange={onOAuthTokenUrlChange}
             onGrantTypeChange={onOAuthGrantTypeChange}
             onIssuerUrlChange={onOAuthIssuerUrlChange}
-            onRedirectUriChange={onOAuthRedirectUriChange}
             onAuthorizationUrlChange={onOAuthAuthorizationUrlChange}
             onScopesChange={onOAuthScopesChange}
             onStoreTokensChange={onOAuthStoreTokensChange}
