@@ -7,6 +7,7 @@ import grpc from "./grpc.json";
 import gateways from "./gateways.json";
 import users from "./users.json";
 import teams from "./teams.json";
+import invitations from "./invitations.json";
 import tools from "./tools.json";
 import resources from "./resources.json";
 import prompts from "./prompts.json";
@@ -26,6 +27,7 @@ export default {
   ...gateways,
   ...users,
   ...teams,
+  ...invitations,
   ...tools,
   ...resources,
   ...prompts,

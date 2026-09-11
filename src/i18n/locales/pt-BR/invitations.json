@@ -1,0 +1,21 @@
+{
+  "invitations.count": "{count, plural, one {# convite} other {# convites}}",
+  "invitations.dialog.title": "{count, plural, one {Entrar na equipe} other {Entrar nas equipes}}",
+  "invitations.dialog.summary.sr": "Você tem {count, plural, one {# convite de equipe pendente} other {# convites de equipe pendentes}}",
+  "invitations.sentence": "{inviter} convidou você para entrar em {team} como {role}.",
+  "invitations.role.owner": "Proprietário",
+  "invitations.role.member": "Membro",
+  "invitations.action.accept": "Entrar na equipe",
+  "invitations.action.accept.aria": "Entrar em {team}",
+  "invitations.action.accepting": "Entrando...",
+  "invitations.action.decline": "Recusar",
+  "invitations.action.decline.aria": "Recusar convite para {team}",
+  "invitations.action.declining": "Recusando...",
+  "invitations.status.accepted": "Convite aceito",
+  "invitations.status.declined": "Recusado",
+  "invitations.status.allResolved.sr": "Todos os convites foram resolvidos",
+  "invitations.loading.sr": "Carregando convites, aguarde...",
+  "invitations.error.load": "Falha ao carregar seus convites",
+  "invitations.error.accept": "Falha ao entrar na equipe",
+  "invitations.error.decline": "Falha ao recusar o convite"
+}
