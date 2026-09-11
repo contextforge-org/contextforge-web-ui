@@ -81,6 +81,7 @@ export function PendingInvitationItem({
           <Button
             variant="outline"
             size="xs"
+            className="shadow-none"
             disabled={isBusy}
             onClick={() => onDecline(invitation)}
             aria-label={intl.formatMessage(

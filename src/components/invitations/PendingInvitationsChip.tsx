@@ -38,15 +38,13 @@ export function PendingInvitationsChip({
     <Button
       variant="outline"
       size="sm"
-      // Height and padding follow the Create team button it sits beside rather
-      // than the design's standalone 36px chip.
-      className={cn("h-7 gap-2 rounded-sm px-2", className)}
+      className={cn("h-auto gap-2 rounded p-2 shadow-none", className)}
       onClick={() => open(fallbackFocusRef)}
     >
-      <div className="flex size-5 items-center justify-center rounded bg-team-icon-bg">
-        <Bell aria-hidden="true" className="size-4 text-black" />
+      <div className="flex size-[17.5px] items-center justify-center rounded bg-team-icon-bg">
+        <Bell aria-hidden="true" className="size-[11px] text-black" />
       </div>
-      <span className="text-xs font-medium">
+      <span className="text-xs font-medium text-foreground">
         {label ? label(count) : intl.formatMessage({ id: "invitations.count" }, { count })}
       </span>
     </Button>

@@ -159,7 +159,7 @@ export function PendingInvitationsDialog({
               >
                 <p className="text-sm text-destructive">{error}</p>
                 {onRetry && (
-                  <Button variant="outline" size="xs" onClick={onRetry}>
+                  <Button variant="outline" size="xs" className="shadow-none" onClick={onRetry}>
                     {intl.formatMessage({ id: "common.button.retry" })}
                   </Button>
                 )}
