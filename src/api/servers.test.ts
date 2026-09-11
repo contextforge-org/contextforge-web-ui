@@ -512,6 +512,52 @@ describe("serversApi", () => {
     });
   });
 
+  describe("refreshTools", () => {
+    it("POSTs to /gateways/:id/tools/refresh with include_resources=true&include_prompts=true", async () => {
+      const mockBody = {
+        gatewayId: "srv-1",
+        success: true,
+        toolsAdded: 2,
+        toolsUpdated: 0,
+        toolsRemoved: 1,
+        durationMs: 120,
+        refreshedAt: "2025-09-09T00:00:00Z",
+      };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(mockBody), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      const result = await serversApi.refreshTools("srv-1");
+
+      expect(result).toEqual(mockBody);
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toContain("/gateways/srv-1/tools/refresh");
+      expect(url).toContain("include_resources=true");
+      expect(url).toContain("include_prompts=true");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("throws synchronously for an invalid server ID", () => {
+      expect(() => serversApi.refreshTools("../etc/passwd")).toThrow("Invalid server ID format");
+    });
+
+    it("throws ApiError on 409 response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: "Refresh already running" }), {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+      await expect(serversApi.refreshTools("srv-1")).rejects.toThrow("HTTP 409");
+    });
+  });
+
   describe("delete", () => {
     it("DELETEs /gateways/:id", async () => {
       mockFetch.mockResolvedValueOnce(

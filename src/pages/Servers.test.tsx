@@ -18,6 +18,16 @@ vi.mock("@/api/client", () => ({
     patch: vi.fn(),
     put: vi.fn(),
   },
+  ApiError: class ApiError extends Error {
+    constructor(
+      public readonly status: number,
+      public readonly body: unknown,
+      message: string,
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
 }));
 
 vi.mock("sonner", () => ({
@@ -33,7 +43,7 @@ vi.mock("@/auth/useAuth", () => ({
   useAuth: () => ({ hasPermission: mockHasPermission, permissionsLoading: mockPermissionsLoading }),
 }));
 
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 
 const mockToastSuccess = vi.mocked(toast.success);
 const mockToastError = vi.mocked(toast.error);
@@ -1044,6 +1054,174 @@ describe("Servers", () => {
     // Form should close on success and list should be re-rendered
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "Edit MCP server" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Refresh action", () => {
+    it("shows a success toast with counts when refresh returns success: true", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockResolvedValueOnce({
+        gatewayId: "server-0",
+        success: true,
+        toolsAdded: 3,
+        toolsUpdated: 1,
+        toolsRemoved: 0,
+        durationMs: 100,
+        refreshedAt: "2025-09-09T00:00:00Z",
+      });
+      // Refetch after a successful refresh.
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith(
+          expect.stringContaining("/gateways/server-0/tools/refresh"),
+        );
+      });
+      await waitFor(() => {
+        expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("Test Server 0"));
+      });
+    });
+
+    it("shows an error toast when refresh returns success: false on HTTP 200", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockResolvedValueOnce({
+        gatewayId: "server-0",
+        success: false,
+        error: "Upstream unreachable",
+        durationMs: 50,
+        refreshedAt: "2025-09-09T00:00:00Z",
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          "Error refreshing MCP server",
+          expect.objectContaining({ description: "Upstream unreachable" }),
+        );
+      });
+    });
+
+    it("shows a conflict toast on HTTP 409", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockRejectedValueOnce(
+        new ApiError(409, { detail: "Refresh already running" }, "HTTP 409"),
+      );
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          expect.stringContaining("already running for Test Server 0"),
+        );
+      });
+    });
+
+    it("does not show the Refresh item when the caller lacks gateways.update", async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation((perm: string) => perm !== "gateways.update");
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /edit/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /^refresh$/i })).not.toBeInTheDocument();
+    });
+
+    it("disables the Refresh item for the same server while a refresh is in-flight", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockImplementationOnce(() => new Promise(() => {}));
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await user.click(actionsButtons[0]);
+
+      const pendingItem = await screen.findByRole("menuitem", {
+        name: /refreshing test server 0/i,
+      });
+      expect(pendingItem).toHaveAttribute("aria-disabled", "true");
     });
   });
 });

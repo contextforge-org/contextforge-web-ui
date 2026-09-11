@@ -115,6 +115,25 @@ export const handlers = [
     });
   }),
 
+  // Mock gateway tools-refresh endpoint (Issue #6550)
+  http.post("*/api/gateways/:id/tools/refresh", ({ params }) => {
+    return HttpResponse.json({
+      gatewayId: params.id,
+      success: true,
+      toolsAdded: 0,
+      toolsUpdated: 0,
+      toolsRemoved: 0,
+      resourcesAdded: 0,
+      resourcesUpdated: 0,
+      resourcesRemoved: 0,
+      promptsAdded: 0,
+      promptsUpdated: 0,
+      promptsRemoved: 0,
+      durationMs: 42,
+      refreshedAt: new Date().toISOString(),
+    });
+  }),
+
   // Mock create gateway endpoint
   http.post("*/api/gateways", async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;

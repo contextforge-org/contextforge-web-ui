@@ -15,6 +15,8 @@ interface ServerActionsMenuProps {
   onDelete: (id: string) => void;
   onViewDetails?: (id: string) => void;
   onToggleEnabled?: (id: string, enabled: boolean) => void;
+  onRefresh?: (id: string) => void;
+  isRefreshing?: boolean;
 }
 
 export function ServerActionsMenu({
@@ -23,6 +25,8 @@ export function ServerActionsMenu({
   onDelete,
   onViewDetails,
   onToggleEnabled,
+  onRefresh,
+  isRefreshing,
 }: ServerActionsMenuProps) {
   const intl = useIntl();
 
@@ -54,6 +58,17 @@ export function ServerActionsMenu({
         <DropdownMenuItem onClick={() => onEdit(server.id)} role="menuitem">
           {intl.formatMessage({ id: "mcpServer.table.actions.edit" })}
         </DropdownMenuItem>
+        {onRefresh && (
+          <DropdownMenuItem
+            onClick={() => onRefresh(server.id)}
+            disabled={isRefreshing}
+            role="menuitem"
+          >
+            {isRefreshing
+              ? intl.formatMessage({ id: "mcpServer.refresh.pending" }, { name: server.name })
+              : intl.formatMessage({ id: "mcpServer.table.actions.refresh" })}
+          </DropdownMenuItem>
+        )}
         {onToggleEnabled && (
           <DropdownMenuItem
             onClick={() => onToggleEnabled(server.id, !server.enabled)}

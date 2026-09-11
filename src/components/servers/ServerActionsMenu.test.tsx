@@ -246,4 +246,81 @@ describe("ServerActionsMenu", () => {
       expect(screen.queryByRole("menuitem", { name: /deactivate/i })).not.toBeInTheDocument();
     });
   });
+
+  describe("Refresh functionality", () => {
+    it("renders Refresh item when onRefresh is provided", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <ServerActionsMenu
+          server={mockServer}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRefresh={vi.fn()}
+        />,
+      );
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      expect(await screen.findByRole("menuitem", { name: /refresh/i })).toBeInTheDocument();
+    });
+
+    it("does not render Refresh when onRefresh is not provided", async () => {
+      const user = userEvent.setup();
+
+      render(<ServerActionsMenu server={mockServer} onEdit={vi.fn()} onDelete={vi.fn()} />);
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /edit/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /refresh/i })).not.toBeInTheDocument();
+    });
+
+    it("calls onRefresh with server id when clicked", async () => {
+      const user = userEvent.setup();
+      const onRefresh = vi.fn();
+
+      render(
+        <ServerActionsMenu
+          server={mockServer}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRefresh={onRefresh}
+        />,
+      );
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /refresh/i });
+      await user.click(refreshItem);
+
+      expect(onRefresh).toHaveBeenCalledWith(mockServer.id);
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables Refresh item when isRefreshing is true", async () => {
+      const user = userEvent.setup();
+
+      render(
+        <ServerActionsMenu
+          server={mockServer}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+          onRefresh={vi.fn()}
+          isRefreshing
+        />,
+      );
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /refreshing test server/i });
+      expect(refreshItem).toHaveAttribute("aria-disabled", "true");
+    });
+  });
 });
