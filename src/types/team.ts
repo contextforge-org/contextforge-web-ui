@@ -1,3 +1,10 @@
+/**
+ * Re-exported rather than restated so a regenerated orval client turns any
+ * backend drift into a compile error. The invitee-facing routes are still
+ * being built (#6010), so this is the contract the UI is written against.
+ */
+export type { TeamInvitationResponse as TeamInvitation } from "@/generated/types";
+
 export interface Team {
   id: string;
   name: string;
