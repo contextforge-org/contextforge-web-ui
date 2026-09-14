@@ -1142,13 +1142,39 @@ describe("ServerCatalog", () => {
     expect(
       within(getFilterSection("Authentication")).getByRole("checkbox", { name: "API Key" }),
     ).toBeChecked();
+    // "API" and "API Key" both mean API-key auth and collapse into one option, so
+    // there is no separate "API" checkbox to find here.
     expect(
-      within(getFilterSection("Authentication")).getByRole("checkbox", { name: "API" }),
-    ).toBeInTheDocument();
-    expect(new URLSearchParams(window.location.search).getAll("auth_type")).toEqual(["API Key"]);
+      within(getFilterSection("Authentication")).queryByRole("checkbox", { name: "API" }),
+    ).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).getAll("auth_type")).toEqual(["apiKey"]);
     expect(screen.getByRole("heading", { name: "Secret Service" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Public Notes" })).not.toBeInTheDocument();
+  });
+
+  it("groups raw 'API' servers under the same API Key filter option", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [
+            openConnected,
+            openAvailable,
+            { ...apiKeyServer, id: "api", name: "API Service", auth_type: "API" },
+          ],
+          total: 3,
+        },
+      }),
+    );
+    renderWithRouter(<ServerCatalog />);
+
+    await openFilters(user);
+    await selectSectionOption(user, "Authentication", "API Key");
+
+    expect(screen.getByRole("heading", { name: "API Service" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Globalping" })).not.toBeInTheDocument();
   });
 
   it("restores repeated category and provider params from the URL", async () => {
@@ -1219,7 +1245,7 @@ describe("ServerCatalog", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.getAll("provider")).toEqual(["jsDelivr"]);
     expect(params.getAll("category")).toEqual(["Monitoring"]);
-    expect(params.getAll("auth_type")).toEqual(["Open"]);
+    expect(params.getAll("auth_type")).toEqual(["open"]);
     expect(params.getAll("tags")).toEqual(["network"]);
 
     pushState.mockRestore();
