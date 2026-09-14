@@ -1,7 +1,7 @@
 /**
  * MCP Servers API service
  *
- * Wraps /gateways backend endpoint but exposes as "servers" API
+ * Wraps /v1/mcp-servers backend endpoint but exposes as "servers" API
  * for frontend consistency.
  */
 
@@ -68,7 +68,7 @@ export const serversApi = {
     searchParams.set("include_pagination", "true");
 
     const query = searchParams.toString();
-    return api.get(`/gateways${query ? `?${query}` : ""}`, undefined, params?.signal);
+    return api.get(`/v1/mcp-servers${query ? `?${query}` : ""}`, undefined, params?.signal);
   },
 
   /**
@@ -82,7 +82,7 @@ export const serversApi = {
       return cachedRequest;
     }
 
-    const request = api.get<MCPServer>(`/gateways/${validId}`);
+    const request = api.get<MCPServer>(`/v1/mcp-servers/${validId}`);
     serverByIdRequestCache.set(validId, request);
 
     request.catch(() => {
@@ -97,19 +97,19 @@ export const serversApi = {
    */
   delete: (id: string): Promise<void> => {
     const validId = validateServerId(id);
-    return api.delete(`/gateways/${validId}`);
+    return api.delete(`/v1/mcp-servers/${validId}`);
   },
 
   /**
    * Replace an MCP server's (gateway's) tags.
    *
-   * Sends a partial `PUT /gateways/{id}` carrying only `tags`; the gateway
+   * Sends a partial `PUT /v1/mcp-servers/{id}` carrying only `tags`; the gateway
    * update service preserves every other field when it is omitted. Returns the
    * updated server so callers can patch their cache with the normalized tags.
    */
   updateTags: (id: string, tags: string[]): Promise<MCPServer> => {
     const validId = validateServerId(id);
-    return api.put<MCPServer>(`/gateways/${validId}`, { tags });
+    return api.put<MCPServer>(`/v1/mcp-servers/${validId}`, { tags });
   },
 
   /**
@@ -117,7 +117,7 @@ export const serversApi = {
    */
   testConnection: (id: string): Promise<{ success: boolean; message: string }> => {
     const validId = validateServerId(id);
-    return api.post(`/gateways/${validId}/test`, {});
+    return api.post(`/v1/mcp-servers/${validId}/test`, {});
   },
 
   /**
@@ -156,7 +156,7 @@ export const serversApi = {
    */
   toggleEnabled: (id: string, enabled: boolean): Promise<{ status: string; message: string }> => {
     const validId = validateServerId(id);
-    return api.post(`/gateways/${validId}/state?activate=${enabled}`);
+    return api.post(`/v1/mcp-servers/${validId}/state?activate=${enabled}`);
   },
 
   /**

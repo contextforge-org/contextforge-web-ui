@@ -4,7 +4,7 @@
  * pure `computeMiniCardStatuses` model and the `resolveHeadline` condition.
  *
  * Sources: `/version` (backend health, via useSystemHealth), reachability
- * probes for MCP servers (`/gateways`) and A2A agents (`/a2a`), and recent
+ * probes for MCP servers (`/v1/mcp-servers`) and A2A agents (`/a2a`), and recent
  * activity for error/warning counts. Activity is fetched once (no polling) to
  * keep the resting home quiet; it is empty until the activity backend (#5944)
  * lands.
@@ -40,7 +40,7 @@ import type { ServersResponse } from "@/types/server";
 // in the paginated `{ gateways: [...] }` shape (matching useMcpServers); A2A is a
 // bare list. Capped at 100 like the roster; a reachable instance past position
 // 100 is not counted.
-const MCP_REACH_PATH = "/gateways?limit=100&include_pagination=true";
+const MCP_REACH_PATH = "/v1/mcp-servers?limit=100&include_pagination=true";
 const A2A_REACH_PATH = "/a2a?limit=100";
 
 export interface HomeStatus {

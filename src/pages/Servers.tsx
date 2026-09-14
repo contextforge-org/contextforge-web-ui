@@ -49,7 +49,7 @@ export function Servers() {
     params.set("limit", limit.toString());
     params.set("include_pagination", "true");
     params.set("include_inactive", "true");
-    return `/gateways?${params.toString()}`;
+    return `/v1/mcp-servers?${params.toString()}`;
   }, [limit]);
 
   // Use useQuery hook for initial data fetching and limit changes
@@ -65,8 +65,8 @@ export function Servers() {
   const detailsQueryPath = useMemo(
     () =>
       selectedServerIdForDetails
-        ? `/gateways/${encodeURIComponent(selectedServerIdForDetails)}`
-        : "/gateways/_placeholder_",
+        ? `/v1/mcp-servers/${encodeURIComponent(selectedServerIdForDetails)}`
+        : "/v1/mcp-servers/_placeholder_",
     [selectedServerIdForDetails],
   );
 
@@ -236,7 +236,7 @@ export function Servers() {
       params.set("include_pagination", "true");
       params.set("include_inactive", "true");
 
-      const result = await api.get<ServersResponse>(`/gateways?${params.toString()}`);
+      const result = await api.get<ServersResponse>(`/v1/mcp-servers?${params.toString()}`);
       setAllServers((prev) => [...prev, ...result.gateways]);
       setNextCursor(result.nextCursor ?? null);
     } catch (err) {
