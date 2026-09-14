@@ -259,6 +259,8 @@ export function Servers() {
           );
           toast.warning(successMessage, {
             description: [warningPrefix, ...validationErrors].join("\n"),
+            // sonner's description has no white-space rule, so force newlines to render
+            descriptionClassName: "whitespace-pre-line",
           });
         } else {
           toast.success(successMessage);
