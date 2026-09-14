@@ -83,10 +83,14 @@ export function PendingInvitationsProvider({ children }: { children: ReactNode }
   );
 
   // The refetch on open can come back empty, and a dialog with nothing in it
-  // has nothing to say. An error keeps it open so the retry stays reachable.
+  // has nothing to say. An error keeps it open so the retry stays reachable,
+  // and an open request keeps it open so its outcome can be shown.
+  const hasRequestInFlight = Object.keys(inFlight).length > 0;
   useEffect(() => {
-    if (isOpen && !isLoading && !error && invitations.length === 0) setIsOpen(false);
-  }, [isOpen, isLoading, error, invitations.length]);
+    if (isOpen && !isLoading && !error && !hasRequestInFlight && invitations.length === 0) {
+      setIsOpen(false);
+    }
+  }, [isOpen, isLoading, error, hasRequestInFlight, invitations.length]);
 
   /**
    * Restores focus manually, since the opener is commonly gone by close:

@@ -47,15 +47,27 @@ export function usePendingInvitationsData({
 
   // Concurrent loads share state, so only the latest-issued one may publish it.
   const latestRequestId = useRef(0);
+  // Latest values for load(), which stays stable so effects can depend on it.
+  const resolutionsRef = useRef(resolutions);
+  resolutionsRef.current = resolutions;
+  const inFlightRef = useRef(inFlight);
+  inFlightRef.current = inFlight;
 
   const load = useCallback(async () => {
     const requestId = ++latestRequestId.current;
+    const resolvedBefore = new Set(Object.keys(resolutionsRef.current));
     setIsLoading(true);
     setError(null);
 
     try {
       const result = await listMyInvitations();
       if (requestId !== latestRequestId.current) return;
+      // A response that predates the user's own actions must not undo them: it
+      // would drop the row they just resolved, along with its confirmation.
+      const actedSince =
+        Object.keys(inFlightRef.current).length > 0 ||
+        Object.keys(resolutionsRef.current).some((id) => !resolvedBefore.has(id));
+      if (actedSince) return;
       // Expired invitations cannot be accepted; the inbox does not filter them.
       const actionable = result.filter((invitation) => !invitation.is_expired);
       setInvitations(actionable);

@@ -86,6 +86,14 @@ describe("PendingInvitationsDialog", () => {
     );
   });
 
+  it("counts only what is still pending in the summary", () => {
+    renderDialog({ invitations: [one, two], resolutions: { [one.id]: "accepted" } });
+
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(
+      "You have 1 pending team invitation",
+    );
+  });
+
   it("renders one list item per invitation with a separator between but not after", () => {
     const { container } = renderDialog({ invitations: [one, two] });
 

@@ -61,7 +61,10 @@ export function Teams() {
   // An accepted invitation adds a team, so the list needs refetching.
   const { acceptedCount, count: invitationCount } = usePendingInvitations();
   useEffect(() => {
-    if (acceptedCount > 0) void refetch();
+    if (acceptedCount === 0) return;
+    refetch().catch((refreshErr) => {
+      console.error("Failed to refresh teams after accepting:", sanitizeError(refreshErr));
+    });
   }, [acceptedCount, refetch]);
 
   const getTeamText = useCallback(

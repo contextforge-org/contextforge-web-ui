@@ -182,10 +182,7 @@ export function PendingInvitationsDialog({
         </DialogHeader>
 
         <p id={summaryId} className="sr-only">
-          {intl.formatMessage(
-            { id: "invitations.dialog.summary.sr" },
-            { count: invitations.length },
-          )}
+          {intl.formatMessage({ id: "invitations.dialog.summary.sr" }, { count: pendingCount })}
         </p>
 
         {isLoading ? (

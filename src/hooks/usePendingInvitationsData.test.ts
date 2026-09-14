@@ -123,6 +123,36 @@ describe("usePendingInvitationsData", () => {
     expect(result.current.inFlight).toEqual({});
   });
 
+  it("keeps a resolution a slower refetch would have undone", async () => {
+    const { result } = renderInvitations();
+    await waitFor(() => expect(result.current.invitations).toHaveLength(2));
+
+    // A refetch issued before the accept, answered after it, reporting the
+    // server's now-shorter list.
+    let answer: (invitations: TeamInvitation[]) => void = () => {};
+    vi.mocked(listMyInvitations).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    let refetched: Promise<void> = Promise.resolve();
+    act(() => {
+      refetched = result.current.refetch();
+    });
+
+    await act(async () => {
+      await result.current.accept(one);
+    });
+    await act(async () => {
+      answer([]);
+      await refetched;
+    });
+
+    expect(result.current.invitations).toHaveLength(2);
+    expect(result.current.resolutions).toEqual({ "inv-1": "accepted" });
+    expect(result.current.pendingCount).toBe(1);
+  });
+
   it("reports the action in flight while the request is open", async () => {
     let release: () => void = () => {};
     vi.mocked(acceptInvitation).mockReturnValue(
