@@ -213,10 +213,159 @@ test.describe("MCP Servers page", () => {
 
     await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Deactivate" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
     // Test Connection moved into the details drawer, no longer an overflow-menu item.
     await expect(page.getByRole("menuitem", { name: "Test Connection" })).toHaveCount(0);
+  });
+
+  test.describe("Refresh action", () => {
+    test("hides Refresh when the caller lacks gateways.update", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["gateways.read"] });
+      await page.route("**/gateways?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await expect(page.getByRole("menuitem", { name: "Refresh" })).toHaveCount(0);
+    });
+
+    test("refreshes tools and shows a success toast with counts", async ({ page }) => {
+      let refreshRequestCount = 0;
+
+      await page.route("**/gateways?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        expect(route.request().method()).toBe("POST");
+        refreshRequestCount += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            gatewayId: MOCK_SERVER.id,
+            success: true,
+            toolsAdded: 2,
+            toolsUpdated: 1,
+            toolsRemoved: 0,
+            durationMs: 87,
+            refreshedAt: "2026-04-12T00:00:00Z",
+          }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect.poll(() => refreshRequestCount).toBe(1);
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /Refreshed GitHub MCP Server/ }),
+      ).toBeVisible();
+    });
+
+    test("shows an error toast when the refresh reports success: false", async ({ page }) => {
+      await page.route("**/gateways?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            gatewayId: MOCK_SERVER.id,
+            success: false,
+            error: "Upstream server unreachable",
+            durationMs: 50,
+            refreshedAt: "2026-04-12T00:00:00Z",
+          }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: "Upstream server unreachable" }),
+      ).toBeVisible();
+    });
+
+    test("shows a conflict toast on HTTP 409", async ({ page }) => {
+      await page.route("**/gateways?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Refresh already running" }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect(
+        page
+          .locator("[data-sonner-toast]")
+          .filter({ hasText: /already running for GitHub MCP Server/ }),
+      ).toBeVisible();
+    });
+
+    test("disables the Refresh item for the server while a refresh is in flight", async ({
+      page,
+    }) => {
+      await page.route("**/gateways?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async () => {
+        // Never resolves within the test — keeps the pending state visible.
+        await new Promise(() => {});
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      const refreshItem = page.getByRole("menuitem", { name: /Refreshing GitHub MCP Server/ });
+      await expect(refreshItem).toBeVisible();
+      await expect(refreshItem).toHaveAttribute("aria-disabled", "true");
+    });
   });
 
   test("optimistically removes server on delete confirmation and shows success toast", async ({
