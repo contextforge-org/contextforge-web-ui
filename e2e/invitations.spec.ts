@@ -131,7 +131,7 @@ test.describe("Pending team invitations", () => {
     await expect(
       dialog.getByText("janet.wu@example.com invited you to join Platform Team as an owner."),
     ).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Join Platform Team" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Join team: Platform Team" })).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "Decline invitation to Platform Team" }),
     ).toBeVisible();
@@ -162,14 +162,14 @@ test.describe("Pending team invitations", () => {
     await page.getByRole("button", { name: "2 invitations" }).click();
 
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: "Join Platform Team" }).click();
+    await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
 
     await expect(dialog.getByText("Invite accepted")).toBeVisible();
     // The row stays, and the second invitation is still actionable.
     await expect(
       dialog.getByText("janet.wu@example.com invited you to join Platform Team as an owner."),
     ).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "Join Design Team" })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Join team: Design Team" })).toBeVisible();
     await expect(page.getByRole("button", { name: "1 invitation" })).toBeVisible();
   });
 
@@ -201,9 +201,9 @@ test.describe("Pending team invitations", () => {
     await page.getByRole("button", { name: "2 invitations" }).click();
 
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: "Join Platform Team" }).click();
+    await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
 
-    await expect(dialog.getByRole("button", { name: "Join Platform Team" })).toHaveText(
+    await expect(dialog.getByRole("button", { name: "Join team: Platform Team" })).toHaveText(
       "Joining...",
     );
     await expect(
@@ -245,7 +245,7 @@ test.describe("Pending team invitations", () => {
     await page.getByRole("button", { name: "1 invitation" }).click();
 
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: "Join Platform Team" }).click();
+    await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
     await expect(dialog.getByText("Invite accepted")).toBeVisible();
 
     // Dwells on the confirmation, then closes itself.
@@ -256,16 +256,19 @@ test.describe("Pending team invitations", () => {
     await expect(page.getByRole("button", { name: "Create Team" })).toBeFocused();
   });
 
-  test("a user with no teams never sees the chip", async ({ page }) => {
+  test("a user with no teams can still reach an invitation", async ({ page }) => {
     await mockTeams(page, []);
     await mockInvitations(page, [PLATFORM_INVITATION]);
 
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    // The toolbar the chip lives in renders only when a team exists, so a
-    // user with no team has no way to reach their invitations.
+    // Being invited to a first team is the case the feature exists for, so the
+    // chip sits outside the branch that needs an existing team.
     await expect(page.getByText("No teams yet")).toBeVisible();
-    await expect(page.getByRole("button", { name: /invitation/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "1 invitation" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: "Join team: Platform Team" })).toBeVisible();
   });
 });

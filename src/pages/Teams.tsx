@@ -225,17 +225,17 @@ export function Teams() {
                 </div>
               )}
 
-              {allTeams.length > 0 ? (
-                <>
-                  <header className="flex items-center justify-end">
-                    {/* The Settings tab already labels this section, so the visible
-                        title is dropped per design; kept sr-only for accessibility. */}
-                    <h2 className="sr-only">{intl.formatMessage({ id: "teams.all.title" })}</h2>
-                    {/* Hosted inside the Settings tabs, these actions render on the
-                        tab row (via the toolbar slot); standalone they fall back inline. */}
-                    <SettingsToolbar>
-                      <div className="flex items-center gap-3">
-                        <PendingInvitationsChip fallbackFocusRef={createTeamRef} className="mr-6" />
+              {/* Hosted inside the Settings tabs, these actions render on the
+                  tab row (via the toolbar slot); standalone they fall back
+                  inline. The chip sits outside the has-teams branch because an
+                  invitation has to be reachable by someone with no team of
+                  their own; the list actions have nothing to act on there. */}
+              <header className="flex items-center justify-end">
+                <SettingsToolbar>
+                  <div className="flex items-center gap-3">
+                    <PendingInvitationsChip fallbackFocusRef={createTeamRef} className="mr-6" />
+                    {allTeams.length > 0 && (
+                      <>
                         <ListSearch
                           value={query}
                           onChange={setQuery}
@@ -254,9 +254,17 @@ export function Teams() {
                           <Plus className="h-4 w-4" />
                           {intl.formatMessage({ id: "teams.createTeam" })}
                         </Button>
-                      </div>
-                    </SettingsToolbar>
-                  </header>
+                      </>
+                    )}
+                  </div>
+                </SettingsToolbar>
+              </header>
+
+              {allTeams.length > 0 ? (
+                <>
+                  {/* The Settings tab already labels this section, so the visible
+                      title is dropped per design; kept sr-only for accessibility. */}
+                  <h2 className="sr-only">{intl.formatMessage({ id: "teams.all.title" })}</h2>
 
                   <TeamsTable
                     teams={results}
@@ -319,6 +327,7 @@ export function Teams() {
                     </p>
                   </div>
                   <Button
+                    ref={createTeamRef}
                     className="bg-foreground text-background hover:bg-foreground/90 h-8 w-38 rounded-sm px-2 gap-1.5 text-sm font-medium"
                     onClick={() => setCreateFormOpen(true)}
                   >

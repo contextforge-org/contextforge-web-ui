@@ -106,6 +106,8 @@ describe("PendingInvitationsDialog", () => {
     renderDialog({ error: "Server error. Please try again later.", invitations: [], onRetry });
 
     const alert = screen.getByRole("alert");
+    // A localised headline over the untranslatable detail from sanitizeError.
+    expect(within(alert).getByText("Failed to load your invitations")).toBeInTheDocument();
     expect(within(alert).getByText("Server error. Please try again later.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -129,7 +131,7 @@ describe("PendingInvitationsDialog", () => {
     rerenderWith({ invitations: [one, two], resolutions: { [one.id]: "accepted" } });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Join Design Team" })).toHaveFocus(),
+      expect(screen.getByRole("button", { name: "Join team: Design Team" })).toHaveFocus(),
     );
   });
 
@@ -201,18 +203,48 @@ describe("PendingInvitationsDialog auto-close", () => {
     expect(screen.getByText("All invitations resolved")).toBeInTheDocument();
   });
 
-  it("cancels the dwell permanently on pointer entry", () => {
+  it("cancels the dwell permanently on pointer movement during it", () => {
     const { onOpenChange, rerenderWith } = renderDialog();
 
     rerenderWith({ resolutions: { [one.id]: "accepted" } });
-    // React synthesises onPointerEnter from pointerover, so dispatch that.
-    fireEvent.pointerOver(screen.getByRole("dialog"));
+    fireEvent.pointerMove(screen.getByRole("dialog"));
 
     act(() => {
       vi.advanceTimersByTime(60000);
     });
 
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("cancels the dwell permanently on a key press during it", () => {
+    const { onOpenChange, rerenderWith } = renderDialog();
+
+    rerenderWith({ resolutions: { [one.id]: "accepted" } });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Tab" });
+
+    act(() => {
+      vi.advanceTimersByTime(60000);
+    });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("still closes itself after a mouse click resolved the last invitation", () => {
+    const { onOpenChange, rerenderWith } = renderDialog();
+
+    // Clicking Join puts the cursor inside the dialog and moves it on the way,
+    // which must not count against a dwell that has not started yet.
+    const join = screen.getByRole("button", { name: "Join team: Platform Team" });
+    fireEvent.pointerMove(join);
+    fireEvent.pointerOver(join);
+    fireEvent.click(join);
+
+    rerenderWith({ resolutions: { [one.id]: "accepted" } });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 
   it("never closes itself when the dwell is disabled", () => {

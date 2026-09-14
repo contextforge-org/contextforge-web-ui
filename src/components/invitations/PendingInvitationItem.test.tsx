@@ -53,7 +53,7 @@ describe("PendingInvitationItem", () => {
   it("offers both actions while unresolved and names the team in each label", () => {
     renderItem();
 
-    expect(screen.getByRole("button", { name: "Join Platform Team" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Join team: Platform Team" })).toBeEnabled();
     expect(
       screen.getByRole("button", { name: "Decline invitation to Platform Team" }),
     ).toBeEnabled();
@@ -63,7 +63,7 @@ describe("PendingInvitationItem", () => {
     const user = userEvent.setup();
     const { onAccept, onDecline } = renderItem();
 
-    await user.click(screen.getByRole("button", { name: "Join Platform Team" }));
+    await user.click(screen.getByRole("button", { name: "Join team: Platform Team" }));
     expect(onAccept).toHaveBeenCalledWith(invitation);
 
     await user.click(screen.getByRole("button", { name: "Decline invitation to Platform Team" }));
@@ -73,11 +73,11 @@ describe("PendingInvitationItem", () => {
   it("disables both buttons and labels the acting one while a request is in flight", () => {
     renderItem({ busyAction: "accept" });
 
-    expect(screen.getByRole("button", { name: "Join Platform Team" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Join team: Platform Team" })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Decline invitation to Platform Team" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Join Platform Team" })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: "Join team: Platform Team" })).toHaveTextContent(
       "Joining...",
     );
   });

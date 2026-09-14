@@ -94,7 +94,7 @@ describe("PendingInvitationsProvider", () => {
     );
 
     await user.click(await screen.findByText("toolbar: 2"));
-    await user.click(await screen.findByRole("button", { name: "Join Platform Team" }));
+    await user.click(await screen.findByRole("button", { name: "Join team: Platform Team" }));
 
     await waitFor(() => expect(screen.getByText("toolbar: 1")).toBeInTheDocument());
     expect(screen.getByText("header: 1")).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("PendingInvitationsProvider", () => {
 
     await user.click(await screen.findByText("toolbar: 1"));
     // Resolving the last invitation drops the count to 0, unmounting the trigger.
-    await user.click(await screen.findByRole("button", { name: "Join Platform Team" }));
+    await user.click(await screen.findByRole("button", { name: "Join team: Platform Team" }));
     await waitFor(() => expect(screen.queryByText("toolbar: 1")).not.toBeInTheDocument());
 
     await user.keyboard("{Escape}");

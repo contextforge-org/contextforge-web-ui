@@ -63,21 +63,33 @@ export function PendingInvitationsDialog({
   const hasRequestInFlight = Object.keys(inFlight).length > 0;
   const allResolved = invitations.length > 0 && pendingCount === 0;
 
-  // Pointer entry cancels the dwell outright; it never resumes. Focus is no
-  // use as the signal here because the dialog traps it.
+  /**
+   * The dwell runs only while the confirmation is the whole content, and any
+   * pointer movement or key press during it cancels it outright; it never
+   * resumes. Movement rather than entry is the signal because resolving the
+   * last invitation means clicking inside the dialog, so entry alone would
+   * cancel the dwell every mouse user ever starts. Focus is no use either,
+   * since the dialog traps it.
+   */
   const [dwellCancelled, setDwellCancelled] = useState(false);
+  const isDwelling = open && allResolved && !hasRequestInFlight && autoCloseDelayMs > 0;
+
+  // Arming clears a stale cancel, so nothing that happened before the
+  // confirmation appeared counts against it.
+  useEffect(() => {
+    if (!open || isDwelling) setDwellCancelled(false);
+  }, [open, isDwelling]);
+
+  const cancelDwell = useCallback(() => {
+    if (isDwelling) setDwellCancelled(true);
+  }, [isDwelling]);
 
   useEffect(() => {
-    if (!open) setDwellCancelled(false);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || dwellCancelled || autoCloseDelayMs <= 0) return;
-    if (!allResolved || hasRequestInFlight) return;
+    if (!isDwelling || dwellCancelled) return;
 
     const timer = setTimeout(() => onOpenChange(false), autoCloseDelayMs);
     return () => clearTimeout(timer);
-  }, [open, dwellCancelled, autoCloseDelayMs, allResolved, hasRequestInFlight, onOpenChange]);
+  }, [isDwelling, dwellCancelled, autoCloseDelayMs, onOpenChange]);
 
   // A resolved row's buttons unmount, taking the focused element with them.
   const previousResolvedCount = useRef(resolvedCount);
@@ -109,7 +121,8 @@ export function PendingInvitationsDialog({
       <DialogContent
         ref={contentRef}
         aria-describedby={summaryId}
-        onPointerEnter={() => setDwellCancelled(true)}
+        onPointerMove={cancelDwell}
+        onKeyDown={cancelDwell}
         onCloseAutoFocus={onCloseAutoFocus}
         className={cn("gap-6 scrollbar-gutter-stable p-6 sm:rounded-[12px]", className)}
       >
@@ -144,9 +157,18 @@ export function PendingInvitationsDialog({
             {error && (
               <div
                 role="alert"
+                aria-live="assertive"
+                aria-atomic="true"
                 className="flex flex-col items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-4"
               >
-                <p className="text-sm text-destructive">{error}</p>
+                {/* Localised headline over the sanitised detail, as on the
+                    Teams page: sanitizeError only ever returns English. */}
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold">
+                    {intl.formatMessage({ id: "invitations.error.load" })}
+                  </h3>
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
                 {onRetry && (
                   <Button variant="outline" size="xs" className="shadow-none" onClick={onRetry}>
                     {intl.formatMessage({ id: "common.button.retry" })}

@@ -6,7 +6,7 @@
   "invitations.role.owner": "an owner",
   "invitations.role.member": "a member",
   "invitations.action.accept": "Join team",
-  "invitations.action.accept.aria": "Join {team}",
+  "invitations.action.accept.aria": "Join team: {team}",
   "invitations.action.accepting": "Joining...",
   "invitations.action.decline": "Decline",
   "invitations.action.decline.aria": "Decline invitation to {team}",

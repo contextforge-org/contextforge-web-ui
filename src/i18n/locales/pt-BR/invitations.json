@@ -6,7 +6,7 @@
   "invitations.role.owner": "proprietário",
   "invitations.role.member": "membro",
   "invitations.action.accept": "Entrar na equipe",
-  "invitations.action.accept.aria": "Entrar em {team}",
+  "invitations.action.accept.aria": "Entrar na equipe: {team}",
   "invitations.action.accepting": "Entrando...",
   "invitations.action.decline": "Recusar",
   "invitations.action.decline.aria": "Recusar convite para {team}",

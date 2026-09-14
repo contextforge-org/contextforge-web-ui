@@ -795,6 +795,16 @@ describe("Teams pending invitations", () => {
     expect(await screen.findByRole("button", { name: "2 invitations" })).toBeInTheDocument();
   });
 
+  it("renders the chip for a user with no teams of their own", async () => {
+    mockInvitationCount = 1;
+    vi.mocked(api.get).mockResolvedValue({ teams: [] });
+
+    renderWithRouter(<Teams />);
+    await screen.findByText("No teams yet");
+
+    expect(screen.getByRole("button", { name: "1 invitation" })).toBeInTheDocument();
+  });
+
   it("renders no chip when nothing is pending", async () => {
     vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
 
