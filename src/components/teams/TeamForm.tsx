@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useIntl } from "react-intl";
 import { ArrowLeft, Lock, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,28 +100,30 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
 
           <form onSubmit={onSubmit} className="space-y-5" aria-labelledby="create-team-form-title">
             {/* Name */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="team-name"
-                className="text-sm font-medium text-neutral-950 dark:text-white"
-              >
-                {intl.formatMessage({ id: "teams.create.name" })}{" "}
-                <span className="text-red-500" aria-hidden="true">
-                  *
-                </span>
-              </Label>
-              <Input
-                id="team-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={intl.formatMessage({ id: "teams.create.namePlaceholder" })}
-                disabled={isSubmitting}
-                className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-              />
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {intl.formatMessage({ id: "teams.create.nameHint" })}
-              </p>
-            </div>
+            <Field
+              id="team-name"
+              hint={intl.formatMessage({ id: "teams.create.nameHint" })}
+              labelProps={{ className: "text-neutral-950 dark:text-white" }}
+              label={
+                <>
+                  {intl.formatMessage({ id: "teams.create.name" })}{" "}
+                  <span className="text-red-500" aria-hidden="true">
+                    *
+                  </span>
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "teams.create.namePlaceholder" })}
+                  disabled={isSubmitting}
+                  className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                />
+              )}
+            </Field>
 
             {/* Description */}
             <Textarea
@@ -217,7 +220,7 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
                         }
                         disabled={isSubmitting}
                       >
-                        <SelectTrigger className="h-10 w-full border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700">
+                        <SelectTrigger className="border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -259,29 +262,29 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
             )}
 
             {/* Maximum Members */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="max-members"
-                className="text-sm font-medium text-neutral-950 dark:text-white"
-              >
-                {intl.formatMessage({ id: "teams.create.maxMembers" })}
-              </Label>
-              <Select value={maxMembers} onValueChange={setMaxMembers} disabled={isSubmitting}>
-                <SelectTrigger
-                  id="max-members"
-                  className="h-10 w-full border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {maxMembersOptions.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Field
+              id="max-members"
+              labelProps={{ className: "text-neutral-950 dark:text-white" }}
+              label={intl.formatMessage({ id: "teams.create.maxMembers" })}
+            >
+              {(controlProps) => (
+                <Select value={maxMembers} onValueChange={setMaxMembers} disabled={isSubmitting}>
+                  <SelectTrigger
+                    {...controlProps}
+                    className="border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maxMembersOptions.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
 
             {error && (
               <div

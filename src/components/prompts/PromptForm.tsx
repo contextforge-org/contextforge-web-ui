@@ -4,9 +4,9 @@ import { Info, MessageSquareCode } from "lucide-react";
 import { STATUS_ICON } from "@/lib/status";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { TagInput } from "@/components/ui/tag-input";
 import {
   Select,
@@ -75,8 +75,6 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
 
   if (!isOpen) return null;
 
-  const visibilityDescribedBy = form.errors.visibility ? "prompt-visibility-error" : undefined;
-
   return (
     <div className="mx-auto w-full max-w-3xl">
       <BackButton onClick={onToggle} />
@@ -120,72 +118,70 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
               </div>
             )}
 
-            <div className="space-y-2.5">
-              <Label htmlFor="name" className="mb-2.5 block text-sm font-medium text-foreground">
-                {intl.formatMessage({ id: "prompts.add.field.name" })}{" "}
-                <span className="text-destructive" aria-hidden="true">
-                  {intl.formatMessage({ id: "prompts.add.required" })}
-                </span>
-              </Label>
-              <Input
-                id="name"
-                ref={nameInputRef}
-                value={form.name}
-                onChange={(e) => form.setName(e.target.value)}
-                placeholder="Name"
-                aria-required="true"
-                aria-invalid={!!form.errors.name}
-                aria-describedby={form.errors.name ? "prompt-name-error" : undefined}
-                className="h-10 rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-              />
-              {form.errors.name && (
-                <p id="prompt-name-error" className="text-sm text-destructive">
-                  {form.errors.name}
-                </p>
+            <Field
+              id="name"
+              error={form.errors.name}
+              label={
+                <>
+                  {intl.formatMessage({ id: "prompts.add.field.name" })}{" "}
+                  <span className="text-destructive" aria-hidden="true">
+                    {intl.formatMessage({ id: "prompts.add.required" })}
+                  </span>
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  ref={nameInputRef}
+                  value={form.name}
+                  onChange={(e) => form.setName(e.target.value)}
+                  placeholder="Name"
+                  aria-required="true"
+                  className="h-10 rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-2.5">
-              <div className="mb-2.5 flex items-center gap-1.5">
-                <Label htmlFor="visibility" className="block text-sm font-medium text-foreground">
+            <Field
+              id="visibility"
+              error={form.errors.visibility}
+              label={
+                <span className="flex items-center gap-1.5">
                   {intl.formatMessage({ id: "prompts.add.field.visibility" })}{" "}
                   <span className="text-destructive" aria-hidden="true">
                     {intl.formatMessage({ id: "prompts.add.required" })}
                   </span>
-                </Label>
-                <VisibilityInfoPopover />
-              </div>
-              <Select
-                value={form.visibility}
-                onValueChange={(value) => form.setVisibility(value as Visibility)}
-              >
-                <SelectTrigger
-                  id="visibility"
-                  aria-required="true"
-                  aria-invalid={!!form.errors.visibility}
-                  aria-describedby={visibilityDescribedBy}
-                  className="h-10 w-full rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                  <VisibilityInfoPopover />
+                </span>
+              }
+            >
+              {(controlProps) => (
+                <Select
+                  value={form.visibility}
+                  onValueChange={(value) => form.setVisibility(value as Visibility)}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">
-                    {intl.formatMessage({ id: "common.visibility.internal" })}
-                  </SelectItem>
-                  <SelectItem value="team">
-                    {intl.formatMessage({ id: "common.visibility.team" })}
-                  </SelectItem>
-                  <SelectItem value="private">
-                    {intl.formatMessage({ id: "common.visibility.private" })}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {form.errors.visibility && (
-                <p id="prompt-visibility-error" className="text-sm text-destructive">
-                  {form.errors.visibility}
-                </p>
+                  <SelectTrigger
+                    {...controlProps}
+                    aria-required="true"
+                    className="rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">
+                      {intl.formatMessage({ id: "common.visibility.internal" })}
+                    </SelectItem>
+                    <SelectItem value="team">
+                      {intl.formatMessage({ id: "common.visibility.team" })}
+                    </SelectItem>
+                    <SelectItem value="private">
+                      {intl.formatMessage({ id: "common.visibility.private" })}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            </div>
+            </Field>
 
             {form.visibility === "team" && (
               <TeamSelect
@@ -197,91 +193,79 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
               />
             )}
 
-            <div className="space-y-2.5">
-              <Label
-                htmlFor="template"
-                className="mb-2.5 block text-sm font-medium text-foreground"
-              >
-                {intl.formatMessage({ id: "prompts.add.field.template" })}{" "}
-                {templateRequired && (
-                  <span className="text-destructive" aria-hidden="true">
-                    {intl.formatMessage({ id: "prompts.add.required" })}
-                  </span>
-                )}
-              </Label>
-              <Textarea
-                id="template"
-                value={form.template}
-                onChange={(e) => form.setTemplate(e.target.value)}
-                placeholder={intl.formatMessage({ id: "prompts.add.placeholder.template" })}
-                aria-required={templateRequired}
-                aria-invalid={!!form.errors.template}
-                aria-describedby={form.errors.template ? "prompt-template-error" : undefined}
-                disabled={isFederated}
-                className="min-h-[96px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-              />
-              {form.errors.template && (
-                <p id="prompt-template-error" className="text-sm text-destructive">
-                  {form.errors.template}
-                </p>
+            <Field
+              id="template"
+              error={form.errors.template}
+              label={
+                <>
+                  {intl.formatMessage({ id: "prompts.add.field.template" })}{" "}
+                  {templateRequired && (
+                    <span className="text-destructive" aria-hidden="true">
+                      {intl.formatMessage({ id: "prompts.add.required" })}
+                    </span>
+                  )}
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={form.template}
+                  onChange={(e) => form.setTemplate(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "prompts.add.placeholder.template" })}
+                  aria-required={templateRequired}
+                  disabled={isFederated}
+                  className="min-h-[96px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-2.5">
-              <Label
-                htmlFor="arguments"
-                className="mb-2.5 block text-sm font-medium text-foreground"
-              >
-                {intl.formatMessage({ id: "prompts.add.field.arguments" })}
-              </Label>
-              <Textarea
-                id="arguments"
-                value={form.arguments}
-                onChange={(e) => form.setArguments(e.target.value)}
-                onBlur={(e) => form.validateField("arguments", e.target.value)}
-                placeholder={intl.formatMessage({ id: "prompts.add.placeholder.arguments" })}
-                aria-invalid={!!form.errors.arguments}
-                aria-describedby={form.errors.arguments ? "prompt-arguments-error" : undefined}
-                disabled={isFederated}
-                className="min-h-[116px] resize-y font-mono text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-              />
-              {form.errors.arguments && (
-                <p id="prompt-arguments-error" className="text-sm text-destructive">
-                  {form.errors.arguments}
-                </p>
+            <Field
+              id="arguments"
+              error={form.errors.arguments}
+              label={intl.formatMessage({ id: "prompts.add.field.arguments" })}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={form.arguments}
+                  onChange={(e) => form.setArguments(e.target.value)}
+                  onBlur={(e) => form.validateField("arguments", e.target.value)}
+                  placeholder={intl.formatMessage({ id: "prompts.add.placeholder.arguments" })}
+                  disabled={isFederated}
+                  className="min-h-[116px] resize-y font-mono text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-2.5">
-              <Label
-                htmlFor="description"
-                className="mb-2.5 block text-sm font-medium text-foreground"
-              >
-                {intl.formatMessage({ id: "prompts.add.field.description" })}
-              </Label>
-              <Textarea
-                id="description"
-                value={form.description}
-                onChange={(e) => form.setDescription(e.target.value)}
-                placeholder={intl.formatMessage({ id: "prompts.add.placeholder.description" })}
-                disabled={isFederated}
-                className="min-h-[60px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
-              />
-            </div>
+            <Field
+              id="description"
+              label={intl.formatMessage({ id: "prompts.add.field.description" })}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={form.description}
+                  onChange={(e) => form.setDescription(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "prompts.add.placeholder.description" })}
+                  disabled={isFederated}
+                  className="min-h-[60px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                />
+              )}
+            </Field>
 
-            <div className="space-y-2.5">
-              <Label htmlFor="tags" className="mb-2.5 block text-sm font-medium text-foreground">
-                {intl.formatMessage({ id: "prompts.add.field.tags" })}
-              </Label>
-              <TagInput
-                id="tags"
-                value={form.tags}
-                onChange={form.setTags}
-                suggestions={tagSuggestions}
-                maxTags={MAX_TAGS}
-                placeholder={intl.formatMessage({ id: "prompts.add.placeholder.tags" })}
-              />
-            </div>
+            <Field id="tags" label={intl.formatMessage({ id: "prompts.add.field.tags" })}>
+              {(controlProps) => (
+                <TagInput
+                  {...controlProps}
+                  value={form.tags}
+                  onChange={form.setTags}
+                  suggestions={tagSuggestions}
+                  maxTags={MAX_TAGS}
+                  placeholder={intl.formatMessage({ id: "prompts.add.placeholder.tags" })}
+                />
+              )}
+            </Field>
 
             <div className="flex items-center justify-end gap-3">
               <Button

@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToolAdvancedSettings } from "@/components/tools/ToolAdvancedSettings";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
@@ -207,12 +208,9 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
           <form className="space-y-6" onSubmit={onSubmit}>
             {integrationType !== "MCP" && (
               <div className="space-y-3">
-                <label
-                  id="request-type-label"
-                  className="text-sm font-medium text-neutral-950 dark:text-white"
-                >
+                <Label id="request-type-label" className="text-neutral-950 dark:text-white">
                   {intl.formatMessage({ id: "tools.form.requestType" })}
-                </label>
+                </Label>
                 <div
                   role="radiogroup"
                   aria-labelledby="request-type-label"
@@ -244,14 +242,14 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
             )}
 
             <div className="space-y-1">
-              <label
+              <Label
                 htmlFor="tool-name"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+                className="inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "tools.form.name" })}
                 <span className="text-red-500">*</span>
                 <span className="sr-only">{intl.formatMessage({ id: "tools.form.required" })}</span>
-              </label>
+              </Label>
               <Input
                 id="tool-name"
                 value={name}
@@ -269,14 +267,14 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
             </div>
 
             <div className="space-y-1">
-              <label
+              <Label
                 htmlFor="tool-url"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+                className="inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100"
               >
                 {intl.formatMessage({ id: "tools.form.url" })}
                 <span className="text-red-500">*</span>
                 <span className="sr-only">{intl.formatMessage({ id: "tools.form.required" })}</span>
-              </label>
+              </Label>
               <Input
                 id="tool-url"
                 value={url}
@@ -301,13 +299,13 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
 
             <div className="flex flex-col gap-5 pt-2">
               <div className="space-y-3">
-                <label className="text-sm font-medium text-neutral-950 dark:text-white">
+                <Label className="text-neutral-950 dark:text-white">
                   {intl.formatMessage({ id: "tools.form.schema" })}
                   <span className="text-red-500">*</span>
                   <span className="sr-only">
                     {intl.formatMessage({ id: "tools.form.required" })}
                   </span>
-                </label>
+                </Label>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   {intl.formatMessage({ id: "tools.form.schema.description" })}
                 </p>
@@ -370,12 +368,12 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                     </p>
                     {showSpecUrlInput && (
                       <div className="space-y-1">
-                        <label
+                        <Label
                           htmlFor="openapi-spec-url"
-                          className="text-xs font-medium text-neutral-600 dark:text-neutral-400"
+                          className="text-xs text-neutral-600 dark:text-neutral-400"
                         >
                           {intl.formatMessage({ id: "tools.form.schema.specUrlLabel" })}
-                        </label>
+                        </Label>
                         <Input
                           id="openapi-spec-url"
                           value={openApiSpecUrl}
@@ -395,16 +393,16 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                 {(isEditMode || schemaMode !== "none") && (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <label
+                      <Label
                         htmlFor="input-schema"
-                        className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+                        className="inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100"
                       >
                         {intl.formatMessage({ id: "tools.form.inputSchema" })}
                         <span className="text-red-500">*</span>
                         <span className="sr-only">
                           {intl.formatMessage({ id: "tools.form.required" })}
                         </span>
-                      </label>
+                      </Label>
                       <div className="relative">
                         <Textarea
                           id="input-schema"
@@ -424,12 +422,12 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label
+                      <Label
                         htmlFor="output-schema"
-                        className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
+                        className="text-neutral-900 dark:text-neutral-100"
                       >
                         {intl.formatMessage({ id: "tools.form.outputSchema" })}
-                      </label>
+                      </Label>
                       <div className="relative">
                         <Textarea
                           id="output-schema"

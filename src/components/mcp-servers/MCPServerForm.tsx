@@ -2,8 +2,10 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
@@ -232,9 +234,9 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
 
           <form className="space-y-6" onSubmit={onSubmit}>
             <div className="space-y-3">
-              <label className="text-sm font-medium text-neutral-950 dark:text-white">
+              <Label className="text-neutral-950 dark:text-white">
                 {intl.formatMessage({ id: "mcpServer.form.transportLabel" })}
-              </label>
+              </Label>
               <div
                 role="radiogroup"
                 aria-label={intl.formatMessage({ id: "mcpServer.form.transportLabel" })}
@@ -265,60 +267,62 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label
-                htmlFor="server-name"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "mcpServer.form.nameLabel" })}
-                <span className="text-destructive">*</span>
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "mcpServer.form.required" })}
-                </span>
-              </label>
-              <Input
-                id="server-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={intl.formatMessage({ id: "mcpServer.form.namePlaceholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "name-error" : undefined}
-              />
-              {errors.name && (
-                <p id="name-error" className="text-sm text-destructive">
-                  {errors.name}
-                </p>
+            <Field
+              id="server-name"
+              error={errors.name}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={
+                <>
+                  {intl.formatMessage({ id: "mcpServer.form.nameLabel" })}
+                  <span className="text-destructive">*</span>
+                  <span className="sr-only">
+                    {intl.formatMessage({ id: "mcpServer.form.required" })}
+                  </span>
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={intl.formatMessage({ id: "mcpServer.form.namePlaceholder" })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-1">
-              <label
-                htmlFor="server-url"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "mcpServer.form.urlLabel" })}
-                <span className="text-destructive">*</span>
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "mcpServer.form.required" })}
-                </span>
-                <STATUS_ICON.info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
-              </label>
-              <Input
-                id="server-url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder={intl.formatMessage({ id: "mcpServer.form.urlPlaceholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.url}
-                aria-describedby={errors.url ? "url-error" : undefined}
-              />
-              {errors.url && (
-                <p id="url-error" className="text-sm text-destructive">
-                  {errors.url}
-                </p>
+            <Field
+              id="server-url"
+              error={errors.url}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={
+                <>
+                  {intl.formatMessage({ id: "mcpServer.form.urlLabel" })}
+                  <span className="text-destructive">*</span>
+                  <span className="sr-only">
+                    {intl.formatMessage({ id: "mcpServer.form.required" })}
+                  </span>
+                  <STATUS_ICON.info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder={intl.formatMessage({ id: "mcpServer.form.urlPlaceholder" })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
             <div className="space-y-1">
               <label htmlFor="server-description" className="sr-only">

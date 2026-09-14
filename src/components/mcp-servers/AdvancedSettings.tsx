@@ -1,5 +1,7 @@
 import { useIntl } from "react-intl";
 import { Info } from "lucide-react";
+import { Field } from "@/components/ui/field";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -213,38 +215,37 @@ export function AdvancedSettings({
   return (
     <div className="space-y-6 py-4">
       {/* Visibility */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-1.5">
-          <label
-            htmlFor="visibility"
-            className="text-sm font-medium text-neutral-950 dark:text-white"
-          >
+      <Field
+        id="visibility"
+        labelProps={{ className: "text-neutral-950 dark:text-white" }}
+        label={
+          <span className="flex items-center gap-1.5">
             {intl.formatMessage({ id: "gateways.createServer.visibility" })}
-          </label>
-          <VisibilityInfoPopover />
-        </div>
-        <Select value={visibility} onValueChange={onVisibilityChange}>
-          <SelectTrigger
-            id="visibility"
-            className="h-10 w-full border-neutral-300 dark:border-neutral-700"
-          >
-            <SelectValue
-              placeholder={intl.formatMessage({ id: "mcpServer.advanced.visibilityPlaceholder" })}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="public">
-              {intl.formatMessage({ id: "common.visibility.internal" })}
-            </SelectItem>
-            <SelectItem value="private">
-              {intl.formatMessage({ id: "common.visibility.private" })}
-            </SelectItem>
-            <SelectItem value="team">
-              {intl.formatMessage({ id: "common.visibility.team" })}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            <VisibilityInfoPopover />
+          </span>
+        }
+      >
+        {(controlProps) => (
+          <Select value={visibility} onValueChange={onVisibilityChange}>
+            <SelectTrigger {...controlProps} className="border-neutral-300 dark:border-neutral-700">
+              <SelectValue
+                placeholder={intl.formatMessage({ id: "mcpServer.advanced.visibilityPlaceholder" })}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="public">
+                {intl.formatMessage({ id: "common.visibility.internal" })}
+              </SelectItem>
+              <SelectItem value="private">
+                {intl.formatMessage({ id: "common.visibility.private" })}
+              </SelectItem>
+              <SelectItem value="team">
+                {intl.formatMessage({ id: "common.visibility.team" })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
 
       {visibility === "team" && (
         <TeamSelect
@@ -258,9 +259,9 @@ export function AdvancedSettings({
 
       {/* Authentication type */}
       <div className="space-y-3">
-        <label className="text-sm font-medium text-neutral-950 dark:text-white">
+        <Label className="text-neutral-950 dark:text-white">
           {intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
-        </label>
+        </Label>
         <div
           role="radiogroup"
           aria-label={intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
@@ -298,12 +299,9 @@ export function AdvancedSettings({
       {/* One-time authentication */}
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <label
-            htmlFor="one-time-auth"
-            className="text-sm font-medium text-neutral-950 dark:text-white"
-          >
+          <Label htmlFor="one-time-auth" className="text-neutral-950 dark:text-white">
             {intl.formatMessage({ id: "mcpServer.advanced.oneTimeAuthLabel" })}
-          </label>
+          </Label>
           <Info className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
         </div>
         <div className="flex items-center gap-3">
@@ -325,24 +323,26 @@ export function AdvancedSettings({
       </div>
 
       {/* Passthrough headers */}
-      <div className="space-y-2">
-        <label
-          htmlFor="passthrough-headers"
-          className="text-sm font-medium text-neutral-950 dark:text-white"
-        >
-          {intl.formatMessage({ id: "mcpServer.advanced.passthroughLabel" })}
-        </label>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
-        </p>
-        <Textarea
-          id="passthrough-headers"
-          value={passthroughHeaders}
-          onChange={(e) => onPassthroughHeadersChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
-          className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
-        />
-      </div>
+      <Field
+        id="passthrough-headers"
+        labelProps={{ className: "text-neutral-950 dark:text-white" }}
+        label={intl.formatMessage({ id: "mcpServer.advanced.passthroughLabel" })}
+      >
+        {(controlProps) => (
+          <>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              {intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
+            </p>
+            <Textarea
+              {...controlProps}
+              value={passthroughHeaders}
+              onChange={(e) => onPassthroughHeadersChange(e.target.value)}
+              placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
+              className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
+            />
+          </>
+        )}
+      </Field>
 
       {/* CA certificate */}
       <CACertificateUpload onFilesSelected={onCACertificateFilesSelected} />

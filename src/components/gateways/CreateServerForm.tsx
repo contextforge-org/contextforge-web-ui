@@ -2,7 +2,9 @@ import { useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { ChevronRight, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TagInput } from "@/components/ui/tag-input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -157,42 +159,40 @@ export function CreateServerForm({
           </div>
         </fieldset>
 
-        <div className="space-y-3">
-          <label
-            htmlFor="server-name"
-            className="inline-flex items-center gap-0.5 text-sm font-medium text-foreground"
-          >
-            {intl.formatMessage({ id: "gateways.createServer.name" })}
-            <span className="text-destructive">*</span>
-            <span className="sr-only">
-              {intl.formatMessage({ id: "gateways.createServer.required" })}
-            </span>
-          </label>
-          <Input
-            id="server-name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              if (errors.name) validateField("name", event.target.value);
-            }}
-            onBlur={(event) => validateField("name", event.target.value)}
-            placeholder={intl.formatMessage({ id: "gateways.createServer.namePlaceholder" })}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? "server-name-error" : undefined}
-            maxLength={100}
-            className="h-10 rounded-md border-input bg-background px-3 text-sm shadow-none"
-          />
-          {errors.name && (
-            <p id="server-name-error" className="text-sm text-destructive">
-              {errors.name}
-            </p>
+        <Field
+          id="server-name"
+          error={errors.name}
+          labelProps={{ className: "inline-flex items-center gap-0.5" }}
+          label={
+            <>
+              {intl.formatMessage({ id: "gateways.createServer.name" })}
+              <span className="text-destructive">*</span>
+              <span className="sr-only">
+                {intl.formatMessage({ id: "gateways.createServer.required" })}
+              </span>
+            </>
+          }
+        >
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                if (errors.name) validateField("name", event.target.value);
+              }}
+              onBlur={(event) => validateField("name", event.target.value)}
+              placeholder={intl.formatMessage({ id: "gateways.createServer.namePlaceholder" })}
+              maxLength={100}
+              className="h-10 rounded-md border-input bg-background px-3 text-sm shadow-none"
+            />
           )}
-        </div>
+        </Field>
 
         <div className="space-y-3">
-          <label htmlFor="oauth-enabled" className="text-sm font-medium text-foreground">
+          <Label htmlFor="oauth-enabled">
             {intl.formatMessage({ id: "gateways.createServer.oauthLabel" })}
-          </label>
+          </Label>
           <div className="flex items-center gap-4">
             <Switch
               id="oauth-enabled"
@@ -227,58 +227,50 @@ export function CreateServerForm({
 
         {optionalOpen && (
           <div id="optional-server-configuration" className="grid gap-7">
-            <div className="space-y-3">
-              <label htmlFor="server-tags" className="text-sm font-medium text-foreground">
-                {intl.formatMessage({ id: "gateways.createServer.tags" })}
-              </label>
-              <TagInput
-                id="server-tags"
-                value={tags}
-                onChange={(next) => {
-                  setTags(next);
-                  if (errors.tags) validateField("tags", next);
-                }}
-                suggestions={tagSuggestions}
-                maxTags={MAX_TAGS}
-                placeholder={intl.formatMessage({
-                  id: "gateways.createServer.tagsPlaceholder",
-                })}
-                aria-invalid={Boolean(errors.tags)}
-                aria-describedby={errors.tags ? "server-tags-error" : undefined}
-              />
-              {errors.tags && (
-                <p id="server-tags-error" className="text-sm text-destructive">
-                  {errors.tags}
-                </p>
+            <Field
+              id="server-tags"
+              error={errors.tags}
+              label={intl.formatMessage({ id: "gateways.createServer.tags" })}
+            >
+              {(controlProps) => (
+                <TagInput
+                  {...controlProps}
+                  value={tags}
+                  onChange={(next) => {
+                    setTags(next);
+                    if (errors.tags) validateField("tags", next);
+                  }}
+                  suggestions={tagSuggestions}
+                  maxTags={MAX_TAGS}
+                  placeholder={intl.formatMessage({
+                    id: "gateways.createServer.tagsPlaceholder",
+                  })}
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-3">
-              <label htmlFor="server-description" className="text-sm font-medium text-foreground">
-                {intl.formatMessage({ id: "gateways.createServer.descriptionLabel" })}
-              </label>
-              <Textarea
-                id="server-description"
-                value={description}
-                onChange={(event) => {
-                  setDescription(event.target.value);
-                  if (errors.description) validateField("description", event.target.value);
-                }}
-                onBlur={(event) => validateField("description", event.target.value)}
-                placeholder={intl.formatMessage({
-                  id: "gateways.createServer.descriptionPlaceholder",
-                })}
-                aria-invalid={Boolean(errors.description)}
-                aria-describedby={errors.description ? "server-description-error" : undefined}
-                maxLength={500}
-                className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
-              />
-              {errors.description && (
-                <p id="server-description-error" className="text-sm text-destructive">
-                  {errors.description}
-                </p>
+            <Field
+              id="server-description"
+              error={errors.description}
+              label={intl.formatMessage({ id: "gateways.createServer.descriptionLabel" })}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={description}
+                  onChange={(event) => {
+                    setDescription(event.target.value);
+                    if (errors.description) validateField("description", event.target.value);
+                  }}
+                  onBlur={(event) => validateField("description", event.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: "gateways.createServer.descriptionPlaceholder",
+                  })}
+                  maxLength={500}
+                  className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
+                />
               )}
-            </div>
+            </Field>
           </div>
         )}
       </div>

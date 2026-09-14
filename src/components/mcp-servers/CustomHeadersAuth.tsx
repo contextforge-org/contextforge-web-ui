@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useIntl } from "react-intl";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -52,52 +53,68 @@ export function CustomHeadersAuth({
       <div className="space-y-3">
         {headers.map((header, index) => (
           <div key={header.id} className="flex items-end gap-3">
-            <div className="flex-1 space-y-1">
-              <label
-                htmlFor={`header-key-${index}`}
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "mcpServer.auth.custom.keyLabel" })}
-                <span className="text-destructive">*</span>
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "mcpServer.form.required" })}
-                </span>
-              </label>
-              <Input
-                id={`header-key-${index}`}
-                type="text"
-                value={header.key}
-                onChange={(e) => updateHeader(index, "key", e.target.value)}
-                placeholder={intl.formatMessage({
-                  id:
-                    index === 0 && headers.length === 1
-                      ? "mcpServer.auth.custom.keyPlaceholderExample"
-                      : "mcpServer.auth.custom.keyPlaceholder",
-                })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-              />
-            </div>
+            <Field
+              id={`header-key-${index}`}
+              className="flex-1"
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={
+                <>
+                  {intl.formatMessage({ id: "mcpServer.auth.custom.keyLabel" })}
+                  <span className="text-destructive">*</span>
+                  <span className="sr-only">
+                    {intl.formatMessage({ id: "mcpServer.form.required" })}
+                  </span>
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="text"
+                  value={header.key}
+                  onChange={(e) => updateHeader(index, "key", e.target.value)}
+                  placeholder={intl.formatMessage({
+                    id:
+                      index === 0 && headers.length === 1
+                        ? "mcpServer.auth.custom.keyPlaceholderExample"
+                        : "mcpServer.auth.custom.keyPlaceholder",
+                  })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
+              )}
+            </Field>
 
-            <div className="flex-1 space-y-1">
-              <label
-                htmlFor={`header-value-${index}`}
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "mcpServer.auth.custom.valueLabel" })}
-                <span className="text-destructive">*</span>
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "mcpServer.form.required" })}
-                </span>
-              </label>
-              <Input
-                id={`header-value-${index}`}
-                type="password"
-                value={header.value}
-                onChange={(e) => updateHeader(index, "value", e.target.value)}
-                placeholder={intl.formatMessage({ id: "mcpServer.auth.custom.valuePlaceholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-              />
-            </div>
+            <Field
+              id={`header-value-${index}`}
+              className="flex-1"
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={
+                <>
+                  {intl.formatMessage({ id: "mcpServer.auth.custom.valueLabel" })}
+                  <span className="text-destructive">*</span>
+                  <span className="sr-only">
+                    {intl.formatMessage({ id: "mcpServer.form.required" })}
+                  </span>
+                </>
+              }
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="password"
+                  value={header.value}
+                  onChange={(e) => updateHeader(index, "value", e.target.value)}
+                  placeholder={intl.formatMessage({ id: "mcpServer.auth.custom.valuePlaceholder" })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
+              )}
+            </Field>
 
             <Button
               type="button"

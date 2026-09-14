@@ -2,6 +2,8 @@ import { useIntl } from "react-intl";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field } from "@/components/ui/field";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -96,39 +98,44 @@ export function OAuth2Auth({
   };
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-grant-type"
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.grantTypeLabel" })}
-          <span className="text-destructive">*</span>
-          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
-        </label>
-        <Select value={grantType} onValueChange={onGrantTypeChange}>
-          <SelectTrigger
-            id="oauth-grant-type"
-            className="h-10 w-full border-neutral-300 dark:border-neutral-700"
-          >
-            <SelectValue
-              placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.grantTypePlaceholder" })}
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="authorization_code">
-              {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.authorizationCode" })}
-            </SelectItem>
-            <SelectItem value="client_credentials">
-              {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.clientCredentials" })}
-            </SelectItem>
-            {grantType === "password" && (
-              <SelectItem value="password">
-                {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.password" })}
+      <Field
+        id="oauth-grant-type"
+        labelProps={{
+          className: "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+        }}
+        label={
+          <>
+            {intl.formatMessage({ id: "mcpServer.auth.oauth.grantTypeLabel" })}
+            <span className="text-destructive">*</span>
+            <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
+          </>
+        }
+      >
+        {(controlProps) => (
+          <Select value={grantType} onValueChange={onGrantTypeChange}>
+            <SelectTrigger {...controlProps} className="border-neutral-300 dark:border-neutral-700">
+              <SelectValue
+                placeholder={intl.formatMessage({
+                  id: "mcpServer.auth.oauth.grantTypePlaceholder",
+                })}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="authorization_code">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.authorizationCode" })}
               </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
+              <SelectItem value="client_credentials">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.clientCredentials" })}
+              </SelectItem>
+              {grantType === "password" && (
+                <SelectItem value="password">
+                  {intl.formatMessage({ id: "mcpServer.auth.oauth.grantType.password" })}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
 
       {grantType === "password" && (
         <p className="text-xs text-amber-600 dark:text-amber-500">
@@ -136,34 +143,33 @@ export function OAuth2Auth({
         </p>
       )}
 
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-issuer-url"
-          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-        </label>
-        <Input
-          id="oauth-issuer-url"
-          type="text"
-          value={issuerUrl}
-          onChange={(e) => onIssuerUrlChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlPlaceholder" })}
-          className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-        />
-        <p className="text-xs text-neutral-600 dark:text-neutral-500">
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlHelp" })}
-        </p>
-      </div>
+      <Field
+        id="oauth-issuer-url"
+        labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+        label={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
+        hint={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlHelp" })}
+      >
+        {(controlProps) => (
+          <Input
+            {...controlProps}
+            type="text"
+            value={issuerUrl}
+            onChange={(e) => onIssuerUrlChange(e.target.value)}
+            placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlPlaceholder" })}
+            className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          />
+        )}
+      </Field>
 
+      {/* Redirect URI has too many mutually exclusive states (loading, error
+          with retry, auto-derived help, local-redirect warning) to fit
+          Field's single hint/error slot, so it stays hand-rolled; only the
+          bare <label> is swapped for the shared primitive. */}
       {grantType === "authorization_code" && (
         <div className="space-y-1">
-          <label
-            htmlFor="oauth-redirect-uri"
-            className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-          >
+          <Label htmlFor="oauth-redirect-uri" className="text-neutral-900 dark:text-neutral-100">
             {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
-          </label>
+          </Label>
           {hasStoredRedirectUri ? (
             <>
               <div className="flex items-center gap-2">
@@ -236,176 +242,182 @@ export function OAuth2Auth({
 
       {grantType === "password" && (
         <>
-          <div className="space-y-1">
-            <label
-              htmlFor="oauth-username"
-              className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-            >
-              {intl.formatMessage({ id: "mcpServer.auth.oauth.usernameLabel" })}
-              <span className="text-destructive">*</span>
-              <span className="sr-only">
-                {intl.formatMessage({ id: "mcpServer.form.required" })}
-              </span>
-            </label>
-            <Input
-              id="oauth-username"
-              type="text"
-              value={username}
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.usernamePlaceholder" })}
-              aria-invalid={!!errors?.username}
-              aria-describedby={errors?.username ? "oauth-username-error" : undefined}
-              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-            />
-            {errors?.username && (
-              <p id="oauth-username-error" className="text-sm text-destructive">
-                {errors.username}
-              </p>
+          <Field
+            id="oauth-username"
+            error={errors?.username}
+            labelProps={{
+              className: "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+            }}
+            label={
+              <>
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.usernameLabel" })}
+                <span className="text-destructive">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
+              </>
+            }
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="text"
+                value={username}
+                onChange={(e) => onUsernameChange(e.target.value)}
+                placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.usernamePlaceholder" })}
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              />
             )}
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="oauth-password"
-              className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-            >
-              {intl.formatMessage({ id: "mcpServer.auth.oauth.passwordLabel" })}
-              <span className="text-destructive">*</span>
-              <span className="sr-only">
-                {intl.formatMessage({ id: "mcpServer.form.required" })}
-              </span>
-            </label>
-            <Input
-              id="oauth-password"
-              type="password"
-              value={password}
-              onChange={(e) => onPasswordChange(e.target.value)}
-              placeholder="••••••••"
-              aria-invalid={!!errors?.password}
-              aria-describedby={errors?.password ? "oauth-password-error" : undefined}
-              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-            />
-            {errors?.password && (
-              <p id="oauth-password-error" className="text-sm text-destructive">
-                {errors.password}
-              </p>
+          </Field>
+          <Field
+            id="oauth-password"
+            error={errors?.password}
+            labelProps={{
+              className: "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+            }}
+            label={
+              <>
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.passwordLabel" })}
+                <span className="text-destructive">*</span>
+                <span className="sr-only">
+                  {intl.formatMessage({ id: "mcpServer.form.required" })}
+                </span>
+              </>
+            }
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="password"
+                value={password}
+                onChange={(e) => onPasswordChange(e.target.value)}
+                placeholder="••••••••"
+                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+              />
             )}
-          </div>
+          </Field>
         </>
       )}
 
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-client-id"
-          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdLabel" })}
-        </label>
-        <Input
-          id="oauth-client-id"
-          type="text"
-          value={clientId}
-          onChange={(e) => onClientIdChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdPlaceholder" })}
-          className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-        />
-        {grantType === "authorization_code" && (
-          <p className="text-xs text-neutral-600 dark:text-neutral-500">
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-client-secret"
-          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretLabel" })}
-        </label>
-        <Input
-          id="oauth-client-secret"
-          type="password"
-          value={clientSecret}
-          onChange={(e) => onClientSecretChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretPlaceholder" })}
-          className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-        />
-        {grantType === "authorization_code" && (
-          <p className="text-xs text-neutral-600 dark:text-neutral-500">
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-token-url"
-          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-        </label>
-        <Input
-          id="oauth-token-url"
-          type="text"
-          value={tokenUrl}
-          onChange={(e) => onTokenUrlChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlPlaceholder" })}
-          className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-        />
-        <p className="text-xs text-neutral-600 dark:text-neutral-500">
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlHelp" })}
-        </p>
-      </div>
-
-      {grantType === "authorization_code" && (
-        <div className="space-y-1">
-          <label
-            htmlFor="oauth-authorization-url"
-            className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-          >
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-            <span className="text-destructive">*</span>
-            <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
-          </label>
+      <Field
+        id="oauth-client-id"
+        labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+        label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdLabel" })}
+        hint={
+          grantType === "authorization_code"
+            ? intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })
+            : undefined
+        }
+      >
+        {(controlProps) => (
           <Input
-            id="oauth-authorization-url"
+            {...controlProps}
             type="text"
-            value={authorizationUrl}
-            onChange={(e) => onAuthorizationUrlChange(e.target.value)}
-            placeholder={intl.formatMessage({
-              id: "mcpServer.auth.oauth.authorizationUrlPlaceholder",
-            })}
+            value={clientId}
+            onChange={(e) => onClientIdChange(e.target.value)}
+            placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdPlaceholder" })}
             className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
           />
-          <p className="text-xs text-neutral-600 dark:text-neutral-500">
-            {intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlHelp" })}
-          </p>
-        </div>
+        )}
+      </Field>
+
+      <Field
+        id="oauth-client-secret"
+        labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+        label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretLabel" })}
+        hint={
+          grantType === "authorization_code"
+            ? intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })
+            : undefined
+        }
+      >
+        {(controlProps) => (
+          <Input
+            {...controlProps}
+            type="password"
+            value={clientSecret}
+            onChange={(e) => onClientSecretChange(e.target.value)}
+            placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretPlaceholder" })}
+            className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          />
+        )}
+      </Field>
+
+      <Field
+        id="oauth-token-url"
+        labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+        label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
+        hint={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlHelp" })}
+      >
+        {(controlProps) => (
+          <Input
+            {...controlProps}
+            type="text"
+            value={tokenUrl}
+            onChange={(e) => onTokenUrlChange(e.target.value)}
+            placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlPlaceholder" })}
+            className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          />
+        )}
+      </Field>
+
+      {grantType === "authorization_code" && (
+        <Field
+          id="oauth-authorization-url"
+          labelProps={{
+            className: "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+          }}
+          label={
+            <>
+              {intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
+              <span className="text-destructive">*</span>
+              <span className="sr-only">
+                {intl.formatMessage({ id: "mcpServer.form.required" })}
+              </span>
+            </>
+          }
+          hint={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlHelp" })}
+        >
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              type="text"
+              value={authorizationUrl}
+              onChange={(e) => onAuthorizationUrlChange(e.target.value)}
+              placeholder={intl.formatMessage({
+                id: "mcpServer.auth.oauth.authorizationUrlPlaceholder",
+              })}
+              className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+            />
+          )}
+        </Field>
       )}
 
-      <div className="space-y-1">
-        <label
-          htmlFor="oauth-scopes"
-          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesLabel" })}
-        </label>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
-        </p>
-        <Textarea
-          id="oauth-scopes"
-          value={scopes}
-          onChange={(e) => onScopesChange(e.target.value)}
-          placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesPlaceholder" })}
-          className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
-        />
-      </div>
+      <Field
+        id="oauth-scopes"
+        labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+        label={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesLabel" })}
+      >
+        {(controlProps) => (
+          <>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
+            </p>
+            <Textarea
+              {...controlProps}
+              value={scopes}
+              onChange={(e) => onScopesChange(e.target.value)}
+              placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesPlaceholder" })}
+              className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
+            />
+          </>
+        )}
+      </Field>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+        <Label className="text-neutral-900 dark:text-neutral-100">
           {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenManagement" })}
-        </label>
+        </Label>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Checkbox
@@ -413,12 +425,12 @@ export function OAuth2Auth({
               checked={storeTokens}
               onCheckedChange={(checked) => onStoreTokensChange(checked === true)}
             />
-            <label
+            <Label
               htmlFor="store-tokens"
-              className="text-sm text-neutral-900 dark:text-neutral-100 cursor-pointer"
+              className="text-neutral-900 dark:text-neutral-100 cursor-pointer"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.storeTokens" })}
-            </label>
+            </Label>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox
@@ -426,12 +438,12 @@ export function OAuth2Auth({
               checked={autoRefresh}
               onCheckedChange={(checked) => onAutoRefreshChange(checked === true)}
             />
-            <label
+            <Label
               htmlFor="auto-refresh"
-              className="text-sm text-neutral-900 dark:text-neutral-100 cursor-pointer"
+              className="text-neutral-900 dark:text-neutral-100 cursor-pointer"
             >
               {intl.formatMessage({ id: "mcpServer.auth.oauth.autoRefresh" })}
-            </label>
+            </Label>
           </div>
         </div>
       </div>
