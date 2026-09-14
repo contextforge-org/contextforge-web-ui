@@ -38,18 +38,18 @@ if [[ ! -d "$API_DIR/.git" ]]; then
   exit 1
 fi
 
-REMOTE_OK=0
+REMOTE_NAME=""
 while read -r remote_name; do
   [[ -z "$remote_name" ]] && continue
   remote_url="$(git -C "$API_DIR" remote get-url "$remote_name" 2>/dev/null || true)"
-  if [[ "$remote_url" =~ [:/][Ii][Bb][Mm]/mcp-context-forge(\.git)?$ ]]; then
-    REMOTE_OK=1
+  if [[ "$remote_url" =~ ^(https://github\.com/|git@github\.com:)[Ii][Bb][Mm]/mcp-context-forge(\.git)?$ ]]; then
+    REMOTE_NAME="$remote_name"
     break
   fi
 done < <(git -C "$API_DIR" remote)
 
-if [[ "$REMOTE_OK" != 1 ]]; then
-  echo "error: $API_DIR has no remote pointing at IBM/mcp-context-forge" >&2
+if [[ -z "$REMOTE_NAME" ]]; then
+  echo "error: $API_DIR has no remote pointing at the canonical github.com/IBM/mcp-context-forge" >&2
   echo "  refusing to pull and execute code from an unverified checkout." >&2
   echo "  point OPENAPI_SOURCE_DIR/the path argument at a checkout of the canonical repo," >&2
   echo "  or add it as a remote, e.g.:" >&2
@@ -67,9 +67,9 @@ if [[ -n "$(git -C "$API_DIR" status --porcelain)" ]]; then
   exit 1
 fi
 
-echo "==> Updating $API_DIR"
+echo "==> Updating $API_DIR from verified remote $REMOTE_NAME"
 git -C "$API_DIR" checkout main --quiet
-git -C "$API_DIR" pull --ff-only --quiet
+git -C "$API_DIR" pull --ff-only "$REMOTE_NAME" main --quiet
 
 API_COMMIT="$(git -C "$API_DIR" rev-parse HEAD)"
 API_COMMIT_SHORT="${API_COMMIT:0:6}"
@@ -89,15 +89,18 @@ else
   PYTHON="python3"
 fi
 
+echo "==> Fetching origin/main"
+git -C "$REPO_ROOT" fetch origin main --quiet
+
 echo "==> Generating openapi.json from $API_COMMIT_SHORT"
 TMP_SPEC="$(mktemp)"
 TMP_README="$(mktemp)"
-trap 'rm -f "$TMP_SPEC" "$TMP_README"' EXIT
+trap 'rm -f "$TMP_SPEC" "$TMP_README" "$TMP_README.orig" "$TMP_README.bak"' EXIT
 
 (cd "$API_DIR" && "$PYTHON" -c "
 import json, sys
 from mcpgateway.main import app
-json.dump(app.openapi(), open(sys.argv[1], 'w'), indent=2)
+json.dump(app.openapi(), open(sys.argv[1], 'w'), indent=2, ensure_ascii=False)
 " "$TMP_SPEC")
 
 API_VERSION="$(python3 -c "import json; print(json.load(open('$TMP_SPEC'))['info']['version'])")"
@@ -111,19 +114,20 @@ with open(path) as f:
     spec = json.load(f)
 spec["info"]["version"] = version
 with open(path, "w") as f:
-    json.dump(spec, f, indent=2)
+    json.dump(spec, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PY
 
 SPEC_CHANGED=0
-if diff -q "$TMP_SPEC" "$REPO_ROOT/openapi.json" >/dev/null 2>&1; then
-  echo "==> openapi.json is already at $PINNED_VERSION"
+if diff -q "$TMP_SPEC" <(git -C "$REPO_ROOT" show origin/main:openapi.json) >/dev/null 2>&1; then
+  echo "==> openapi.json on origin/main is already at $PINNED_VERSION"
 else
   SPEC_CHANGED=1
 fi
 
 echo "==> Checking README references"
-cp "$REPO_ROOT/README.md" "$TMP_README"
+git -C "$REPO_ROOT" show origin/main:README.md > "$TMP_README"
+cp "$TMP_README" "$TMP_README.orig"
 if ! grep -qE "targets \*\*ContextForge API v[0-9.]+\*\*" "$TMP_README"; then
   echo "warning: couldn't find the 'targets ContextForge API vX.Y.Z' line in README.md, skipping" >&2
 else
@@ -137,9 +141,10 @@ fi
 rm -f "$TMP_README.bak"
 
 README_CHANGED=0
-if ! diff -q "$TMP_README" "$REPO_ROOT/README.md" >/dev/null 2>&1; then
+if ! diff -q "$TMP_README" "$TMP_README.orig" >/dev/null 2>&1; then
   README_CHANGED=1
 fi
+rm -f "$TMP_README.orig"
 
 if [[ "$SPEC_CHANGED" == 0 && "$README_CHANGED" == 0 ]]; then
   echo "==> Nothing to update, already at $PINNED_VERSION"
@@ -164,7 +169,6 @@ if [[ "$DRY_RUN" == "1" ]]; then
   exit 0
 fi
 
-git -C "$REPO_ROOT" fetch origin main --quiet
 BRANCH="chore/openapi-${API_VERSION}-${API_COMMIT_SHORT}"
 echo "==> Creating branch $BRANCH from origin/main"
 git -C "$REPO_ROOT" checkout -B "$BRANCH" origin/main --quiet
