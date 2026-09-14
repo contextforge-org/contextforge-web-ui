@@ -207,7 +207,7 @@
   "mcpServer.auth.oauth.clientIdPlaceholder": "ex.: 8f3a2c1d-4b5e-4f6a-9c8d-1e2f3a4b5c6",
   "mcpServer.auth.oauth.clientSecretLabel": "Segredo do cliente",
   "mcpServer.auth.oauth.clientSecretPlaceholder": "ex.: a1b2c3d4e5f6",
-  "mcpServer.auth.oauth.dcrHelp": "Não é necessário para servidores que oferecem suporte ao registro dinâmico de clientes (DCR)",
+  "mcpServer.auth.oauth.dcrHelp": "Opcional. Alguns servidores de autorização os emitem automaticamente ao autorizar.",
   "mcpServer.auth.oauth.tokenUrlLabel": "URL do token",
   "mcpServer.auth.oauth.tokenUrlPlaceholder": "ex.: https://oauth.example.com/token",
   "mcpServer.auth.oauth.tokenUrlHelp": "Troca códigos de autorização ou credenciais por tokens de acesso",

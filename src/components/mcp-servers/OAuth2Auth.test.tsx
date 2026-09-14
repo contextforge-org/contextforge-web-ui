@@ -183,6 +183,36 @@ describe("OAuth2Auth", () => {
     );
   });
 
+  describe("DCR hint", () => {
+    // DCR (Dynamic Client Registration) only runs for the authorization-code
+    // flow (backend /oauth/authorize/{gateway_id}). Showing the hint for
+    // other grant types invited users to leave Client ID/Secret blank for
+    // client_credentials, which fails registration outright (mcp-context-forge#6466).
+    it("is not shown for client_credentials", () => {
+      render(<OAuth2Auth {...defaultProps} grantType="client_credentials" />);
+
+      expect(
+        screen.queryByText(/Some authorization servers issue these automatically/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("is not shown for password grant", () => {
+      render(<OAuth2Auth {...defaultProps} grantType="password" />);
+
+      expect(
+        screen.queryByText(/Some authorization servers issue these automatically/i),
+      ).not.toBeInTheDocument();
+    });
+
+    it("is shown under both Client ID and Client Secret for authorization_code", () => {
+      render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
+
+      expect(
+        screen.getAllByText(/Some authorization servers issue these automatically/i),
+      ).toHaveLength(2);
+    });
+  });
+
   it("only offers the password grant option when already selected (legacy)", () => {
     const { rerender } = render(<OAuth2Auth {...defaultProps} grantType="client_credentials" />);
     expect(screen.queryByText(/Password grant is deprecated/i)).not.toBeInTheDocument();

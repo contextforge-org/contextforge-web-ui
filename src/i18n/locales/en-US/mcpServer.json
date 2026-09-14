@@ -207,7 +207,7 @@
   "mcpServer.auth.oauth.clientIdPlaceholder": "e.g. 8f3a2c1d-4b5e-4f6a-9c8d-1e2f3a4b5c6",
   "mcpServer.auth.oauth.clientSecretLabel": "Client Secret",
   "mcpServer.auth.oauth.clientSecretPlaceholder": "e.g. a1b2c3d4e5f6",
-  "mcpServer.auth.oauth.dcrHelp": "Not required for servers that support Dynamic Client Registration (DCR)",
+  "mcpServer.auth.oauth.dcrHelp": "Optional. Some authorization servers issue these automatically when you authorize.",
   "mcpServer.auth.oauth.tokenUrlLabel": "Token URL",
   "mcpServer.auth.oauth.tokenUrlPlaceholder": "e.g. https://oauth.example.com/token",
   "mcpServer.auth.oauth.tokenUrlHelp": "Exchanges authorization codes or credentials for access tokens",
