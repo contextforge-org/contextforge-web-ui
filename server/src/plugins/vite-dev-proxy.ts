@@ -27,8 +27,12 @@ import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 
 export default async function viteDevProxyPlugin(fastify: FastifyInstance): Promise<void> {
+  if (!config.viteDevServerUrl) {
+    throw new Error("viteDevProxyPlugin registered without VITE_DEV_SERVER_URL set");
+  }
+
   await fastify.register(httpProxy, {
-    upstream: config.viteDevServerUrl!,
+    upstream: config.viteDevServerUrl,
     prefix: "/",
     routes: ["/*"],
     websocket: true,

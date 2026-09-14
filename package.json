@@ -12,7 +12,7 @@
     "dev:e2e": "vite --base=/ --port 5173 --strictPort",
     "predev:bff": "npm ls --prefix server --depth=0 >/dev/null 2>&1 || (echo 'Dependencies missing or out of date in server/ — run: npm install --prefix server' >&2 && exit 1)",
     "dev:bff": "VITE_DEV_SERVER_URL=http://localhost:5173 npm run dev --prefix server",
-    "predev:all": "npm run predev --silent && npm run generate",
+    "predev:all": "npm run predev --silent && ([ -f openapi.json ] || (echo 'openapi.json is missing at repo root — generate reads from it and will fail with a less helpful error. Restore it (e.g. git checkout main -- openapi.json), see README.md#api-types' >&2 && exit 1)) && npm run generate",
     "dev:all": "concurrently -n BFF,WEB -c blue,green \"npm run dev:bff\" \"npm run dev\"",
     "build": "npm run generate && tsc -b && vite build",
     "build:watch": "vite build --watch",
