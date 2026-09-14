@@ -73,6 +73,7 @@
   "mcpServer.refresh.error": "Falha ao atualizar {name}: {detail}",
   "mcpServer.refresh.errorTitle": "Erro ao atualizar servidor MCP",
   "mcpServer.refresh.conflict": "Já existe uma atualização em andamento para {name}. Tente novamente em instantes.",
+  "mcpServer.refresh.validationWarning": "{count, plural, one {# ferramenta foi ignorada devido a um erro de validação:} other {# ferramentas foram ignoradas devido a erros de validação:}}",
   "mcpServer.status.active": "Ativo",
   "mcpServer.status.warning": "Atenção",
   "mcpServer.status.offline": "Offline",

@@ -231,25 +231,40 @@ export function Servers() {
           promptsUpdated ||
           promptsRemoved;
 
-        toast.success(
-          hasChanges
-            ? intl.formatMessage(
-                { id: "mcpServer.refresh.success" },
-                {
-                  name,
-                  toolsAdded,
-                  toolsUpdated,
-                  toolsRemoved,
-                  resourcesAdded,
-                  resourcesUpdated,
-                  resourcesRemoved,
-                  promptsAdded,
-                  promptsUpdated,
-                  promptsRemoved,
-                },
-              )
-            : intl.formatMessage({ id: "mcpServer.refresh.successSimple" }, { name }),
-        );
+        const successMessage = hasChanges
+          ? intl.formatMessage(
+              { id: "mcpServer.refresh.success" },
+              {
+                name,
+                toolsAdded,
+                toolsUpdated,
+                toolsRemoved,
+                resourcesAdded,
+                resourcesUpdated,
+                resourcesRemoved,
+                promptsAdded,
+                promptsUpdated,
+                promptsRemoved,
+              },
+            )
+          : intl.formatMessage({ id: "mcpServer.refresh.successSimple" }, { name });
+
+        const validationErrors = result?.validationErrors ?? [];
+        if (validationErrors.length > 0) {
+          // Backend can return success: true while skipping tools that failed schema
+          // validation, so surface those errors instead of a plain success toast.
+          const warningPrefix = intl.formatMessage(
+            { id: "mcpServer.refresh.validationWarning" },
+            { count: validationErrors.length },
+          );
+          toast.warning(successMessage, {
+            description: [warningPrefix, ...validationErrors].join("\n"),
+            // sonner's description has no white-space rule, so force newlines to render
+            descriptionClassName: "whitespace-pre-line",
+          });
+        } else {
+          toast.success(successMessage);
+        }
         try {
           await refetch();
         } catch (refreshErr) {
