@@ -69,6 +69,27 @@ describe("usePendingInvitationsData", () => {
     expect(result.current.acceptedCount).toBe(0);
   });
 
+  it("drops expired invitations, which cannot be accepted", async () => {
+    const expired = makeInvitation({ id: "inv-3", team_name: "Old Team", is_expired: true });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, expired, two]);
+    const { result } = renderInvitations();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.invitations).toEqual([one, two]);
+    expect(result.current.pendingCount).toBe(2);
+  });
+
+  it("counts nothing when every invitation has expired", async () => {
+    vi.mocked(listMyInvitations).mockResolvedValue([makeInvitation({ is_expired: true })]);
+    const { result } = renderInvitations();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.invitations).toEqual([]);
+    expect(result.current.pendingCount).toBe(0);
+  });
+
   it("makes no request while disabled", async () => {
     const { result } = renderInvitations(false);
 

@@ -106,7 +106,6 @@ describe("PendingInvitationsDialog", () => {
     renderDialog({ error: "Server error. Please try again later.", invitations: [], onRetry });
 
     const alert = screen.getByRole("alert");
-    // A localised headline over the untranslatable detail from sanitizeError.
     expect(within(alert).getByText("Failed to load your invitations")).toBeInTheDocument();
     expect(within(alert).getByText("Server error. Please try again later.")).toBeInTheDocument();
 
@@ -123,6 +122,32 @@ describe("PendingInvitationsDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onAccept).not.toHaveBeenCalled();
     expect(onDecline).not.toHaveBeenCalled();
+  });
+
+  it("announces the action in flight, naming the team", () => {
+    renderDialog({ invitations: [one, two], inFlight: { [one.id]: "accept" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Joining Platform Team");
+  });
+
+  it("announces a decline in flight, naming the team", () => {
+    renderDialog({ invitations: [one, two], inFlight: { [two.id]: "decline" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Declining invitation to Design Team");
+  });
+
+  it("announces one row resolving while others stay actionable", () => {
+    const { rerenderWith } = renderDialog({ invitations: [one, two] });
+
+    rerenderWith({ invitations: [one, two], resolutions: { [two.id]: "declined" } });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Design Team: Declined");
+  });
+
+  it("announces nothing while everything is still actionable", () => {
+    renderDialog({ invitations: [one, two] });
+
+    expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
   it("moves focus to the next actionable row when one resolves", async () => {
@@ -195,12 +220,14 @@ describe("PendingInvitationsDialog auto-close", () => {
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 
-  it("announces the outcome before closing", () => {
+  it("announces the outcome and the completion before closing", () => {
     const { rerenderWith } = renderDialog();
 
     rerenderWith({ resolutions: { [one.id]: "accepted" } });
 
-    expect(screen.getByText("All invitations resolved")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Platform Team: Invite accepted. All invitations resolved",
+    );
   });
 
   it("cancels the dwell permanently on pointer movement during it", () => {

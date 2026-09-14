@@ -59,7 +59,7 @@ export function Teams() {
   }, [response]);
 
   // An accepted invitation adds a team, so the list needs refetching.
-  const { acceptedCount } = usePendingInvitations();
+  const { acceptedCount, count: invitationCount } = usePendingInvitations();
   useEffect(() => {
     if (acceptedCount > 0) void refetch();
   }, [acceptedCount, refetch]);
@@ -227,38 +227,42 @@ export function Teams() {
 
               {/* Hosted inside the Settings tabs, these actions render on the
                   tab row (via the toolbar slot); standalone they fall back
-                  inline. The chip sits outside the has-teams branch because an
-                  invitation has to be reachable by someone with no team of
-                  their own; the list actions have nothing to act on there. */}
-              <header className="flex items-center justify-end">
-                <SettingsToolbar>
-                  <div className="flex items-center gap-3">
-                    <PendingInvitationsChip fallbackFocusRef={createTeamRef} className="mr-6" />
-                    {allTeams.length > 0 && (
-                      <>
-                        <ListSearch
-                          value={query}
-                          onChange={setQuery}
-                          ariaLabel={intl.formatMessage(
-                            { id: "common.searchLabel" },
-                            { entity: intl.formatMessage({ id: "navigation.teams" }) },
-                          )}
-                          placeholder={intl.formatMessage({ id: "common.search" })}
-                        />
-                        <Button
-                          ref={createTeamRef}
-                          variant="default"
-                          className="h-7 rounded-sm px-4"
-                          onClick={() => setCreateFormOpen(true)}
-                        >
-                          <Plus className="h-4 w-4" />
-                          {intl.formatMessage({ id: "teams.createTeam" })}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </SettingsToolbar>
-              </header>
+                  inline. The chip is outside the has-teams branch so an
+                  invitation stays reachable without a team of one's own. */}
+              {(invitationCount > 0 || allTeams.length > 0) && (
+                <header className="flex items-center justify-end">
+                  <SettingsToolbar>
+                    <div className="flex items-center gap-3">
+                      <PendingInvitationsChip
+                        fallbackFocusRef={createTeamRef}
+                        className={allTeams.length > 0 ? "mr-6" : undefined}
+                      />
+                      {allTeams.length > 0 && (
+                        <>
+                          <ListSearch
+                            value={query}
+                            onChange={setQuery}
+                            ariaLabel={intl.formatMessage(
+                              { id: "common.searchLabel" },
+                              { entity: intl.formatMessage({ id: "navigation.teams" }) },
+                            )}
+                            placeholder={intl.formatMessage({ id: "common.search" })}
+                          />
+                          <Button
+                            ref={createTeamRef}
+                            variant="default"
+                            className="h-7 rounded-sm px-4"
+                            onClick={() => setCreateFormOpen(true)}
+                          >
+                            <Plus className="h-4 w-4" />
+                            {intl.formatMessage({ id: "teams.createTeam" })}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </SettingsToolbar>
+                </header>
+              )}
 
               {allTeams.length > 0 ? (
                 <>

@@ -56,9 +56,11 @@ export function usePendingInvitationsData({
     try {
       const result = await listMyInvitations();
       if (requestId !== latestRequestId.current) return;
-      setInvitations(result);
-      // Drop resolutions for invitations the response no longer carries.
-      const returnedIds = new Set(result.map((invitation) => invitation.id));
+      // Expired invitations cannot be accepted; the inbox does not filter them.
+      const actionable = result.filter((invitation) => !invitation.is_expired);
+      setInvitations(actionable);
+      // Drop resolutions for invitations no longer published.
+      const returnedIds = new Set(actionable.map((invitation) => invitation.id));
       setResolutions((previous) =>
         Object.fromEntries(Object.entries(previous).filter(([id]) => returnedIds.has(id))),
       );

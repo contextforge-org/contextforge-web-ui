@@ -100,6 +100,43 @@ describe("PendingInvitationsProvider", () => {
     expect(screen.getByText("header: 1")).toBeInTheDocument();
   });
 
+  it("closes the dialog when the refetch on open finds nothing left", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PendingInvitationsProvider>
+        <Trigger name="toolbar" />
+      </PendingInvitationsProvider>,
+    );
+
+    await user.click(await screen.findByText("toolbar: 2"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // Revoked elsewhere between the load and the click.
+    vi.mocked(listMyInvitations).mockResolvedValue([]);
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(await screen.findByText("toolbar: 2"));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("keeps the dialog open when the refetch on open fails, so retry is reachable", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PendingInvitationsProvider>
+        <Trigger name="toolbar" />
+      </PendingInvitationsProvider>,
+    );
+
+    await screen.findByText("toolbar: 2");
+    vi.mocked(listMyInvitations).mockRejectedValue(
+      Object.assign(new Error("nope"), { status: 500, body: {} }),
+    );
+    await user.click(screen.getByText("toolbar: 2"));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
   it("refetches when the dialog is opened", async () => {
     const user = userEvent.setup();
     renderWithProviders(

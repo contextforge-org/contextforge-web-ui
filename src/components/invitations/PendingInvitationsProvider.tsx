@@ -72,14 +72,21 @@ export function PendingInvitationsProvider({ children }: { children: ReactNode }
 
   const open = useCallback(
     (ref?: RefObject<HTMLElement | null>) => {
+      if (pendingCount === 0) return;
       openerRef.current = document.activeElement as HTMLElement | null;
       fallbackFocusRef.current = ref ?? null;
       setIsOpen(true);
       // Catch invitations that arrived since the list was last loaded.
       void refetch();
     },
-    [refetch],
+    [pendingCount, refetch],
   );
+
+  // The refetch on open can come back empty, and a dialog with nothing in it
+  // has nothing to say. An error keeps it open so the retry stays reachable.
+  useEffect(() => {
+    if (isOpen && !isLoading && !error && invitations.length === 0) setIsOpen(false);
+  }, [isOpen, isLoading, error, invitations.length]);
 
   /**
    * Restores focus manually, since the opener is commonly gone by close:

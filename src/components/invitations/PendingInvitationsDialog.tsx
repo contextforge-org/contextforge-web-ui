@@ -2,7 +2,7 @@
  * The single dialog listing every pending invitation. Presentational: it owns
  * no fetching and is rendered only by PendingInvitationsProvider.
  */
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { Bell } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -63,19 +63,11 @@ export function PendingInvitationsDialog({
   const hasRequestInFlight = Object.keys(inFlight).length > 0;
   const allResolved = invitations.length > 0 && pendingCount === 0;
 
-  /**
-   * The dwell runs only while the confirmation is the whole content, and any
-   * pointer movement or key press during it cancels it outright; it never
-   * resumes. Movement rather than entry is the signal because resolving the
-   * last invitation means clicking inside the dialog, so entry alone would
-   * cancel the dwell every mouse user ever starts. Focus is no use either,
-   * since the dialog traps it.
-   */
+  // Pointer movement or a key press during the dwell cancels it for good.
   const [dwellCancelled, setDwellCancelled] = useState(false);
   const isDwelling = open && allResolved && !hasRequestInFlight && autoCloseDelayMs > 0;
 
-  // Arming clears a stale cancel, so nothing that happened before the
-  // confirmation appeared counts against it.
+  // Arming clears a stale cancel from before the confirmation appeared.
   useEffect(() => {
     if (!open || isDwelling) setDwellCancelled(false);
   }, [open, isDwelling]);
@@ -90,6 +82,60 @@ export function PendingInvitationsDialog({
     const timer = setTimeout(() => onOpenChange(false), autoCloseDelayMs);
     return () => clearTimeout(timer);
   }, [isDwelling, dwellCancelled, autoCloseDelayMs, onOpenChange]);
+
+  // Which row resolved last, so the announcement can name it.
+  const [lastResolvedId, setLastResolvedId] = useState<string | null>(null);
+  const previousResolutions = useRef(resolutions);
+  useEffect(() => {
+    const resolved = Object.keys(resolutions).find((id) => !previousResolutions.current[id]);
+    previousResolutions.current = resolutions;
+    if (resolved) setLastResolvedId(resolved);
+  }, [resolutions]);
+
+  useEffect(() => {
+    if (!open) setLastResolvedId(null);
+  }, [open]);
+
+  const announcement = useMemo(() => {
+    const teamOf = (id: string) => invitations.find((one) => one.id === id)?.team_name ?? "";
+    const lines: string[] = [];
+
+    const [actingId, action] = Object.entries(inFlight)[0] ?? [];
+    const resolution = lastResolvedId ? resolutions[lastResolvedId] : undefined;
+
+    if (actingId && action) {
+      lines.push(
+        intl.formatMessage(
+          {
+            id:
+              action === "accept"
+                ? "invitations.announce.accepting"
+                : "invitations.announce.declining",
+          },
+          { team: teamOf(actingId) },
+        ),
+      );
+    } else if (lastResolvedId && resolution) {
+      lines.push(
+        intl.formatMessage(
+          { id: "invitations.announce.resolved" },
+          {
+            team: teamOf(lastResolvedId),
+            status: intl.formatMessage({
+              id:
+                resolution === "accepted"
+                  ? "invitations.status.accepted"
+                  : "invitations.status.declined",
+            }),
+          },
+        ),
+      );
+    }
+
+    if (allResolved) lines.push(intl.formatMessage({ id: "invitations.status.allResolved.sr" }));
+
+    return lines.join(". ");
+  }, [inFlight, lastResolvedId, resolutions, invitations, allResolved, intl]);
 
   // A resolved row's buttons unmount, taking the focused element with them.
   const previousResolvedCount = useRef(resolvedCount);
@@ -161,8 +207,6 @@ export function PendingInvitationsDialog({
                 aria-atomic="true"
                 className="flex flex-col items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-4"
               >
-                {/* Localised headline over the sanitised detail, as on the
-                    Teams page: sanitizeError only ever returns English. */}
                 <div className="flex flex-col gap-1">
                   <h3 className="text-sm font-semibold">
                     {intl.formatMessage({ id: "invitations.error.load" })}
@@ -196,9 +240,11 @@ export function PendingInvitationsDialog({
           </>
         )}
 
-        <div role="status" className="sr-only">
-          {allResolved ? intl.formatMessage({ id: "invitations.status.allResolved.sr" }) : ""}
-        </div>
+        {/* Stays mounted: a region whose text changes is announced more
+            reliably than one that mounts with its content. */}
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {announcement}
+        </p>
       </DialogContent>
     </Dialog>
   );
