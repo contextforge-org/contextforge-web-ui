@@ -151,7 +151,7 @@ export function VirtualServerDetailsPanel({
   onAddTag?: (serverId: string, tags: string[]) => Promise<void>;
 }) {
   const intl = useIntl();
-  const endpoint = server ? getVirtualServerEndpoint(server.id) : "";
+  const endpoint = server ? getVirtualServerEndpoint(server) : "";
   const tagFallback = intl.formatMessage({ id: "gateways.details.tagFallback" });
   const notSyncedYet = intl.formatMessage({ id: "gateways.card.notSyncedYet" });
   const tags = (server?.tags ?? []).map((tag, index) => getTagDisplay(tag, index, tagFallback));
