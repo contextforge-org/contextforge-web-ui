@@ -164,13 +164,18 @@ test.describe("Pending team invitations", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
 
-    await expect(dialog.getByText("Invite accepted")).toBeVisible();
+    const platformRow = dialog.getByRole("listitem").filter({ hasText: "Platform Team" });
+    await expect(platformRow.getByText("Invite accepted")).toBeVisible();
     // The row stays, and the second invitation is still actionable.
     await expect(
       dialog.getByText("janet.wu@example.com invited you to join Platform Team as an owner."),
     ).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Join team: Design Team" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "1 invitation" })).toBeVisible();
+    // The open modal puts the chip in an aria-hidden subtree, so the role
+    // query has to opt into it.
+    await expect(
+      page.getByRole("button", { name: "1 invitation", includeHidden: true }),
+    ).toBeVisible();
   });
 
   test("declining recedes to muted text with no icon", async ({ page }) => {
@@ -185,8 +190,14 @@ test.describe("Pending team invitations", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Decline invitation to Platform Team" }).click();
 
-    await expect(dialog.getByText("Declined")).toBeVisible();
-    await expect(page.getByRole("button", { name: "1 invitation" })).toBeVisible();
+    await expect(
+      dialog.getByRole("listitem").filter({ hasText: "Platform Team" }).getByText("Declined"),
+    ).toBeVisible();
+    // The open modal puts the chip in an aria-hidden subtree, so the role
+    // query has to opt into it.
+    await expect(
+      page.getByRole("button", { name: "1 invitation", includeHidden: true }),
+    ).toBeVisible();
   });
 
   test("holds the in-flight state while a request is open", async ({ page }) => {
@@ -232,7 +243,7 @@ test.describe("Pending team invitations", () => {
 
     // No count is known, so no chip renders and the failure is not toasted.
     await expect(page.getByRole("button", { name: /invitation/ })).toHaveCount(0);
-    await expect(page.getByRole("status")).toHaveCount(0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
   });
 
   test("closes itself once nothing is left to act on", async ({ page }) => {
@@ -246,7 +257,7 @@ test.describe("Pending team invitations", () => {
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
-    await expect(dialog.getByText("Invite accepted")).toBeVisible();
+    await expect(dialog.getByRole("listitem").getByText("Invite accepted")).toBeVisible();
 
     // Dwells on the confirmation, then closes itself.
     await expect(dialog).toBeVisible();
