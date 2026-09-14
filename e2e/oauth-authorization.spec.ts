@@ -25,7 +25,7 @@ const GATEWAY_NAME = "GitHub OAuth Test";
 test.describe("OAuth authorization-code popup flow", () => {
   test.beforeEach(async ({ page, apiMock }) => {
     await apiMock.mockPermissions();
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -67,7 +67,7 @@ test.describe("OAuth authorization-code popup flow", () => {
       });
     });
 
-    await page.route("**/gateways", async (route) => {
+    await page.route("**/v1/mcp-servers", async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       await route.fulfill({
         status: 201,
@@ -87,7 +87,7 @@ test.describe("OAuth authorization-code popup flow", () => {
       });
     });
 
-    await page.route(`**/gateways/${GATEWAY_ID}/state*`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${GATEWAY_ID}/state*`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -159,7 +159,7 @@ test.describe("OAuth authorization-code popup flow", () => {
       });
     });
 
-    await page.route("**/gateways", async (route) => {
+    await page.route("**/v1/mcp-servers", async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       await route.fulfill({
         status: 201,
@@ -217,9 +217,9 @@ test.describe("OAuth authorization-code popup flow", () => {
     });
 
     const createRequest = page.waitForRequest(
-      (request) => request.url().includes("/gateways") && request.method() === "POST",
+      (request) => request.url().includes("/v1/mcp-servers") && request.method() === "POST",
     );
-    await page.route("**/gateways", async (route) => {
+    await page.route("**/v1/mcp-servers", async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       await route.fulfill({
         status: 201,

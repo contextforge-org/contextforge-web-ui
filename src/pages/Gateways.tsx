@@ -21,7 +21,7 @@ import type { VirtualServer, VirtualServersResponse } from "@/types/server";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
 const DEFAULT_PAGE_SIZE = 12;
-const SERVERS_QUERY_PATH = `/servers?limit=${DEFAULT_PAGE_SIZE}&include_inactive=true&include_pagination=true`;
+const SERVERS_QUERY_PATH = `/v1/virtual-servers?limit=${DEFAULT_PAGE_SIZE}&include_inactive=true&include_pagination=true`;
 const CREATE_SERVER_PATH = "/app/gateways/create-server";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
 
@@ -368,7 +368,7 @@ function VirtualServerDetailsPanelContainer({
     data: serverDetails,
     error,
     setData: setServerDetails,
-  } = useQuery<VirtualServer>(`/servers/${encodeURIComponent(serverId)}`);
+  } = useQuery<VirtualServer>(`/v1/virtual-servers/${encodeURIComponent(serverId)}`);
   const hydratedServer = serverDetails?.id === serverId ? serverDetails : server;
 
   useEffect(() => {

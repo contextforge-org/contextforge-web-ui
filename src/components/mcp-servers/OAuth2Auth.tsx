@@ -139,11 +139,9 @@ export function OAuth2Auth({
       <div className="space-y-1">
         <label
           htmlFor="oauth-issuer-url"
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-          <span className="text-destructive">*</span>
-          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="oauth-issuer-url"
@@ -310,9 +308,11 @@ export function OAuth2Auth({
           placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdPlaceholder" })}
           className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
-        <p className="text-xs text-neutral-600 dark:text-neutral-500">
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
-        </p>
+        {grantType === "authorization_code" && (
+          <p className="text-xs text-neutral-600 dark:text-neutral-500">
+            {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -330,19 +330,19 @@ export function OAuth2Auth({
           placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretPlaceholder" })}
           className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
         />
-        <p className="text-xs text-neutral-600 dark:text-neutral-500">
-          {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
-        </p>
+        {grantType === "authorization_code" && (
+          <p className="text-xs text-neutral-600 dark:text-neutral-500">
+            {intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
+          </p>
+        )}
       </div>
 
       <div className="space-y-1">
         <label
           htmlFor="oauth-token-url"
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
+          className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
         >
           {intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-          <span className="text-destructive">*</span>
-          <span className="sr-only">{intl.formatMessage({ id: "mcpServer.form.required" })}</span>
         </label>
         <Input
           id="oauth-token-url"

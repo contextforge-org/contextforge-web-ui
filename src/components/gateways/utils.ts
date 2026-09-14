@@ -18,8 +18,15 @@ export function truncateMiddle(value: string, maxLength = 24) {
   return `${value.slice(0, edgeLength)}...${value.slice(-edgeLength)}`;
 }
 
-export function getVirtualServerEndpoint(serverId: string) {
-  const encodedServerId = encodeURIComponent(serverId);
+// Prefers the gateway-supplied `url` (APP_DOMAIN-derived server-side,
+// mcp-context-forge#6632) over window.location.origin, which is the web
+// UI's own origin and not necessarily where the gateway serves this
+// endpoint in a split deployment. The origin-based construction remains
+// only as a fallback for gateways older than the `url` field.
+export function getVirtualServerEndpoint(server: Pick<VirtualServer, "id" | "url">) {
+  if (server.url) return server.url;
+
+  const encodedServerId = encodeURIComponent(server.id);
   if (typeof window === "undefined" || !window.location?.origin) {
     return `/servers/${encodedServerId}/mcp`;
   }

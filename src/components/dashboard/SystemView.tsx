@@ -26,8 +26,8 @@ import {
 import { VirtualServersCard } from "./VirtualServersCard";
 
 const METRICS_PATH = "/metrics";
-const SERVERS_PATH = "/servers?limit=0&include_inactive=true";
-const GATEWAYS_PATH = "/gateways?limit=0&include_inactive=true";
+const SERVERS_PATH = "/v1/virtual-servers?limit=0&include_inactive=true";
+const GATEWAYS_PATH = "/v1/mcp-servers?limit=0&include_inactive=true";
 const A2A_PATH = "/a2a?limit=0&include_inactive=true";
 const TOOLS_PATH = "/tools?limit=0&include_inactive=true";
 const RESOURCES_PATH = "/resources?limit=0&include_inactive=true";

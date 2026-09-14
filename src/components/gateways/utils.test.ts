@@ -48,21 +48,37 @@ describe("Gateways Utils", () => {
   });
 
   describe("getVirtualServerEndpoint", () => {
-    it("returns relative path if window or origin is not available", () => {
+    it("prefers the gateway-supplied url over window.location.origin", () => {
+      // mcp-context-forge#6632: window.location.origin is the web UI's own
+      // origin, not necessarily where the gateway serves this endpoint in a
+      // split deployment -- server.url (APP_DOMAIN-derived, server-side)
+      // must win whenever the gateway supplies it.
+      expect(
+        getVirtualServerEndpoint({
+          id: "test-id",
+          url: "https://gateway.example.com/servers/test-id/mcp",
+        }),
+      ).toBe("https://gateway.example.com/servers/test-id/mcp");
+    });
+
+    it("falls back to a relative path if window or origin is not available and no url is supplied", () => {
       // Mock window.location to simulate missing origin
       const originalLocation = window.location;
       // @ts-expect-error - invalid url - testing missing window.location
       delete window.location;
 
-      expect(getVirtualServerEndpoint("test-id")).toBe("/servers/test-id/mcp");
+      expect(getVirtualServerEndpoint({ id: "test-id" })).toBe("/servers/test-id/mcp");
 
       // Restore window.location
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       window.location = originalLocation as any;
     });
 
-    it("returns absolute URL if window.location.origin is available", () => {
-      expect(getVirtualServerEndpoint("test-id")).toBe("http://localhost:3000/servers/test-id/mcp");
+    it("falls back to an absolute URL built from window.location.origin when no url is supplied", () => {
+      // Covers gateways older than mcp-context-forge#6632's url field.
+      expect(getVirtualServerEndpoint({ id: "test-id" })).toBe(
+        "http://localhost:3000/servers/test-id/mcp",
+      );
     });
   });
 

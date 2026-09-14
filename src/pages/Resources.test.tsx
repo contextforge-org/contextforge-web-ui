@@ -821,7 +821,7 @@ describe("Resources", () => {
           if (refetchCount === 1) return HttpResponse.json([]);
           return HttpResponse.json([createMockResource(99, "test-gw")]);
         }),
-        http.get("/api/gateways", () =>
+        http.get("/api/v1/mcp-servers", () =>
           HttpResponse.json({ gateways: [], next_cursor: null, total: 0 }),
         ),
         http.post("/api/resources", () => HttpResponse.json({ id: "res-99" }, { status: 201 })),
@@ -843,7 +843,7 @@ describe("Resources", () => {
 
       server.use(
         http.get("/api/resources", () => HttpResponse.json([])),
-        http.get("/api/gateways", () =>
+        http.get("/api/v1/mcp-servers", () =>
           HttpResponse.json({ gateways: [], next_cursor: null, total: 0 }),
         ),
         http.post("/api/resources", () =>
@@ -1447,7 +1447,7 @@ describe("Resources", () => {
       const resource = createMockResource(1, "gw-1");
       server.use(
         http.get("/api/resources", () => HttpResponse.json([resource])),
-        http.get("/api/gateways", () =>
+        http.get("/api/v1/mcp-servers", () =>
           HttpResponse.json({
             gateways: [{ id: "gw-1", slug: "gh-repo-tasks", name: "GH Repo" }],
           }),
