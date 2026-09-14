@@ -9,8 +9,18 @@ import { renderWithProviders } from "@/test/test-utils";
 import { CatalogOAuthDialog } from "./CatalogOAuthDialog";
 
 vi.mock("@/hooks/useQuery", () => ({ useQuery: vi.fn() }));
+const teamScopeState = vi.hoisted(() => ({
+  teams: [] as Array<{ id: string; name: string }>,
+  onTeamChange: vi.fn(),
+}));
 vi.mock("@/hooks/useTeams", () => ({
-  useTeamScope: () => ({ teams: [], onTeamChange: vi.fn() }),
+  useTeamScope: ({ onTeamIdChange }: { onTeamIdChange: (teamId: string) => void }) => ({
+    teams: teamScopeState.teams,
+    onTeamChange: (teamId: string) => {
+      teamScopeState.onTeamChange(teamId);
+      onTeamIdChange(teamId);
+    },
+  }),
 }));
 
 const server: CatalogServer = {
@@ -61,6 +71,11 @@ async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("CatalogOAuthDialog", () => {
+  beforeEach(() => {
+    teamScopeState.teams = [];
+    teamScopeState.onTeamChange.mockReset();
+  });
+
   it("shows every required-field validation error without submitting", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderDialog();
@@ -116,7 +131,7 @@ describe("CatalogOAuthDialog", () => {
           grant_type: "authorization_code",
           issuer: "http://github.com",
           client_id: "github-client",
-          client_secret: "github-secret",
+          client_secret: "github-secret", // pragma: allowlist secret
           authorization_url: "https://github.com/login/oauth/authorize",
           token_url: "https://github.com/login/oauth/access_token",
           scopes: ["repo", "read:user"],
@@ -144,5 +159,41 @@ describe("CatalogOAuthDialog", () => {
     await user.click(screen.getByRole("button", { name: "Close" }));
 
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("requires a team before submitting team-visible OAuth configuration", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderDialog();
+
+    await user.click(screen.getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+
+    expect(await screen.findByText("Select a team.")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits selected team for team-visible OAuth configuration", async () => {
+    const user = userEvent.setup();
+    teamScopeState.teams = [
+      { id: "team-alpha", name: "Alpha team" },
+      { id: "team-beta", name: "Beta team" },
+    ];
+    const { onSubmit } = renderDialog();
+
+    await user.click(screen.getByRole("combobox", { name: "Visibility" }));
+    await user.click(screen.getByRole("option", { name: "Team" }));
+    await user.click(screen.getByRole("combobox", { name: /^Team/ }));
+    await user.click(screen.getByRole("option", { name: "Alpha team" }));
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ visibility: "team", team_id: "team-alpha" }),
+      ),
+    );
+    expect(teamScopeState.onTeamChange).toHaveBeenCalledWith("team-alpha");
   });
 });

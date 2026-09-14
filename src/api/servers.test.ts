@@ -155,6 +155,16 @@ describe("serversApi", () => {
   });
 
   describe("triggerOAuthAuthorization", () => {
+    it("rejects before requesting a nonce when supplied popup is already closed", async () => {
+      const mockAuthWindow = mockAuthPopup();
+      (mockAuthWindow as { closed: boolean }).closed = true;
+
+      await expect(
+        serversApi.triggerOAuthAuthorization("server-123", mockAuthWindow),
+      ).rejects.toThrow("OAuth authorization window was closed");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it("rejects when popup is blocked (window.open returns null)", async () => {
       vi.spyOn(window, "open").mockReturnValue(null);
 
