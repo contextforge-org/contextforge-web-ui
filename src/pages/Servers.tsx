@@ -28,6 +28,7 @@ export function Servers() {
   const { path } = useRouter();
   const { hasPermission, permissionsLoading } = useAuth();
   const canCreateServer = !permissionsLoading && hasPermission("gateways.create");
+  const canUpdateServer = !permissionsLoading && hasPermission("gateways.update");
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [allServers, setAllServers] = useState<MCPServer[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export function Servers() {
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [updateServerId, setUpdateServerId] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [refreshingServerIds, setRefreshingServerIds] = useState<Set<string>>(new Set());
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedServerIdForDetails, setSelectedServerIdForDetails] = useState<string | null>(null);
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
@@ -49,7 +51,7 @@ export function Servers() {
     params.set("limit", limit.toString());
     params.set("include_pagination", "true");
     params.set("include_inactive", "true");
-    return `/gateways?${params.toString()}`;
+    return `/v1/mcp-servers?${params.toString()}`;
   }, [limit]);
 
   // Use useQuery hook for initial data fetching and limit changes
@@ -65,8 +67,8 @@ export function Servers() {
   const detailsQueryPath = useMemo(
     () =>
       selectedServerIdForDetails
-        ? `/gateways/${encodeURIComponent(selectedServerIdForDetails)}`
-        : "/gateways/_placeholder_",
+        ? `/v1/mcp-servers/${encodeURIComponent(selectedServerIdForDetails)}`
+        : "/v1/mcp-servers/_placeholder_",
     [selectedServerIdForDetails],
   );
 
@@ -192,6 +194,105 @@ export function Servers() {
     [refetch],
   );
 
+  const handleRefresh = useCallback(
+    async (id: string) => {
+      if (refreshingServerIds.has(id)) return;
+      setRefreshingServerIds((prev) => new Set(prev).add(id));
+
+      const name = allServers.find((s) => s.id === id)?.name ?? id;
+
+      try {
+        const result = await serversApi.refreshTools(id);
+
+        if (result && result.success === false) {
+          toast.error(intl.formatMessage({ id: "mcpServer.refresh.errorTitle" }), {
+            description: result.error ?? intl.formatMessage({ id: "mcpServer.refresh.errorTitle" }),
+          });
+          return;
+        }
+
+        const toolsAdded = result?.toolsAdded ?? 0;
+        const toolsUpdated = result?.toolsUpdated ?? 0;
+        const toolsRemoved = result?.toolsRemoved ?? 0;
+        const resourcesAdded = result?.resourcesAdded ?? 0;
+        const resourcesUpdated = result?.resourcesUpdated ?? 0;
+        const resourcesRemoved = result?.resourcesRemoved ?? 0;
+        const promptsAdded = result?.promptsAdded ?? 0;
+        const promptsUpdated = result?.promptsUpdated ?? 0;
+        const promptsRemoved = result?.promptsRemoved ?? 0;
+        const hasChanges =
+          toolsAdded ||
+          toolsUpdated ||
+          toolsRemoved ||
+          resourcesAdded ||
+          resourcesUpdated ||
+          resourcesRemoved ||
+          promptsAdded ||
+          promptsUpdated ||
+          promptsRemoved;
+
+        const successMessage = hasChanges
+          ? intl.formatMessage(
+              { id: "mcpServer.refresh.success" },
+              {
+                name,
+                toolsAdded,
+                toolsUpdated,
+                toolsRemoved,
+                resourcesAdded,
+                resourcesUpdated,
+                resourcesRemoved,
+                promptsAdded,
+                promptsUpdated,
+                promptsRemoved,
+              },
+            )
+          : intl.formatMessage({ id: "mcpServer.refresh.successSimple" }, { name });
+
+        const validationErrors = result?.validationErrors ?? [];
+        if (validationErrors.length > 0) {
+          // Backend can return success: true while skipping tools that failed schema
+          // validation, so surface those errors instead of a plain success toast.
+          const warningPrefix = intl.formatMessage(
+            { id: "mcpServer.refresh.validationWarning" },
+            { count: validationErrors.length },
+          );
+          toast.warning(successMessage, {
+            description: [warningPrefix, ...validationErrors].join("\n"),
+            // sonner's description has no white-space rule, so force newlines to render
+            descriptionClassName: "whitespace-pre-line",
+          });
+        } else {
+          toast.success(successMessage);
+        }
+        try {
+          await refetch();
+        } catch (refreshErr) {
+          console.error("Failed to refresh servers after refresh:", sanitizeError(refreshErr));
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          toast.error(intl.formatMessage({ id: "mcpServer.refresh.conflict" }, { name }));
+          return;
+        }
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        toast.error(intl.formatMessage({ id: "mcpServer.refresh.errorTitle" }), {
+          description: intl.formatMessage(
+            { id: "mcpServer.refresh.error" },
+            { name, detail: detail ?? sanitizeError(err) },
+          ),
+        });
+      } finally {
+        setRefreshingServerIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [refreshingServerIds, allServers, intl, refetch],
+  );
+
   const handleViewDetails = useCallback((id: string) => {
     setSelectedServerIdForDetails(id);
     setIsDetailsDrawerOpen(true);
@@ -236,7 +337,7 @@ export function Servers() {
       params.set("include_pagination", "true");
       params.set("include_inactive", "true");
 
-      const result = await api.get<ServersResponse>(`/gateways?${params.toString()}`);
+      const result = await api.get<ServersResponse>(`/v1/mcp-servers?${params.toString()}`);
       setAllServers((prev) => [...prev, ...result.gateways]);
       setNextCursor(result.nextCursor ?? null);
     } catch (err) {
@@ -344,6 +445,8 @@ export function Servers() {
                 onDelete={handleDelete}
                 onViewDetails={handleViewDetails}
                 onToggleEnabled={handleToggleEnabled}
+                onRefresh={canUpdateServer ? handleRefresh : undefined}
+                refreshingServerIds={refreshingServerIds}
               />
               {query.trim() && filteredServers.length === 0 && (
                 <p className="mt-6 text-sm text-muted-foreground">

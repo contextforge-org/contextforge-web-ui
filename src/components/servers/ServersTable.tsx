@@ -91,6 +91,8 @@ interface ServersTableProps {
   onDelete: (id: string) => void;
   onViewDetails?: (id: string) => void;
   onToggleEnabled?: (id: string, enabled: boolean) => void;
+  onRefresh?: (id: string) => void;
+  refreshingServerIds?: Set<string>;
 }
 
 export function ServersTable({
@@ -100,6 +102,8 @@ export function ServersTable({
   onDelete,
   onViewDetails,
   onToggleEnabled,
+  onRefresh,
+  refreshingServerIds,
 }: ServersTableProps) {
   const intl = useIntl();
 
@@ -234,6 +238,8 @@ export function ServersTable({
                     onDelete={onDelete}
                     onViewDetails={onViewDetails}
                     onToggleEnabled={onToggleEnabled}
+                    onRefresh={onRefresh}
+                    isRefreshing={refreshingServerIds?.has(server.id)}
                   />
                 </TableCell>
               </TableRow>

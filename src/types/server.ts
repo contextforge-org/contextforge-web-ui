@@ -78,6 +78,13 @@ export interface VirtualServerTag {
 export interface VirtualServer extends Omit<BaseServer, "team_id" | "owner_email"> {
   description: string;
   icon: string;
+  /**
+   * Fully-qualified MCP endpoint URL, derived server-side from the gateway's
+   * own APP_DOMAIN (mcp-context-forge#6632). Absent on gateways older than
+   * that field — see getVirtualServerEndpoint's window.location.origin
+   * fallback for that case.
+   */
+  url?: string;
   createdAt: string;
   updatedAt: string;
   associatedTools?: string[];

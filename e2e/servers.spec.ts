@@ -47,7 +47,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows empty state panel when no servers exist", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -67,7 +67,7 @@ test.describe("MCP Servers page", () => {
 
   test("hides connect card when the caller lacks gateways.create", async ({ page, apiMock }) => {
     await apiMock.mockPermissions({ permissions: ["gateways.read"] });
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -87,7 +87,7 @@ test.describe("MCP Servers page", () => {
     apiMock,
   }) => {
     await apiMock.mockPermissions({ permissions: ["gateways.read"] });
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -103,7 +103,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows servers list with title and Connect button when servers exist", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -120,7 +120,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows error alert when API fails", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -136,7 +136,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows both servers when multiple exist", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -152,7 +152,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows Load More button when nextCursor is present", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       const url = new URL(route.request().url());
       const hasCursor = url.searchParams.has("cursor");
 
@@ -183,7 +183,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("hides Load More button when there is no nextCursor", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -198,7 +198,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("opens server actions dropdown menu", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -213,10 +213,159 @@ test.describe("MCP Servers page", () => {
 
     await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Refresh" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Deactivate" })).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
     // Test Connection moved into the details drawer, no longer an overflow-menu item.
     await expect(page.getByRole("menuitem", { name: "Test Connection" })).toHaveCount(0);
+  });
+
+  test.describe("Refresh action", () => {
+    test("hides Refresh when the caller lacks gateways.update", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["gateways.read"] });
+      await page.route("**/v1/mcp-servers?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await expect(page.getByRole("menuitem", { name: "Refresh" })).toHaveCount(0);
+    });
+
+    test("refreshes tools and shows a success toast with counts", async ({ page }) => {
+      let refreshRequestCount = 0;
+
+      await page.route("**/v1/mcp-servers?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        expect(route.request().method()).toBe("POST");
+        refreshRequestCount += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            gatewayId: MOCK_SERVER.id,
+            success: true,
+            toolsAdded: 2,
+            toolsUpdated: 1,
+            toolsRemoved: 0,
+            durationMs: 87,
+            refreshedAt: "2026-04-12T00:00:00Z",
+          }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect.poll(() => refreshRequestCount).toBe(1);
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /Refreshed GitHub MCP Server/ }),
+      ).toBeVisible();
+    });
+
+    test("shows an error toast when the refresh reports success: false", async ({ page }) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            gatewayId: MOCK_SERVER.id,
+            success: false,
+            error: "Upstream server unreachable",
+            durationMs: 50,
+            refreshedAt: "2026-04-12T00:00:00Z",
+          }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: "Upstream server unreachable" }),
+      ).toBeVisible();
+    });
+
+    test("shows a conflict toast on HTTP 409", async ({ page }) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async (route) => {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Refresh already running" }),
+        });
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await expect(
+        page
+          .locator("[data-sonner-toast]")
+          .filter({ hasText: /already running for GitHub MCP Server/ }),
+      ).toBeVisible();
+    });
+
+    test("disables the Refresh item for the server while a refresh is in flight", async ({
+      page,
+    }) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
+        });
+      });
+      await page.route(`**/gateways/${MOCK_SERVER.id}/tools/refresh*`, async () => {
+        // Never resolves within the test — keeps the pending state visible.
+        await new Promise(() => {});
+      });
+
+      await page.goto(APP.SERVERS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      await page.getByRole("menuitem", { name: "Refresh" }).click();
+
+      await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
+      const refreshItem = page.getByRole("menuitem", { name: /Refreshing GitHub MCP Server/ });
+      await expect(refreshItem).toBeVisible();
+      await expect(refreshItem).toHaveAttribute("aria-disabled", "true");
+    });
   });
 
   test("optimistically removes server on delete confirmation and shows success toast", async ({
@@ -224,14 +373,14 @@ test.describe("MCP Servers page", () => {
   }) => {
     let deleteRequestCount = 0;
 
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER, MOCK_SERVER_2], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await route.fulfill({ status: 204 });
@@ -266,7 +415,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("cancels delete and keeps server in list", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -292,14 +441,14 @@ test.describe("MCP Servers page", () => {
   test("rolls back optimistic delete and shows error toast when delete fails", async ({ page }) => {
     let deleteRequestCount = 0;
 
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER, MOCK_SERVER_2], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       expect(route.request().method()).toBe("DELETE");
       deleteRequestCount += 1;
       await route.fulfill({
@@ -330,14 +479,14 @@ test.describe("MCP Servers page", () => {
   test("closes details drawer optimistically when the viewed server is deleted", async ({
     page,
   }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER, MOCK_SERVER_2], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -348,21 +497,21 @@ test.describe("MCP Servers page", () => {
       }
       await route.fulfill({ status: 204 });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/tools*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/tools*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ tools: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/resources*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/resources*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ resources: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/prompts*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/prompts*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -391,14 +540,14 @@ test.describe("MCP Servers page", () => {
   });
 
   test("restores details drawer when delete is rolled back after API failure", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER, MOCK_SERVER_2], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -414,21 +563,21 @@ test.describe("MCP Servers page", () => {
         body: JSON.stringify({ detail: "Forbidden" }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/tools*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/tools*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ tools: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/resources*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/resources*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ resources: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/prompts*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/prompts*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -462,14 +611,14 @@ test.describe("MCP Servers page", () => {
   });
 
   test("does not close details drawer when a different server is deleted", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER, MOCK_SERVER_2], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -478,24 +627,24 @@ test.describe("MCP Servers page", () => {
         });
       }
     });
-    await page.route(`**/gateways/${MOCK_SERVER_2.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER_2.id}`, async (route) => {
       await route.fulfill({ status: 204 });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/tools*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/tools*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ tools: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/resources*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/resources*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ resources: [] }),
       }),
     );
-    await page.route(`**/gateways/${MOCK_SERVER.id}/prompts*`, (route) =>
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/prompts*`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -527,14 +676,14 @@ test.describe("MCP Servers page", () => {
   });
 
   test("opens server details panel from actions menu", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [MOCK_SERVER], nextCursor: null }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}`, async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({
           status: 200,
@@ -543,21 +692,21 @@ test.describe("MCP Servers page", () => {
         });
       }
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/tools*`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/tools*`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ tools: [] }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/resources*`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/resources*`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ resources: [] }),
       });
     });
-    await page.route(`**/gateways/${MOCK_SERVER.id}/prompts*`, async (route) => {
+    await page.route(`**/v1/mcp-servers/${MOCK_SERVER.id}/prompts*`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -577,7 +726,7 @@ test.describe("MCP Servers page", () => {
   });
 
   test("shows per-page selector in the servers footer", async ({ page }) => {
-    await page.route("**/gateways?*", async (route) => {
+    await page.route("**/v1/mcp-servers?*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

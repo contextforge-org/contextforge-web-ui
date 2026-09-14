@@ -1,7 +1,7 @@
 /**
  * McpHealthCard (#5842).
  *
- * Per-server MCP reachability roster over `GET /gateways` (React "MCP servers"):
+ * Per-server MCP reachability roster over `GET /v1/mcp-servers` (React "MCP servers"):
  * a "Servers" title with a "Refreshed X ago" hint, a top-right fleet status
  * ("Reachable" / "Reduced coverage" / "Unreachable" / "Disabled"), an inline
  * "X of N" summary with component totals, one row per server, and Postgres/Redis
@@ -11,7 +11,7 @@
  * live in the Activity feed, not here. See `mcpServerRoster.ts` for the pure
  * classification logic.
  *
- * Permissions: `/gateways` is RBAC-scoped server-side (`gateways.read` + token
+ * Permissions: `/v1/mcp-servers` is RBAC-scoped server-side (`gateways.read` + token
  * teams), so the card self-gates — a caller without `gateways.read` gets a 403
  * we surface as PermissionDenied, and a scoped caller only ever sees (and counts)
  * their own servers. The footer chips come from the admin-only `/version`

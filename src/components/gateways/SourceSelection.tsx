@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { STATUS_ICON } from "@/lib/status";
 import type { MCPServer, ServerStatus } from "@/types/server";
 
-const MCP_SERVERS_QUERY_PATH = "/gateways?limit=100&include_inactive=true";
+const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
 
 type ListedMCPServer = MCPServer & {
   tool_count?: number;

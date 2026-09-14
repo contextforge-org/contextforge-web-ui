@@ -61,15 +61,17 @@ export function buildCreateVirtualServerPayload(
 }
 
 export function createVirtualServer(details: CreateServerDetails): Promise<VirtualServer> {
-  return api.post<VirtualServer>("/servers", buildCreateVirtualServerPayload(details));
+  return api.post<VirtualServer>("/v1/virtual-servers", buildCreateVirtualServerPayload(details));
 }
 
 export function deleteVirtualServer(id: string): Promise<void> {
-  return api.delete<void>(`/servers/${encodeURIComponent(id)}`);
+  return api.delete<void>(`/v1/virtual-servers/${encodeURIComponent(id)}`);
 }
 
 export function setVirtualServerState(id: string, activate: boolean): Promise<VirtualServer> {
-  return api.post<VirtualServer>(`/servers/${encodeURIComponent(id)}/state?activate=${activate}`);
+  return api.post<VirtualServer>(
+    `/v1/virtual-servers/${encodeURIComponent(id)}/state?activate=${activate}`,
+  );
 }
 
 export function buildUpdateVirtualServerPayload(
@@ -104,7 +106,7 @@ export function updateVirtualServer(
   details: CreateServerDetails,
 ): Promise<VirtualServer> {
   return api.put<VirtualServer>(
-    `/servers/${encodeURIComponent(serverId)}`,
+    `/v1/virtual-servers/${encodeURIComponent(serverId)}`,
     buildUpdateVirtualServerPayload(details),
   );
 }
@@ -112,13 +114,13 @@ export function updateVirtualServer(
 /**
  * Replace a virtual server's tags.
  *
- * Sends a partial `PUT /servers/{id}` carrying only `tags`; the server update
+ * Sends a partial `PUT /v1/virtual-servers/{id}` carrying only `tags`; the server update
  * service preserves every other field (name, visibility, associated
  * tools/resources/prompts, ...) when it is omitted. Returns the updated server
  * so callers can patch their cache with the backend-normalized tags.
  */
 export function updateVirtualServerTags(serverId: string, tags: string[]): Promise<VirtualServer> {
-  return api.put<VirtualServer>(`/servers/${encodeURIComponent(serverId)}`, { tags });
+  return api.put<VirtualServer>(`/v1/virtual-servers/${encodeURIComponent(serverId)}`, { tags });
 }
 
 /**

@@ -42,7 +42,7 @@ async function mockCatalog(page: import("@playwright/test").Page, servers: Catal
 }
 
 async function openQuickAddDialog(page: import("@playwright/test").Page) {
-  await page.route("**/gateways?*", async (route) => {
+  await page.route("**/v1/mcp-servers?*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -99,10 +99,11 @@ test.describe("Quick Add server dialog", () => {
     await expect(page.getByRole("radio", { name: "Streamable HTTP" })).toBeChecked();
 
     const createRequest = page.waitForRequest(
-      (request) => request.url().includes("/gateways") && request.method() === "POST",
+      (request) => request.url().includes("/v1/mcp-servers") && request.method() === "POST",
     );
     await page.route(
-      (url) => url.pathname.endsWith("/gateways") || url.pathname.endsWith("/api/gateways"),
+      (url) =>
+        url.pathname.endsWith("/v1/mcp-servers") || url.pathname.endsWith("/api/v1/mcp-servers"),
       async (route) => {
         if (route.request().method() !== "POST") return route.fallback();
         await route.fulfill({
