@@ -51,6 +51,27 @@ describe("OAuth2Auth", () => {
     expect(screen.queryByLabelText(/Password/i)).not.toBeInTheDocument();
   });
 
+  it("should not mark Issuer URL and Token URL as required (mcp-context-forge#6467)", () => {
+    // Neither field is actually required: they're alternatives (discovery
+    // via the issuer can derive the token URL, or the token URL can be
+    // supplied directly), and mcpServerFormSchema (useMCPServerForm.ts)
+    // never enforces their presence.
+    render(<OAuth2Auth {...defaultProps} />);
+
+    const issuerLabel = document.querySelector("label[for='oauth-issuer-url']");
+    const tokenLabel = document.querySelector("label[for='oauth-token-url']");
+    expect(issuerLabel).toHaveTextContent("Issuer URL");
+    expect(issuerLabel).not.toHaveTextContent("*");
+    expect(issuerLabel).not.toHaveTextContent("(required)");
+    expect(tokenLabel).toHaveTextContent("Token URL");
+    expect(tokenLabel).not.toHaveTextContent("*");
+    expect(tokenLabel).not.toHaveTextContent("(required)");
+
+    // Grant type is genuinely required and should keep its indicator.
+    const grantTypeLabel = document.querySelector("label[for='oauth-grant-type']");
+    expect(grantTypeLabel).toHaveTextContent("(required)");
+  });
+
   it("should render authorization_code fields", () => {
     render(<OAuth2Auth {...defaultProps} grantType="authorization_code" />);
 
