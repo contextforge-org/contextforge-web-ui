@@ -44,8 +44,8 @@ function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation
 const one = makeInvitation();
 const two = makeInvitation({ id: "inv-2", team_name: "Design Team", token: "tok-2" });
 
-function renderInvitations(enabled = true) {
-  return renderHook(() => usePendingInvitationsData({ enabled }), { wrapper });
+function renderInvitations(enabled = true, paused = false) {
+  return renderHook(() => usePendingInvitationsData({ enabled, paused }), { wrapper });
 }
 
 describe("usePendingInvitationsData", () => {
@@ -128,6 +128,18 @@ describe("usePendingInvitationsData", () => {
     renderInvitations();
     await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(1));
 
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not refetch on focus while paused, however stale the list is", async () => {
+    renderInvitations(true, true);
+    await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(1));
+
+    vi.setSystemTime(Date.now() + 61_000);
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });

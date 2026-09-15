@@ -23,6 +23,8 @@ function isActionable(invitation: TeamInvitation): boolean {
 export interface UsePendingInvitationsDataOptions {
   /** Whether to fetch. The provider ties this to having a mounted consumer. */
   enabled?: boolean;
+  /** Suspends the staleness refresh. The provider ties this to the open dialog. */
+  paused?: boolean;
 }
 
 export interface UsePendingInvitationsDataResult {
@@ -44,6 +46,7 @@ export interface UsePendingInvitationsDataResult {
 
 export function usePendingInvitationsData({
   enabled = true,
+  paused = false,
 }: UsePendingInvitationsDataOptions = {}): UsePendingInvitationsDataResult {
   const intl = useIntl();
   const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
@@ -105,7 +108,7 @@ export function usePendingInvitationsData({
 
   // The only other load runs on mount, so without this the list never refreshes.
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || paused) return;
 
     const refreshIfStale = () => {
       if (document.visibilityState !== "visible") return;
@@ -119,7 +122,7 @@ export function usePendingInvitationsData({
       document.removeEventListener("visibilitychange", refreshIfStale);
       window.removeEventListener("focus", refreshIfStale);
     };
-  }, [enabled, load]);
+  }, [enabled, paused, load]);
 
   /**
    * Commits the outcome only once the server confirms it. Not optimistic: the

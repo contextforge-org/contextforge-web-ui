@@ -802,4 +802,15 @@ describe("Teams pending invitations", () => {
 
     await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
   });
+
+  it("does not refetch on remount after an earlier acceptance", async () => {
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+    mockAcceptedCount = 1;
+
+    renderWithRouter(<Teams />);
+    await screen.findByText("Team 1");
+
+    // The mount fetch and nothing on top of it.
+    expect(vi.mocked(api.get).mock.calls.length).toBe(1);
+  });
 });

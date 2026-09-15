@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/test-utils";
 import { PendingInvitationsProvider, usePendingInvitations } from "./PendingInvitationsProvider";
@@ -58,6 +58,10 @@ describe("PendingInvitationsProvider", () => {
       role: "member",
       joined_at: "2026-09-11T10:00:00Z",
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("makes no request when no consumer is mounted", async () => {
@@ -151,6 +155,30 @@ describe("PendingInvitationsProvider", () => {
 
     await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("keeps a confirmation on screen when the tab regains focus behind the dialog", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PendingInvitationsProvider>
+        <Trigger name="toolbar" />
+      </PendingInvitationsProvider>,
+    );
+
+    await user.click(await screen.findByText("toolbar: 2"));
+    await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(2));
+    await user.click(await screen.findByRole("button", { name: "Join team: Platform Team" }));
+    await screen.findByText("Invite accepted");
+
+    // The server has stopped listing what was just accepted.
+    vi.mocked(listMyInvitations).mockResolvedValue([two]);
+    vi.setSystemTime(Date.now() + 61_000);
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(listMyInvitations).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Invite accepted")).toBeInTheDocument();
   });
 
   it("returns focus to the opener on close", async () => {

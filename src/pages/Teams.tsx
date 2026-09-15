@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -56,10 +56,13 @@ export function Teams() {
     }
   }, [response]);
 
-  // An accepted invitation adds a team, so the list needs refetching.
+  // An accepted invitation adds a team, so the list needs refetching. Seeded on
+  // mount, so remounting after an earlier acceptance does not refetch again.
   const { acceptedCount } = usePendingInvitations();
+  const refreshedForAccepted = useRef(acceptedCount);
   useEffect(() => {
-    if (acceptedCount === 0) return;
+    if (acceptedCount === refreshedForAccepted.current) return;
+    refreshedForAccepted.current = acceptedCount;
     refetch().catch((refreshErr) => {
       console.error("Failed to refresh teams after accepting:", sanitizeError(refreshErr));
     });

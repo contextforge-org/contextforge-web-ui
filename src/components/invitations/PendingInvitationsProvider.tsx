@@ -63,7 +63,7 @@ export function PendingInvitationsProvider({ children }: { children: ReactNode }
     accept,
     decline,
     refetch,
-  } = usePendingInvitationsData({ enabled: consumerCount > 0 });
+  } = usePendingInvitationsData({ enabled: consumerCount > 0, paused: isOpen });
 
   const register = useCallback(() => {
     setConsumerCount((count) => count + 1);

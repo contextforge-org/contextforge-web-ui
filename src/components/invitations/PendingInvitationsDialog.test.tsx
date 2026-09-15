@@ -211,6 +211,26 @@ describe("PendingInvitationsDialog", () => {
     );
   });
 
+  it("skips a busy row when moving focus, since its buttons are disabled", async () => {
+    const three = makeInvitation({ id: "inv-3", team_id: "team-3", team_name: "Ops Team" });
+    const { rerenderWith } = renderDialog({
+      invitations: [one, two, three],
+      inFlight: { [one.id]: "accept", [two.id]: "decline" },
+      autoCloseDelayMs: 0,
+    });
+
+    rerenderWith({
+      invitations: [one, two, three],
+      resolutions: { [one.id]: "accepted" },
+      inFlight: { [two.id]: "decline" },
+      autoCloseDelayMs: 0,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Join team: Ops Team" })).toHaveFocus(),
+    );
+  });
+
   it("moves focus to the close button when the last row resolves", async () => {
     const { rerenderWith } = renderDialog({ autoCloseDelayMs: 0 });
 

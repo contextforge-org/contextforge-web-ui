@@ -149,14 +149,15 @@ export function PendingInvitationsDialog({
       return;
     }
     if (resolvedCount > previousResolvedCount.current) {
-      const next = pending[0];
+      // Skip busy rows: their buttons are disabled, and focusing one is a no-op.
+      const next = pending.find((invitation) => !inFlight[invitation.id]);
       const target = next
         ? acceptButtonRefs.current.get(next.id)
         : contentRef.current?.querySelector<HTMLElement>('[data-slot="dialog-close"]');
       target?.focus();
     }
     previousResolvedCount.current = resolvedCount;
-  }, [open, resolvedCount, pending]);
+  }, [open, resolvedCount, pending, inFlight]);
 
   const registerAcceptButton = useCallback((id: string, node: HTMLButtonElement | null) => {
     if (node) {
