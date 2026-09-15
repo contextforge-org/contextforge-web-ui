@@ -247,7 +247,7 @@ describe("ServersTable", () => {
 
   // ── Status cell ─────────────────────────────────────────────────────────────
 
-  it("shows 'Draft' when server is disabled", () => {
+  it("shows 'Inactive' when server is disabled", () => {
     renderTable(
       <ServersTable
         servers={[makeServer({ enabled: false })]}
@@ -256,10 +256,10 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
   });
 
-  it("shows 'Offline' when enabled, not reachable, and never seen", () => {
+  it("shows 'Connecting' when enabled, not reachable, and never seen", () => {
     renderTable(
       <ServersTable
         servers={[
@@ -274,10 +274,10 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
   });
 
-  it("shows 'Warning' when enabled, not reachable, but was seen before", () => {
+  it("shows 'Offline' when enabled, not reachable, but was seen before", () => {
     renderTable(
       <ServersTable
         servers={[
@@ -288,7 +288,40 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Warning")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
+  it("shows 'Authorization needed' when the caller has no OAuth token", () => {
+    renderTable(
+      <ServersTable
+        servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+        oauthTokenStatuses={{ "server-uuid-1": "missing" }}
+      />,
+    );
+    expect(screen.getByText("Authorization needed")).toBeInTheDocument();
+  });
+
+  it("opens the status dialog with the reason and the fix", async () => {
+    const user = userEvent.setup();
+    renderTable(
+      <ServersTable
+        servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+        oauthTokenStatuses={{ "server-uuid-1": "missing" }}
+        onAuthorize={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Authorization needed/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("You have not authorized this server");
+    expect(screen.getByRole("button", { name: "Authorize" })).toBeInTheDocument();
   });
 
   it("shows 'Active' when enabled and reachable", () => {

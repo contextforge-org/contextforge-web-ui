@@ -6,7 +6,7 @@
  */
 
 import { api } from "./client";
-import type { ServersResponse, MCPServer } from "../types/server";
+import type { ServersResponse, MCPServer, GatewayOAuthStatus } from "../types/server";
 import type {
   GatewayHandshakeRequest,
   GatewayHandshakeResponse,
@@ -181,6 +181,18 @@ export const serversApi = {
   ): Promise<{ success: boolean; message: string }> => {
     const validId = validateServerId(id);
     return api.post(`/oauth/fetch-tools/${validId}`);
+  },
+
+  /**
+   * The caller's own OAuth state for each gateway, batched.
+   *
+   * Keys stay snake_case, unlike the gateway endpoints. Ids that are missing or
+   * not visible to the caller are omitted; the backend rejects over 100 ids.
+   */
+  getOAuthStatus: (ids: string[]): Promise<Record<string, GatewayOAuthStatus>> => {
+    const params = new URLSearchParams();
+    ids.map(validateServerId).forEach((id) => params.append("gateway_ids", id));
+    return api.get(`/oauth/status?${params.toString()}`);
   },
 
   /**
