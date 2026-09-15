@@ -23,8 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { CatalogOAuthRegisterBody } from "@/api/catalog";
-import type { CatalogServer } from "@/generated/types";
+import type { CatalogOAuthRegisterBody, CatalogServerWithOAuthMetadata } from "@/api/catalog";
 import { useQuery } from "@/hooks/useQuery";
 import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
@@ -57,7 +56,7 @@ export function CatalogOAuthDialog({
   notification,
   onDismissNotification,
 }: {
-  server: CatalogServer;
+  server: CatalogServerWithOAuthMetadata;
   onOpenChange: (open: boolean) => void;
   onSubmit: (body: CatalogOAuthRegisterBody) => Promise<boolean>;
   isSubmitting: boolean;
@@ -65,13 +64,14 @@ export function CatalogOAuthDialog({
   onDismissNotification?: () => void;
 }) {
   const intl = useIntl();
+  const oauth = server.oauth; // pragma: allowlist secret
   const [name, setName] = useState("");
-  const [issuer, setIssuer] = useState("");
-  const [scopes, setScopes] = useState("");
+  const [issuer, setIssuer] = useState(oauth?.issuer ?? "");
+  const [scopes, setScopes] = useState(oauth?.scopes.join(" ") ?? "");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState(""); // pragma: allowlist secret
-  const [authorizationUrl, setAuthorizationUrl] = useState("");
-  const [tokenUrl, setTokenUrl] = useState("");
+  const [authorizationUrl, setAuthorizationUrl] = useState(oauth?.authorization_url ?? "");
+  const [tokenUrl, setTokenUrl] = useState(oauth?.token_url ?? "");
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [teamId, setTeamId] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -132,9 +132,8 @@ export function CatalogOAuthDialog({
         ...(clientSecret.trim()
           ? {}
           : {
-              clientSecret: intl.formatMessage({
-                id: "mcpServer.catalog.oauth.clientSecretRequired",
-              }),
+              // prettier-ignore
+              clientSecret: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientSecretRequired" }), // pragma: allowlist secret
             }),
         ...(isHttpUrl(authorizationUrl.trim())
           ? {}
@@ -158,10 +157,11 @@ export function CatalogOAuthDialog({
         visibility,
         team_id: visibility === "team" ? teamId : null,
         oauth_credentials: {
+          // pragma: allowlist secret
           grant_type: "authorization_code",
           issuer: issuer.trim(),
           client_id: clientId.trim(),
-          client_secret: clientSecret,
+          client_secret: clientSecret, // pragma: allowlist secret
           authorization_url: authorizationUrl.trim(),
           token_url: tokenUrl.trim(),
           scopes: scopesList,
@@ -332,7 +332,7 @@ export function CatalogOAuthDialog({
                 value={clientSecret}
                 onChange={(event) => {
                   setClientSecret(event.target.value);
-                  setErrors((current) => ({ ...current, clientSecret: undefined }));
+                  setErrors((current) => ({ ...current, clientSecret: undefined })); // pragma: allowlist secret
                 }}
                 placeholder={intl.formatMessage({
                   id: "mcpServer.auth.oauth.clientSecretPlaceholder",

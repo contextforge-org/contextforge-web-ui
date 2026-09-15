@@ -1,11 +1,33 @@
 import { api } from "./client";
 import type {
+  CatalogServer,
   CatalogServerRegisterBody,
   CatalogServerRegisterResponse,
   GatewayRead,
   GatewayTestRequest,
   GatewayTestResponse,
 } from "@/generated/types";
+
+/**
+ * Public OAuth metadata returned by the catalog API.
+ *
+ * This remains hand-written until the frontend OpenAPI snapshot includes the
+ * backend's CatalogOAuthMetadata schema. Client credentials are intentionally
+ * absent: they are deployment-specific secrets and must never round-trip.
+ */
+export interface CatalogOAuthMetadata {
+  issuer?: string | null;
+  authorization_url?: string | null;
+  token_url?: string | null;
+  scopes: string[];
+  supports_dcr?: boolean;
+  resource?: string | null;
+}
+
+/** Catalog server enriched with the public OAuth metadata returned by the API. */
+export type CatalogServerWithOAuthMetadata = CatalogServer & {
+  oauth?: CatalogOAuthMetadata | null;
+};
 
 /** Temporary handwritten contract until #6588 reaches generated OpenAPI types. */
 export interface CatalogOAuthCredentials {
@@ -19,7 +41,7 @@ export interface CatalogOAuthCredentials {
 }
 
 export type CatalogOAuthRegisterBody = CatalogServerRegisterBody & {
-  oauth_credentials: CatalogOAuthCredentials;
+  oauth_credentials: CatalogOAuthCredentials; // pragma: allowlist secret
 };
 
 export interface OAuthUserTokenStatus {

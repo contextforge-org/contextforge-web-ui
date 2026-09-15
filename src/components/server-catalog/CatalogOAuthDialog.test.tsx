@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 
 import type { CatalogServer } from "@/generated/types";
+import type { CatalogServerWithOAuthMetadata } from "@/api/catalog";
 import { useQuery } from "@/hooks/useQuery";
 import { renderWithProviders } from "@/test/test-utils";
 import { CatalogOAuthDialog } from "./CatalogOAuthDialog";
@@ -98,6 +99,33 @@ describe("CatalogOAuthDialog", () => {
       "catalog-oauth-issuer-error",
     );
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("prefills public OAuth metadata without pre-filling client credentials", () => {
+    const oauthServer: CatalogServerWithOAuthMetadata = {
+      ...server,
+      oauth: {
+        issuer: "https://github.com",
+        authorization_url: "https://github.com/login/oauth/authorize",
+        token_url: "https://github.com/login/oauth/access_token",
+        scopes: ["repo", "read:user"],
+        supports_dcr: false,
+        resource: "https://api.githubcopilot.com/mcp",
+      },
+    };
+
+    renderDialog({ server: oauthServer });
+
+    expect(screen.getByLabelText(/Issuer URL/i)).toHaveValue("https://github.com");
+    expect(screen.getByLabelText(/^Scopes/i)).toHaveValue("repo read:user");
+    expect(screen.getByLabelText(/^Authorization URL/i)).toHaveValue(
+      "https://github.com/login/oauth/authorize",
+    );
+    expect(screen.getByLabelText(/^Token URL/i)).toHaveValue(
+      "https://github.com/login/oauth/access_token",
+    );
+    expect(screen.getByLabelText(/^Client ID/i)).toHaveValue("");
+    expect(screen.getByLabelText(/^Client Secret/i)).toHaveValue("");
   });
 
   it("shows callback URL and submits normalized authorization-code credentials", async () => {
