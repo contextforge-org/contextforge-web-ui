@@ -1,4 +1,4 @@
-import { Building2, Lock, Users, Activity, CircleSlash, CircleDashed } from "lucide-react";
+import { Building2, Lock, Users } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -11,12 +11,13 @@ import {
 import { useIntl } from "react-intl";
 import { ServerIcon } from "./ServerIcon";
 import { ServerActionsMenu } from "./ServerActionsMenu";
-import type { MCPServer, ServerStatus } from "../../types/server";
+import type { MCPServer } from "../../types/server";
 import { Loading } from "../ui/loading";
 import { formatLocalDateTime } from "../../utils/formatDate";
 import { CopyButton } from "@/components/ui/copy-button";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import { STATUS_ICON } from "@/lib/status";
+import { ServerStatusIndicator } from "./ServerStatusIndicator";
+import type { OAuthTokenStatus } from "@/lib/serverStatus";
 
 function getLastSeenValue(server: MCPServer): string | undefined {
   return server.lastSeen;
@@ -34,16 +35,6 @@ function getPromptCount(server: MCPServer): number {
   return server.promptCount ?? 0;
 }
 
-function getServerStatus(server: MCPServer): ServerStatus {
-  if (!server.enabled) return "draft";
-  if (!server.reachable) {
-    // Had a successful connection before → regression worth flagging
-    return server.lastSeen ? "warning" : "offline";
-  }
-
-  return "active";
-}
-
 function getVisibilityConfig(visibility: MCPServer["visibility"]) {
   switch (visibility) {
     case "private":
@@ -52,35 +43,6 @@ function getVisibilityConfig(visibility: MCPServer["visibility"]) {
       return { labelId: "common.visibility.team", Icon: Users };
     default:
       return { labelId: "common.visibility.internal", Icon: Building2 };
-  }
-}
-
-function getStatusConfig(status: ServerStatus) {
-  switch (status) {
-    case "active":
-      return {
-        labelId: "mcpServer.status.active",
-        Icon: Activity,
-        className: "text-success",
-      };
-    case "warning":
-      return {
-        labelId: "mcpServer.status.warning",
-        Icon: STATUS_ICON.warning,
-        className: "text-warning",
-      };
-    case "offline":
-      return {
-        labelId: "mcpServer.status.offline",
-        Icon: CircleSlash,
-        className: "text-muted-foreground",
-      };
-    default:
-      return {
-        labelId: "mcpServer.status.draft",
-        Icon: CircleDashed,
-        className: "text-muted-foreground",
-      };
   }
 }
 
@@ -93,6 +55,9 @@ interface ServersTableProps {
   onToggleEnabled?: (id: string, enabled: boolean) => void;
   onRefresh?: (id: string) => void;
   refreshingServerIds?: Set<string>;
+  /** Caller's own OAuth token state, keyed by server id. */
+  oauthTokenStatuses?: Record<string, OAuthTokenStatus>;
+  onAuthorize?: (id: string) => Promise<void>;
 }
 
 export function ServersTable({
@@ -104,6 +69,8 @@ export function ServersTable({
   onToggleEnabled,
   onRefresh,
   refreshingServerIds,
+  oauthTokenStatuses,
+  onAuthorize,
 }: ServersTableProps) {
   const intl = useIntl();
 
@@ -158,11 +125,8 @@ export function ServersTable({
             const promptsCount = getPromptCount(server);
             const toolCount = getToolCount(server);
             const lastSeen = getLastSeenValue(server);
-            const status = getServerStatus(server);
             const visibility = getVisibilityConfig(server.visibility);
-            const statusConfig = getStatusConfig(status);
             const VisibilityIcon = visibility.Icon;
-            const StatusIcon = statusConfig.Icon;
 
             return (
               <TableRow
@@ -222,14 +186,12 @@ export function ServersTable({
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <div
-                    className={`inline-flex items-center gap-1.5 text-xs ${statusConfig.className}`}
-                  >
-                    <StatusIcon className="h-3.5 w-3.5" />
-                    <span className="text-muted-foreground">
-                      {intl.formatMessage({ id: statusConfig.labelId })}
-                    </span>
-                  </div>
+                  <ServerStatusIndicator
+                    server={server}
+                    oauthTokenStatus={oauthTokenStatuses?.[server.id]}
+                    onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
+                    onEnable={onToggleEnabled && (async () => onToggleEnabled(server.id, true))}
+                  />
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <ServerActionsMenu

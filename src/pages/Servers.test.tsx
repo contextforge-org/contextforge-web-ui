@@ -159,7 +159,7 @@ describe("Servers", () => {
     renderWithRouter(<Servers />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole("button", { name: /Connect/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Connect" }).length).toBeGreaterThan(0);
     });
   });
 
@@ -172,7 +172,7 @@ describe("Servers", () => {
     await waitFor(() => {
       expect(screen.queryByText("Connect MCP server")).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
   });
 
   it("hides the toolbar Connect button when the caller lacks gateways.create", async () => {
@@ -187,7 +187,7 @@ describe("Servers", () => {
     await waitFor(() => {
       expect(screen.getByText("Test Server 0")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
   });
 
   it("renders servers list when data is loaded", async () => {
@@ -251,7 +251,7 @@ describe("Servers", () => {
       screen.getByText(/Register a MCP server to federate its tools, resources, and prompts/i),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /Connect/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
 
     expect(screen.queryByText("MCP Servers")).not.toBeInTheDocument();
   });
@@ -1001,7 +1001,7 @@ describe("Servers", () => {
     });
 
     // Click Connect to open form
-    const connectButton = screen.getByRole("button", { name: /Connect/i });
+    const connectButton = screen.getByRole("button", { name: "Connect" });
     await user.click(connectButton);
 
     // Form should appear
