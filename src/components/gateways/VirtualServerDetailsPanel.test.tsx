@@ -383,7 +383,8 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
     await openToolTest(user, "Search issues");
 
-    expect(await screen.findByText("Tool test")).toBeInTheDocument();
+    const testHeading = await screen.findByRole("heading", { name: "Tool test" });
+    await waitFor(() => expect(testHeading).toHaveFocus());
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Live invocation" })).not.toBeChecked();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
@@ -394,6 +395,52 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     await user.click(screen.getByRole("button", { name: "Back to components" }));
     expect(await screen.findByText("Search issues")).toBeInTheDocument();
     expect(screen.queryByText("Tool test")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Actions for Search issues" })).toHaveFocus(),
+    );
+  });
+
+  it("uses snake_case tool fields for scoped testing", async () => {
+    const user = userEvent.setup();
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    const tool: Record<string, unknown> = { ...makeTool({ title: undefined }) };
+    delete tool.displayName;
+    delete tool.originalName;
+    delete tool.gatewayId;
+    delete tool.gatewaySlug;
+    delete tool.inputSchema;
+    delete tool.outputSchema;
+    tool.display_name = "Find issues";
+    tool.original_name = "upstream_search";
+    tool.gateway_id = "gateway-id";
+    tool.gateway_slug = "snake-gateway";
+    tool.input_schema = {
+      type: "object",
+      required: ["query"],
+      properties: { query: { type: "string" } },
+    };
+    tool.output_schema = { type: "object" };
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [tool] })),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "virtual-server-1" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await openToolTest(user, "upstream_search");
+    expect(screen.getByText("Find issues")).toBeInTheDocument();
+    expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(/query/i)).toHaveAttribute("type", "text");
+    expect(
+      document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
+    ).toHaveTextContent('"server_id":"virtual-server-1"');
   });
 
   it("does not expose Test for associatedToolIds fallback rows", async () => {
@@ -447,6 +494,9 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     await user.type(screen.getByLabelText(/query/i), "cloudflare");
     expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
+      message,
+    );
     expect(screen.getByText(message)).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ComponentProps } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { ComponentProps, Ref } from "react";
 import { useIntl } from "react-intl";
 
 import { useAuth } from "@/auth/useAuth";
@@ -33,7 +33,7 @@ import { getToolAnnotationHints } from "./toolAnnotations";
 const DEFAULT_SNIPPET_LANGUAGE: ToolSnippetLanguage = "curl";
 
 export interface ToolTryItTabProps {
-  getToolLabel?: (tool: Tool) => string;
+  headingRef?: Ref<HTMLHeadingElement>;
   resultContext?: ComponentProps<typeof ToolLiveInvokeResult>["context"];
   serverScope?: { serverId: string; serverName: string };
   tools?: Tool[];
@@ -42,7 +42,7 @@ export interface ToolTryItTabProps {
 }
 
 export function ToolTryItTab({
-  getToolLabel,
+  headingRef,
   resultContext,
   serverScope,
   tools,
@@ -50,6 +50,7 @@ export function ToolTryItTab({
   onSelectTool,
 }: ToolTryItTabProps) {
   const intl = useIntl();
+  const liveModeReasonId = useId();
   const { hasPermission, permissionsLoading } = useAuth();
   const [args, setArgs] = useState<Record<string, unknown>>(() =>
     seedToolArguments(selectedTool.inputSchema),
@@ -86,7 +87,6 @@ export function ToolTryItTab({
   const resetInvoke = invoke.reset;
   const previousToolIdRef = useRef(selectedTool.id);
   const availableTools = tools ?? [selectedTool];
-  const toolLabel = getToolLabel ?? ((tool: Tool) => tool.name);
   const snippetSpecs = scopedMode && !liveMode ? TOOL_PREVIEW_SNIPPETS : TOOL_SNIPPETS;
   const snippets = useMemo(
     () =>
@@ -126,7 +126,11 @@ export function ToolTryItTab({
     <div className="space-y-6">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">
+          <h3
+            ref={headingRef}
+            tabIndex={scopedMode ? -1 : undefined}
+            className="text-sm font-semibold text-foreground"
+          >
             {intl.formatMessage({
               id: scopedMode ? "tools.details.test.title" : "tools.details.preview.title",
             })}
@@ -142,6 +146,15 @@ export function ToolTryItTab({
             </Badge>
           )}
         </div>
+
+        {scopedMode && (
+          <p className="text-[13px] font-medium text-foreground">
+            {selectedTool.displayName ||
+              selectedTool.title ||
+              selectedTool.originalName ||
+              selectedTool.name}
+          </p>
+        )}
 
         {availableTools.length > 1 && onSelectTool && (
           <div
@@ -166,7 +179,7 @@ export function ToolTryItTab({
                       : "text-muted-foreground",
                   )}
                 >
-                  {toolLabel(tool)}
+                  {tool.name}
                 </Button>
               );
             })}
@@ -190,13 +203,17 @@ export function ToolTryItTab({
               {intl.formatMessage({ id: "tools.details.test.liveMode" })}
             </label>
             {!liveModeAvailable && (
-              <p className="max-w-md text-[12px] leading-4 text-muted-foreground">
+              <p
+                id={liveModeReasonId}
+                className="max-w-md text-[12px] leading-4 text-muted-foreground"
+              >
                 {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
               </p>
             )}
           </div>
           <Switch
             id={`tool-live-mode-${selectedTool.id}`}
+            aria-describedby={!liveModeAvailable ? liveModeReasonId : undefined}
             checked={liveMode}
             disabled={!liveModeAvailable}
             onCheckedChange={handleLiveModeChange}

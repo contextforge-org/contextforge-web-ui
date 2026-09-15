@@ -182,7 +182,7 @@ async function openVirtualServerToolTest(page: Page) {
   await panel.getByRole("tab", { name: "Components" }).click();
   await panel.getByRole("button", { name: "Actions for Search issues" }).click();
   await page.getByRole("menuitem", { name: "Test" }).click();
-  await expect(panel.getByText("Tool test")).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Tool test" })).toBeFocused();
   return panel;
 }
 
@@ -1383,6 +1383,9 @@ test.describe("Virtual Servers page", () => {
         },
       });
       expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
+
+      await panel.getByRole("button", { name: "Back to components" }).click();
+      await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
     });
 
     test("blocks live invoke without tools.execute", async ({ page, apiMock }) => {
@@ -1397,6 +1400,28 @@ test.describe("Virtual Servers page", () => {
       await expect(panel.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
       await panel.getByLabel("query").fill("cloudflare");
       await expect(panel.getByRole("button", { name: "Preview" })).toBeEnabled();
+    });
+
+    test("restores focus after keyboard navigation through tool testing", async ({ page }) => {
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for testVS" }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "View details" }).press("Enter");
+
+      const panel = page.getByRole("region", { name: "testVS details" });
+      await panel.getByRole("tab", { name: "Components" }).focus();
+      await page.keyboard.press("Enter");
+      await panel.getByRole("button", { name: "Actions for Search issues" }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "Test" }).press("Enter");
+      await expect(panel.getByRole("heading", { name: "Tool test" })).toBeFocused();
+
+      await panel.getByRole("button", { name: "Back to components" }).focus();
+      await page.keyboard.press("Enter");
+      await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
     });
 
     test("blocks live invoke without servers.use", async ({ page, apiMock }) => {
