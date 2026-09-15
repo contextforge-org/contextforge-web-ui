@@ -7,6 +7,37 @@ import type {
   GatewayTestResponse,
 } from "@/generated/types";
 
+/** Temporary handwritten contract until #6588 reaches generated OpenAPI types. */
+export interface CatalogOAuthCredentials {
+  grant_type: "authorization_code";
+  issuer: string;
+  client_id: string;
+  client_secret: string; // pragma: allowlist secret
+  authorization_url: string;
+  token_url: string;
+  scopes: string[];
+}
+
+export type CatalogOAuthRegisterBody = CatalogServerRegisterBody & {
+  oauth_credentials: CatalogOAuthCredentials;
+};
+
+export interface OAuthUserTokenStatus {
+  status: "valid" | "near_expiry" | "expired" | "missing";
+  authorized: boolean;
+  scopes?: string[];
+  expires_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface OAuthGatewayStatus {
+  oauth_enabled: boolean;
+  grant_type?: string;
+  user_token_status?: OAuthUserTokenStatus;
+}
+
+export type OAuthGatewayStatusMap = Record<string, OAuthGatewayStatus>;
+
 export interface GatewayImpactPreview {
   gatewayId: string;
   servers: Array<{ id: string; name: string }>;
@@ -17,7 +48,7 @@ export type CatalogGatewayDeleteResponse = GatewayRead | { status?: string; mess
 /** Register a catalog entry through the authenticated BFF proxy. */
 export async function registerCatalogServer(
   catalogId: string,
-  body?: CatalogServerRegisterBody,
+  body?: CatalogServerRegisterBody | CatalogOAuthRegisterBody,
 ): Promise<CatalogServerRegisterResponse> {
   return api.post<CatalogServerRegisterResponse>(
     `/v1/catalog/${encodeURIComponent(catalogId)}/register`,
