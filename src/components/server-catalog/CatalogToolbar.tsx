@@ -14,6 +14,13 @@ import { cn } from "@/lib/utils";
 const ALL_MODE = "all";
 const SELECT_MODE = "select";
 
+// Category, provider and tag options come straight from catalog data, so the raw
+// value doubles as its own display label; only the auth-type section needs a
+// value distinct from its (localized) label.
+function toOptions(values: string[]): CatalogFilterOption[] {
+  return values.map((value) => ({ value, label: value }));
+}
+
 export type CatalogFilterSection = "category" | "provider" | "authType" | "tags";
 
 type CatalogSectionMode = typeof ALL_MODE | typeof SELECT_MODE;
@@ -26,6 +33,11 @@ const DEFAULT_MODES: CatalogSectionModes = {
   tags: ALL_MODE,
 };
 
+interface CatalogFilterOption {
+  value: string;
+  label: string;
+}
+
 interface CatalogToolbarProps {
   search: string;
   installedOnly: boolean;
@@ -35,7 +47,7 @@ interface CatalogToolbarProps {
   selectedTags: string[];
   categories: string[];
   providers: string[];
-  authTypes: string[];
+  authTypes: CatalogFilterOption[];
   availableTags: string[];
   activeFilterCount: number;
   onSearchChange: (value: string) => void;
@@ -105,7 +117,7 @@ function CatalogFilterSectionFields({
   idPrefix: string;
   legendId: string;
   legend: string;
-  options: string[];
+  options: CatalogFilterOption[];
   selected: string[];
   mode: CatalogSectionMode;
   expanded: boolean;
@@ -186,18 +198,18 @@ function CatalogFilterSectionFields({
           {options.map((option, index) => {
             const checkboxId = `${idPrefix}-option-${index}`;
             return (
-              <div key={option} className="flex min-w-0 items-center gap-2">
+              <div key={option.value} className="flex min-w-0 items-center gap-2">
                 <Checkbox
                   id={checkboxId}
-                  checked={selected.includes(option)}
-                  onCheckedChange={(checked) => onToggle(option, checked === true)}
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={(checked) => onToggle(option.value, checked === true)}
                 />
                 {/* Full-height label so the tap target clears 44px on touch. */}
                 <Label
                   htmlFor={checkboxId}
                   className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center break-words text-sm font-normal sm:min-h-8"
                 >
-                  {option}
+                  {option.label}
                 </Label>
               </div>
             );
@@ -309,7 +321,7 @@ function CatalogFiltersPopover({
           idPrefix={`${id}-provider`}
           legendId={`${id}-provider-legend`}
           legend={intl.formatMessage({ id: "mcpServer.catalog.providers" })}
-          options={providers}
+          options={toOptions(providers)}
           selected={provider}
           mode={modes.provider}
           expanded={expanded === "provider"}
@@ -333,7 +345,7 @@ function CatalogFiltersPopover({
           idPrefix={`${id}-category`}
           legendId={`${id}-category-legend`}
           legend={intl.formatMessage({ id: "mcpServer.catalog.categories" })}
-          options={categories}
+          options={toOptions(categories)}
           selected={category}
           mode={modes.category}
           expanded={expanded === "category"}
@@ -364,7 +376,7 @@ function CatalogFiltersPopover({
             idPrefix={`${id}-tags`}
             legendId={`${id}-tags-legend`}
             legend={intl.formatMessage({ id: "mcpServer.catalog.tags" })}
-            options={availableTags}
+            options={toOptions(availableTags)}
             selected={selectedTags}
             mode={modes.tags}
             expanded={expanded === "tags"}
