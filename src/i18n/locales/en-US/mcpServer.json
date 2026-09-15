@@ -73,6 +73,7 @@
   "mcpServer.refresh.error": "Failed to refresh {name}: {detail}",
   "mcpServer.refresh.errorTitle": "Error refreshing MCP server",
   "mcpServer.refresh.conflict": "A refresh is already running for {name}. Try again shortly.",
+  "mcpServer.refresh.validationWarning": "{count, plural, one {# tool was skipped due to a validation error:} other {# tools were skipped due to validation errors:}}",
   "mcpServer.status.active": "Active",
   "mcpServer.status.warning": "Warning",
   "mcpServer.status.offline": "Offline",

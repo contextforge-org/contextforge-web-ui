@@ -34,6 +34,7 @@ vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -47,6 +48,7 @@ import { api, ApiError } from "@/api/client";
 
 const mockToastSuccess = vi.mocked(toast.success);
 const mockToastError = vi.mocked(toast.error);
+const mockToastWarning = vi.mocked(toast.warning);
 
 const mockServerDetails = {
   id: "server-0",
@@ -1105,6 +1107,53 @@ describe("Servers", () => {
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("Test Server 0"));
       });
+    });
+
+    it("shows a warning toast when refresh returns success: true with validationErrors", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockResolvedValueOnce({
+        gatewayId: "server-0",
+        success: true,
+        toolsAdded: 2,
+        toolsUpdated: 0,
+        toolsRemoved: 0,
+        validationErrors: ["Tool 'bad_tool' has an invalid input schema"],
+        durationMs: 100,
+        refreshedAt: "2025-09-09T00:00:00Z",
+      });
+      // Refetch after a successful refresh.
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await waitFor(() => {
+        expect(mockToastWarning).toHaveBeenCalledWith(
+          expect.stringContaining("Test Server 0"),
+          expect.objectContaining({
+            description: expect.stringContaining("Tool 'bad_tool' has an invalid input schema"),
+          }),
+        );
+      });
+      expect(mockToastSuccess).not.toHaveBeenCalled();
     });
 
     it("shows an error toast when refresh returns success: false on HTTP 200", async () => {

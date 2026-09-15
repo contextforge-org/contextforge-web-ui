@@ -223,7 +223,7 @@ test.describe("MCP Servers page", () => {
   test.describe("Refresh action", () => {
     test("hides Refresh when the caller lacks gateways.update", async ({ page, apiMock }) => {
       await apiMock.mockPermissions({ permissions: ["gateways.read"] });
-      await page.route("**/gateways?*", async (route) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -241,7 +241,7 @@ test.describe("MCP Servers page", () => {
     test("refreshes tools and shows a success toast with counts", async ({ page }) => {
       let refreshRequestCount = 0;
 
-      await page.route("**/gateways?*", async (route) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -279,7 +279,7 @@ test.describe("MCP Servers page", () => {
     });
 
     test("shows an error toast when the refresh reports success: false", async ({ page }) => {
-      await page.route("**/gateways?*", async (route) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -312,7 +312,7 @@ test.describe("MCP Servers page", () => {
     });
 
     test("shows a conflict toast on HTTP 409", async ({ page }) => {
-      await page.route("**/gateways?*", async (route) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -343,7 +343,7 @@ test.describe("MCP Servers page", () => {
     test("disables the Refresh item for the server while a refresh is in flight", async ({
       page,
     }) => {
-      await page.route("**/gateways?*", async (route) => {
+      await page.route("**/v1/mcp-servers?*", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
