@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 
 import type { CatalogServer } from "@/generated/types";
-import type { CatalogServerWithOAuthMetadata } from "@/api/catalog";
 import { useQuery } from "@/hooks/useQuery";
 import { renderWithProviders } from "@/test/test-utils";
 import { CatalogOAuthDialog } from "./CatalogOAuthDialog";
@@ -102,7 +101,7 @@ describe("CatalogOAuthDialog", () => {
   });
 
   it("prefills public OAuth metadata without pre-filling client credentials", () => {
-    const oauthServer: CatalogServerWithOAuthMetadata = {
+    const oauthServer: CatalogServer = {
       ...server,
       oauth: {
         issuer: "https://github.com",

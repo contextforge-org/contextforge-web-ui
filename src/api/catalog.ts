@@ -1,48 +1,11 @@
 import { api } from "./client";
 import type {
-  CatalogServer,
   CatalogServerRegisterBody,
   CatalogServerRegisterResponse,
   GatewayRead,
   GatewayTestRequest,
   GatewayTestResponse,
 } from "@/generated/types";
-
-/**
- * Public OAuth metadata returned by the catalog API.
- *
- * This remains hand-written until the frontend OpenAPI snapshot includes the
- * backend's CatalogOAuthMetadata schema. Client credentials are intentionally
- * absent: they are deployment-specific secrets and must never round-trip.
- */
-export interface CatalogOAuthMetadata {
-  issuer?: string | null;
-  authorization_url?: string | null;
-  token_url?: string | null;
-  scopes: string[];
-  supports_dcr?: boolean;
-  resource?: string | null;
-}
-
-/** Catalog server enriched with the public OAuth metadata returned by the API. */
-export type CatalogServerWithOAuthMetadata = CatalogServer & {
-  oauth?: CatalogOAuthMetadata | null;
-};
-
-/** Temporary handwritten contract until #6588 reaches generated OpenAPI types. */
-export interface CatalogOAuthCredentials {
-  grant_type: "authorization_code";
-  issuer: string;
-  client_id: string;
-  client_secret: string; // pragma: allowlist secret
-  authorization_url: string;
-  token_url: string;
-  scopes: string[];
-}
-
-export type CatalogOAuthRegisterBody = CatalogServerRegisterBody & {
-  oauth_credentials: CatalogOAuthCredentials; // pragma: allowlist secret
-};
 
 export interface OAuthUserTokenStatus {
   status: "valid" | "near_expiry" | "expired" | "missing";
@@ -70,7 +33,7 @@ export type CatalogGatewayDeleteResponse = GatewayRead | { status?: string; mess
 /** Register a catalog entry through the authenticated BFF proxy. */
 export async function registerCatalogServer(
   catalogId: string,
-  body?: CatalogServerRegisterBody | CatalogOAuthRegisterBody,
+  body?: CatalogServerRegisterBody,
 ): Promise<CatalogServerRegisterResponse> {
   return api.post<CatalogServerRegisterResponse>(
     `/v1/catalog/${encodeURIComponent(catalogId)}/register`,
