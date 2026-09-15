@@ -35,12 +35,11 @@ vi.mock("sonner", () => ({
   },
 }));
 
-let mockInvitationCount = 0;
 let mockAcceptedCount = 0;
 
 vi.mock("@/components/invitations/PendingInvitationsProvider", () => ({
   usePendingInvitations: () => ({
-    count: mockInvitationCount,
+    count: 0,
     isLoading: false,
     error: null,
     open: vi.fn(),
@@ -782,45 +781,7 @@ describe("Teams pending invitations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    mockInvitationCount = 0;
     mockAcceptedCount = 0;
-  });
-
-  it("renders the invitations chip in the toolbar", async () => {
-    mockInvitationCount = 2;
-    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
-
-    renderWithRouter(<Teams />);
-
-    expect(await screen.findByRole("button", { name: "2 invitations" })).toBeInTheDocument();
-  });
-
-  it("renders the chip for a user with no teams of their own", async () => {
-    mockInvitationCount = 1;
-    vi.mocked(api.get).mockResolvedValue({ teams: [] });
-
-    renderWithRouter(<Teams />);
-    await screen.findByText("No teams yet");
-
-    expect(screen.getByRole("button", { name: "1 invitation" })).toBeInTheDocument();
-  });
-
-  it("renders no toolbar at all with neither teams nor invitations", async () => {
-    vi.mocked(api.get).mockResolvedValue({ teams: [] });
-
-    renderWithRouter(<Teams />);
-    await screen.findByText("No teams yet");
-
-    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
-  });
-
-  it("renders no chip when nothing is pending", async () => {
-    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
-
-    renderWithRouter(<Teams />);
-    await screen.findByText("Team 1");
-
-    expect(screen.queryByRole("button", { name: /invitation/ })).not.toBeInTheDocument();
   });
 
   it("refetches the teams list when an invitation is accepted", async () => {

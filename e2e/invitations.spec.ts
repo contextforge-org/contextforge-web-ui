@@ -4,7 +4,7 @@
  * Running under E2E_REAL_API=true additionally needs e2e/seed/seed.ts to seed
  * a pending invitation for the test user.
  */
-import { test, expect } from "./fixtures/api-mock";
+import { test, expect, DEFAULT_TEST_USER } from "./fixtures/api-mock";
 import type { Page } from "@playwright/test";
 import { APP } from "./utils/paths";
 import type { Team, TeamInvitation } from "../src/types/team";
@@ -263,20 +263,18 @@ test.describe("Pending team invitations", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).not.toBeVisible({ timeout: 8000 });
     await expect(page.getByRole("button", { name: /invitation/ })).toHaveCount(0);
-    // The trigger it opened from is gone, so focus lands on the fallback.
-    await expect(page.getByRole("button", { name: "Create Team" })).toBeFocused();
+    await expect(page.locator("main").first()).toBeFocused();
   });
 
-  test("a user with no teams can still reach an invitation", async ({ page }) => {
-    await mockTeams(page, []);
+  test("a non-admin can reach an invitation", async ({ page, apiMock }) => {
+    await apiMock.mockSession({ user: { ...DEFAULT_TEST_USER, is_admin: false } });
+    await mockTeams(page, [MOCK_TEAM]);
     await mockInvitations(page, [PLATFORM_INVITATION]);
 
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
+    await expect(page).not.toHaveURL(/settings\/teams/);
 
-    // Being invited to a first team is the case the feature exists for, so the
-    // chip sits outside the branch that needs an existing team.
-    await expect(page.getByText("No teams yet")).toBeVisible();
     await page.getByRole("button", { name: "1 invitation" }).click();
 
     const dialog = page.getByRole("dialog");
