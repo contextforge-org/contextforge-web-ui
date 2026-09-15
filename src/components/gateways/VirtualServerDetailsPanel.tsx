@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 import {
   Activity,
@@ -40,7 +40,7 @@ import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
 import { isVirtualServerToolTryItEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
 import type { MCPServer, VirtualServer } from "@/types/server";
-import type { Tool as ApiTool } from "@/types/tool";
+import { normalizeVirtualServerTool, type VirtualServerTool } from "./normalizeVirtualServerTool";
 import type { ComponentFilter } from "@/components/gateways/types";
 import {
   buildComponentItems,
@@ -62,10 +62,6 @@ type TopTab = "components" | "test";
 // Segmented-control styling shared with MCPServerDetailsPanel
 const SEGMENTED_TRIGGER_CLASS =
   "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
-
-interface PanelTool extends ApiTool {
-  gateway_id?: string;
-}
 
 interface ComponentTool {
   id: string;
@@ -147,45 +143,11 @@ function getMCPServers(data: MCPServersResponse | MCPServer[] | undefined): MCPS
   return data?.gateways ?? [];
 }
 
-function getPanelTools(data: { tools: PanelTool[] } | PanelTool[] | undefined): PanelTool[] {
+function getPanelTools(
+  data: { tools: VirtualServerTool[] } | VirtualServerTool[] | undefined,
+): VirtualServerTool[] {
   const tools = Array.isArray(data) ? data : (data?.tools ?? []);
-  return tools.map(normalizePanelTool);
-}
-
-function normalizePanelTool(tool: PanelTool): PanelTool {
-  const record = tool as unknown as Record<string, unknown>;
-  return {
-    ...tool,
-    annotations: asRecord(tool.annotations) ?? {},
-    displayName: getNonEmptyString(record.displayName) ?? getNonEmptyString(record.display_name),
-    gatewayId: tool.gatewayId ?? getNonEmptyString(record.gateway_id) ?? null,
-    gatewaySlug: tool.gatewaySlug ?? getNonEmptyString(record.gateway_slug) ?? "",
-    inputSchema: asRecord(tool.inputSchema) ?? asRecord(record.input_schema) ?? {},
-    originalName:
-      getNonEmptyString(record.originalName) ??
-      getNonEmptyString(record.original_name) ??
-      tool.name,
-    outputSchema: asRecord(tool.outputSchema) ?? asRecord(record.output_schema),
-  };
-}
-
-function getFriendlyToolLabel(tool: ApiTool): string {
-  const record = tool as unknown as Record<string, unknown>;
-  return (
-    getNonEmptyString(record.displayName) ??
-    getNonEmptyString(record.title) ??
-    getNonEmptyString(record.originalName) ??
-    tool.name
-  );
-}
-
-function getNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value : undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
+  return tools.map(normalizeVirtualServerTool);
 }
 
 export function VirtualServerDetailsPanel({
@@ -222,6 +184,11 @@ export function VirtualServerDetailsPanel({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const toolTestHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusedToolTestIdRef = useRef<string | null>(null);
+  const returnToToolActionsIdRef = useRef<string | null>(null);
+  const restoreToolActionsFocusRef = useRef(false);
+  const openingToolTestRef = useRef(false);
   const headingId = useMemo(() => `server-details-heading-${server?.id ?? "none"}`, [server?.id]);
   const virtualServerToolTryItEnabled = isVirtualServerToolTryItEnabled();
 
@@ -295,7 +262,7 @@ export function VirtualServerDetailsPanel({
     data: toolsData,
     isLoading: toolsLoading,
     error: toolsError,
-  } = useQuery<{ tools: PanelTool[] } | PanelTool[]>(toolsPath, {
+  } = useQuery<{ tools: VirtualServerTool[] } | VirtualServerTool[]>(toolsPath, {
     enabled: fetchEnabled,
   });
 
@@ -316,6 +283,10 @@ export function VirtualServerDetailsPanel({
   });
 
   const fetchedTools = useMemo(() => getPanelTools(toolsData), [toolsData]);
+  const fetchedToolsById = useMemo(
+    () => new Map(fetchedTools.map((tool) => [tool.id, tool])),
+    [fetchedTools],
+  );
 
   const fetchedComponents = useMemo((): ComponentWithType[] => {
     const resources = Array.isArray(resourcesData) ? resourcesData : resourcesData?.resources || [];
@@ -429,15 +400,38 @@ export function VirtualServerDetailsPanel({
 
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
   const selectedTestTool = useMemo(
-    () => fetchedTools.find((tool) => tool.id === selectedTestToolId) ?? null,
-    [fetchedTools, selectedTestToolId],
+    () => (selectedTestToolId ? (fetchedToolsById.get(selectedTestToolId) ?? null) : null),
+    [fetchedToolsById, selectedTestToolId],
   );
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedTestTool) {
+      if (focusedToolTestIdRef.current !== selectedTestTool.id) {
+        focusedToolTestIdRef.current = selectedTestTool.id;
+        toolTestHeadingRef.current?.focus();
+      }
+    } else {
+      focusedToolTestIdRef.current = null;
+      if (!restoreToolActionsFocusRef.current) return;
+      restoreToolActionsFocusRef.current = false;
+      const trigger = returnToToolActionsIdRef.current
+        ? document.getElementById(returnToToolActionsIdRef.current)
+        : null;
+      (trigger ?? document.getElementById("tab-tools"))?.focus();
+      returnToToolActionsIdRef.current = null;
+    }
+  }, [open, selectedTestTool]);
 
   // Reset tab, filter and search when the panel opens or the selected server changes.
   useEffect(() => {
     if (!open) return;
     setTopTab("test");
     setSelectedTestToolId(null);
+    focusedToolTestIdRef.current = null;
+    returnToToolActionsIdRef.current = null;
+    restoreToolActionsFocusRef.current = false;
+    openingToolTestRef.current = false;
     setSourceFilter("all");
     setComponentFilter("all");
     setSearchQuery("");
@@ -447,9 +441,10 @@ export function VirtualServerDetailsPanel({
   useEffect(() => {
     if (!selectedTestToolId) return;
     if (!virtualServerToolTryItEnabled || !selectedTestTool) {
+      restoreToolActionsFocusRef.current = open && topTab === "components";
       setSelectedTestToolId(null);
     }
-  }, [selectedTestTool, selectedTestToolId, virtualServerToolTryItEnabled]);
+  }, [open, selectedTestTool, selectedTestToolId, topTab, virtualServerToolTryItEnabled]);
 
   useEffect(() => {
     if (sourceFilter === "all") return;
@@ -605,7 +600,11 @@ export function VirtualServerDetailsPanel({
                     <VirtualServerToolTestView
                       server={server}
                       tool={selectedTestTool}
-                      onBack={() => setSelectedTestToolId(null)}
+                      headingRef={toolTestHeadingRef}
+                      onBack={() => {
+                        restoreToolActionsFocusRef.current = true;
+                        setSelectedTestToolId(null);
+                      }}
                     />
                   ) : (
                     <>
@@ -752,7 +751,7 @@ export function VirtualServerDetailsPanel({
                             const identifier = getComponentIdentifier(component);
                             const testableTool =
                               component.type === "tools"
-                                ? fetchedTools.find((tool) => tool.id === component.id)
+                                ? fetchedToolsById.get(component.id)
                                 : undefined;
 
                             return (
@@ -808,6 +807,7 @@ export function VirtualServerDetailsPanel({
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button
+                                        id={`virtual-server-tool-actions-${server.id}-${component.id}`}
                                         type="button"
                                         variant="ghost"
                                         size="icon-xs"
@@ -820,9 +820,21 @@ export function VirtualServerDetailsPanel({
                                         <EllipsisVertical className="size-4" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent
+                                      align="end"
+                                      onCloseAutoFocus={(event) => {
+                                        if (openingToolTestRef.current) {
+                                          event.preventDefault();
+                                          openingToolTestRef.current = false;
+                                        }
+                                      }}
+                                    >
                                       <DropdownMenuItem
-                                        onClick={() => setSelectedTestToolId(testableTool.id)}
+                                        onSelect={() => {
+                                          openingToolTestRef.current = true;
+                                          returnToToolActionsIdRef.current = `virtual-server-tool-actions-${server.id}-${component.id}`;
+                                          setSelectedTestToolId(testableTool.id);
+                                        }}
                                       >
                                         <FlaskConical className="mr-2 size-4" />
                                         {intl.formatMessage({
@@ -965,10 +977,12 @@ export function VirtualServerDetailsPanel({
 function VirtualServerToolTestView({
   server,
   tool,
+  headingRef,
   onBack,
 }: {
   server: VirtualServer;
-  tool: PanelTool;
+  tool: VirtualServerTool;
+  headingRef: Ref<HTMLHeadingElement>;
   onBack: () => void;
 }) {
   const intl = useIntl();
@@ -981,7 +995,7 @@ function VirtualServerToolTestView({
       </Button>
       <ToolTryItTab
         key={`${server.id}-${tool.id}`}
-        getToolLabel={getFriendlyToolLabel}
+        headingRef={headingRef}
         resultContext={{
           requestName: server.name,
           backingGatewayName: tool.gatewaySlug || undefined,
