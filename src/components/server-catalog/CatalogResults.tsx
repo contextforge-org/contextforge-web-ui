@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
@@ -230,6 +231,7 @@ export function CatalogServerDetailsDialog({
   const intl = useIntl();
   const tagsHeadingId = useId();
   const tagLabels = getTagLabels(server?.tags ?? []);
+  const authTypeLabelId = server ? getAuthTypeGroupLabelId(server.auth_type) : null;
 
   return (
     <Dialog open={server !== null} onOpenChange={onOpenChange}>
@@ -251,7 +253,7 @@ export function CatalogServerDetailsDialog({
               {server.category}
             </DetailRow>
             <DetailRow label={intl.formatMessage({ id: "mcpServer.catalog.authentication" })}>
-              {server.auth_type}
+              {authTypeLabelId ? intl.formatMessage({ id: authTypeLabelId }) : server.auth_type}
             </DetailRow>
             {server.transport && (
               <DetailRow label={intl.formatMessage({ id: "mcpServer.catalog.transport" })}>
