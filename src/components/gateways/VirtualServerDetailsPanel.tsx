@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 import {
   Activity,
+  ArrowLeft,
   Box,
   EllipsisVertical,
+  FlaskConical,
   Loader2,
   MessageSquareCode,
   PanelRightClose,
@@ -25,11 +27,20 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { CopyValue } from "@/components/ui/copy-value";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
+import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
+import { isVirtualServerToolTryItEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
 import type { MCPServer, VirtualServer } from "@/types/server";
+import { normalizeVirtualServerTool, type VirtualServerTool } from "./normalizeVirtualServerTool";
 import type { ComponentFilter } from "@/components/gateways/types";
 import {
   buildComponentItems,
@@ -52,13 +63,13 @@ type TopTab = "components" | "test";
 const SEGMENTED_TRIGGER_CLASS =
   "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
-interface Tool {
+interface ComponentTool {
   id: string;
   name: string;
-  title?: string;
+  title?: string | null;
   originalName: string;
-  description?: string;
-  gatewayId?: string;
+  description?: string | null;
+  gatewayId?: string | null;
   gateway_id?: string;
   enabled?: boolean;
 }
@@ -85,7 +96,9 @@ interface Prompt {
 }
 
 type ComponentWithType =
-  (Tool & { type: "tools" }) | (Resource & { type: "resources" }) | (Prompt & { type: "prompts" });
+  | (ComponentTool & { type: "tools" })
+  | (Resource & { type: "resources" })
+  | (Prompt & { type: "prompts" });
 
 interface MCPServersResponse {
   gateways?: MCPServer[];
@@ -130,6 +143,13 @@ function getMCPServers(data: MCPServersResponse | MCPServer[] | undefined): MCPS
   return data?.gateways ?? [];
 }
 
+function getPanelTools(
+  data: { tools: VirtualServerTool[] } | VirtualServerTool[] | undefined,
+): VirtualServerTool[] {
+  const tools = Array.isArray(data) ? data : (data?.tools ?? []);
+  return tools.map(normalizeVirtualServerTool);
+}
+
 export function VirtualServerDetailsPanel({
   server,
   error,
@@ -156,6 +176,7 @@ export function VirtualServerDetailsPanel({
   const notSyncedYet = intl.formatMessage({ id: "gateways.card.notSyncedYet" });
   const tags = (server?.tags ?? []).map((tag, index) => getTagDisplay(tag, index, tagFallback));
   const [topTab, setTopTab] = useState<TopTab>("test");
+  const [selectedTestToolId, setSelectedTestToolId] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [componentFilter, setComponentFilter] = useState<ComponentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,7 +184,13 @@ export function VirtualServerDetailsPanel({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const toolTestHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusedToolTestIdRef = useRef<string | null>(null);
+  const returnToToolActionsIdRef = useRef<string | null>(null);
+  const restoreToolActionsFocusRef = useRef(false);
+  const openingToolTestRef = useRef(false);
   const headingId = useMemo(() => `server-details-heading-${server?.id ?? "none"}`, [server?.id]);
+  const virtualServerToolTryItEnabled = isVirtualServerToolTryItEnabled();
 
   const getComponentLabel = useCallback(
     (type: Exclude<ComponentFilter, "all">) =>
@@ -235,7 +262,7 @@ export function VirtualServerDetailsPanel({
     data: toolsData,
     isLoading: toolsLoading,
     error: toolsError,
-  } = useQuery<{ tools: Tool[] }>(toolsPath, {
+  } = useQuery<{ tools: VirtualServerTool[] } | VirtualServerTool[]>(toolsPath, {
     enabled: fetchEnabled,
   });
 
@@ -255,17 +282,22 @@ export function VirtualServerDetailsPanel({
     enabled: fetchEnabled,
   });
 
+  const fetchedTools = useMemo(() => getPanelTools(toolsData), [toolsData]);
+  const fetchedToolsById = useMemo(
+    () => new Map(fetchedTools.map((tool) => [tool.id, tool])),
+    [fetchedTools],
+  );
+
   const fetchedComponents = useMemo((): ComponentWithType[] => {
-    const tools = Array.isArray(toolsData) ? toolsData : toolsData?.tools || [];
     const resources = Array.isArray(resourcesData) ? resourcesData : resourcesData?.resources || [];
     const prompts = Array.isArray(promptsData) ? promptsData : promptsData?.prompts || [];
 
     return [
-      ...tools.map((t): ComponentWithType => ({ ...t, type: "tools" as const })),
+      ...fetchedTools.map((t): ComponentWithType => ({ ...t, type: "tools" as const })),
       ...resources.map((r): ComponentWithType => ({ ...r, type: "resources" as const })),
       ...prompts.map((p): ComponentWithType => ({ ...p, type: "prompts" as const })),
     ];
-  }, [toolsData, resourcesData, promptsData]);
+  }, [fetchedTools, resourcesData, promptsData]);
 
   const fallbackComponents = useMemo((): ComponentWithType[] => {
     if (!server) return [];
@@ -367,16 +399,52 @@ export function VirtualServerDetailsPanel({
   }, [sourceIds, sourcesData]);
 
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
+  const selectedTestTool = useMemo(
+    () => (selectedTestToolId ? (fetchedToolsById.get(selectedTestToolId) ?? null) : null),
+    [fetchedToolsById, selectedTestToolId],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedTestTool) {
+      if (focusedToolTestIdRef.current !== selectedTestTool.id) {
+        focusedToolTestIdRef.current = selectedTestTool.id;
+        toolTestHeadingRef.current?.focus();
+      }
+    } else {
+      focusedToolTestIdRef.current = null;
+      if (!restoreToolActionsFocusRef.current) return;
+      restoreToolActionsFocusRef.current = false;
+      const trigger = returnToToolActionsIdRef.current
+        ? document.getElementById(returnToToolActionsIdRef.current)
+        : null;
+      (trigger ?? document.getElementById("tab-tools"))?.focus();
+      returnToToolActionsIdRef.current = null;
+    }
+  }, [open, selectedTestTool]);
 
   // Reset tab, filter and search when the panel opens or the selected server changes.
   useEffect(() => {
     if (!open) return;
     setTopTab("test");
+    setSelectedTestToolId(null);
+    focusedToolTestIdRef.current = null;
+    returnToToolActionsIdRef.current = null;
+    restoreToolActionsFocusRef.current = false;
+    openingToolTestRef.current = false;
     setSourceFilter("all");
     setComponentFilter("all");
     setSearchQuery("");
     setIsSearchExpanded(false);
   }, [open, server?.id]);
+
+  useEffect(() => {
+    if (!selectedTestToolId) return;
+    if (!virtualServerToolTryItEnabled || !selectedTestTool) {
+      restoreToolActionsFocusRef.current = open && topTab === "components";
+      setSelectedTestToolId(null);
+    }
+  }, [open, selectedTestTool, selectedTestToolId, topTab, virtualServerToolTryItEnabled]);
 
   useEffect(() => {
     if (sourceFilter === "all") return;
@@ -502,7 +570,11 @@ export function VirtualServerDetailsPanel({
 
               <Tabs
                 value={topTab}
-                onValueChange={(v) => setTopTab(v as TopTab)}
+                onValueChange={(value) => {
+                  const nextTab = value as TopTab;
+                  setTopTab(nextTab);
+                  if (nextTab !== "components") setSelectedTestToolId(null);
+                }}
                 aria-label="Virtual server details view"
               >
                 <TabsList className="inline-flex h-10 w-[280px] items-center gap-0 rounded-md bg-muted p-1">
@@ -524,212 +596,279 @@ export function VirtualServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="components" className="mt-8">
-                  {(sourcesLoading || sourceTabs.length > 0) && (
-                    <div
-                      role="tablist"
-                      aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}
-                      className="flex max-w-full items-center overflow-x-auto rounded-md bg-muted p-1"
-                    >
-                      {[
-                        {
-                          id: "all",
-                          label: intl.formatMessage({ id: "gateways.details.filter.allSources" }),
-                          isTruncated: false,
-                          fullValue: undefined as string | undefined,
-                        },
-                        ...sourceTabs,
-                      ].map((source, index, sources) => {
-                        const isSelected = sourceFilter === source.id;
-                        const tabButton = (
-                          <Button
-                            id={`source-tab-${index}`}
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            role="tab"
-                            aria-selected={isSelected}
-                            tabIndex={isSelected ? 0 : -1}
-                            className={cn(
-                              "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
-                              isSelected
-                                ? "bg-background text-foreground shadow-sm"
-                                : "text-muted-foreground hover:text-foreground",
-                            )}
-                            onClick={() => setSourceFilter(source.id)}
-                            onKeyDown={(e) => handleSourceTabKeyDown(e, index, sources.length)}
-                          >
-                            {source.label}
-                          </Button>
-                        );
-
-                        return (
-                          <Tooltip key={source.id}>
-                            <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
-                            {source.isTruncated && (
-                              <TooltipContent>{source.fullValue}</TooltipContent>
-                            )}
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="mt-8 flex items-center justify-between gap-4">
-                    <div
-                      role="tablist"
-                      aria-label="Filter components"
-                      className="flex min-w-0 items-center gap-6"
-                    >
-                      {COMPONENT_FILTER_OPTIONS.map((option) => (
-                        <Button
-                          key={option.value}
-                          id={`tab-${option.value}`}
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          role="tab"
-                          aria-selected={componentFilter === option.value}
-                          tabIndex={componentFilter === option.value ? 0 : -1}
-                          className={`text-sm font-semibold transition-colors ${
-                            componentFilter === option.value
-                              ? "text-foreground"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                          onClick={() => setComponentFilter(option.value)}
-                          onKeyDown={(e) => handleTabKeyDown(e, option.value)}
+                  {virtualServerToolTryItEnabled && selectedTestTool ? (
+                    <VirtualServerToolTestView
+                      server={server}
+                      tool={selectedTestTool}
+                      headingRef={toolTestHeadingRef}
+                      onBack={() => {
+                        restoreToolActionsFocusRef.current = true;
+                        setSelectedTestToolId(null);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {(sourcesLoading || sourceTabs.length > 0) && (
+                        <div
+                          role="tablist"
+                          aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}
+                          className="flex max-w-full items-center overflow-x-auto rounded-md bg-muted p-1"
                         >
-                          {intl.formatMessage({ id: option.labelId })}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => searchInputRef.current?.focus()}
-                        className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                        aria-label="Search components"
-                      >
-                        <Search className="size-4" />
-                      </Button>
-                      <Input
-                        ref={searchInputRef}
-                        type="search"
-                        tabIndex={isSearchExpanded || searchQuery.length > 0 ? 0 : -1}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onFocus={() => setIsSearchExpanded(true)}
-                        onBlur={() => setIsSearchExpanded(searchQuery.length > 0)}
-                        placeholder={isSearchExpanded || searchQuery.length > 0 ? "Search..." : ""}
-                        className={cn(
-                          "h-8 rounded-md border-border bg-muted/50 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground focus-visible:bg-background",
-                          isSearchExpanded || searchQuery.length > 0
-                            ? "w-48 px-3 text-foreground"
-                            : "w-0 px-0 text-transparent caret-foreground border-transparent",
-                        )}
-                      />
-                    </div>
-                  </div>
+                          {[
+                            {
+                              id: "all",
+                              label: intl.formatMessage({
+                                id: "gateways.details.filter.allSources",
+                              }),
+                              isTruncated: false,
+                              fullValue: undefined as string | undefined,
+                            },
+                            ...sourceTabs,
+                          ].map((source, index, sources) => {
+                            const isSelected = sourceFilter === source.id;
+                            const tabButton = (
+                              <Button
+                                id={`source-tab-${index}`}
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                role="tab"
+                                aria-selected={isSelected}
+                                tabIndex={isSelected ? 0 : -1}
+                                className={cn(
+                                  "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
+                                  isSelected
+                                    ? "bg-background text-foreground shadow-sm"
+                                    : "text-muted-foreground hover:text-foreground",
+                                )}
+                                onClick={() => setSourceFilter(source.id)}
+                                onKeyDown={(e) => handleSourceTabKeyDown(e, index, sources.length)}
+                              >
+                                {source.label}
+                              </Button>
+                            );
 
-                  {error && (
-                    <div
-                      role="alert"
-                      className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                    >
-                      {error.message}
-                    </div>
-                  )}
+                            return (
+                              <Tooltip key={source.id}>
+                                <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
+                                {source.isTruncated && (
+                                  <TooltipContent>{source.fullValue}</TooltipContent>
+                                )}
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                  <div
-                    role="tabpanel"
-                    aria-labelledby={`tab-${componentFilter}`}
-                    aria-live="polite"
-                    className="mt-5 divide-y divide-transparent"
-                  >
-                    {componentsLoading && (
-                      <div
-                        role="status"
-                        className="flex items-center gap-2 py-8 text-muted-foreground"
-                      >
-                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                        <span>Loading components...</span>
-                      </div>
-                    )}
-
-                    {!componentsLoading &&
-                      visibleComponents.map((component) => {
-                        const title = component.title;
-                        const identifier = getComponentIdentifier(component);
-
-                        return (
-                          <div
-                            key={`${component.type}-${component.id}`}
-                            className="grid min-h-10 grid-cols-[128px_minmax(0,1fr)_minmax(180px,0.9fr)_24px] items-center gap-4 py-1 text-sm"
-                          >
-                            <Badge
-                              variant="draft"
-                              className="w-fit rounded-md px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
-                            >
-                              <span className="mr-1.5 inline-flex">
-                                {getComponentIcon(component.type)}
-                              </span>
-                              {getComponentLabel(component.type)}
-                            </Badge>
-                            {title ? (
-                              <>
-                                <TruncatedText className="min-w-0 text-muted-foreground">
-                                  {title}
-                                </TruncatedText>
-                                <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <TruncatedText>{identifier}</TruncatedText>
-                                  <CopyButton
-                                    value={identifier}
-                                    label={intl.formatMessage(
-                                      {
-                                        id: `gateways.details.component.copyName.${component.type}`,
-                                      },
-                                      { name: title },
-                                    )}
-                                    className="size-5 text-muted-foreground"
-                                  />
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <TruncatedText>{identifier}</TruncatedText>
-                                  <CopyButton
-                                    value={identifier}
-                                    label={intl.formatMessage(
-                                      { id: "common.copyValue" },
-                                      { label: getComponentLabel(component.type) },
-                                    )}
-                                    className="size-5 text-muted-foreground"
-                                  />
-                                </span>
-                                <span aria-hidden="true" />
-                              </>
-                            )}
+                      <div className="mt-8 flex items-center justify-between gap-4">
+                        <div
+                          role="tablist"
+                          aria-label="Filter components"
+                          className="flex min-w-0 items-center gap-6"
+                        >
+                          {COMPONENT_FILTER_OPTIONS.map((option) => (
                             <Button
+                              key={option.value}
+                              id={`tab-${option.value}`}
                               type="button"
                               variant="ghost"
-                              size="icon-xs"
-                              aria-label={`Actions for ${title ?? identifier}`}
-                              className="justify-self-end text-muted-foreground"
+                              size="sm"
+                              role="tab"
+                              aria-selected={componentFilter === option.value}
+                              tabIndex={componentFilter === option.value ? 0 : -1}
+                              className={`text-sm font-semibold transition-colors ${
+                                componentFilter === option.value
+                                  ? "text-foreground"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                              onClick={() => setComponentFilter(option.value)}
+                              onKeyDown={(e) => handleTabKeyDown(e, option.value)}
                             >
-                              <EllipsisVertical className="size-4" />
+                              {intl.formatMessage({ id: option.labelId })}
                             </Button>
-                          </div>
-                        );
-                      })}
-
-                    {!componentsLoading && visibleComponents.length === 0 && (
-                      <div className="py-8 text-sm text-muted-foreground">
-                        No {componentFilter === "all" ? "components" : componentFilter} found
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => searchInputRef.current?.focus()}
+                            className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            aria-label="Search components"
+                          >
+                            <Search className="size-4" />
+                          </Button>
+                          <Input
+                            ref={searchInputRef}
+                            type="search"
+                            tabIndex={isSearchExpanded || searchQuery.length > 0 ? 0 : -1}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onFocus={() => setIsSearchExpanded(true)}
+                            onBlur={() => setIsSearchExpanded(searchQuery.length > 0)}
+                            placeholder={
+                              isSearchExpanded || searchQuery.length > 0 ? "Search..." : ""
+                            }
+                            className={cn(
+                              "h-8 rounded-md border-border bg-muted/50 text-sm shadow-none transition-[width,padding,color,background-color,border-color] duration-200 ease-out placeholder:text-muted-foreground focus-visible:bg-background",
+                              isSearchExpanded || searchQuery.length > 0
+                                ? "w-48 px-3 text-foreground"
+                                : "w-0 px-0 text-transparent caret-foreground border-transparent",
+                            )}
+                          />
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {error && (
+                        <div
+                          role="alert"
+                          className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                        >
+                          {error.message}
+                        </div>
+                      )}
+
+                      <div
+                        role="tabpanel"
+                        aria-labelledby={`tab-${componentFilter}`}
+                        aria-live="polite"
+                        className="mt-5 divide-y divide-transparent"
+                      >
+                        {componentsLoading && (
+                          <div
+                            role="status"
+                            className="flex items-center gap-2 py-8 text-muted-foreground"
+                          >
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                            <span>Loading components...</span>
+                          </div>
+                        )}
+
+                        {!componentsLoading &&
+                          visibleComponents.map((component) => {
+                            const title = component.title;
+                            const identifier = getComponentIdentifier(component);
+                            const testableTool =
+                              component.type === "tools"
+                                ? fetchedToolsById.get(component.id)
+                                : undefined;
+
+                            return (
+                              <div
+                                key={`${component.type}-${component.id}`}
+                                className="grid min-h-10 grid-cols-[128px_minmax(0,1fr)_minmax(180px,0.9fr)_24px] items-center gap-4 py-1 text-sm"
+                              >
+                                <Badge
+                                  variant="draft"
+                                  className="w-fit rounded-md px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
+                                >
+                                  <span className="mr-1.5 inline-flex">
+                                    {getComponentIcon(component.type)}
+                                  </span>
+                                  {getComponentLabel(component.type)}
+                                </Badge>
+                                {title ? (
+                                  <>
+                                    <TruncatedText className="min-w-0 text-muted-foreground">
+                                      {title}
+                                    </TruncatedText>
+                                    <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
+                                      <TruncatedText>{identifier}</TruncatedText>
+                                      <CopyButton
+                                        value={identifier}
+                                        label={intl.formatMessage(
+                                          {
+                                            id: `gateways.details.component.copyName.${component.type}`,
+                                          },
+                                          { name: title },
+                                        )}
+                                        className="size-5 text-muted-foreground"
+                                      />
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
+                                      <TruncatedText>{identifier}</TruncatedText>
+                                      <CopyButton
+                                        value={identifier}
+                                        label={intl.formatMessage(
+                                          { id: "common.copyValue" },
+                                          { label: getComponentLabel(component.type) },
+                                        )}
+                                        className="size-5 text-muted-foreground"
+                                      />
+                                    </span>
+                                    <span aria-hidden="true" />
+                                  </>
+                                )}
+                                {virtualServerToolTryItEnabled && testableTool ? (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        id={`virtual-server-tool-actions-${server.id}-${component.id}`}
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        aria-label={intl.formatMessage(
+                                          { id: "gateways.details.actionsFor" },
+                                          { name: title ?? identifier },
+                                        )}
+                                        className="justify-self-end text-muted-foreground"
+                                      >
+                                        <EllipsisVertical className="size-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                      align="end"
+                                      onCloseAutoFocus={(event) => {
+                                        if (openingToolTestRef.current) {
+                                          event.preventDefault();
+                                          openingToolTestRef.current = false;
+                                        }
+                                      }}
+                                    >
+                                      <DropdownMenuItem
+                                        onSelect={() => {
+                                          openingToolTestRef.current = true;
+                                          returnToToolActionsIdRef.current = `virtual-server-tool-actions-${server.id}-${component.id}`;
+                                          setSelectedTestToolId(testableTool.id);
+                                        }}
+                                      >
+                                        <FlaskConical className="mr-2 size-4" />
+                                        {intl.formatMessage({
+                                          id: "gateways.details.component.test",
+                                        })}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    aria-label={intl.formatMessage(
+                                      { id: "gateways.details.actionsFor" },
+                                      { name: title ?? identifier },
+                                    )}
+                                    className="justify-self-end text-muted-foreground"
+                                  >
+                                    <EllipsisVertical className="size-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                        {!componentsLoading && visibleComponents.length === 0 && (
+                          <div className="py-8 text-sm text-muted-foreground">
+                            No {componentFilter === "all" ? "components" : componentFilter} found
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
@@ -832,5 +971,38 @@ export function VirtualServerDetailsPanel({
         )}
       </aside>
     </>
+  );
+}
+
+function VirtualServerToolTestView({
+  server,
+  tool,
+  headingRef,
+  onBack,
+}: {
+  server: VirtualServer;
+  tool: VirtualServerTool;
+  headingRef: Ref<HTMLHeadingElement>;
+  onBack: () => void;
+}) {
+  const intl = useIntl();
+
+  return (
+    <div className="space-y-6">
+      <Button type="button" variant="ghost" size="sm" className="px-0" onClick={onBack}>
+        <ArrowLeft className="size-4" />
+        {intl.formatMessage({ id: "gateways.details.component.backToList" })}
+      </Button>
+      <ToolTryItTab
+        key={`${server.id}-${tool.id}`}
+        headingRef={headingRef}
+        resultContext={{
+          requestName: server.name,
+          backingGatewayName: tool.gatewaySlug || undefined,
+        }}
+        selectedTool={tool}
+        serverScope={{ serverId: server.id, serverName: server.name }}
+      />
+    </div>
   );
 }

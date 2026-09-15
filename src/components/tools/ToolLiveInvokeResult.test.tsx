@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders as render } from "@/test/test-utils";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
+import type { ToolPreviewResponse } from "@/api/tools";
 import { ToolLiveInvokeResult } from "./ToolLiveInvokeResult";
 
 function invokeProps(
@@ -67,6 +68,64 @@ describe("ToolLiveInvokeResult", () => {
     expect(screen.getByText("Live invoke failed -32003")).toBeInTheDocument();
     expect(screen.getByText("8 ms")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Access denied");
+  });
+
+  it("renders optional request and backing gateway context", () => {
+    render(
+      <ToolLiveInvokeResult
+        context={{ requestName: "Developer tools" }}
+        invoke={invokeProps({
+          hasRun: true,
+          result: {
+            id: "invoke-1",
+            status: 200,
+            renderTimeMs: 11,
+            result: {
+              target: { kind: "federated", gateway_name: "github-mcp" },
+              content: [{ type: "text", text: "live result", mimeType: "text/plain" }],
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Requested through Developer tools")).toBeInTheDocument();
+    expect(screen.getByText("Answered by github-mcp")).toBeInTheDocument();
+  });
+
+  it.each([
+    { metadata: { gateway_name: "root-gateway-name" }, expected: "root-gateway-name" },
+    { metadata: { gatewayName: "rootGatewayName" }, expected: "rootGatewayName" },
+    {
+      metadata: { resolved_gateway_name: "resolved-gateway-name" },
+      expected: "resolved-gateway-name",
+    },
+    { metadata: { resolvedGatewayName: "resolvedGatewayName" }, expected: "resolvedGatewayName" },
+    {
+      metadata: { target: { gateway_name: "target-gateway-name" } },
+      expected: "target-gateway-name",
+    },
+    { metadata: { target: { gatewayName: "targetGatewayName" } }, expected: "targetGatewayName" },
+    {
+      metadata: { target: { gateway_slug: "target-gateway-slug" } },
+      expected: "target-gateway-slug",
+    },
+    { metadata: { target: { gatewaySlug: "targetGatewaySlug" } }, expected: "targetGatewaySlug" },
+  ])("renders backing gateway metadata from $expected", ({ metadata, expected }) => {
+    const response = {
+      content: [{ type: "text", text: "live result", mimeType: "text/plain" }],
+      ...metadata,
+    } as unknown as ToolPreviewResponse;
+    render(
+      <ToolLiveInvokeResult
+        invoke={invokeProps({
+          hasRun: true,
+          result: { id: "invoke-1", status: 200, renderTimeMs: 10, result: response },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(`Answered by ${expected}`)).toBeInTheDocument();
   });
 
   it("renders HTTP errors and tool-level error results", () => {
