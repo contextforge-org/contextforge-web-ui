@@ -1,6 +1,6 @@
 import { useIntl } from "react-intl";
 
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -43,36 +43,24 @@ export function TeamSelect({ teams, value, onChange, error, id = "team" }: TeamS
   }
 
   return (
-    <div className="space-y-2.5">
-      <Label htmlFor={id} className="block text-sm font-medium text-foreground">
-        {intl.formatMessage({ id: "common.team.label" })}{" "}
-        <span className="text-destructive" aria-hidden="true">
-          {intl.formatMessage({ id: "common.required" })}
-        </span>
-      </Label>
-      <Select value={value ?? ""} onValueChange={onChange}>
-        <SelectTrigger
-          id={id}
-          aria-required="true"
-          aria-invalid={!!error}
-          aria-describedby={error ? errorId : undefined}
-          className="h-10 w-full rounded-md border-neutral-300 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-        >
-          <SelectValue placeholder={intl.formatMessage({ id: "common.team.placeholder" })} />
-        </SelectTrigger>
-        <SelectContent>
-          {teams.map((team) => (
-            <SelectItem key={team.id} value={team.id}>
-              {team.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {error && (
-        <p id={errorId} className="text-sm text-destructive">
-          {error}
-        </p>
+    <Field id={id} required error={error} label={intl.formatMessage({ id: "common.team.label" })}>
+      {(controlProps) => (
+        <Select value={value ?? ""} onValueChange={onChange}>
+          <SelectTrigger
+            {...controlProps}
+            className="rounded-md border-neutral-300 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+          >
+            <SelectValue placeholder={intl.formatMessage({ id: "common.team.placeholder" })} />
+          </SelectTrigger>
+          <SelectContent>
+            {teams.map((team) => (
+              <SelectItem key={team.id} value={team.id}>
+                {team.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
-    </div>
+    </Field>
   );
 }
