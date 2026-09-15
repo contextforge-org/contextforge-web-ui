@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChevronsUpDown, Globe } from "lucide-react";
 import {
   DropdownMenu,
@@ -7,8 +7,10 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { SidebarMenuButton } from "../ui/sidebar";
+import { usePendingInvitations } from "../invitations/PendingInvitationsProvider";
 import { useQuery } from "../../hooks/useQuery";
 import { useAuthContext } from "../../auth/AuthContext";
+import { sanitizeError } from "../../utils/errors";
 
 interface Team {
   id: string;
@@ -22,7 +24,18 @@ interface TeamsResponse {
 
 export function TeamSwitcher() {
   const { selectedTeamId, setSelectedTeamId } = useAuthContext();
-  const { data, isLoading, error } = useQuery<TeamsResponse>("/teams");
+  const { data, isLoading, error, refetch } = useQuery<TeamsResponse>("/teams");
+
+  // An accepted invitation adds a team, so this list needs refetching too.
+  const { acceptedCount } = usePendingInvitations();
+  const refreshedForAccepted = useRef(acceptedCount);
+  useEffect(() => {
+    if (acceptedCount === refreshedForAccepted.current) return;
+    refreshedForAccepted.current = acceptedCount;
+    refetch().catch((refreshErr) => {
+      console.error("Failed to refresh teams after accepting:", sanitizeError(refreshErr));
+    });
+  }, [acceptedCount, refetch]);
 
   const teams = useMemo(() => data?.teams ?? [], [data?.teams]);
   const currentTeam = useMemo(

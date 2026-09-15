@@ -80,7 +80,7 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
           {/* Header */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-yellow-400 shadow-sm">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-team-icon-bg shadow-sm">
                 <Users className="h-4 w-4 text-neutral-900" />
               </div>
               <h2
