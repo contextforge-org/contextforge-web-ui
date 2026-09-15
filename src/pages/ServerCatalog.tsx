@@ -9,6 +9,7 @@ import {
   testCatalogServer,
   type GatewayImpactPreview,
   type CatalogOAuthRegisterBody,
+  type CatalogServerWithOAuthMetadata,
   type OAuthGatewayStatusMap,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
@@ -30,8 +31,7 @@ import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import type {
-  CatalogListResponse,
-  CatalogServer,
+  CatalogListResponse as GeneratedCatalogListResponse,
   CatalogServerRegisterBody,
 } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -54,6 +54,11 @@ const PAGE_PATH = "/app/server-catalog";
 const SUPPORTED_AUTH_TYPES = [OPEN_AUTH_TYPE, ...API_KEY_AUTH_TYPES, ...OAUTH_AUTH_TYPES];
 const SUPPORTED_AUTH_TYPE_SET = new Set(SUPPORTED_AUTH_TYPES);
 const PAGE_HEADING_ID = "server-catalog-heading";
+
+type CatalogServer = CatalogServerWithOAuthMetadata;
+type CatalogListResponse = Omit<GeneratedCatalogListResponse, "servers"> & {
+  servers: CatalogServer[];
+};
 
 interface CatalogFilters {
   search: string;
