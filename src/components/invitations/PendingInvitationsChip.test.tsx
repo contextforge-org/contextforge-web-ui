@@ -34,14 +34,14 @@ describe("PendingInvitationsChip", () => {
   it("labels one invitation in the singular", () => {
     renderWithProviders(<PendingInvitationsChip />);
 
-    expect(screen.getByRole("button", { name: "1 invitation" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1 team invitation" })).toBeInTheDocument();
   });
 
   it("labels several invitations in the plural", () => {
     count = 3;
     renderWithProviders(<PendingInvitationsChip />);
 
-    expect(screen.getByRole("button", { name: "3 invitations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "3 team invitations" })).toBeInTheDocument();
   });
 
   it("opens the shared dialog, passing the fallback focus target", async () => {

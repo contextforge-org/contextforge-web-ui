@@ -124,7 +124,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "1 invitation" }).click();
+    await page.getByRole("button", { name: "1 team invitation" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toHaveAccessibleName("Join team");
@@ -144,7 +144,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "2 invitations" }).click();
+    await page.getByRole("button", { name: "2 team invitations" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toHaveAccessibleName("Join teams");
@@ -159,7 +159,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "2 invitations" }).click();
+    await page.getByRole("button", { name: "2 team invitations" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
@@ -174,7 +174,7 @@ test.describe("Pending team invitations", () => {
     // The open modal puts the chip in an aria-hidden subtree, so the role
     // query has to opt into it.
     await expect(
-      page.getByRole("button", { name: "1 invitation", includeHidden: true }),
+      page.getByRole("button", { name: "1 team invitation", includeHidden: true }),
     ).toBeVisible();
   });
 
@@ -185,7 +185,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "2 invitations" }).click();
+    await page.getByRole("button", { name: "2 team invitations" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Decline invitation to Platform Team" }).click();
@@ -196,7 +196,7 @@ test.describe("Pending team invitations", () => {
     // The open modal puts the chip in an aria-hidden subtree, so the role
     // query has to opt into it.
     await expect(
-      page.getByRole("button", { name: "1 invitation", includeHidden: true }),
+      page.getByRole("button", { name: "1 team invitation", includeHidden: true }),
     ).toBeVisible();
   });
 
@@ -209,7 +209,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "2 invitations" }).click();
+    await page.getByRole("button", { name: "2 team invitations" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
@@ -229,7 +229,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
 
     // The chip appears only once a count is known, so it never flashes at zero.
-    await expect(page.getByRole("button", { name: "1 invitation" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "1 team invitation" })).toBeVisible({
       timeout: 10000,
     });
   });
@@ -253,7 +253,7 @@ test.describe("Pending team invitations", () => {
     await page.goto(APP.TEAMS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "1 invitation" }).click();
+    await page.getByRole("button", { name: "1 team invitation" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "Join team: Platform Team" }).click();
@@ -275,7 +275,7 @@ test.describe("Pending team invitations", () => {
     await page.waitForLoadState("networkidle");
     await expect(page).not.toHaveURL(/settings\/teams/);
 
-    await page.getByRole("button", { name: "1 invitation" }).click();
+    await page.getByRole("button", { name: "1 team invitation" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("button", { name: "Join team: Platform Team" })).toBeVisible();

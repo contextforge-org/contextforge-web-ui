@@ -97,7 +97,7 @@ describe("Header pending invitations", () => {
     mockInvitationCount = 2;
     renderHeader();
 
-    expect(screen.getByRole("button", { name: "2 invitations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "2 team invitations" })).toBeInTheDocument();
   });
 
   it("renders no badge when nothing is pending", () => {
@@ -110,7 +110,7 @@ describe("Header pending invitations", () => {
     mockInvitationCount = 1;
     renderHeader();
 
-    const badge = screen.getByRole("button", { name: "1 invitation" });
+    const badge = screen.getByRole("button", { name: "1 team invitation" });
     expect(badge.nextElementSibling).toBe(screen.getByTestId("quick-nav"));
   });
 
@@ -119,7 +119,7 @@ describe("Header pending invitations", () => {
     mockInvitationCount = 1;
     renderHeader();
 
-    await user.click(screen.getByRole("button", { name: "1 invitation" }));
+    await user.click(screen.getByRole("button", { name: "1 team invitation" }));
 
     expect(openDialog).toHaveBeenCalledWith(undefined);
   });

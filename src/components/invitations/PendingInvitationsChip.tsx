@@ -32,11 +32,11 @@ export function PendingInvitationsChip({
     <Button
       variant="outline"
       size="sm"
-      className={cn("h-auto gap-2 rounded p-2 shadow-none", className)}
+      className={cn("h-7 gap-2 rounded px-2 py-1.5 shadow-none", className)}
       onClick={() => open(fallbackFocusRef)}
     >
-      <div className="flex size-[17.5px] items-center justify-center rounded bg-team-icon-bg">
-        <Bell aria-hidden="true" className="size-[11px] text-black" />
+      <div className="flex size-4 items-center justify-center rounded bg-team-icon-bg">
+        <Bell aria-hidden="true" className="size-3 text-black" />
       </div>
       <span className="text-xs font-medium text-foreground">
         {label ? label(count) : intl.formatMessage({ id: "invitations.count" }, { count })}

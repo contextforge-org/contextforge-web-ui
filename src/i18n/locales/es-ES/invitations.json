@@ -1,5 +1,5 @@
 {
-  "invitations.count": "{count, plural, one {# invitación} other {# invitaciones}}",
+  "invitations.count": "{count, plural, one {# invitación de equipo} other {# invitaciones de equipo}}",
   "invitations.dialog.title": "{count, plural, one {Unirse al equipo} other {Unirse a los equipos}}",
   "invitations.dialog.summary.sr": "Tienes {count, plural, one {# invitación de equipo pendiente} other {# invitaciones de equipo pendientes}}",
   "invitations.sentence": "{inviter} te ha invitado a unirte a {team} como {role}.",
