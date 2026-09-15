@@ -93,6 +93,8 @@
   "mcpServer.catalog.category": "Categoria",
   "mcpServer.catalog.provider": "Provedor",
   "mcpServer.catalog.authentication": "Autenticação",
+  "mcpServer.catalog.authType.open": "Aberto",
+  "mcpServer.catalog.authType.apiKey": "Chave de API",
   "mcpServer.catalog.categories": "Categorias",
   "mcpServer.catalog.providers": "Provedores",
   "mcpServer.catalog.tags": "Tags",

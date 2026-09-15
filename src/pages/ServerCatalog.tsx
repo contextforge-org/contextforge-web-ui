@@ -33,13 +33,19 @@ import type {
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
+import {
+  API_KEY_AUTH_TYPES,
+  getAuthTypeGroupId,
+  getOrderedAuthTypeGroups,
+  normalizeAuthTypeFilterValue,
+  OPEN_AUTH_TYPE,
+  type AuthTypeGroupId,
+} from "@/utils/catalogAuthTypes";
 import { getTagLabels } from "@/utils/tags";
 
 // TODO: Fetch subsequent pages when CatalogListResponse.total exceeds this MVP page limit.
 const CATALOG_PATH = "/v1/catalog?limit=1000";
 const PAGE_PATH = "/app/server-catalog";
-const OPEN_AUTH_TYPE = "Open";
-const API_KEY_AUTH_TYPES = new Set(["API Key", "API"]);
 const SUPPORTED_AUTH_TYPES = [OPEN_AUTH_TYPE, ...API_KEY_AUTH_TYPES];
 const SUPPORTED_AUTH_TYPE_SET = new Set(SUPPORTED_AUTH_TYPES);
 const PAGE_HEADING_ID = "server-catalog-heading";
@@ -48,6 +54,7 @@ interface CatalogFilters {
   search: string;
   category: string[];
   provider: string[];
+  // Group ids ("open" | "apiKey"), not raw catalog auth_type values.
   authType: string[];
   tags: string[];
   installedOnly: boolean;
@@ -83,6 +90,15 @@ function readMulti(params: URLSearchParams, key: string): string[] {
   return [...new Set(params.getAll(key).filter(Boolean))];
 }
 
+function parseAuthTypeFilter(params: URLSearchParams): string[] {
+  // Accepts both group ids and the raw catalog values a link shared before this
+  // grouping existed would carry (e.g. ?auth_type=API+Key), so old links keep matching.
+  const values = readMulti(params, "auth_type")
+    .map(normalizeAuthTypeFilterValue)
+    .filter((value): value is AuthTypeGroupId => value !== null);
+  return [...new Set(values)];
+}
+
 function parseFilters(path: string): CatalogFilters {
   const params = new URLSearchParams(getQuery(path));
 
@@ -90,7 +106,7 @@ function parseFilters(path: string): CatalogFilters {
     search: params.get("search") ?? "",
     category: readMulti(params, "category"),
     provider: readMulti(params, "provider"),
-    authType: readMulti(params, "auth_type"),
+    authType: parseAuthTypeFilter(params),
     tags: readMulti(params, "tags"),
     installedOnly: params.get("show_registered_only") === "true",
   };
@@ -166,8 +182,9 @@ function filterSupportedServers(
     if (filters.provider.length > 0 && !filters.provider.includes(server.provider ?? "")) {
       return false;
     }
-    if (filters.authType.length > 0 && !filters.authType.includes(server.auth_type)) {
-      return false;
+    if (filters.authType.length > 0) {
+      const groupId = getAuthTypeGroupId(server.auth_type);
+      if (!groupId || !filters.authType.includes(groupId)) return false;
     }
     if (filters.installedOnly && !server.is_registered) return false;
     const serverTags = getTagLabels(server.tags ?? []);
@@ -422,7 +439,16 @@ export function ServerCatalog() {
     () => sortedUnique(supportedServers.flatMap((server) => getTagLabels(server.tags ?? []))),
     [supportedServers],
   );
-  const authTypeOptions = SUPPORTED_AUTH_TYPES;
+  const authTypeOptions = useMemo(() => {
+    const presentGroupIds = new Set(
+      supportedServers
+        .map((server) => getAuthTypeGroupId(server.auth_type))
+        .filter((groupId): groupId is AuthTypeGroupId => groupId !== null),
+    );
+    return getOrderedAuthTypeGroups()
+      .filter((group) => presentGroupIds.has(group.id))
+      .map((group) => ({ value: group.id, label: intl.formatMessage({ id: group.labelId }) }));
+  }, [supportedServers, intl]);
   const hasSupportedServers = supportedServers.length > 0;
   const hasConnectedServers = supportedServers.some((server) => server.is_registered);
   const emptyStateMessageId = !hasSupportedServers
