@@ -83,27 +83,26 @@ export function PendingInvitationsDialog({
     return () => clearTimeout(timer);
   }, [isDwelling, dwellCancelled, autoCloseDelayMs, onOpenChange]);
 
-  // Which row resolved last, so the announcement can name it.
-  const [lastResolvedId, setLastResolvedId] = useState<string | null>(null);
+  // Rows resolved since the last announcement, so none goes unannounced.
+  const [lastResolvedIds, setLastResolvedIds] = useState<string[]>([]);
   const previousResolutions = useRef(resolutions);
   useEffect(() => {
-    const resolved = Object.keys(resolutions).find((id) => !previousResolutions.current[id]);
+    const resolved = Object.keys(resolutions).filter((id) => !previousResolutions.current[id]);
     previousResolutions.current = resolutions;
-    if (resolved) setLastResolvedId(resolved);
+    if (resolved.length > 0) setLastResolvedIds(resolved);
   }, [resolutions]);
 
   useEffect(() => {
-    if (!open) setLastResolvedId(null);
+    if (!open) setLastResolvedIds([]);
   }, [open]);
 
   const announcement = useMemo(() => {
-    const teamOf = (id: string) => invitations.find((one) => one.id === id)?.team_name ?? "";
+    const teamOf = (id: string) => invitations.find((one) => one.id === id)?.team_name;
     const lines: string[] = [];
 
-    const [actingId, action] = Object.entries(inFlight)[0] ?? [];
-    const resolution = lastResolvedId ? resolutions[lastResolvedId] : undefined;
-
-    if (actingId && action) {
+    for (const [id, action] of Object.entries(inFlight)) {
+      const team = teamOf(id);
+      if (!team) continue;
       lines.push(
         intl.formatMessage(
           {
@@ -112,15 +111,20 @@ export function PendingInvitationsDialog({
                 ? "invitations.announce.accepting"
                 : "invitations.announce.declining",
           },
-          { team: teamOf(actingId) },
+          { team },
         ),
       );
-    } else if (lastResolvedId && resolution) {
+    }
+
+    for (const id of lastResolvedIds) {
+      const team = teamOf(id);
+      const resolution = resolutions[id];
+      if (!team || !resolution) continue;
       lines.push(
         intl.formatMessage(
           { id: "invitations.announce.resolved" },
           {
-            team: teamOf(lastResolvedId),
+            team,
             status: intl.formatMessage({
               id:
                 resolution === "accepted"
@@ -135,7 +139,7 @@ export function PendingInvitationsDialog({
     if (allResolved) lines.push(intl.formatMessage({ id: "invitations.status.allResolved.sr" }));
 
     return lines.join(". ");
-  }, [inFlight, lastResolvedId, resolutions, invitations, allResolved, intl]);
+  }, [inFlight, lastResolvedIds, resolutions, invitations, allResolved, intl]);
 
   // A resolved row's buttons unmount, taking the focused element with them.
   const previousResolvedCount = useRef(resolvedCount);

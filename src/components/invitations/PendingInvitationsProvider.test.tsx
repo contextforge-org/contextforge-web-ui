@@ -16,6 +16,8 @@ vi.mock("sonner", () => ({
 
 import { listMyInvitations, acceptInvitation } from "@/api/invitations";
 
+const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation {
   return {
     id: "inv-1",
@@ -25,7 +27,7 @@ function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation
     role: "member",
     invited_by: "janet@example.com",
     invited_at: "2026-09-10T10:00:00Z",
-    expires_at: "2026-09-17T10:00:00Z",
+    expires_at: A_WEEK_FROM_NOW,
     token: "tok-1",
     is_active: true,
     is_expired: false,

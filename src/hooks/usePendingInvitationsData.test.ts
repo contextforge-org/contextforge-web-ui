@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { I18nProvider } from "@/i18n";
@@ -22,6 +22,8 @@ function wrapper({ children }: { children: ReactNode }) {
   return createElement(I18nProvider, null, children);
 }
 
+const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation {
   return {
     id: "inv-1",
@@ -31,7 +33,7 @@ function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation
     role: "member",
     invited_by: "janet@example.com",
     invited_at: "2026-09-10T10:00:00Z",
-    expires_at: "2026-09-17T10:00:00Z",
+    expires_at: A_WEEK_FROM_NOW,
     token: "tok-1",
     is_active: true,
     is_expired: false,
@@ -58,6 +60,10 @@ describe("usePendingInvitationsData", () => {
     vi.mocked(declineInvitation).mockResolvedValue(undefined);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("fetches on mount and counts every invitation as pending", async () => {
     const { result } = renderInvitations();
 
@@ -80,6 +86,21 @@ describe("usePendingInvitationsData", () => {
     expect(result.current.pendingCount).toBe(2);
   });
 
+  it("drops an invitation whose expiry has passed, whatever is_expired says", async () => {
+    const lapsed = makeInvitation({
+      id: "inv-3",
+      team_name: "Old Team",
+      is_expired: false,
+      expires_at: "2026-09-01T10:00:00Z",
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsed]);
+    const { result } = renderInvitations();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.invitations).toEqual([one]);
+  });
+
   it("counts nothing when every invitation has expired", async () => {
     vi.mocked(listMyInvitations).mockResolvedValue([makeInvitation({ is_expired: true })]);
     const { result } = renderInvitations();
@@ -88,6 +109,30 @@ describe("usePendingInvitationsData", () => {
 
     expect(result.current.invitations).toEqual([]);
     expect(result.current.pendingCount).toBe(0);
+  });
+
+  it("refetches when the tab regains focus after the list has gone stale", async () => {
+    const { result } = renderInvitations();
+    await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(1));
+
+    vi.setSystemTime(Date.now() + 61_000);
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(2));
+    expect(result.current.error).toBeNull();
+  });
+
+  it("does not refetch on focus while the list is still fresh", async () => {
+    renderInvitations();
+    await waitFor(() => expect(listMyInvitations).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
   });
 
   it("makes no request while disabled", async () => {

@@ -9,6 +9,8 @@ import type { Page } from "@playwright/test";
 import { APP } from "./utils/paths";
 import type { Team, TeamInvitation } from "../src/types/team";
 
+const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 const MOCK_TEAM: Team = {
   id: "team-1",
   name: "Engineering",
@@ -32,7 +34,7 @@ const PLATFORM_INVITATION: TeamInvitation = {
   role: "owner",
   invited_by: "janet.wu@example.com",
   invited_at: "2026-09-10T10:00:00Z",
-  expires_at: "2026-09-17T10:00:00Z",
+  expires_at: A_WEEK_FROM_NOW,
   token: "tok-platform",
   is_active: true,
   is_expired: false,

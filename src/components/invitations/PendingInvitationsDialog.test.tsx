@@ -5,6 +5,8 @@ import { PendingInvitationsDialog } from "./PendingInvitationsDialog";
 import type { PendingInvitationsDialogProps } from "./PendingInvitationsDialog";
 import type { TeamInvitation } from "@/types/team";
 
+const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation {
   return {
     id: "inv-1",
@@ -14,7 +16,7 @@ function makeInvitation(overrides: Partial<TeamInvitation> = {}): TeamInvitation
     role: "member",
     invited_by: "janet@example.com",
     invited_at: "2026-09-10T10:00:00Z",
-    expires_at: "2026-09-17T10:00:00Z",
+    expires_at: A_WEEK_FROM_NOW,
     token: "tok-1",
     is_active: true,
     is_expired: false,
@@ -150,6 +152,47 @@ describe("PendingInvitationsDialog", () => {
     rerenderWith({ invitations: [one, two], resolutions: { [two.id]: "declined" } });
 
     expect(screen.getByRole("status")).toHaveTextContent("Design Team: Declined");
+  });
+
+  it("announces both rows when two requests are open at once", () => {
+    renderDialog({
+      invitations: [one, two],
+      inFlight: { [one.id]: "accept", [two.id]: "decline" },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Joining Platform Team. Declining invitation to Design Team",
+    );
+  });
+
+  it("announces an outcome that lands while another request is still open", () => {
+    const { rerenderWith } = renderDialog({
+      invitations: [one, two],
+      inFlight: { [one.id]: "accept", [two.id]: "decline" },
+    });
+
+    rerenderWith({
+      invitations: [one, two],
+      inFlight: { [two.id]: "decline" },
+      resolutions: { [one.id]: "accepted" },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Declining invitation to Design Team. Platform Team: Invite accepted",
+    );
+  });
+
+  it("announces every outcome when two resolutions arrive together", () => {
+    const { rerenderWith } = renderDialog({ invitations: [one, two] });
+
+    rerenderWith({
+      invitations: [one, two],
+      resolutions: { [one.id]: "accepted", [two.id]: "declined" },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Platform Team: Invite accepted. Design Team: Declined",
+    );
   });
 
   it("announces nothing while everything is still actionable", () => {

@@ -5,6 +5,8 @@ import { PendingInvitationItem } from "./PendingInvitationItem";
 import type { PendingInvitationItemProps } from "./PendingInvitationItem";
 import type { TeamInvitation } from "@/types/team";
 
+const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 const invitation: TeamInvitation = {
   id: "inv-1",
   team_id: "team-1",
@@ -13,7 +15,7 @@ const invitation: TeamInvitation = {
   role: "owner",
   invited_by: "janet@example.com",
   invited_at: "2026-09-10T10:00:00Z",
-  expires_at: "2026-09-17T10:00:00Z",
+  expires_at: A_WEEK_FROM_NOW,
   token: "tok-1",
   is_active: true,
   is_expired: false,

@@ -12,6 +12,14 @@ import type { TeamInvitation } from "@/types/team";
 import type { InvitationAction, InvitationResolution } from "@/types/invitation";
 import { sanitizeError } from "@/utils/errors";
 
+/** How stale a list may be before the tab regaining focus refetches it. */
+const STALE_AFTER_MS = 60_000;
+
+/** is_expired is the server's reading at serialisation, so recheck the date. */
+function isActionable(invitation: TeamInvitation): boolean {
+  return !invitation.is_expired && Date.parse(invitation.expires_at) > Date.now();
+}
+
 export interface UsePendingInvitationsDataOptions {
   /** Whether to fetch. The provider ties this to having a mounted consumer. */
   enabled?: boolean;
@@ -53,9 +61,12 @@ export function usePendingInvitationsData({
   const inFlightRef = useRef(inFlight);
   inFlightRef.current = inFlight;
 
+  const lastLoadStartedAt = useRef(0);
+
   const load = useCallback(async () => {
     const requestId = ++latestRequestId.current;
     const resolvedBefore = new Set(Object.keys(resolutionsRef.current));
+    lastLoadStartedAt.current = Date.now();
     setIsLoading(true);
     setError(null);
 
@@ -68,8 +79,7 @@ export function usePendingInvitationsData({
         Object.keys(inFlightRef.current).length > 0 ||
         Object.keys(resolutionsRef.current).some((id) => !resolvedBefore.has(id));
       if (actedSince) return;
-      // Expired invitations cannot be accepted; the inbox does not filter them.
-      const actionable = result.filter((invitation) => !invitation.is_expired);
+      const actionable = result.filter(isActionable);
       setInvitations(actionable);
       // Drop resolutions for invitations no longer published.
       const returnedIds = new Set(actionable.map((invitation) => invitation.id));
@@ -90,6 +100,24 @@ export function usePendingInvitationsData({
     // Ignore a response that lands after this consumer is gone.
     return () => {
       latestRequestId.current += 1;
+    };
+  }, [enabled, load]);
+
+  // The only other load runs on mount, so without this the list never refreshes.
+  useEffect(() => {
+    if (!enabled) return;
+
+    const refreshIfStale = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastLoadStartedAt.current < STALE_AFTER_MS) return;
+      void load();
+    };
+
+    document.addEventListener("visibilitychange", refreshIfStale);
+    window.addEventListener("focus", refreshIfStale);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshIfStale);
+      window.removeEventListener("focus", refreshIfStale);
     };
   }, [enabled, load]);
 
