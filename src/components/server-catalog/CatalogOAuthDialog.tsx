@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { CatalogOAuthRegisterBody, CatalogServerWithOAuthMetadata } from "@/api/catalog";
+import type { CatalogServer, CatalogServerRegisterBody } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
@@ -56,9 +56,9 @@ export function CatalogOAuthDialog({
   notification,
   onDismissNotification,
 }: {
-  server: CatalogServerWithOAuthMetadata;
+  server: CatalogServer;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (body: CatalogOAuthRegisterBody) => Promise<boolean>;
+  onSubmit: (body: CatalogServerRegisterBody) => Promise<boolean>;
   isSubmitting: boolean;
   notification?: { type: "success" | "error" | "info"; message: string };
   onDismissNotification?: () => void;
@@ -67,7 +67,7 @@ export function CatalogOAuthDialog({
   const oauth = server.oauth; // pragma: allowlist secret
   const [name, setName] = useState("");
   const [issuer, setIssuer] = useState(oauth?.issuer ?? "");
-  const [scopes, setScopes] = useState(oauth?.scopes.join(" ") ?? "");
+  const [scopes, setScopes] = useState(oauth?.scopes?.join(" ") ?? "");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState(""); // pragma: allowlist secret
   const [authorizationUrl, setAuthorizationUrl] = useState(oauth?.authorization_url ?? "");

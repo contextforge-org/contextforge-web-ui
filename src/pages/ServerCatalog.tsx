@@ -8,8 +8,6 @@ import {
   registerCatalogServer,
   testCatalogServer,
   type GatewayImpactPreview,
-  type CatalogOAuthRegisterBody,
-  type CatalogServerWithOAuthMetadata,
   type OAuthGatewayStatusMap,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
@@ -31,7 +29,8 @@ import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import type {
-  CatalogListResponse as GeneratedCatalogListResponse,
+  CatalogListResponse,
+  CatalogServer,
   CatalogServerRegisterBody,
 } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -48,11 +47,6 @@ const OAUTH_AUTH_TYPES = new Set(["OAuth", "OAuth2.1", "OAuth2.1 & API Key"]);
 const CATALOG_AUTH_TYPES = [OPEN_AUTH_TYPE, ...API_KEY_AUTH_TYPES, ...OAUTH_AUTH_TYPES];
 const SUPPORTED_AUTH_TYPE_SET = new Set(CATALOG_AUTH_TYPES);
 const PAGE_HEADING_ID = "server-catalog-heading";
-
-type CatalogServer = CatalogServerWithOAuthMetadata;
-type CatalogListResponse = Omit<GeneratedCatalogListResponse, "servers"> & {
-  servers: CatalogServer[];
-};
 
 interface CatalogFilters {
   search: string;
@@ -518,7 +512,7 @@ export function ServerCatalog() {
   const registerServer = useCallback(
     async (
       server: CatalogServer,
-      body?: CatalogServerRegisterBody | CatalogOAuthRegisterBody,
+      body?: CatalogServerRegisterBody,
       reportNotification: (
         notification: RegistrationNotification,
         shouldFocus?: boolean,
@@ -633,7 +627,7 @@ export function ServerCatalog() {
   );
 
   const handleOAuthSubmit = useCallback(
-    async (body: CatalogOAuthRegisterBody) => {
+    async (body: CatalogServerRegisterBody) => {
       if (!oauthServer) return false;
       setOAuthDialogNotification(undefined);
       let authWindow: Window;
