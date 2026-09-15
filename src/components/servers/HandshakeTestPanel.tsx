@@ -12,6 +12,7 @@ import {
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { JsonHighlighter } from "../ui/json-highlighter";
 import { CopyButton } from "../ui/copy-button";
 import { TruncatedText } from "../ui/truncated-text";
@@ -614,9 +615,9 @@ export function HandshakeTestPanel({
       {/* Endpoint — informational only. The backend derives the actual
           test target from the server's own ID, so this isn't editable. */}
       <div className="space-y-1.5">
-        <label className="text-[13px] font-medium text-foreground">
+        <Label className="text-[13px] text-foreground">
           {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.endpointLabel" })}
-        </label>
+        </Label>
         <div className="flex items-center gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <TruncatedText className="min-w-0 font-mono text-sm text-foreground">
@@ -668,11 +669,11 @@ export function HandshakeTestPanel({
         </DisclosureTrigger>
         {credentialOpen && (
           <div id="test-credential-panel" className="mt-5 space-y-2">
-            <label htmlFor="handshake-token" className="text-[13px] font-medium text-foreground">
+            <Label htmlFor="handshake-token" className="text-[13px] text-foreground">
               {intl.formatMessage({
                 id: "mcpServer.testConnection.virtualServer.bearerTokenLabel",
               })}
-            </label>
+            </Label>
             <div className="relative">
               <Input
                 id="handshake-token"
