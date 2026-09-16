@@ -20,6 +20,8 @@
   "common.success": "Sucesso",
   "common.warning": "Aviso",
   "common.info": "Informação",
+  "common.field.required": "(obrigatório)",
+  "common.field.infoTrigger": "Mais informações sobre {label}",
   "common.visibility.private": "Privado",
   "common.visibility.team": "Equipe",
   "common.visibility.internal": "Interno",

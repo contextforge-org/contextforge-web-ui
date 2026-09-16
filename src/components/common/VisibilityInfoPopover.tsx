@@ -34,6 +34,22 @@ interface VisibilityInfoPopoverProps {
   visibility?: string | null;
 }
 
+/** The three-level explanation, with no level pre-selected — for `Field`'s `info` prop. */
+export function VisibilityInfoContent() {
+  const intl = useIntl();
+  return (
+    <>
+      {(["private", "team", "public"] as const).map((level) => (
+        <p key={level}>
+          {intl.formatMessage({ id: LABEL_IDS[level] })}
+          {": "}
+          {intl.formatMessage({ id: INFO_IDS[level] })}
+        </p>
+      ))}
+    </>
+  );
+}
+
 /**
  * Info popover explaining the three visibility levels. The wire value "public"
  * is surfaced to users as "Internal" because it means "visible to everyone
@@ -66,13 +82,7 @@ export function VisibilityInfoPopover({
         {selectedInfoId ? (
           <p>{intl.formatMessage({ id: selectedInfoId })}</p>
         ) : (
-          (["private", "team", "public"] as const).map((level) => (
-            <p key={level}>
-              {intl.formatMessage({ id: LABEL_IDS[level] })}
-              {": "}
-              {intl.formatMessage({ id: INFO_IDS[level] })}
-            </p>
-          ))
+          <VisibilityInfoContent />
         )}
       </PopoverContent>
     </Popover>
