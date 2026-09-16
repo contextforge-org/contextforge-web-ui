@@ -37,7 +37,7 @@ export function CatalogLogo({ server }: { server: CatalogServer }) {
   }
 
   return (
-    <div aria-hidden="true" className="size-8 shrink-0">
+    <div aria-hidden="true" className="size-8 shrink-0 overflow-hidden rounded-md">
       <img
         src={logoUrl}
         alt=""
