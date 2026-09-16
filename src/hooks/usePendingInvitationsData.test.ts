@@ -305,4 +305,27 @@ describe("usePendingInvitationsData", () => {
     // The accepted total is a session tally, not a property of the list.
     expect(result.current.acceptedCount).toBe(1);
   });
+
+  it("clears the loading flag when the last consumer unregisters mid-flight", async () => {
+    let publish: (invitations: TeamInvitation[]) => void = () => {};
+    vi.mocked(listMyInvitations).mockReturnValue(
+      new Promise((resolve) => {
+        publish = resolve;
+      }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => usePendingInvitationsData({ enabled }),
+      { wrapper, initialProps: { enabled: true } },
+    );
+    expect(result.current.isLoading).toBe(true);
+
+    rerender({ enabled: false });
+    await act(async () => {
+      publish([one, two]);
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.invitations).toEqual([]);
+  });
 });

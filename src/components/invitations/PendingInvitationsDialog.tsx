@@ -57,7 +57,10 @@ export function PendingInvitationsDialog({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const acceptButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  const pending = invitations.filter((invitation) => !resolutions[invitation.id]);
+  const pending = useMemo(
+    () => invitations.filter((invitation) => !resolutions[invitation.id]),
+    [invitations, resolutions],
+  );
   const pendingCount = pending.length;
   const resolvedCount = invitations.length - pendingCount;
   const hasRequestInFlight = Object.keys(inFlight).length > 0;
@@ -83,13 +86,19 @@ export function PendingInvitationsDialog({
     return () => clearTimeout(timer);
   }, [isDwelling, dwellCancelled, autoCloseDelayMs, onOpenChange]);
 
-  // Rows resolved since the last announcement, so none goes unannounced.
+  // Every row resolved since the dialog opened. The region is atomic, so
+  // replacing rather than accumulating would unannounce an earlier row.
   const [lastResolvedIds, setLastResolvedIds] = useState<string[]>([]);
   const previousResolutions = useRef(resolutions);
   useEffect(() => {
     const resolved = Object.keys(resolutions).filter((id) => !previousResolutions.current[id]);
     previousResolutions.current = resolutions;
-    if (resolved.length > 0) setLastResolvedIds(resolved);
+    if (resolved.length > 0) {
+      setLastResolvedIds((previous) => [
+        ...previous,
+        ...resolved.filter((id) => !previous.includes(id)),
+      ]);
+    }
   }, [resolutions]);
 
   useEffect(() => {

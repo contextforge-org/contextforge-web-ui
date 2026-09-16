@@ -195,6 +195,20 @@ describe("PendingInvitationsDialog", () => {
     );
   });
 
+  it("keeps an earlier outcome announced when a second lands separately", () => {
+    const { rerenderWith } = renderDialog({ invitations: [one, two] });
+
+    rerenderWith({ invitations: [one, two], resolutions: { [one.id]: "accepted" } });
+    rerenderWith({
+      invitations: [one, two],
+      resolutions: { [one.id]: "accepted", [two.id]: "declined" },
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Platform Team: Invite accepted. Design Team: Declined",
+    );
+  });
+
   it("announces nothing while everything is still actionable", () => {
     renderDialog({ invitations: [one, two] });
 

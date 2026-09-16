@@ -100,9 +100,11 @@ export function usePendingInvitationsData({
   useEffect(() => {
     if (!enabled) return;
     void load();
-    // Ignore a response that lands after this consumer is gone.
+    // Ignore a response that lands after the last consumer is gone. It skips
+    // the finally, so the flag is cleared here instead.
     return () => {
       latestRequestId.current += 1;
+      setIsLoading(false);
     };
   }, [enabled, load]);
 
