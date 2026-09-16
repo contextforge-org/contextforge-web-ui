@@ -143,6 +143,7 @@ describe("ToolTryItTab", () => {
     );
 
     expect(screen.getByText("Tool test")).toBeInTheDocument();
+    expect(screen.getByText("Live invocation")).toHaveAttribute("data-slot", "label");
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();

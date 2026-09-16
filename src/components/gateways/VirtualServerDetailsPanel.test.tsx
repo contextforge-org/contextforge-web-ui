@@ -8,6 +8,7 @@ import { VirtualServerDetailsPanel } from "./VirtualServerDetailsPanel";
 import type { VirtualServer } from "@/types/server";
 import type { Tool } from "@/types/tool";
 import { copyToClipboard } from "@/lib/clipboard";
+import { toolsApi } from "@/api/tools";
 
 vi.mock("@/lib/clipboard", () => ({ copyToClipboard: vi.fn() }));
 
@@ -109,6 +110,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  localStorage.removeItem("user-locale");
 });
 
 describe("VirtualServerDetailsPanel inline tag add", () => {
@@ -400,6 +403,58 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     );
   });
 
+  it.each(["close button", "Escape"])(
+    "cancels a pending live call when the drawer closes with %s",
+    async (closeWith) => {
+      const user = userEvent.setup();
+      vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+      mswServer.use(
+        http.get("*/v1/virtual-servers/:id/tools", () =>
+          HttpResponse.json({ tools: [makeTool()] }),
+        ),
+      );
+      let signal: AbortSignal | undefined;
+      const invokeSpy = vi
+        .spyOn(toolsApi, "invoke")
+        .mockImplementation((_name, _args, _headers, options) => {
+          signal = options?.signal;
+          return new Promise(() => {});
+        });
+      const cancelSpy = vi.spyOn(toolsApi, "cancelInvoke").mockResolvedValue(undefined);
+      const onClose = vi.fn();
+      const server = makeServer({ id: "virtual-server-1" });
+      const panel = (open: boolean) => (
+        <VirtualServerDetailsPanel
+          server={server}
+          error={null}
+          open={open}
+          onClose={onClose}
+          onAddSources={vi.fn()}
+        />
+      );
+      const { rerender } = render(panel(true));
+
+      await openToolTest(user, "Search issues");
+      await user.type(screen.getByLabelText(/query/i), "cloudflare");
+      await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+      await user.click(screen.getByRole("button", { name: "Live invoke" }));
+      await waitFor(() => expect(invokeSpy).toHaveBeenCalledOnce());
+      expect(signal?.aborted).toBe(false);
+
+      if (closeWith === "Escape") {
+        await user.keyboard("{Escape}");
+      } else {
+        await user.click(screen.getByRole("button", { name: "Close virtual server details" }));
+      }
+      expect(onClose).toHaveBeenCalledOnce();
+      rerender(panel(false));
+
+      await waitFor(() => expect(signal?.aborted).toBe(true));
+      expect(cancelSpy).toHaveBeenCalledWith(expect.stringMatching(/^tool-live-/), "unmount");
+      expect(screen.queryByText("Tool test")).not.toBeInTheDocument();
+    },
+  );
+
   it("uses snake_case tool fields for scoped testing", async () => {
     const user = userEvent.setup();
     vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
@@ -441,6 +496,35 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     expect(
       document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
     ).toHaveTextContent('"server_id":"virtual-server-1"');
+  });
+
+  it("keeps Preview available but blocks Live for an explicitly blank gateway ID", async () => {
+    const user = userEvent.setup();
+    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () =>
+        HttpResponse.json({
+          tools: [makeTool({ gatewayId: "", annotations: { destructiveHint: true } })],
+        }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "virtual-server-1" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await openToolTest(user, "Search issues");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
+      "Live invoke is unavailable because this tool's gateway ID is invalid.",
+    );
   });
 
   it("does not expose Test for associatedToolIds fallback rows", async () => {
@@ -508,6 +592,31 @@ describe("VirtualServerDetailsPanel render variants", () => {
       http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
       http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
     );
+  });
+
+  it("localizes the components loading state", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("user-locale", "es-ES");
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", async () => {
+        await delay("infinite");
+        return HttpResponse.json({ tools: [] });
+      }),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Componentes" }));
+    expect(await screen.findByText("Cargando componentes...")).toBeInTheDocument();
+    expect(screen.queryByText("Loading components...")).not.toBeInTheDocument();
   });
 
   it("shows the internal visibility label", async () => {
