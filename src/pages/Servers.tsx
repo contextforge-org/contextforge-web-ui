@@ -12,7 +12,7 @@ import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { ApiError, api } from "@/api/client";
-import { serversApi } from "@/api/servers";
+import { OAuthCancelledError, serversApi } from "@/api/servers";
 import { useRouter } from "@/router";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 import type { MCPServer, ServersResponse } from "@/types/server";
@@ -232,7 +232,18 @@ export function Servers() {
 
   const handleAuthorize = useCallback(
     async (id: string) => {
-      await serversApi.triggerOAuthAuthorization(id);
+      try {
+        await serversApi.triggerOAuthAuthorization(id);
+      } catch (err) {
+        if (err instanceof OAuthCancelledError) return;
+        toast.error(
+          intl.formatMessage(
+            { id: "mcpServer.status.action.error" },
+            { error: sanitizeError(err) },
+          ),
+        );
+        return;
+      }
       try {
         await serversApi.fetchToolsAfterOAuth(id);
       } catch (err) {
@@ -242,7 +253,7 @@ export function Servers() {
       await refetch();
       await loadOAuthStatuses();
     },
-    [refetch, loadOAuthStatuses],
+    [refetch, loadOAuthStatuses, intl],
   );
 
   const handleRefresh = useCallback(

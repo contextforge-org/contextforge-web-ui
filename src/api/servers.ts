@@ -17,6 +17,14 @@ import type {
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
 
+/** The user closed the OAuth popup. Typed so callers can stay quiet about it. */
+export class OAuthCancelledError extends Error {
+  constructor() {
+    super("OAuth authorization was cancelled");
+    this.name = "OAuthCancelledError";
+  }
+}
+
 /**
  * Validates server ID to prevent path traversal and injection attacks
  * @param id - The server ID to validate
@@ -271,7 +279,7 @@ export const serversApi = {
           if (!settled) {
             settled = true;
             cleanup();
-            reject(new Error("OAuth authorization was cancelled"));
+            reject(new OAuthCancelledError());
           }
         }
       }, 1000);

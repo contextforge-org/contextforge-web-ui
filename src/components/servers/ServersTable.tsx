@@ -190,7 +190,6 @@ export function ServersTable({
                     server={server}
                     oauthTokenStatus={oauthTokenStatuses?.[server.id]}
                     onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
-                    onEnable={onToggleEnabled && (async () => onToggleEnabled(server.id, true))}
                   />
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
