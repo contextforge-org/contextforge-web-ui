@@ -39,10 +39,12 @@ export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultPr
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.result;
-  const backingGatewayName = context?.backingGatewayName ?? getBackingGatewayName(response);
   const toolResultIsError = response ? getToolResultIsError(response) : false;
   const succeeded = result !== null;
   const statusOk = succeeded && !toolResultIsError;
+  const backingGatewayName = statusOk
+    ? (context?.backingGatewayName ?? getBackingGatewayName(response))
+    : undefined;
   const statusLabel = succeeded
     ? intl.formatMessage({ id: "tools.details.invoke.statusOk" }, { status: result.status })
     : error?.code !== undefined

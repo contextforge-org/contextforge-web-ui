@@ -146,6 +146,7 @@
   "tools.details.invoke.unavailable.missingExecutePermission": "La invocación en vivo requiere tools.execute.",
   "tools.details.invoke.unavailable.missingServerUsePermission": "La invocación en vivo requiere servers.use.",
   "tools.details.invoke.unavailable.federated": "La invocación en vivo no se ofrece para herramientas federadas sin readOnlyHint.",
+  "tools.details.invoke.unavailable.invalidGateway": "La invocación en vivo no está disponible porque el ID de la puerta de enlace de esta herramienta no es válido.",
   "tools.details.invoke.unavailable.untagged": "La invocación en vivo no se ofrece hasta que la herramienta declare readOnlyHint o destructiveHint.",
   "tools.details.invoke.confirm.title": "Invocar herramienta destructiva",
   "tools.details.invoke.confirm.description": "¿Invocar \"{name}\" contra la puerta de enlace en vivo? Esto puede cambiar estado externo.",
