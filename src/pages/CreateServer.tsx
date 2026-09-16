@@ -519,12 +519,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
 
         {!isLoadingComponents && failedLists.length === 0 && !hasComponents && (
           <p className="rounded-md border border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-            {intl.formatMessage({
-              id:
-                availability === "active"
-                  ? "gateways.details.noComponentsFound"
-                  : getAvailabilityPresentation(availability).detailId,
-            })}
+            {intl.formatMessage({ id: getAvailabilityPresentation(availability).emptyId })}
           </p>
         )}
 
