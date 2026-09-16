@@ -239,4 +239,149 @@ describe("SourceSelection", () => {
     expect(grpcAction).not.toHaveBeenCalled();
     expect(screen.getAllByRole("button", { name: "Connect" })).toHaveLength(1);
   });
+  it("keeps every source selectable and explains its state", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            {
+              id: "s-off",
+              name: "offline-src",
+              enabled: true,
+              reachable: false,
+              lastSeen: "2026-01-01T00:00:00Z",
+              visibility: "public",
+              tool_count: 4,
+            },
+            {
+              id: "s-draft",
+              name: "draft-src",
+              enabled: false,
+              reachable: false,
+              visibility: "public",
+              tool_count: 0,
+            },
+          ],
+        }),
+      ),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+
+    expect(await screen.findByText("offline-src")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
+
+    // An unavailable source stays selectable: its components remain in the catalog.
+    for (const name of ["Select offline-src", "Select draft-src"]) {
+      expect(screen.getByRole("checkbox", { name })).toBeEnabled();
+    }
+  });
+
+  it("warns at submit only about selected sources with nothing to add", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            {
+              id: "s-full",
+              name: "full-src",
+              enabled: true,
+              reachable: true,
+              visibility: "public",
+              tool_count: 3,
+            },
+            {
+              id: "s-empty",
+              name: "empty-src",
+              enabled: true,
+              reachable: true,
+              visibility: "public",
+              tool_count: 0,
+              resource_count: 0,
+              prompt_count: 0,
+            },
+          ],
+        }),
+      ),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+    await screen.findByText("full-src");
+
+    await user.click(screen.getByRole("checkbox", { name: "Select full-src" }));
+    expect(screen.queryByText(/no components to add yet/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Select empty-src" }));
+    expect(screen.getByText(/empty-src has no components to add yet/)).toBeInTheDocument();
+
+    // Non-blocking: submitting stays available.
+    expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
+  });
+
+  it("reports the selected source names to the caller", async () => {
+    const user = userEvent.setup();
+    const onSelectSources = vi.fn();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            {
+              id: "s-1",
+              name: "alpha",
+              enabled: true,
+              reachable: true,
+              visibility: "public",
+              tool_count: 1,
+            },
+          ],
+        }),
+      ),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        onSelectSources={onSelectSources}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+    await screen.findByText("alpha");
+    await user.click(screen.getByRole("checkbox", { name: "Select alpha" }));
+
+    expect(onSelectSources).toHaveBeenCalledWith(["s-1"], { "s-1": "alpha" });
+  });
 });

@@ -609,10 +609,10 @@ describe("CreateServer", () => {
     expect(screen.getByText("Offline Server")).toBeInTheDocument();
     expect(screen.getByText("Draft Server")).toBeInTheDocument();
 
-    // Status labels exercise every getServerStatus / getStatusConfig branch.
+    // Status labels exercise every getServerAvailability branch.
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Warning")).toBeInTheDocument();
     expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
     expect(screen.getByText("Inactive")).toBeInTheDocument();
 
     // Visibility labels exercise team / private / internal.
@@ -836,8 +836,8 @@ describe("CreateServer", () => {
       );
 
       // Each server's computed status label is shown on its accordion row.
-      expect(await screen.findByText("Warning")).toBeInTheDocument();
-      expect(screen.getByText("Offline")).toBeInTheDocument();
+      expect(await screen.findByText("Offline")).toBeInTheDocument();
+      expect(screen.getByText("Connecting")).toBeInTheDocument();
       expect(screen.getByText("Inactive")).toBeInTheDocument();
 
       // Visibility labels cover team / private / internal.
@@ -869,7 +869,7 @@ describe("CreateServer", () => {
       });
     });
 
-    it("renders componentError alert when tools fetch fails inside accordion", async () => {
+    it("names the list that failed and offers a retry inside the accordion", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
         http.get("*/v1/virtual-servers/gateway-1", () => {
@@ -912,8 +912,11 @@ describe("CreateServer", () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText("HTTP 500")).toBeInTheDocument();
+        expect(screen.getByText(/Could not load Tools: HTTP 500/)).toBeInTheDocument();
       });
+      expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+      // Resources and prompts loaded, so they must not be reported as failures.
+      expect(screen.queryByText(/Could not load Resources/)).not.toBeInTheDocument();
     });
 
     it("renders fallback error message when editServerError has no message", async () => {
