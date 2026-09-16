@@ -48,7 +48,7 @@ export function TeamSelect({ teams, value, onChange, error, id = "team" }: TeamS
         <Select value={value ?? ""} onValueChange={onChange}>
           <SelectTrigger
             {...controlProps}
-            className="rounded-md border-neutral-300 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+            className="h-10 rounded-md border-neutral-300 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
           >
             <SelectValue placeholder={intl.formatMessage({ id: "common.team.placeholder" })} />
           </SelectTrigger>

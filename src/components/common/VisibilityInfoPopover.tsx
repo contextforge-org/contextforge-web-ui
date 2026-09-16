@@ -82,13 +82,7 @@ export function VisibilityInfoPopover({
         {selectedInfoId ? (
           <p>{intl.formatMessage({ id: selectedInfoId })}</p>
         ) : (
-          (["private", "team", "public"] as const).map((level) => (
-            <p key={level}>
-              {intl.formatMessage({ id: LABEL_IDS[level] })}
-              {": "}
-              {intl.formatMessage({ id: INFO_IDS[level] })}
-            </p>
-          ))
+          <VisibilityInfoContent />
         )}
       </PopoverContent>
     </Popover>

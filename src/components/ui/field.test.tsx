@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { Field } from "./field";
 import { Input } from "./input";
 
@@ -141,7 +142,7 @@ describe("Field", () => {
         {(controlProps) => <Input {...controlProps} />}
       </Field>,
     );
-    const trigger = screen.getByRole("button", { name: "More info about Visibility" });
+    const trigger = screen.getByRole("button", { name: "More information about Visibility" });
     expect(trigger.closest("label")).toBeNull();
     expect(screen.getByLabelText("Visibility")).toBe(screen.getByRole("textbox"));
 

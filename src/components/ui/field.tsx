@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Info } from "lucide-react";
+import { useIntl } from "react-intl";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ function Field({
   className,
   labelProps,
 }: FieldProps) {
+  const intl = useIntl();
   // Presence check, not truthiness: an explicit error="" still means invalid
   // (e.g. a message that hasn't resolved yet), so it must not be treated the
   // same as "no error" and silently drop aria-invalid/aria-describedby.
@@ -86,7 +88,10 @@ function Field({
                 {" "}
                 *
               </span>
-              <span className="sr-only"> (required)</span>
+              <span className="sr-only">
+                {" "}
+                {intl.formatMessage({ id: "common.field.required" })}
+              </span>
             </>
           )}
         </Label>
@@ -94,7 +99,7 @@ function Field({
           <Popover>
             <PopoverTrigger
               type="button"
-              aria-label={`More info about ${label}`}
+              aria-label={intl.formatMessage({ id: "common.field.infoTrigger" }, { label })}
               className="rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Info className="size-3.5" aria-hidden="true" />
