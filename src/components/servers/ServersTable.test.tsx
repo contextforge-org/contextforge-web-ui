@@ -304,8 +304,9 @@ describe("ServersTable", () => {
     expect(screen.getByText("Authorization needed")).toBeInTheDocument();
   });
 
-  it("opens the status dialog with the reason and the fix", async () => {
+  it("starts authorization from the status rather than explaining it", async () => {
     const user = userEvent.setup();
+    const onAuthorize = vi.fn().mockResolvedValue(undefined);
     renderTable(
       <ServersTable
         servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
@@ -313,15 +314,32 @@ describe("ServersTable", () => {
         onEdit={noop}
         onDelete={noop}
         oauthTokenStatuses={{ "server-uuid-1": "missing" }}
-        onAuthorize={vi.fn().mockResolvedValue(undefined)}
+        onAuthorize={onAuthorize}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /status: Authorization needed/i }));
+    await user.click(screen.getByRole("button", { name: /^Authorize / }));
 
-    const dialog = await screen.findByRole("dialog");
-    expect(dialog).toHaveTextContent("You have not authorized this server");
-    expect(screen.getByRole("button", { name: "Authorize" })).toBeInTheDocument();
+    expect(onAuthorize).toHaveBeenCalledWith("server-uuid-1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("explains a status the caller cannot act on", async () => {
+    const user = userEvent.setup();
+    renderTable(
+      <ServersTable
+        servers={[
+          makeServer({ enabled: true, reachable: false, lastSeen: "2026-04-16T13:23:12Z" }),
+        ]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Offline/i }));
+
+    expect(await screen.findByText(/ContextForge cannot reach this server/)).toBeInTheDocument();
   });
 
   it("shows 'Active' when enabled and reachable", () => {
