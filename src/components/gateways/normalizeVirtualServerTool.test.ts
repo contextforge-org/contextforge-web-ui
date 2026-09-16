@@ -53,4 +53,35 @@ describe("normalizeVirtualServerTool", () => {
     expect(normalized.inputSchema).toEqual(tool.inputSchema);
     expect(normalized.outputSchema).toEqual(tool.outputSchema);
   });
+
+  it("uses a valid snake_case gateway ID when the camelCase field is blank", () => {
+    const tool = {
+      id: "tool-1",
+      name: "github.search_issues",
+      gatewayId: "",
+      gateway_id: "gateway-1",
+    } as VirtualServerTool;
+
+    const normalized = normalizeVirtualServerTool(tool);
+    expect(normalized.gatewayId).toBe("gateway-1");
+    expect(normalized.invalidGatewayId).toBe(false);
+  });
+
+  it("marks an explicitly blank gateway ID invalid without misclassifying local tools", () => {
+    const malformed = normalizeVirtualServerTool({
+      id: "tool-1",
+      name: "github.search_issues",
+      gatewayId: " ",
+    } as VirtualServerTool);
+    const local = normalizeVirtualServerTool({
+      id: "tool-2",
+      name: "local.search",
+      gatewayId: null,
+    } as VirtualServerTool);
+
+    expect(malformed.gatewayId).toBeNull();
+    expect(malformed.invalidGatewayId).toBe(true);
+    expect(local.gatewayId).toBeNull();
+    expect(local.invalidGatewayId).toBe(false);
+  });
 });

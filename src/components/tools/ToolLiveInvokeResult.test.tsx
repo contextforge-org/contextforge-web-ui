@@ -93,6 +93,71 @@ describe("ToolLiveInvokeResult", () => {
     expect(screen.getByText("Answered by github-mcp")).toBeInTheDocument();
   });
 
+  it("shows the configured gateway after a successful call without response metadata", () => {
+    render(
+      <ToolLiveInvokeResult
+        context={{ requestName: "Developer tools", backingGatewayName: "github-mcp" }}
+        invoke={invokeProps({
+          hasRun: true,
+          result: {
+            id: "invoke-1",
+            status: 200,
+            renderTimeMs: 10,
+            result: { content: [{ type: "text", text: "done", mimeType: "text/plain" }] },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Answered by github-mcp")).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      name: "network error",
+      invoke: invokeProps({
+        hasRun: true,
+        error: { status: null, renderTimeMs: 3, message: "Network error" },
+      }),
+    },
+    {
+      name: "JSON-RPC error",
+      invoke: invokeProps({
+        hasRun: true,
+        error: { code: -32003, status: null, renderTimeMs: 3, message: "Access denied" },
+      }),
+    },
+    {
+      name: "timeout",
+      invoke: invokeProps({
+        hasRun: true,
+        error: { status: null, renderTimeMs: 3, message: "Timed out", timedOut: true },
+      }),
+    },
+    {
+      name: "tool-level error",
+      invoke: invokeProps({
+        hasRun: true,
+        result: {
+          id: "invoke-1",
+          status: 200,
+          renderTimeMs: 3,
+          result: { content: [], isError: true },
+        },
+      }),
+    },
+  ])("keeps request context but does not attribute a $name to a gateway", ({ invoke }) => {
+    render(
+      <ToolLiveInvokeResult
+        context={{ requestName: "Developer tools", backingGatewayName: "github-mcp" }}
+        invoke={invoke}
+      />,
+    );
+
+    expect(screen.getByText("Requested through Developer tools")).toBeInTheDocument();
+    expect(screen.queryByText("Answered by github-mcp")).not.toBeInTheDocument();
+  });
+
   it.each([
     { metadata: { gateway_name: "root-gateway-name" }, expected: "root-gateway-name" },
     { metadata: { gatewayName: "rootGatewayName" }, expected: "rootGatewayName" },

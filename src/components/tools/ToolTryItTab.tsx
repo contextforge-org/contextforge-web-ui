@@ -5,6 +5,7 @@ import { useIntl } from "react-intl";
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { CodeBlock } from "@/components/ui/code-block";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +35,7 @@ const DEFAULT_SNIPPET_LANGUAGE: ToolSnippetLanguage = "curl";
 
 export interface ToolTryItTabProps {
   headingRef?: Ref<HTMLHeadingElement>;
+  invalidGatewayId?: boolean;
   resultContext?: ComponentProps<typeof ToolLiveInvokeResult>["context"];
   serverScope?: { serverId: string; serverName: string };
   tools?: Tool[];
@@ -43,6 +45,7 @@ export interface ToolTryItTabProps {
 
 export function ToolTryItTab({
   headingRef,
+  invalidGatewayId = false,
   resultContext,
   serverScope,
   tools,
@@ -70,9 +73,10 @@ export function ToolTryItTab({
         canExecute: hasPermission("tools.execute"),
         canUseServers: hasPermission("servers.use"),
         permissionsLoading,
+        invalidGatewayId,
         tool: selectedTool,
       }),
-    [hasPermission, permissionsLoading, selectedTool],
+    [hasPermission, permissionsLoading, invalidGatewayId, selectedTool],
   );
   const liveModeAvailable =
     liveAvailability.state === "available" || liveAvailability.state === "requiresConfirmation";
@@ -196,12 +200,12 @@ export function ToolTryItTab({
       {scopedMode && (
         <div className="flex flex-wrap items-start justify-between gap-4 border-y border-border py-3">
           <div className="space-y-1">
-            <label
+            <Label
               htmlFor={`tool-live-mode-${selectedTool.id}`}
               className="text-sm font-medium text-foreground"
             >
               {intl.formatMessage({ id: "tools.details.test.liveMode" })}
-            </label>
+            </Label>
             {!liveModeAvailable && (
               <p
                 id={liveModeReasonId}
@@ -260,6 +264,7 @@ export function ToolTryItTab({
               {(!scopedMode || liveMode) && (
                 <ToolLiveInvokeGate
                   tool={selectedTool}
+                  invalidGatewayId={invalidGatewayId}
                   invoke={invoke}
                   disabled={!argsValid || !headersValid}
                 />

@@ -439,6 +439,10 @@ export function VirtualServerDetailsPanel({
   }, [open, server?.id]);
 
   useEffect(() => {
+    if (!open) setSelectedTestToolId(null);
+  }, [open]);
+
+  useEffect(() => {
     if (!selectedTestToolId) return;
     if (!virtualServerToolTryItEnabled || !selectedTestTool) {
       restoreToolActionsFocusRef.current = open && topTab === "components";
@@ -596,7 +600,7 @@ export function VirtualServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="components" className="mt-8">
-                  {virtualServerToolTryItEnabled && selectedTestTool ? (
+                  {open && virtualServerToolTryItEnabled && selectedTestTool ? (
                     <VirtualServerToolTestView
                       server={server}
                       tool={selectedTestTool}
@@ -741,7 +745,9 @@ export function VirtualServerDetailsPanel({
                             className="flex items-center gap-2 py-8 text-muted-foreground"
                           >
                             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                            <span>Loading components...</span>
+                            <span>
+                              {intl.formatMessage({ id: "gateways.details.loadingComponents" })}
+                            </span>
                           </div>
                         )}
 
@@ -996,6 +1002,7 @@ function VirtualServerToolTestView({
       <ToolTryItTab
         key={`${server.id}-${tool.id}`}
         headingRef={headingRef}
+        invalidGatewayId={tool.invalidGatewayId}
         resultContext={{
           requestName: server.name,
           backingGatewayName: tool.gatewaySlug || undefined,

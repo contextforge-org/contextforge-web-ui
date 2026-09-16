@@ -106,6 +106,26 @@ describe("resolveToolLiveInvokeAvailability", () => {
     ).toEqual({ state: "requiresConfirmation" });
   });
 
+  it("blocks live invocation when gateway identity is malformed", () => {
+    expect(
+      resolveToolLiveInvokeAvailability({
+        canExecute: true,
+        canUseServers: true,
+        permissionsLoading: false,
+        invalidGatewayId: true,
+        tool: { annotations: { destructiveHint: true }, gatewayId: null },
+      }),
+    ).toEqual({ state: "unavailableInvalidGateway" });
+    expect(
+      resolveToolLiveInvokeAvailability({
+        canExecute: true,
+        canUseServers: true,
+        permissionsLoading: false,
+        tool: { annotations: { readOnlyHint: true }, gatewayId: "" },
+      }),
+    ).toEqual({ state: "unavailableInvalidGateway" });
+  });
+
   it("treats destructiveHint as higher priority than readOnlyHint", () => {
     expect(
       resolveToolLiveInvokeAvailability({
