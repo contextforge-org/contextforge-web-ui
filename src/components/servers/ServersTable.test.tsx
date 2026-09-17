@@ -291,7 +291,7 @@ describe("ServersTable", () => {
     expect(screen.getByText("Offline")).toBeInTheDocument();
   });
 
-  it("shows 'Authorization needed' when the caller has no OAuth token", () => {
+  it("shows 'Auth' when the caller has no OAuth token", () => {
     renderTable(
       <ServersTable
         servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
@@ -301,7 +301,7 @@ describe("ServersTable", () => {
         oauthTokenStatuses={{ "server-uuid-1": "missing" }}
       />,
     );
-    expect(screen.getByText("Authorization needed")).toBeInTheDocument();
+    expect(screen.getByText("Auth")).toBeInTheDocument();
   });
 
   it("starts authorization from the status rather than explaining it", async () => {
@@ -339,7 +339,7 @@ describe("ServersTable", () => {
 
     await user.click(screen.getByRole("button", { name: /status: Offline/i }));
 
-    expect(await screen.findByText(/ContextForge cannot reach this server/)).toBeInTheDocument();
+    expect(await screen.findByText(/This server is offline/)).toBeInTheDocument();
   });
 
   it("shows 'Active' when enabled and reachable", () => {

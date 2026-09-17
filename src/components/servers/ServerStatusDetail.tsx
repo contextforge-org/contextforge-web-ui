@@ -12,9 +12,14 @@ interface ServerStatusDetailProps {
 /**
  * What a status means, plus the last response and last error where the server
  * has them. This is the only place either value is surfaced in the UI.
+ *
+ * Inactive servers withhold the error: the health loop clears `last_error` only
+ * on enabled servers, so theirs is left over from an outage before they were
+ * turned off and reads as a current failure.
  */
 export function ServerStatusDetail({ availability, lastSeen, lastError }: ServerStatusDetailProps) {
   const intl = useIntl();
+  const showLastError = Boolean(lastError) && availability !== "inactive";
 
   return (
     <div className="space-y-2 text-sm">
@@ -29,7 +34,7 @@ export function ServerStatusDetail({ availability, lastSeen, lastError }: Server
           )}
         </p>
       )}
-      {lastError && (
+      {showLastError && (
         <p className="break-words text-muted-foreground">
           {intl.formatMessage({ id: "mcpServer.status.detail.lastError" }, { error: lastError })}
         </p>
