@@ -37,7 +37,7 @@ describe("Input", () => {
       const { container } = render(<Input />);
       const el = container.querySelector('input[data-slot="input"]');
 
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
       expect(el).toHaveClass("w-full");
       expect(el).toHaveClass("min-w-0");
       expect(el).toHaveClass("rounded-md");
@@ -100,7 +100,7 @@ describe("Input", () => {
       const el = container.querySelector('input[data-slot="input"]');
 
       expect(el).toHaveClass("custom-class");
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
       expect(el).toHaveClass("w-full");
       expect(el).toHaveClass("border");
     });
@@ -111,7 +111,7 @@ describe("Input", () => {
 
       expect(el).toHaveClass("my-input");
       expect(el).toHaveClass("custom-styling");
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
       expect(el).toHaveClass("bg-transparent");
     });
 
@@ -135,7 +135,7 @@ describe("Input", () => {
       const el = container.querySelector('input[data-slot="input"]');
 
       expect(el).toBeInTheDocument();
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
       expect(el).toHaveClass("border");
     });
   });
@@ -403,7 +403,7 @@ describe("Input", () => {
       render(<Input ref={ref} />);
 
       expect(ref.current).toBeTruthy();
-      expect(ref.current?.classList.contains("h-9")).toBe(true);
+      expect(ref.current?.classList.contains("h-10")).toBe(true);
       expect(ref.current?.classList.contains("border")).toBe(true);
     });
 
@@ -516,7 +516,7 @@ describe("Input", () => {
       const el = container.querySelector('input[data-slot="input"]');
 
       expect(el).toBeInTheDocument();
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
     });
 
     it("should handle whitespace-only className", () => {
@@ -524,7 +524,7 @@ describe("Input", () => {
       const el = container.querySelector('input[data-slot="input"]');
 
       expect(el).toBeInTheDocument();
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
     });
 
     it("should maintain default classes when className is provided", () => {
@@ -532,7 +532,7 @@ describe("Input", () => {
       const el = container.querySelector('input[data-slot="input"]');
 
       // All default classes should still be present
-      expect(el).toHaveClass("h-9");
+      expect(el).toHaveClass("h-10");
       expect(el).toHaveClass("w-full");
       expect(el).toHaveClass("border");
       expect(el).toHaveClass("bg-transparent");
