@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { MCPIcon } from "@/components/icons/MCPIcon";
@@ -41,6 +41,7 @@ export function Servers() {
   const [oauthTokenStatuses, setOAuthTokenStatuses] = useState<Record<string, OAuthTokenStatus>>(
     {},
   );
+  const latestOAuthRequestIdRef = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedServerIdForDetails, setSelectedServerIdForDetails] = useState<string | null>(null);
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
@@ -113,11 +114,15 @@ export function Servers() {
 
   const loadOAuthStatuses = useCallback(async () => {
     if (oauthServerIds.length === 0) {
+      latestOAuthRequestIdRef.current += 1;
       setOAuthTokenStatuses({});
       return;
     }
+    // Concurrent lookups share state, so only the latest-issued may publish it.
+    const requestId = ++latestOAuthRequestIdRef.current;
     try {
       const statuses = await serversApi.getOAuthStatus(oauthServerIds);
+      if (requestId !== latestOAuthRequestIdRef.current) return;
       setOAuthTokenStatuses(
         Object.fromEntries(
           Object.entries(statuses).flatMap(([id, status]) =>
@@ -128,7 +133,7 @@ export function Servers() {
         ),
       );
     } catch (err) {
-      // Leaving statuses unset falls rows back to their reachability state.
+      // Statuses are left as they are, so rows keep their last known state.
       console.error("Failed to load OAuth status:", sanitizeError(err));
     }
   }, [oauthServerIds]);
@@ -250,7 +255,11 @@ export function Servers() {
         // Needs gateways.update, which the caller may lack. Authorization still succeeded.
         console.error("Failed to fetch components after authorization:", sanitizeError(err));
       }
-      await refetch();
+      try {
+        await refetch();
+      } catch (err) {
+        console.error("Failed to refresh servers after authorization:", sanitizeError(err));
+      }
       await loadOAuthStatuses();
     },
     [refetch, loadOAuthStatuses, intl],
