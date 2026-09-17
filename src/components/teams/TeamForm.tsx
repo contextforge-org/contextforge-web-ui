@@ -131,44 +131,46 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
             />
 
             {/* Visibility */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-neutral-950 dark:text-white">
+            <div>
+              <Label className="mb-2.5 block text-sm font-medium text-neutral-950 dark:text-white">
                 {intl.formatMessage({ id: "teams.create.visibility" })}
               </Label>
-              <div
-                role="radiogroup"
-                aria-label={intl.formatMessage({ id: "teams.create.visibility" })}
-                className="flex w-full gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
-              >
-                {(["private", "public"] as const).map((v) => (
-                  <div key={v} className="min-w-0 flex-1">
-                    <input
-                      type="radio"
-                      id={`visibility-${v}`}
-                      name="visibility"
-                      value={v}
-                      checked={visibility === v}
-                      onChange={() => setVisibility(v)}
-                      className="peer sr-only"
-                      disabled={isSubmitting}
-                    />
-                    <Label
-                      htmlFor={`visibility-${v}`}
-                      className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
-                    >
-                      {intl.formatMessage({ id: `teams.create.visibility.${v}` })}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              {visibility === "private" && (
-                <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
-                  <Lock className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                    {intl.formatMessage({ id: "teams.create.visibility.description" })}
-                  </span>
+              <div className="space-y-3">
+                <div
+                  role="radiogroup"
+                  aria-label={intl.formatMessage({ id: "teams.create.visibility" })}
+                  className="flex w-full gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                >
+                  {(["private", "public"] as const).map((v) => (
+                    <div key={v} className="min-w-0 flex-1">
+                      <input
+                        type="radio"
+                        id={`visibility-${v}`}
+                        name="visibility"
+                        value={v}
+                        checked={visibility === v}
+                        onChange={() => setVisibility(v)}
+                        className="peer sr-only"
+                        disabled={isSubmitting}
+                      />
+                      <Label
+                        htmlFor={`visibility-${v}`}
+                        className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                      >
+                        {intl.formatMessage({ id: `teams.create.visibility.${v}` })}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-              )}
+                {visibility === "private" && (
+                  <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
+                    <Lock className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {intl.formatMessage({ id: "teams.create.visibility.description" })}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Team Members — only when creating; membership is managed
