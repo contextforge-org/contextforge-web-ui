@@ -20,5 +20,6 @@
   "invitations.loading.sr": "Cargando invitaciones, espera...",
   "invitations.error.load": "No se pudieron cargar tus invitaciones",
   "invitations.error.accept": "No se pudo unir al equipo",
+  "invitations.error.expired": "Esta invitación ha caducado.",
   "invitations.error.decline": "No se pudo rechazar la invitación"
 }

@@ -20,5 +20,6 @@
   "invitations.loading.sr": "Loading invitations, please wait...",
   "invitations.error.load": "Failed to load your invitations",
   "invitations.error.accept": "Failed to join team",
+  "invitations.error.expired": "This invitation has expired.",
   "invitations.error.decline": "Failed to decline invitation"
 }

@@ -20,5 +20,6 @@
   "invitations.loading.sr": "Carregando convites, aguarde...",
   "invitations.error.load": "Falha ao carregar seus convites",
   "invitations.error.accept": "Falha ao entrar na equipe",
+  "invitations.error.expired": "Este convite expirou.",
   "invitations.error.decline": "Falha ao recusar o convite"
 }

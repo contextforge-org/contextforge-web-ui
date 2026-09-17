@@ -147,6 +147,92 @@ describe("usePendingInvitationsData", () => {
     expect(listMyInvitations).toHaveBeenCalledTimes(1);
   });
 
+  it("drops an invitation that lapses while the tab sits open, without refetching", async () => {
+    vi.useFakeTimers();
+    const lapsing = makeInvitation({
+      id: "inv-3",
+      token: "tok-3",
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsing]);
+    const { result } = renderInvitations();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.invitations).toHaveLength(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(result.current.invitations).toEqual([one]);
+    expect(result.current.pendingCount).toBe(1);
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a lapsed invitation in place while paused, so no row vanishes mid-dialog", async () => {
+    vi.useFakeTimers();
+    const lapsing = makeInvitation({
+      id: "inv-3",
+      token: "tok-3",
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsing]);
+    const { result } = renderInvitations(true, true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+
+    expect(result.current.invitations).toHaveLength(2);
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to accept an invitation that lapsed under the open dialog", async () => {
+    const lapsing = makeInvitation({
+      id: "inv-3",
+      token: "tok-3",
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsing]);
+    const { result } = renderInvitations(true, true);
+    await waitFor(() => expect(result.current.invitations).toHaveLength(2));
+
+    vi.setSystemTime(Date.now() + 31_000);
+    await act(async () => {
+      await result.current.accept(lapsing);
+    });
+
+    expect(acceptInvitation).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Failed to join team", {
+      description: "This invitation has expired.",
+    });
+    expect(result.current.resolutions).toEqual({});
+  });
+
+  it("still declines an invitation that has lapsed", async () => {
+    const lapsing = makeInvitation({
+      id: "inv-3",
+      token: "tok-3",
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsing]);
+    const { result } = renderInvitations(true, true);
+    await waitFor(() => expect(result.current.invitations).toHaveLength(2));
+
+    vi.setSystemTime(Date.now() + 31_000);
+    await act(async () => {
+      await result.current.decline(lapsing);
+    });
+
+    expect(declineInvitation).toHaveBeenCalledWith("tok-3");
+    expect(result.current.resolutions).toEqual({ "inv-3": "declined" });
+  });
+
   it("makes no request while disabled", async () => {
     const { result } = renderInvitations(false);
 

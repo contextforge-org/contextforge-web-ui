@@ -118,9 +118,20 @@ export function usePendingInvitationsData({
       void load();
     };
 
+    // Expiry is a clock event, so a never-blurred tab needs no request to
+    // notice one. Not while paused: dropping a row under the open dialog takes
+    // the focused button or a pending confirmation with it.
+    const dropExpired = setInterval(() => {
+      setInvitations((previous) => {
+        const actionable = previous.filter(isActionable);
+        return actionable.length === previous.length ? previous : actionable;
+      });
+    }, STALE_AFTER_MS);
+
     document.addEventListener("visibilitychange", refreshIfStale);
     window.addEventListener("focus", refreshIfStale);
     return () => {
+      clearInterval(dropExpired);
       document.removeEventListener("visibilitychange", refreshIfStale);
       window.removeEventListener("focus", refreshIfStale);
     };
@@ -132,6 +143,17 @@ export function usePendingInvitationsData({
    */
   const resolve = useCallback(
     async (invitation: TeamInvitation, action: InvitationAction) => {
+      // The row can outlive its expiry while the dialog is open, where the
+      // sweep above is paused. Accept only: declining stays available, being
+      // the invitee's one way to clear an expired invitation.
+      if (action === "accept" && !isActionable(invitation)) {
+        toast.error(intl.formatMessage({ id: "invitations.error.accept" }), {
+          description: intl.formatMessage({ id: "invitations.error.expired" }),
+        });
+        void load();
+        return;
+      }
+
       setInFlight((previous) => ({ ...previous, [invitation.id]: action }));
 
       try {
@@ -158,7 +180,7 @@ export function usePendingInvitationsData({
         });
       }
     },
-    [intl],
+    [intl, load],
   );
 
   const accept = useCallback(
