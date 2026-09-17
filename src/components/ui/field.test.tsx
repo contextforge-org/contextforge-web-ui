@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { renderWithProviders as render } from "@/test/test-utils";
 import { Field } from "./field";
 import { Input } from "./input";
 
@@ -100,6 +102,61 @@ describe("Field", () => {
       </Field>,
     );
     expect(screen.getByText("Email")).toHaveAttribute("for", "email");
+  });
+
+  it("required: renders an asterisk with sr-only text and sets aria-required on the control", () => {
+    render(
+      <Field id="name" label="Name" required>
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    const label = screen.getByText("Name").closest("label");
+    expect(label).toHaveTextContent("Name * (required)");
+    expect(label?.querySelector(".sr-only")).toHaveTextContent("(required)");
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-required", "true");
+  });
+
+  it('required={false} sets aria-required="false" without rendering the asterisk', () => {
+    render(
+      <Field id="name" label="Name" required={false}>
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByText("Name")).not.toHaveTextContent("*");
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-required", "false");
+  });
+
+  it("omitting required leaves aria-required off the control entirely", () => {
+    render(
+      <Field id="name" label="Name">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-required");
+  });
+
+  it("info: renders a popover trigger outside the <label>, not as part of its accessible name", async () => {
+    const user = userEvent.setup();
+    render(
+      <Field id="visibility" label="Visibility" info="Explains the three levels.">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    const trigger = screen.getByRole("button", { name: "More information about Visibility" });
+    expect(trigger.closest("label")).toBeNull();
+    expect(screen.getByLabelText("Visibility")).toBe(screen.getByRole("textbox"));
+
+    await user.click(trigger);
+    expect(screen.getByText("Explains the three levels.")).toBeInTheDocument();
+  });
+
+  it("omitting info renders no popover trigger", () => {
+    render(
+      <Field id="name" label="Name">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("supports a render-prop child for composite controls, applying props to the caller-chosen element", () => {
