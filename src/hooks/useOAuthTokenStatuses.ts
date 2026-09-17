@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { serversApi } from "@/api/servers";
 import type { OAuthTokenStatus } from "@/lib/serverStatus";
@@ -12,13 +12,13 @@ interface OAuthCapableServer {
 /**
  * The caller's own OAuth token state for the servers that have one.
  *
- * Only OAuth servers are queried: the batch does sequential token lookups, and
- * the backend rejects more than 100 ids.
+ * Only OAuth servers are queried, since the batch does sequential token lookups.
  */
 export function useOAuthTokenStatuses(servers: OAuthCapableServer[]) {
   const [oauthTokenStatuses, setOAuthTokenStatuses] = useState<Record<string, OAuthTokenStatus>>(
     {},
   );
+  const latestRequestIdRef = useRef(0);
 
   // Key on the ids themselves so re-fetching follows membership, not array identity.
   const idsKey = useMemo(
@@ -33,11 +33,15 @@ export function useOAuthTokenStatuses(servers: OAuthCapableServer[]) {
   const reloadOAuthStatuses = useCallback(async () => {
     const ids = idsKey ? idsKey.split(",") : [];
     if (ids.length === 0) {
+      latestRequestIdRef.current += 1;
       setOAuthTokenStatuses({});
       return;
     }
+    // Concurrent lookups share state, so only the latest-issued may publish it.
+    const requestId = ++latestRequestIdRef.current;
     try {
       const statuses = await serversApi.getOAuthStatus(ids);
+      if (requestId !== latestRequestIdRef.current) return;
       setOAuthTokenStatuses(
         Object.fromEntries(
           Object.entries(statuses).flatMap(([id, status]) =>
@@ -48,7 +52,7 @@ export function useOAuthTokenStatuses(servers: OAuthCapableServer[]) {
         ),
       );
     } catch (err) {
-      // Leaving statuses unset falls rows back to their reachability state.
+      // Statuses are left as they are, so rows keep their last known state.
       console.error("Failed to load OAuth status:", sanitizeError(err));
     }
   }, [idsKey]);
