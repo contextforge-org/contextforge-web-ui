@@ -4,7 +4,9 @@ import { ChevronDown, RefreshCw, Wrench, Zap } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToolAdvancedSettings } from "@/components/tools/ToolAdvancedSettings";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
@@ -207,12 +209,9 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
           <form className="space-y-6" onSubmit={onSubmit}>
             {integrationType !== "MCP" && (
               <div className="space-y-3">
-                <label
-                  id="request-type-label"
-                  className="text-sm font-medium text-neutral-950 dark:text-white"
-                >
+                <Label id="request-type-label" className="text-neutral-950 dark:text-white">
                   {intl.formatMessage({ id: "tools.form.requestType" })}
-                </label>
+                </Label>
                 <div
                   role="radiogroup"
                   aria-labelledby="request-type-label"
@@ -243,71 +242,70 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
               </div>
             )}
 
-            <div className="space-y-1">
-              <label
-                htmlFor="tool-name"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "tools.form.name" })}
-                <span className="text-red-500">*</span>
-                <span className="sr-only">{intl.formatMessage({ id: "tools.form.required" })}</span>
-              </label>
-              <Input
-                id="tool-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={intl.formatMessage({ id: "tools.form.name.placeholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "name-error" : undefined}
-              />
-              {errors.name && (
-                <p id="name-error" className="text-sm text-red-500">
-                  {errors.name}
-                </p>
+            <Field
+              id="tool-name"
+              required
+              error={errors.name}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "tools.form.name" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={intl.formatMessage({ id: "tools.form.name.placeholder" })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-1">
-              <label
-                htmlFor="tool-url"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "tools.form.url" })}
-                <span className="text-red-500">*</span>
-                <span className="sr-only">{intl.formatMessage({ id: "tools.form.required" })}</span>
-              </label>
-              <Input
-                id="tool-url"
-                value={url}
-                onChange={(event) => {
-                  setUrl(event.target.value);
-                  setUrlError(undefined);
-                }}
-                placeholder={intl.formatMessage({ id: "tools.form.url.placeholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.url}
-                aria-describedby={errors.url ? "url-helper url-error" : "url-helper"}
-              />
-              <p id="url-helper" className="text-xs text-neutral-500 dark:text-neutral-400">
-                {intl.formatMessage({ id: "tools.form.url.helper" })}
-              </p>
-              {errors.url && (
-                <p id="url-error" className="text-sm text-red-500">
-                  {errors.url}
-                </p>
+            <Field
+              id="tool-url"
+              required
+              error={errors.url}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "tools.form.url" })}
+            >
+              {(controlProps) => (
+                <>
+                  <Input
+                    {...controlProps}
+                    aria-describedby={errors.url ? "url-helper tool-url-error" : "url-helper"}
+                    value={url}
+                    onChange={(event) => {
+                      setUrl(event.target.value);
+                      setUrlError(undefined);
+                    }}
+                    placeholder={intl.formatMessage({ id: "tools.form.url.placeholder" })}
+                    className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                  />
+                  <p id="url-helper" className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {intl.formatMessage({ id: "tools.form.url.helper" })}
+                  </p>
+                </>
               )}
-            </div>
+            </Field>
 
             <div className="flex flex-col gap-5 pt-2">
               <div className="space-y-3">
-                <label className="text-sm font-medium text-neutral-950 dark:text-white">
+                <Label className="text-neutral-950 dark:text-white">
                   {intl.formatMessage({ id: "tools.form.schema" })}
-                  <span className="text-red-500">*</span>
+                  <span aria-hidden="true" className="text-destructive">
+                    {" "}
+                    *
+                  </span>
                   <span className="sr-only">
+                    {" "}
                     {intl.formatMessage({ id: "tools.form.required" })}
                   </span>
-                </label>
+                </Label>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                   {intl.formatMessage({ id: "tools.form.schema.description" })}
                 </p>
@@ -369,23 +367,23 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                       {errors.schema}
                     </p>
                     {showSpecUrlInput && (
-                      <div className="space-y-1">
-                        <label
-                          htmlFor="openapi-spec-url"
-                          className="text-xs font-medium text-neutral-600 dark:text-neutral-400"
-                        >
-                          {intl.formatMessage({ id: "tools.form.schema.specUrlLabel" })}
-                        </label>
-                        <Input
-                          id="openapi-spec-url"
-                          value={openApiSpecUrl}
-                          onChange={(e) => setOpenApiSpecUrl(e.target.value)}
-                          placeholder={intl.formatMessage({
-                            id: "tools.form.schema.specUrlPlaceholder",
-                          })}
-                          className="h-8 rounded-md border-neutral-300 px-3 text-xs text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                        />
-                      </div>
+                      <Field
+                        id="openapi-spec-url"
+                        labelProps={{ className: "text-xs text-neutral-600 dark:text-neutral-400" }}
+                        label={intl.formatMessage({ id: "tools.form.schema.specUrlLabel" })}
+                      >
+                        {(controlProps) => (
+                          <Input
+                            {...controlProps}
+                            value={openApiSpecUrl}
+                            onChange={(e) => setOpenApiSpecUrl(e.target.value)}
+                            placeholder={intl.formatMessage({
+                              id: "tools.form.schema.specUrlPlaceholder",
+                            })}
+                            className="h-8 rounded-md border-neutral-300 px-3 text-xs text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                          />
+                        )}
+                      </Field>
                     )}
                   </div>
                 )}
@@ -394,59 +392,59 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                     fields are always visible even when empty. */}
                 {(isEditMode || schemaMode !== "none") && (
                   <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="input-schema"
-                        className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-                      >
-                        {intl.formatMessage({ id: "tools.form.inputSchema" })}
-                        <span className="text-red-500">*</span>
-                        <span className="sr-only">
-                          {intl.formatMessage({ id: "tools.form.required" })}
-                        </span>
-                      </label>
-                      <div className="relative">
-                        <Textarea
-                          id="input-schema"
-                          value={inputSchema}
-                          onChange={(e) => setInputSchema(e.target.value)}
-                          className="min-h-40 pr-9 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
-                          placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
-                          spellCheck={false}
-                        />
-                        <CopyButton
-                          value={inputSchema}
-                          label={intl.formatMessage({ id: "tools.form.copyInputSchema" })}
-                          iconClassName="h-3.5 w-3.5"
-                          className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                        />
-                      </div>
-                    </div>
+                    <Field
+                      id="input-schema"
+                      required
+                      labelProps={{
+                        className:
+                          "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+                      }}
+                      label={intl.formatMessage({ id: "tools.form.inputSchema" })}
+                    >
+                      {(controlProps) => (
+                        <div className="relative">
+                          <Textarea
+                            {...controlProps}
+                            value={inputSchema}
+                            onChange={(e) => setInputSchema(e.target.value)}
+                            className="min-h-40 pr-9 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+                            placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
+                            spellCheck={false}
+                          />
+                          <CopyButton
+                            value={inputSchema}
+                            label={intl.formatMessage({ id: "tools.form.copyInputSchema" })}
+                            iconClassName="h-3.5 w-3.5"
+                            className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                          />
+                        </div>
+                      )}
+                    </Field>
 
-                    <div className="space-y-1.5">
-                      <label
-                        htmlFor="output-schema"
-                        className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-                      >
-                        {intl.formatMessage({ id: "tools.form.outputSchema" })}
-                      </label>
-                      <div className="relative">
-                        <Textarea
-                          id="output-schema"
-                          value={outputSchema}
-                          onChange={(e) => setOutputSchema(e.target.value)}
-                          className="min-h-40 pr-9 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
-                          placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
-                          spellCheck={false}
-                        />
-                        <CopyButton
-                          value={outputSchema}
-                          label={intl.formatMessage({ id: "tools.form.copyOutputSchema" })}
-                          iconClassName="h-3.5 w-3.5"
-                          className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
-                        />
-                      </div>
-                    </div>
+                    <Field
+                      id="output-schema"
+                      labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+                      label={intl.formatMessage({ id: "tools.form.outputSchema" })}
+                    >
+                      {(controlProps) => (
+                        <div className="relative">
+                          <Textarea
+                            {...controlProps}
+                            value={outputSchema}
+                            onChange={(e) => setOutputSchema(e.target.value)}
+                            className="min-h-40 pr-9 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+                            placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
+                            spellCheck={false}
+                          />
+                          <CopyButton
+                            value={outputSchema}
+                            label={intl.formatMessage({ id: "tools.form.copyOutputSchema" })}
+                            iconClassName="h-3.5 w-3.5"
+                            className="absolute right-2 top-2 h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                          />
+                        </div>
+                      )}
+                    </Field>
                   </div>
                 )}
               </div>

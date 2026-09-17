@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { Box } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TagInput } from "@/components/ui/tag-input";
@@ -23,7 +24,7 @@ import {
 import { useTagSuggestions } from "@/hooks/useTagSuggestions";
 import { MAX_TAGS, getTagLabels } from "@/utils/tags";
 import type { Visibility } from "@/types/server";
-import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { VisibilityInfoContent } from "@/components/common/VisibilityInfoPopover";
 import type { ResourceRead } from "@/generated/types";
 
 interface ResourceFormProps extends Omit<ResourceFormOptions, "resourceId" | "initialValues"> {
@@ -121,57 +122,49 @@ export function ResourceForm({
           </div>
 
           <form onSubmit={(e) => handleSubmit(e, onSuccess)} className="space-y-6">
-            {/* Name */}
-            <div className="space-y-1">
-              <label
-                htmlFor="resource-name"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "resources.form.name.label" })}
-                <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="resource-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={intl.formatMessage({ id: "resources.form.name.placeholder" })}
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "name-error" : undefined}
-              />
-              {errors.name && (
-                <p id="name-error" role="alert" className="text-sm text-red-500">
-                  {errors.name}
-                </p>
+            <Field
+              id="resource-name"
+              required
+              error={errors.name}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "resources.form.name.label" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "resources.form.name.placeholder" })}
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
-            {/* URI */}
-            <div className="space-y-1">
-              <label
-                htmlFor="resource-uri"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "resources.form.uri.label" })}
-                <span className="text-red-500">*</span>
-              </label>
-              <Input
-                id="resource-uri"
-                type="text"
-                value={uri}
-                onChange={(e) => setUri(e.target.value)}
-                placeholder="resource://example/path"
-                className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-                aria-invalid={!!errors.uri}
-                aria-describedby={errors.uri ? "uri-error" : undefined}
-              />
-              {errors.uri && (
-                <p id="uri-error" role="alert" className="text-sm text-red-500">
-                  {errors.uri}
-                </p>
+            <Field
+              id="resource-uri"
+              required
+              error={errors.uri}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "resources.form.uri.label" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="text"
+                  value={uri}
+                  onChange={(e) => setUri(e.target.value)}
+                  placeholder="resource://example/path"
+                  className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                />
               )}
-            </div>
+            </Field>
 
             {/* Description — no label, placeholder only */}
             <div className="space-y-1">
@@ -192,115 +185,107 @@ export function ResourceForm({
               )}
             </div>
 
-            {/* MIME Type — optional select */}
-            <div className="space-y-1">
-              <label
-                htmlFor="resource-mime-type"
-                className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "resources.form.mimeType.label" })}
-              </label>
-              <Select value={mimeType} onValueChange={(v) => setMimeType(v as MimeType | "")}>
-                <SelectTrigger
-                  id="resource-mime-type"
-                  className="w-full rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
-                >
-                  <SelectValue
-                    placeholder={intl.formatMessage({ id: "resources.form.mimeType.placeholder" })}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {hasCustomMimeType && <SelectItem value={mimeType}>{mimeType}</SelectItem>}
-                  {MIME_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+            <Field
+              id="resource-mime-type"
+              error={errors.mimeType}
+              labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+              label={intl.formatMessage({ id: "resources.form.mimeType.label" })}
+            >
+              {(controlProps) => (
+                <Select value={mimeType} onValueChange={(v) => setMimeType(v as MimeType | "")}>
+                  <SelectTrigger
+                    {...controlProps}
+                    className="rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                  >
+                    <SelectValue
+                      placeholder={intl.formatMessage({
+                        id: "resources.form.mimeType.placeholder",
+                      })}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hasCustomMimeType && <SelectItem value={mimeType}>{mimeType}</SelectItem>}
+                    {MIME_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
+
+            <Field
+              id="resource-content"
+              required
+              error={errors.content}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "resources.form.content.label" })}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "resources.form.content.placeholder" })}
+                  className="min-h-40 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
+                  spellCheck={false}
+                />
+              )}
+            </Field>
+
+            <Field
+              id="resource-visibility"
+              required
+              info={<VisibilityInfoContent />}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "resources.form.visibility.label" })}
+            >
+              {(controlProps) => (
+                <Select value={visibility} onValueChange={(v) => setVisibility(v as Visibility)}>
+                  <SelectTrigger
+                    {...controlProps}
+                    className="rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">
+                      {intl.formatMessage({ id: "common.visibility.internal" })}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.mimeType && (
-                <p id="mime-type-error" role="alert" className="text-sm text-red-500">
-                  {errors.mimeType}
-                </p>
+                    <SelectItem value="private">
+                      {intl.formatMessage({ id: "common.visibility.private" })}
+                    </SelectItem>
+                    <SelectItem value="team">
+                      {intl.formatMessage({ id: "common.visibility.team" })}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               )}
-            </div>
+            </Field>
 
-            {/* Content — code editor */}
-            <div className="space-y-1">
-              <label
-                htmlFor="resource-content"
-                className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "resources.form.content.label" })}
-                <span className="text-red-500">*</span>
-              </label>
-              <Textarea
-                id="resource-content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={intl.formatMessage({ id: "resources.form.content.placeholder" })}
-                className="min-h-40 font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0"
-                spellCheck={false}
-                aria-invalid={!!errors.content}
-                aria-describedby={errors.content ? "content-error" : undefined}
-              />
-              {errors.content && (
-                <p id="content-error" role="alert" className="text-sm text-red-500">
-                  {errors.content}
-                </p>
+            <Field
+              id="resource-tags"
+              labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+              label={intl.formatMessage({ id: "resources.form.tags.label" })}
+            >
+              {(controlProps) => (
+                <TagInput
+                  {...controlProps}
+                  value={tags}
+                  onChange={setTags}
+                  suggestions={tagSuggestions}
+                  maxTags={MAX_TAGS}
+                  placeholder={intl.formatMessage({ id: "common.tagInput.placeholder" })}
+                />
               )}
-            </div>
-
-            {/* Visibility — required select */}
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5">
-                <label
-                  htmlFor="resource-visibility"
-                  className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-                >
-                  {intl.formatMessage({ id: "resources.form.visibility.label" })}
-                  <span className="text-red-500">*</span>
-                </label>
-                <VisibilityInfoPopover />
-              </div>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as Visibility)}>
-                <SelectTrigger
-                  id="resource-visibility"
-                  className="w-full rounded-md border-neutral-300 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700 dark:text-neutral-100"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">
-                    {intl.formatMessage({ id: "common.visibility.internal" })}
-                  </SelectItem>
-                  <SelectItem value="private">
-                    {intl.formatMessage({ id: "common.visibility.private" })}
-                  </SelectItem>
-                  <SelectItem value="team">
-                    {intl.formatMessage({ id: "common.visibility.team" })}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-1">
-              <label
-                htmlFor="resource-tags"
-                className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-              >
-                {intl.formatMessage({ id: "resources.form.tags.label" })}
-              </label>
-              <TagInput
-                id="resource-tags"
-                value={tags}
-                onChange={setTags}
-                suggestions={tagSuggestions}
-                maxTags={MAX_TAGS}
-                placeholder={intl.formatMessage({ id: "common.tagInput.placeholder" })}
-              />
-            </div>
+            </Field>
 
             {errors.submit && (
               <div

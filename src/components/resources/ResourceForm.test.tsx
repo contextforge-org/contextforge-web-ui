@@ -57,7 +57,7 @@ describe("ResourceForm", () => {
       expect(screen.getByPlaceholderText(/optional description/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/MIME Type/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Content/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Visibility/)).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: /Visibility/ })).toBeInTheDocument();
       expect(screen.getByLabelText(/Tags/)).toBeInTheDocument();
     });
 
