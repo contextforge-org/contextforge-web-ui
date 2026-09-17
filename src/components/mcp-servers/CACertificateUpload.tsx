@@ -2,6 +2,7 @@ import { useState, useRef, type DragEvent, type ChangeEvent } from "react";
 import { Upload } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 interface CACertificateUploadProps {
   onFilesSelected?: (files: File[]) => void;
@@ -112,13 +113,14 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-neutral-950 dark:text-white">
+      <Label className="text-neutral-950 dark:text-white">
         {intl.formatMessage({ id: "mcpServer.caCert.label" })}
-      </label>
+      </Label>
 
       <input
         ref={fileInputRef}
         type="file"
+        aria-label={intl.formatMessage({ id: "mcpServer.caCert.label" })}
         className="hidden"
         onChange={handleFileChange}
         accept={acceptedExtensions.join(",")}
