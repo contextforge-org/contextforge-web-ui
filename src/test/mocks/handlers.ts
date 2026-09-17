@@ -166,4 +166,8 @@ export const handlers = [
   http.get("*/api/resources", () => HttpResponse.json([])),
 
   http.get("*/api/teams", () => HttpResponse.json({ teams: [] })),
+
+  http.get("*/api/tags", () => HttpResponse.json([])),
+
+  http.get("*/api/rbac/my/permissions", () => HttpResponse.json(["*"])),
 ];
