@@ -106,6 +106,7 @@ describe("ServerStatusIndicator", () => {
     const trigger = screen.getByRole("button", { name: "Authorize github-notify" });
     expect(trigger).toBeDisabled();
     expect(trigger).toHaveTextContent("Authorizing...");
+    expect(screen.getByText("Authorization")).toHaveAttribute("aria-hidden", "true");
 
     release?.();
   });
