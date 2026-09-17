@@ -22,7 +22,7 @@ describe("ServerStatusIndicator", () => {
 
     await user.click(screen.getByRole("button", { name: /status: Offline/i }));
 
-    expect(await screen.findByText(/ContextForge cannot reach this server/)).toBeInTheDocument();
+    expect(await screen.findByText(/This server is offline/)).toBeInTheDocument();
     expect(screen.getByText(/connection refused/)).toBeInTheDocument();
     expect(screen.getByText(/Last response:/)).toBeInTheDocument();
   });
@@ -33,9 +33,30 @@ describe("ServerStatusIndicator", () => {
 
     await user.click(screen.getByRole("button", { name: /status: Connecting/i }));
 
-    expect(await screen.findByText(/has not reached this server yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/not active yet/)).toBeInTheDocument();
     expect(screen.queryByText(/Last error:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Last response:/)).not.toBeInTheDocument();
+  });
+
+  it("withholds the stale last error an inactive server kept from its last outage", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ServerStatusIndicator
+        server={{
+          ...server,
+          enabled: false,
+          reachable: false,
+          lastSeen: "2026-04-16T13:23:12Z",
+          lastError: "certificate has expired",
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Inactive/i }));
+
+    expect(await screen.findByText(/are inactive/)).toBeInTheDocument();
+    expect(screen.getByText(/Last response:/)).toBeInTheDocument();
+    expect(screen.queryByText(/certificate has expired/)).not.toBeInTheDocument();
   });
 
   it("hands authorization straight to the OAuth flow", async () => {
@@ -59,7 +80,7 @@ describe("ServerStatusIndicator", () => {
     const user = userEvent.setup();
     renderWithProviders(<ServerStatusIndicator server={server} oauthTokenStatus="missing" />);
 
-    await user.click(screen.getByRole("button", { name: /status: Authorization needed/i }));
+    await user.click(screen.getByRole("button", { name: /status: Authorization/i }));
 
     expect(await screen.findByText(/You have not authorized this server/)).toBeInTheDocument();
   });
@@ -87,6 +108,17 @@ describe("ServerStatusIndicator", () => {
     expect(trigger).toHaveTextContent("Authorizing...");
 
     release?.();
+  });
+
+  it("announces the full status word where the label is abbreviated", () => {
+    renderWithProviders(
+      <ServerStatusIndicator server={server} oauthTokenStatus="missing" compact />,
+    );
+
+    expect(screen.getByText("Auth")).toHaveAttribute("aria-hidden", "true");
+    expect(
+      screen.getByRole("button", { name: "github-notify status: Authorization. Show details" }),
+    ).toBeInTheDocument();
   });
 
   it("renders as plain text where a button cannot nest", () => {

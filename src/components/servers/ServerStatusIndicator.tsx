@@ -17,7 +17,7 @@ interface ServerStatusIndicatorProps {
     lastError?: string | null;
   };
   oauthTokenStatus?: OAuthTokenStatus;
-  /** Use the short label, for narrow columns. */
+  /** Use the short label, for narrow columns. Screen readers still get the full one. */
   compact?: boolean;
   /** Render as plain text rather than a button. Required inside another button. */
   interactive?: boolean;
@@ -57,6 +57,8 @@ export function ServerStatusIndicator({
         ? presentation.shortLabelId
         : presentation.labelId,
   });
+  const fullLabel = intl.formatMessage({ id: presentation.labelId });
+  const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
   const content = (
     <>
@@ -65,7 +67,10 @@ export function ServerStatusIndicator({
         aria-hidden="true"
         focusable="false"
       />
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground" aria-hidden={isAbbreviated || undefined}>
+        {label}
+      </span>
+      {isAbbreviated && <span className="sr-only">{fullLabel}</span>}
     </>
   );
   const layout = "inline-flex items-center gap-1.5 text-xs";
@@ -108,13 +113,13 @@ export function ServerStatusIndicator({
         type="button"
         aria-label={intl.formatMessage(
           { id: "mcpServer.status.trigger" },
-          { name: server.name, status: label },
+          { name: server.name, status: fullLabel },
         )}
         className={cn(layout, trigger, className)}
       >
         {content}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto max-w-sm p-3">
+      <PopoverContent align="end" className="w-auto max-w-xs p-3">
         <ServerStatusDetail
           availability={availability}
           lastSeen={server.lastSeen}

@@ -417,6 +417,7 @@ export function SourceSelection({
                               server={server}
                               oauthTokenStatus={oauthTokenStatuses[server.id]}
                               compact
+                              className="justify-self-start"
                             />
                           </div>
                         );
