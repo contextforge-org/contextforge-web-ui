@@ -324,7 +324,7 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewBody = route.request().postDataJSON();
       previewHeaders = route.request().headers();
       await route.fulfill({
@@ -624,7 +624,7 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewHeaders = route.request().headers();
       await route.fulfill({
         status: 200,

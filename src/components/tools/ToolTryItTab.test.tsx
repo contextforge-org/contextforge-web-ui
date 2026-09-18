@@ -1,18 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 
 import { renderWithProviders as render } from "@/test/test-utils";
+import { server as mswServer } from "@/test/mocks/server";
 import type { Tool } from "@/types/tool";
 import { ToolTryItTab } from "./ToolTryItTab";
+
+const authMock = vi.hoisted(() => ({ permissionsLoading: false }));
 
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => ({
     hasPermission: (permission: string) =>
       permission === "tools.execute" || permission === "servers.use",
-    permissionsLoading: false,
+    permissionsLoading: authMock.permissionsLoading,
   }),
 }));
+
+beforeEach(() => {
+  authMock.permissionsLoading = false;
+});
 
 function activeCode(): string {
   const pre = document.querySelector('[data-slot="tabs-content"][data-state="active"] pre');
@@ -78,6 +86,10 @@ describe("ToolTryItTab", () => {
     expect(activeCode()).toContain('"method":"tools/call"');
     expect(activeCode()).toContain('"name":"search_issues"');
     expect(activeCode()).not.toContain("/api/rpc");
+    expect(
+      screen.queryByText("Writes, external requests, and quota use happen immediately."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /clear selected tool/i })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/query/i), "cloudflare");
     expect(screen.getByRole("button", { name: "Live invoke" })).toBeEnabled();
@@ -117,5 +129,153 @@ describe("ToolTryItTab", () => {
     expect(screen.getByLabelText(/query/i)).toHaveValue("cloudflare");
     expect(screen.getByLabelText("Header 1 name")).toHaveValue("X-Tenant-Id");
     expect(screen.getByLabelText("Header 1 value")).toHaveValue("team-a");
+  });
+
+  it("defaults scoped testing to preview and switches snippets with live mode", async () => {
+    const user = userEvent.setup();
+    const onClear = vi.fn();
+    const selectedTool = makeTool({
+      name: "github.search_issues",
+      displayName: "Search issues",
+      annotations: { readOnlyHint: true },
+    });
+
+    render(
+      <ToolTryItTab
+        onClear={onClear}
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Test tool" })).toBeInTheDocument();
+    expect(screen.getByText("Search issues")).toBeInTheDocument();
+    expect(screen.queryByText("Search repository issues")).not.toBeInTheDocument();
+    expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear selected tool and return to components" }),
+    ).toHaveTextContent("Clear");
+    expect(screen.getByText("Live invocation")).toHaveAttribute("data-slot", "label");
+    expect(
+      screen.getByText("Writes, external requests, and quota use happen immediately."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
+    expect(activeCode()).toContain("/v1/tools/preview/github.search_issues");
+    expect(activeCode()).toContain('"server_id":"virtual-server-1"');
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+
+    expect(
+      screen.getByText(
+        "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Live invoke" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
+    expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
+    await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
+    expect(activeCode()).toContain('"server_id": "virtual-server-1"');
+    expect(activeCode()).toContain('"name": "github.search_issues"');
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+    expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "curl" })).toHaveAttribute("data-state", "active");
+    expect(activeCode()).toContain("/v1/tools/preview/github.search_issues");
+    expect(activeCode()).toContain('"server_id":"virtual-server-1"');
+
+    await user.click(
+      screen.getByRole("button", { name: "Clear selected tool and return to components" }),
+    );
+    expect(onClear).toHaveBeenCalledOnce();
+  });
+
+  it("disables live mode while access is being checked and describes why", () => {
+    authMock.permissionsLoading = true;
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    const liveSwitch = screen.getByRole("switch", { name: "Live invocation" });
+    expect(liveSwitch).toBeDisabled();
+    expect(liveSwitch).toHaveAccessibleDescription(
+      "Writes, external requests, and quota use happen immediately. Checking your tool permissions.",
+    );
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+  });
+
+  it("clears preview and live results when switching modes", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+    let previewCalls = 0;
+    mswServer.use(
+      http.post("*/v1/tools/preview/:name", () => {
+        previewCalls += 1;
+        return HttpResponse.json({ target: "local", resolved_arguments: { query: "cloudflare" } });
+      }),
+      http.post("*/rpc", async ({ request }) => {
+        const envelope = (await request.json()) as { id: string };
+        return HttpResponse.json({
+          jsonrpc: "2.0",
+          id: envelope.id,
+          result: { content: [{ type: "text", text: "live result" }] },
+        });
+      }),
+    );
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/query/i), "cloudflare");
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(await screen.findByText("Preview 200")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+    expect(screen.queryByText("Preview 200")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    expect(await screen.findByText("Live invoke 200")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+    expect(screen.queryByText("Live invoke 200")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewCalls).toBe(2));
+    expect(await screen.findByText("Preview 200")).toBeInTheDocument();
+  });
+
+  it("keeps scoped preview available when live invocation is unsafe", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: {}, gatewayId: "gateway-id" });
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/query/i), "cloudflare");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    expect(
+      screen.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
+      "Writes, external requests, and quota use happen immediately. Live invoke is not offered for federated tools without readOnlyHint.",
+    );
   });
 });

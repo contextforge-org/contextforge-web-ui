@@ -14,6 +14,7 @@ export type ToolLiveInvokeAvailability =
   | { state: "missingPermission"; permission: "tools.execute" | "servers.use" }
   | { state: "available" }
   | { state: "requiresConfirmation" }
+  | { state: "unavailableInvalidGateway" }
   | { state: "unavailableFederated" }
   | { state: "unavailableUntagged" };
 
@@ -21,6 +22,7 @@ export interface ResolveToolLiveInvokeAvailabilityInput {
   canExecute: boolean;
   canUseServers: boolean;
   permissionsLoading: boolean;
+  invalidGatewayId?: boolean;
   tool: Pick<Tool, "annotations" | "gatewayId">;
 }
 
@@ -28,11 +30,15 @@ export function resolveToolLiveInvokeAvailability({
   canExecute,
   canUseServers,
   permissionsLoading,
+  invalidGatewayId = false,
   tool,
 }: ResolveToolLiveInvokeAvailabilityInput): ToolLiveInvokeAvailability {
   if (permissionsLoading) return { state: "checkingAccess" };
   if (!canExecute) return { state: "missingPermission", permission: "tools.execute" };
   if (!canUseServers) return { state: "missingPermission", permission: "servers.use" };
+  if (invalidGatewayId || (typeof tool.gatewayId === "string" && !tool.gatewayId.trim())) {
+    return { state: "unavailableInvalidGateway" };
+  }
 
   const hints = getToolAnnotationHints(tool.annotations);
   const isFederated = Boolean(tool.gatewayId);
@@ -51,11 +57,17 @@ export function resolveToolLiveInvokeAvailability({
 
 export interface ToolLiveInvokeGateProps {
   disabled?: boolean;
+  invalidGatewayId?: boolean;
   invoke: Pick<ToolInvokeState, "run" | "stopWaiting" | "isLoading" | "hasRun">;
   tool: Tool;
 }
 
-export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveInvokeGateProps) {
+export function ToolLiveInvokeGate({
+  disabled = false,
+  invalidGatewayId = false,
+  invoke,
+  tool,
+}: ToolLiveInvokeGateProps) {
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -65,9 +77,10 @@ export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveI
         canExecute: hasPermission("tools.execute"),
         canUseServers: hasPermission("servers.use"),
         permissionsLoading,
+        invalidGatewayId,
         tool,
       }),
-    [hasPermission, permissionsLoading, tool],
+    [hasPermission, permissionsLoading, invalidGatewayId, tool],
   );
 
   if (invoke.isLoading) {
@@ -137,13 +150,13 @@ export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveI
           : intl.formatMessage({ id: "tools.details.invoke.run" })}
       </Button>
       <p className="max-w-xs text-right text-[12px] leading-4 text-muted-foreground">
-        {availabilityMessage(availability, intl.formatMessage)}
+        {getToolLiveInvokeAvailabilityMessage(availability, intl.formatMessage)}
       </p>
     </div>
   );
 }
 
-function availabilityMessage(
+export function getToolLiveInvokeAvailabilityMessage(
   availability: ToolLiveInvokeAvailability,
   formatMessage: (descriptor: { id: string }) => string,
 ) {
@@ -159,6 +172,8 @@ function availabilityMessage(
       });
     case "unavailableFederated":
       return formatMessage({ id: "tools.details.invoke.unavailable.federated" });
+    case "unavailableInvalidGateway":
+      return formatMessage({ id: "tools.details.invoke.unavailable.invalidGateway" });
     case "unavailableUntagged":
       return formatMessage({ id: "tools.details.invoke.unavailable.untagged" });
     case "available":
