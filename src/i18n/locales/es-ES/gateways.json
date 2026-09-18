@@ -123,7 +123,6 @@
   "gateways.details.component.resources": "recurso",
   "gateways.details.component.prompts": "prompt",
   "gateways.details.component.test": "Probar",
-  "gateways.details.component.backToList": "Volver a componentes",
   "gateways.details.component.copyName.tools": "Copiar nombre de la herramienta de {name}",
   "gateways.details.component.copyName.resources": "Copiar URI de {name}",
   "gateways.details.component.copyName.prompts": "Copiar nombre del prompt de {name}",

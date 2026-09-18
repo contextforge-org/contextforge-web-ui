@@ -334,7 +334,9 @@ describe("VirtualServerDetailsPanel tool testing", () => {
   async function openToolTest(user: ReturnType<typeof userEvent.setup>, actionName: string) {
     await user.click(await screen.findByRole("tab", { name: "Components" }));
     await user.click(await screen.findByRole("button", { name: `Actions for ${actionName}` }));
-    await user.click(await screen.findByRole("menuitem", { name: "Test" }));
+    const testAction = await screen.findByRole("menuitem", { name: "Test" });
+    expect(testAction.querySelector("svg")).toBeNull();
+    await user.click(testAction);
   }
 
   it("keeps the existing handshake Try-it tab and hides tool Test actions when disabled", async () => {
@@ -386,8 +388,10 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
     await openToolTest(user, "Search issues");
 
-    const testHeading = await screen.findByRole("heading", { name: "Tool test" });
+    const testHeading = await screen.findByRole("heading", { name: "Test tool" });
     await waitFor(() => expect(testHeading).toHaveFocus());
+    expect(screen.getByText("Find issues")).toBeInTheDocument();
+    expect(screen.queryByText("Search repository issues")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Live invocation" })).not.toBeChecked();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
@@ -395,9 +399,11 @@ describe("VirtualServerDetailsPanel tool testing", () => {
       document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
     ).toHaveTextContent('"server_id":"virtual-server-1"');
 
-    await user.click(screen.getByRole("button", { name: "Back to components" }));
+    await user.click(
+      screen.getByRole("button", { name: "Clear selected tool and return to components" }),
+    );
     expect(await screen.findByText("Search issues")).toBeInTheDocument();
-    expect(screen.queryByText("Tool test")).not.toBeInTheDocument();
+    expect(screen.queryByText("Test tool")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Actions for Search issues" })).toHaveFocus(),
     );
@@ -451,7 +457,7 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
       await waitFor(() => expect(signal?.aborted).toBe(true));
       expect(cancelSpy).toHaveBeenCalledWith(expect.stringMatching(/^tool-live-/), "unmount");
-      expect(screen.queryByText("Tool test")).not.toBeInTheDocument();
+      expect(screen.queryByText("Test tool")).not.toBeInTheDocument();
     },
   );
 
@@ -523,7 +529,7 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
-      "Live invoke is unavailable because this tool's gateway ID is invalid.",
+      "Writes, external requests, and quota use happen immediately. Live invoke is unavailable because this tool's gateway ID is invalid.",
     );
   });
 
@@ -579,7 +585,7 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
-      message,
+      `Writes, external requests, and quota use happen immediately. ${message}`,
     );
     expect(screen.getByText(message)).toBeInTheDocument();
   });

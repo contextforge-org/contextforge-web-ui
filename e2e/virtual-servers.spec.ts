@@ -181,8 +181,10 @@ async function openVirtualServerToolTest(page: Page) {
   await expect(panel.getByRole("tab", { name: "Try it" })).toHaveAttribute("aria-selected", "true");
   await panel.getByRole("tab", { name: "Components" }).click();
   await panel.getByRole("button", { name: "Actions for Search issues" }).click();
-  await page.getByRole("menuitem", { name: "Test" }).click();
-  await expect(panel.getByRole("heading", { name: "Tool test" })).toBeFocused();
+  const testAction = page.getByRole("menuitem", { name: "Test" });
+  await expect(testAction.locator("svg")).toHaveCount(0);
+  await testAction.click();
+  await expect(panel.getByRole("heading", { name: "Test tool" })).toBeFocused();
   return panel;
 }
 
@@ -1350,6 +1352,10 @@ test.describe("Virtual Servers page", () => {
       const panel = await openVirtualServerToolTest(page);
       await expect(panel.getByRole("button", { name: "Preview" })).toBeVisible();
       await expect(panel.getByRole("switch", { name: "Live invocation" })).not.toBeChecked();
+      await expect(
+        panel.getByText("Writes, external requests, and quota use happen immediately."),
+      ).toBeVisible();
+      await expect(panel.getByText(/Live invocation is enabled/)).toHaveCount(0);
 
       await panel.getByLabel("query").fill("cloudflare");
       await panel.getByLabel("limit").fill("5");
@@ -1366,6 +1372,7 @@ test.describe("Virtual Servers page", () => {
       expect(previewHeaders["x-tenant-id"]).toBe("team-a");
 
       await panel.getByRole("switch", { name: "Live invocation" }).click();
+      await expect(panel.getByText(/Live invocation is enabled/)).toBeVisible();
       await expect(panel.getByRole("button", { name: "Live invoke" })).toBeVisible();
       await panel.getByRole("button", { name: "Live invoke" }).click();
 
@@ -1384,7 +1391,9 @@ test.describe("Virtual Servers page", () => {
       });
       expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
 
-      await panel.getByRole("button", { name: "Back to components" }).click();
+      await panel
+        .getByRole("button", { name: "Clear selected tool and return to components" })
+        .click();
       await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
     });
 
@@ -1417,9 +1426,11 @@ test.describe("Virtual Servers page", () => {
       await panel.getByRole("button", { name: "Actions for Search issues" }).focus();
       await page.keyboard.press("Enter");
       await page.getByRole("menuitem", { name: "Test" }).press("Enter");
-      await expect(panel.getByRole("heading", { name: "Tool test" })).toBeFocused();
+      await expect(panel.getByRole("heading", { name: "Test tool" })).toBeFocused();
 
-      await panel.getByRole("button", { name: "Back to components" }).focus();
+      await panel
+        .getByRole("button", { name: "Clear selected tool and return to components" })
+        .focus();
       await page.keyboard.press("Enter");
       await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
     });

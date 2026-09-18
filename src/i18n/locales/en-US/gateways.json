@@ -123,7 +123,6 @@
   "gateways.details.component.resources": "resource",
   "gateways.details.component.prompts": "prompt",
   "gateways.details.component.test": "Test",
-  "gateways.details.component.backToList": "Back to components",
   "gateways.details.component.copyName.tools": "Copy tool name for {name}",
   "gateways.details.component.copyName.resources": "Copy URI for {name}",
   "gateways.details.component.copyName.prompts": "Copy prompt name for {name}",

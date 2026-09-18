@@ -86,6 +86,10 @@ describe("ToolTryItTab", () => {
     expect(activeCode()).toContain('"method":"tools/call"');
     expect(activeCode()).toContain('"name":"search_issues"');
     expect(activeCode()).not.toContain("/api/rpc");
+    expect(
+      screen.queryByText("Writes, external requests, and quota use happen immediately."),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /clear selected tool/i })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/query/i), "cloudflare");
     expect(screen.getByRole("button", { name: "Live invoke" })).toBeEnabled();
@@ -129,6 +133,7 @@ describe("ToolTryItTab", () => {
 
   it("defaults scoped testing to preview and switches snippets with live mode", async () => {
     const user = userEvent.setup();
+    const onClear = vi.fn();
     const selectedTool = makeTool({
       name: "github.search_issues",
       displayName: "Search issues",
@@ -137,13 +142,24 @@ describe("ToolTryItTab", () => {
 
     render(
       <ToolTryItTab
+        onClear={onClear}
         serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
         selectedTool={selectedTool}
       />,
     );
 
-    expect(screen.getByText("Tool test")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Test tool" })).toBeInTheDocument();
+    expect(screen.getByText("Search issues")).toBeInTheDocument();
+    expect(screen.queryByText("Search repository issues")).not.toBeInTheDocument();
+    expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear selected tool and return to components" }),
+    ).toHaveTextContent("Clear");
     expect(screen.getByText("Live invocation")).toHaveAttribute("data-slot", "label");
+    expect(
+      screen.getByText("Writes, external requests, and quota use happen immediately."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
@@ -152,6 +168,11 @@ describe("ToolTryItTab", () => {
 
     await user.click(screen.getByRole("switch", { name: "Live invocation" }));
 
+    expect(
+      screen.getByText(
+        "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
+      ),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: "Live invoke" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
@@ -161,12 +182,18 @@ describe("ToolTryItTab", () => {
     expect(activeCode()).toContain('"name": "github.search_issues"');
 
     await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+    expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "curl" })).toHaveAttribute("data-state", "active");
     expect(activeCode()).toContain("/v1/tools/preview/github.search_issues");
     expect(activeCode()).toContain('"server_id":"virtual-server-1"');
+
+    await user.click(
+      screen.getByRole("button", { name: "Clear selected tool and return to components" }),
+    );
+    expect(onClear).toHaveBeenCalledOnce();
   });
 
   it("disables live mode while access is being checked and describes why", () => {
@@ -182,7 +209,9 @@ describe("ToolTryItTab", () => {
 
     const liveSwitch = screen.getByRole("switch", { name: "Live invocation" });
     expect(liveSwitch).toBeDisabled();
-    expect(liveSwitch).toHaveAccessibleDescription("Checking your tool permissions.");
+    expect(liveSwitch).toHaveAccessibleDescription(
+      "Writes, external requests, and quota use happen immediately. Checking your tool permissions.",
+    );
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
   });
 
@@ -246,7 +275,7 @@ describe("ToolTryItTab", () => {
       screen.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
     ).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
-      "Live invoke is not offered for federated tools without readOnlyHint.",
+      "Writes, external requests, and quota use happen immediately. Live invoke is not offered for federated tools without readOnlyHint.",
     );
   });
 });
