@@ -3,10 +3,8 @@ import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 import {
   Activity,
-  ArrowLeft,
   Box,
   EllipsisVertical,
-  FlaskConical,
   Loader2,
   MessageSquareCode,
   PanelRightClose,
@@ -842,7 +840,6 @@ export function VirtualServerDetailsPanel({
                                           setSelectedTestToolId(testableTool.id);
                                         }}
                                       >
-                                        <FlaskConical className="mr-2 size-4" />
                                         {intl.formatMessage({
                                           id: "gateways.details.component.test",
                                         })}
@@ -991,17 +988,12 @@ function VirtualServerToolTestView({
   headingRef: Ref<HTMLHeadingElement>;
   onBack: () => void;
 }) {
-  const intl = useIntl();
-
   return (
-    <div className="space-y-6">
-      <Button type="button" variant="ghost" size="sm" className="px-0" onClick={onBack}>
-        <ArrowLeft className="size-4" />
-        {intl.formatMessage({ id: "gateways.details.component.backToList" })}
-      </Button>
+    <div>
       <ToolTryItTab
         key={`${server.id}-${tool.id}`}
         headingRef={headingRef}
+        onClear={onBack}
         invalidGatewayId={tool.invalidGatewayId}
         resultContext={{
           requestName: server.name,
