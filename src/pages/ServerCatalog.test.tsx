@@ -873,7 +873,7 @@ describe("ServerCatalog", () => {
     expect(logo).toBeInTheDocument();
     fireEvent.error(logo!);
     expect(container.querySelector(`img[src="${logoUrl}"]`)).not.toBeInTheDocument();
-    expect(container.querySelector('[aria-label="Globalping icon"]')).toBeInTheDocument();
+    expect(container.querySelector(".bg-catalog-icon-tile svg")).toBeInTheDocument();
   });
 
   it("rejects non-HTTPS catalog logos", () => {
@@ -890,7 +890,7 @@ describe("ServerCatalog", () => {
     const { container } = renderWithRouter(<ServerCatalog />);
 
     expect(container.querySelector("img")).not.toBeInTheDocument();
-    expect(container.querySelector('[aria-label="Globalping icon"]')).toBeInTheDocument();
+    expect(container.querySelector(".bg-catalog-icon-tile svg")).toBeInTheDocument();
   });
 
   it("uses a labelled pressed-button group for catalog views", () => {

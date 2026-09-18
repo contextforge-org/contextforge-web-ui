@@ -72,6 +72,8 @@
   --color-prompt-icon-bg: var(--prompt-icon-bg);
   --color-server-icon-bg: var(--server-icon-bg);
   --color-agent-icon-bg: var(--agent-icon-bg);
+  --color-catalog-icon-tile: var(--catalog-icon-tile);
+  --color-catalog-icon-backing: var(--catalog-icon-backing);
   --color-tool-status-active: var(--tool-status-active);
   --color-tool-status-inactive: var(--tool-status-inactive);
   --color-tool-badge-bg: var(--tool-badge-bg);
@@ -158,6 +160,8 @@
   /* Same rationale as the icon-bg tokens above: a chip background carrying a
      black glyph, no `.dark` override needed. */
   --agent-icon-bg: #ffc078;
+  --catalog-icon-tile: oklch(1 0 0);
+  --catalog-icon-backing: var(--color-white);
   /* emerald-400 falls under 3:1 on white; .dark restores it */
   --tool-status-active: var(--color-emerald-600);
   --tool-status-inactive: var(--color-neutral-500);
@@ -226,6 +230,8 @@
   --tool-add-icon-fg: var(--color-neutral-900);
   --tool-status-active: var(--color-emerald-400);
   --selection: var(--color-orange-500);
+  --catalog-icon-tile: oklch(0.269 0 0);
+  --catalog-icon-backing: var(--color-neutral-300);
   /* Status-headline icon accent (brand cyan) — bright on the dark background. */
   --status-icon: #70f9ff;
   --sparkline-stroke: #70f9ff;
