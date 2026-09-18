@@ -1356,6 +1356,20 @@ test.describe("Virtual Servers page", () => {
         panel.getByText("Writes, external requests, and quota use happen immediately."),
       ).toBeVisible();
       await expect(panel.getByText(/Live invocation is enabled/)).toHaveCount(0);
+      const liveLabelBounds = await panel
+        .getByText("Live invocation", { exact: true })
+        .boundingBox();
+      const liveSwitchBounds = await panel
+        .getByRole("switch", { name: "Live invocation" })
+        .boundingBox();
+      const liveCopyBounds = await panel
+        .getByText("Writes, external requests, and quota use happen immediately.")
+        .boundingBox();
+      expect(liveLabelBounds).not.toBeNull();
+      expect(liveSwitchBounds).not.toBeNull();
+      expect(liveCopyBounds).not.toBeNull();
+      expect(liveSwitchBounds!.y).toBeGreaterThan(liveLabelBounds!.y + liveLabelBounds!.height);
+      expect(liveCopyBounds!.x).toBeGreaterThan(liveSwitchBounds!.x + liveSwitchBounds!.width);
 
       await panel.getByLabel("query").fill("cloudflare");
       await panel.getByLabel("limit").fill("5");
