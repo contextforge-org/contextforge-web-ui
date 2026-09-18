@@ -287,6 +287,9 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               )}
             </Field>
 
+            {/* The old label carried a decorative STATUS_ICON.info with no
+                tooltip/title content, so there's nothing to restore via
+                Field's `info` prop. */}
             <Field
               id="server-url"
               required

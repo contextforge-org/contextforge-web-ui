@@ -113,12 +113,13 @@ export function CACertificateUpload({ onFilesSelected }: CACertificateUploadProp
 
   return (
     <div className="space-y-2">
-      <Label className="text-neutral-950 dark:text-white">
+      <Label htmlFor="ca-cert-file" className="text-neutral-950 dark:text-white">
         {intl.formatMessage({ id: "mcpServer.caCert.label" })}
       </Label>
 
       <input
         ref={fileInputRef}
+        id="ca-cert-file"
         type="file"
         aria-label={intl.formatMessage({ id: "mcpServer.caCert.label" })}
         className="hidden"

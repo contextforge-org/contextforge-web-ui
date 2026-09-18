@@ -257,12 +257,12 @@ export function AdvancedSettings({
 
       {/* Authentication type */}
       <div className="space-y-3">
-        <Label className="text-neutral-950 dark:text-white">
+        <Label id="auth-type-label" className="text-neutral-950 dark:text-white">
           {intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
         </Label>
         <div
           role="radiogroup"
-          aria-label={intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
+          aria-labelledby="auth-type-label"
           className="flex w-full flex-nowrap gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
         >
           {(["none", "basic", "bearer", "custom", "oauth", "query"] as AuthType[]).map((type) => {
@@ -329,22 +329,18 @@ export function AdvancedSettings({
       {/* Passthrough headers */}
       <Field
         id="passthrough-headers"
+        hint={intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
         labelProps={{ className: "text-neutral-950 dark:text-white" }}
         label={intl.formatMessage({ id: "mcpServer.advanced.passthroughLabel" })}
       >
         {(controlProps) => (
-          <>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {intl.formatMessage({ id: "mcpServer.advanced.passthroughDescription" })}
-            </p>
-            <Textarea
-              {...controlProps}
-              value={passthroughHeaders}
-              onChange={(e) => onPassthroughHeadersChange(e.target.value)}
-              placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
-              className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
-            />
-          </>
+          <Textarea
+            {...controlProps}
+            value={passthroughHeaders}
+            onChange={(e) => onPassthroughHeadersChange(e.target.value)}
+            placeholder={intl.formatMessage({ id: "mcpServer.advanced.passthroughPlaceholder" })}
+            className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
+          />
         )}
       </Field>
 
