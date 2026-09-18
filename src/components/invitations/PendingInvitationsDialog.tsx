@@ -224,7 +224,7 @@ export function PendingInvitationsDialog({
                   </h3>
                   <p className="text-sm text-destructive">{error}</p>
                 </div>
-                {onRetry && (
+                {onRetry && !allResolved && (
                   <Button variant="outline" size="xs" className="shadow-none" onClick={onRetry}>
                     {intl.formatMessage({ id: "common.button.retry" })}
                   </Button>

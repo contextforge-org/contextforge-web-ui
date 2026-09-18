@@ -123,6 +123,18 @@ describe("PendingInvitationsDialog", () => {
     expect(onRetry).toHaveBeenCalled();
   });
 
+  it("drops the retry once every invitation is resolved", () => {
+    renderDialog({
+      error: "Server error. Please try again later.",
+      invitations: [one, two],
+      resolutions: { [one.id]: "accepted", [two.id]: "declined" },
+      onRetry: vi.fn(),
+    });
+
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+  });
+
   it("closes on Escape without resolving anything", async () => {
     const user = userEvent.setup();
     const { onOpenChange, onAccept, onDecline } = renderDialog();
