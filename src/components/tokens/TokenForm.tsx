@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,39 +65,6 @@ interface TokenFormProps {
   onCancel: () => void;
   /** Called after a successful create with the one-time secret and the token record. */
   onCreated: (accessToken: string, token: TokenResponse) => void;
-}
-
-interface FieldProps {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: ReactNode;
-}
-
-function Field({ id, label, required, error, children }: FieldProps) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-sm font-medium text-neutral-950 dark:text-white">
-        {label}
-        {required && (
-          <>
-            {" "}
-            <span className="text-red-500" aria-hidden="true">
-              *
-            </span>
-            <span className="sr-only">(required)</span>
-          </>
-        )}
-      </Label>
-      {children}
-      {error && (
-        <p id={`${id}-error`} className="text-sm text-red-600 dark:text-red-400" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
 }
 
 export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
@@ -315,65 +283,69 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
           <form onSubmit={handleSubmit} className="space-y-5" aria-labelledby="token-form-title">
             <Field
               id="token-name"
-              label={intl.formatMessage({ id: "tokens.form.name" })}
               required
               error={errors.name}
+              label={intl.formatMessage({ id: "tokens.form.name" })}
             >
-              <Input
-                id="token-name"
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setErrors((prev) => ({ ...prev, name: undefined }));
-                }}
-                placeholder={intl.formatMessage({ id: "tokens.form.name.placeholder" })}
-                className={FIELD_CONTROL_CLASS}
-                aria-invalid={!!errors.name}
-                aria-describedby={errors.name ? "token-name-error" : undefined}
-              />
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
+                  placeholder={intl.formatMessage({ id: "tokens.form.name.placeholder" })}
+                  className={FIELD_CONTROL_CLASS}
+                />
+              )}
             </Field>
 
             {showTeamSelector && (
               <Field
                 id="token-team"
-                label={intl.formatMessage({ id: "tokens.form.team" })}
                 required
+                label={intl.formatMessage({ id: "tokens.form.team" })}
               >
-                <Select value={teamId} onValueChange={setTeamId}>
-                  <SelectTrigger id="token-team" className={`w-full ${FIELD_CONTROL_CLASS}`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {(controlProps) => (
+                  <Select value={teamId} onValueChange={setTeamId}>
+                    <SelectTrigger {...controlProps} className={`w-full ${FIELD_CONTROL_CLASS}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
             )}
 
             <Field
               id="token-expiry"
-              label={intl.formatMessage({ id: "tokens.form.expiration" })}
               required
+              label={intl.formatMessage({ id: "tokens.form.expiration" })}
             >
-              <Select
-                value={String(expiryDays)}
-                onValueChange={(value) => setExpiryDays(Number(value))}
-              >
-                <SelectTrigger id="token-expiry" className={`w-full ${FIELD_CONTROL_CLASS}`}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXPIRY_OPTIONS.map((days) => (
-                    <SelectItem key={days} value={String(days)}>
-                      {intl.formatMessage({ id: "tokens.form.expiration.days" }, { days })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {(controlProps) => (
+                <Select
+                  value={String(expiryDays)}
+                  onValueChange={(value) => setExpiryDays(Number(value))}
+                >
+                  <SelectTrigger {...controlProps} className={`w-full ${FIELD_CONTROL_CLASS}`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPIRY_OPTIONS.map((days) => (
+                      <SelectItem key={days} value={String(days)}>
+                        {intl.formatMessage({ id: "tokens.form.expiration.days" }, { days })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
 
             <div className="space-y-3">
@@ -466,14 +438,16 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
               id="token-description"
               label={intl.formatMessage({ id: "tokens.form.description" })}
             >
-              <Textarea
-                id="token-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={intl.formatMessage({ id: "tokens.form.description.placeholder" })}
-                rows={3}
-                className="resize-none border-neutral-300 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-neutral-700"
-              />
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={intl.formatMessage({ id: "tokens.form.description.placeholder" })}
+                  rows={3}
+                  className="resize-none border-neutral-300 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-neutral-700"
+                />
+              )}
             </Field>
 
             <div className="flex flex-col gap-3">
@@ -503,39 +477,39 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
                     id="token-server-id"
                     label={intl.formatMessage({ id: "tokens.form.serverId" })}
                   >
-                    <Input
-                      id="token-server-id"
-                      value={serverId}
-                      onChange={(event) => setServerId(event.target.value)}
-                      placeholder={intl.formatMessage({ id: "tokens.form.serverId.placeholder" })}
-                      className={FIELD_CONTROL_CLASS}
-                    />
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        value={serverId}
+                        onChange={(event) => setServerId(event.target.value)}
+                        placeholder={intl.formatMessage({ id: "tokens.form.serverId.placeholder" })}
+                        className={FIELD_CONTROL_CLASS}
+                      />
+                    )}
                   </Field>
 
                   <Field
                     id="token-ip-restrictions"
-                    label={intl.formatMessage({ id: "tokens.form.ipRestrictions" })}
                     error={errors.ipRestrictions}
+                    label={intl.formatMessage({ id: "tokens.form.ipRestrictions" })}
                   >
-                    <Input
-                      id="token-ip-restrictions"
-                      value={ipRestrictions}
-                      onChange={(event) => {
-                        setIpRestrictions(event.target.value);
-                        setErrors((prev) => ({ ...prev, ipRestrictions: undefined }));
-                      }}
-                      placeholder={intl.formatMessage({
-                        id: "tokens.form.ipRestrictions.placeholder",
-                      })}
-                      className={FIELD_CONTROL_CLASS}
-                      aria-invalid={!!errors.ipRestrictions}
-                      aria-describedby={
-                        errors.ipRestrictions ? "token-ip-restrictions-error" : undefined
-                      }
-                    />
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        value={ipRestrictions}
+                        onChange={(event) => {
+                          setIpRestrictions(event.target.value);
+                          setErrors((prev) => ({ ...prev, ipRestrictions: undefined }));
+                        }}
+                        placeholder={intl.formatMessage({
+                          id: "tokens.form.ipRestrictions.placeholder",
+                        })}
+                        className={FIELD_CONTROL_CLASS}
+                      />
+                    )}
                   </Field>
 
-                  <div className="space-y-1">
+                  <div className="space-y-3">
                     <p className="text-base font-medium text-neutral-950 dark:text-white">
                       {intl.formatMessage({ id: "tokens.form.rateLimits" })}
                     </p>
@@ -544,38 +518,42 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
                         id="token-requests-per-hour"
                         label={intl.formatMessage({ id: "tokens.form.requestsPerHour" })}
                       >
-                        <Input
-                          id="token-requests-per-hour"
-                          type="number"
-                          min={1}
-                          value={requestsPerHour}
-                          onChange={(event) => setRequestsPerHour(event.target.value)}
-                          placeholder={intl.formatMessage({
-                            id: "tokens.form.requestsPerHour.placeholder",
-                          })}
-                          className={FIELD_CONTROL_CLASS}
-                        />
+                        {(controlProps) => (
+                          <Input
+                            {...controlProps}
+                            type="number"
+                            min={1}
+                            value={requestsPerHour}
+                            onChange={(event) => setRequestsPerHour(event.target.value)}
+                            placeholder={intl.formatMessage({
+                              id: "tokens.form.requestsPerHour.placeholder",
+                            })}
+                            className={FIELD_CONTROL_CLASS}
+                          />
+                        )}
                       </Field>
                       <Field
                         id="token-requests-per-day"
                         label={intl.formatMessage({ id: "tokens.form.requestsPerDay" })}
                       >
-                        <Input
-                          id="token-requests-per-day"
-                          type="number"
-                          min={1}
-                          value={requestsPerDay}
-                          onChange={(event) => setRequestsPerDay(event.target.value)}
-                          placeholder={intl.formatMessage({
-                            id: "tokens.form.requestsPerDay.placeholder",
-                          })}
-                          className={FIELD_CONTROL_CLASS}
-                        />
+                        {(controlProps) => (
+                          <Input
+                            {...controlProps}
+                            type="number"
+                            min={1}
+                            value={requestsPerDay}
+                            onChange={(event) => setRequestsPerDay(event.target.value)}
+                            placeholder={intl.formatMessage({
+                              id: "tokens.form.requestsPerDay.placeholder",
+                            })}
+                            className={FIELD_CONTROL_CLASS}
+                          />
+                        )}
                       </Field>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-3">
                     <p className="text-base font-medium text-neutral-950 dark:text-white">
                       {intl.formatMessage({ id: "tokens.form.allowedHours" })}
                     </p>
@@ -584,57 +562,63 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
                         id="token-start-time"
                         label={intl.formatMessage({ id: "tokens.form.start" })}
                       >
-                        <Select value={startTime} onValueChange={setStartTime}>
-                          <SelectTrigger
-                            id="token-start-time"
-                            className={`w-full ${FIELD_CONTROL_CLASS}`}
-                          >
-                            <SelectValue
-                              placeholder={intl.formatMessage({ id: "tokens.form.select" })}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {HOUR_OPTIONS.map((hour) => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {(controlProps) => (
+                          <Select value={startTime} onValueChange={setStartTime}>
+                            <SelectTrigger
+                              {...controlProps}
+                              className={`w-full ${FIELD_CONTROL_CLASS}`}
+                            >
+                              <SelectValue
+                                placeholder={intl.formatMessage({ id: "tokens.form.select" })}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {HOUR_OPTIONS.map((hour) => (
+                                <SelectItem key={hour} value={hour}>
+                                  {hour}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </Field>
                       <Field
                         id="token-end-time"
                         label={intl.formatMessage({ id: "tokens.form.end" })}
                       >
-                        <Select value={endTime} onValueChange={setEndTime}>
-                          <SelectTrigger
-                            id="token-end-time"
-                            className={`w-full ${FIELD_CONTROL_CLASS}`}
-                          >
-                            <SelectValue
-                              placeholder={intl.formatMessage({ id: "tokens.form.select" })}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {HOUR_OPTIONS.map((hour) => (
-                              <SelectItem key={hour} value={hour}>
-                                {hour}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {(controlProps) => (
+                          <Select value={endTime} onValueChange={setEndTime}>
+                            <SelectTrigger
+                              {...controlProps}
+                              className={`w-full ${FIELD_CONTROL_CLASS}`}
+                            >
+                              <SelectValue
+                                placeholder={intl.formatMessage({ id: "tokens.form.select" })}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {HOUR_OPTIONS.map((hour) => (
+                                <SelectItem key={hour} value={hour}>
+                                  {hour}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </Field>
                       <Field
                         id="token-timezone"
                         label={intl.formatMessage({ id: "tokens.form.timezone" })}
                       >
-                        <TimezoneSelect
-                          id="token-timezone"
-                          value={timezone}
-                          onValueChange={setTimezone}
-                          placeholder={intl.formatMessage({ id: "tokens.form.select" })}
-                          triggerClassName={`w-full ${FIELD_CONTROL_CLASS}`}
-                        />
+                        {(controlProps) => (
+                          <TimezoneSelect
+                            id={controlProps.id}
+                            value={timezone}
+                            onValueChange={setTimezone}
+                            placeholder={intl.formatMessage({ id: "tokens.form.select" })}
+                            triggerClassName={`w-full ${FIELD_CONTROL_CLASS}`}
+                          />
+                        )}
                       </Field>
                     </div>
                   </div>

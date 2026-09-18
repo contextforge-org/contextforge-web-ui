@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { useIntl } from "react-intl";
 import { ArrowLeft, Lock, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,28 +100,24 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
 
           <form onSubmit={onSubmit} className="space-y-5" aria-labelledby="create-team-form-title">
             {/* Name */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="team-name"
-                className="text-sm font-medium text-neutral-950 dark:text-white"
-              >
-                {intl.formatMessage({ id: "teams.create.name" })}{" "}
-                <span className="text-red-500" aria-hidden="true">
-                  *
-                </span>
-              </Label>
-              <Input
-                id="team-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={intl.formatMessage({ id: "teams.create.namePlaceholder" })}
-                disabled={isSubmitting}
-                className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-              />
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {intl.formatMessage({ id: "teams.create.nameHint" })}
-              </p>
-            </div>
+            <Field
+              id="team-name"
+              required
+              hint={intl.formatMessage({ id: "teams.create.nameHint" })}
+              labelProps={{ className: "text-neutral-950 dark:text-white" }}
+              label={intl.formatMessage({ id: "teams.create.name" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "teams.create.namePlaceholder" })}
+                  disabled={isSubmitting}
+                  className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                />
+              )}
+            </Field>
 
             {/* Description */}
             <Textarea
@@ -134,44 +131,46 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
             />
 
             {/* Visibility */}
-            <div className="space-y-3">
-              <Label className="text-sm font-medium text-neutral-950 dark:text-white">
+            <div>
+              <Label className="mb-2.5 block text-sm font-medium text-neutral-950 dark:text-white">
                 {intl.formatMessage({ id: "teams.create.visibility" })}
               </Label>
-              <div
-                role="radiogroup"
-                aria-label={intl.formatMessage({ id: "teams.create.visibility" })}
-                className="flex w-full gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
-              >
-                {(["private", "public"] as const).map((v) => (
-                  <div key={v} className="min-w-0 flex-1">
-                    <input
-                      type="radio"
-                      id={`visibility-${v}`}
-                      name="visibility"
-                      value={v}
-                      checked={visibility === v}
-                      onChange={() => setVisibility(v)}
-                      className="peer sr-only"
-                      disabled={isSubmitting}
-                    />
-                    <Label
-                      htmlFor={`visibility-${v}`}
-                      className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
-                    >
-                      {intl.formatMessage({ id: `teams.create.visibility.${v}` })}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              {visibility === "private" && (
-                <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
-                  <Lock className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                    {intl.formatMessage({ id: "teams.create.visibility.description" })}
-                  </span>
+              <div className="space-y-3">
+                <div
+                  role="radiogroup"
+                  aria-label={intl.formatMessage({ id: "teams.create.visibility" })}
+                  className="flex w-full gap-1 rounded-md bg-neutral-100 p-1 dark:bg-neutral-800"
+                >
+                  {(["private", "public"] as const).map((v) => (
+                    <div key={v} className="min-w-0 flex-1">
+                      <input
+                        type="radio"
+                        id={`visibility-${v}`}
+                        name="visibility"
+                        value={v}
+                        checked={visibility === v}
+                        onChange={() => setVisibility(v)}
+                        className="peer sr-only"
+                        disabled={isSubmitting}
+                      />
+                      <Label
+                        htmlFor={`visibility-${v}`}
+                        className="flex cursor-pointer items-center justify-center rounded-md px-3 py-2 text-center text-sm font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 peer-checked:bg-neutral-800 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-neutral-300 dark:peer-checked:bg-neutral-950 dark:peer-checked:text-white"
+                      >
+                        {intl.formatMessage({ id: `teams.create.visibility.${v}` })}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-              )}
+                {visibility === "private" && (
+                  <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
+                    <Lock className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {intl.formatMessage({ id: "teams.create.visibility.description" })}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Team Members — only when creating; membership is managed
@@ -217,7 +216,7 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
                         }
                         disabled={isSubmitting}
                       >
-                        <SelectTrigger className="h-10 w-full border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700">
+                        <SelectTrigger className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -259,29 +258,29 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
             )}
 
             {/* Maximum Members */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="max-members"
-                className="text-sm font-medium text-neutral-950 dark:text-white"
-              >
-                {intl.formatMessage({ id: "teams.create.maxMembers" })}
-              </Label>
-              <Select value={maxMembers} onValueChange={setMaxMembers} disabled={isSubmitting}>
-                <SelectTrigger
-                  id="max-members"
-                  className="h-10 w-full border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {maxMembersOptions.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Field
+              id="max-members"
+              labelProps={{ className: "text-neutral-950 dark:text-white" }}
+              label={intl.formatMessage({ id: "teams.create.maxMembers" })}
+            >
+              {(controlProps) => (
+                <Select value={maxMembers} onValueChange={setMaxMembers} disabled={isSubmitting}>
+                  <SelectTrigger
+                    {...controlProps}
+                    className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maxMembersOptions.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
 
             {error && (
               <div

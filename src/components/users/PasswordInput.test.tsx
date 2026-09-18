@@ -1,19 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { IntlProvider } from "react-intl";
+import { renderWithProviders } from "@/test/test-utils";
 import { PasswordInput } from "./PasswordInput";
-
-const messages = {
-  "users.form.password.show": "Show password",
-  "users.form.password.hide": "Hide password",
-};
-
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <IntlProvider locale="en" messages={messages}>
-    {children}
-  </IntlProvider>
-);
 
 describe("PasswordInput", () => {
   const defaultProps = {
@@ -25,7 +14,7 @@ describe("PasswordInput", () => {
   };
 
   it("should render with password type by default", () => {
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).toHaveAttribute("type", "password");
@@ -33,7 +22,7 @@ describe("PasswordInput", () => {
 
   it("should toggle password visibility on button click", async () => {
     const user = userEvent.setup();
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     const toggleButton = screen.getByRole("button", { name: /show password/i });
@@ -65,9 +54,8 @@ describe("PasswordInput", () => {
       onChange(value);
     };
 
-    const { rerender } = render(
+    const { rerender } = renderWithProviders(
       <PasswordInput {...defaultProps} value={currentValue} onChange={handleChange} />,
-      { wrapper },
     );
 
     const input = screen.getByLabelText(/Password/);
@@ -86,7 +74,7 @@ describe("PasswordInput", () => {
   });
 
   it("should display error with proper ARIA attributes", () => {
-    render(<PasswordInput {...defaultProps} error="Password is required" />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} error="Password is required" />);
 
     const input = screen.getByLabelText(/Password/);
     const error = screen.getByRole("alert");
@@ -97,7 +85,7 @@ describe("PasswordInput", () => {
   });
 
   it("should display hint when no error", () => {
-    render(<PasswordInput {...defaultProps} hint="Must be 8+ characters" />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} hint="Must be 8+ characters" />);
 
     const input = screen.getByLabelText(/Password/);
     const hint = screen.getByText("Must be 8+ characters");
@@ -108,9 +96,8 @@ describe("PasswordInput", () => {
   });
 
   it("should prioritize error over hint", () => {
-    render(
+    renderWithProviders(
       <PasswordInput {...defaultProps} error="Password is required" hint="Must be 8+ characters" />,
-      { wrapper },
     );
 
     const input = screen.getByLabelText(/Password/);
@@ -121,42 +108,42 @@ describe("PasswordInput", () => {
   });
 
   it("should show required indicator when required prop is true", () => {
-    render(<PasswordInput {...defaultProps} required />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} required />);
 
     expect(screen.getByText("*")).toBeInTheDocument();
     expect(screen.getByText("(required)")).toHaveClass("sr-only");
   });
 
   it("should not show required indicator when required prop is false", () => {
-    render(<PasswordInput {...defaultProps} required={false} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} required={false} />);
 
     expect(screen.queryByText("*")).not.toBeInTheDocument();
     expect(screen.queryByText("(required)")).not.toBeInTheDocument();
   });
 
   it("should use custom autoComplete value", () => {
-    render(<PasswordInput {...defaultProps} autoComplete="current-password" />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} autoComplete="current-password" />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).toHaveAttribute("autocomplete", "current-password");
   });
 
   it("should use default autoComplete value", () => {
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).toHaveAttribute("autocomplete", "new-password");
   });
 
   it("should display placeholder text", () => {
-    render(<PasswordInput {...defaultProps} placeholder="Enter your password" />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} placeholder="Enter your password" />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).toHaveAttribute("placeholder", "Enter your password");
   });
 
   it("should have proper ARIA attributes on toggle button", () => {
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const toggleButton = screen.getByRole("button", { name: /show password/i });
 
@@ -167,7 +154,7 @@ describe("PasswordInput", () => {
 
   it("should toggle button icon between Eye and EyeOff", async () => {
     const user = userEvent.setup();
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const toggleButton = screen.getByRole("button", { name: /show password/i });
 
@@ -183,14 +170,14 @@ describe("PasswordInput", () => {
   });
 
   it("should not have aria-describedby when no error or hint", () => {
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).not.toHaveAttribute("aria-describedby");
   });
 
   it("should not have aria-invalid when no error", () => {
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     expect(input).toHaveAttribute("aria-invalid", "false");
@@ -198,7 +185,7 @@ describe("PasswordInput", () => {
 
   it("should maintain focus after toggling visibility", async () => {
     const user = userEvent.setup();
-    render(<PasswordInput {...defaultProps} />, { wrapper });
+    renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
     const toggleButton = screen.getByRole("button", { name: /show password/i });
