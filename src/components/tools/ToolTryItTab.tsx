@@ -223,36 +223,39 @@ export function ToolTryItTab({
 
       {scopedMode && (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-y border-border py-3">
-            <div className="space-y-1">
-              <Label
-                htmlFor={`tool-live-mode-${selectedTool.id}`}
-                className="text-sm font-medium text-foreground"
-              >
-                {intl.formatMessage({ id: "tools.details.test.liveMode" })}
-              </Label>
-              <p
-                id={liveModeDescriptionId}
-                className="max-w-md text-[12px] leading-4 text-muted-foreground"
-              >
-                {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
-              </p>
-              {!liveModeAvailable && (
+          <div className="space-y-2 border-y border-border py-3">
+            <Label
+              htmlFor={`tool-live-mode-${selectedTool.id}`}
+              className="text-sm font-medium text-foreground"
+            >
+              {intl.formatMessage({ id: "tools.details.test.liveMode" })}
+            </Label>
+            <div className="flex items-start gap-3">
+              <Switch
+                id={`tool-live-mode-${selectedTool.id}`}
+                className="shrink-0"
+                aria-describedby={`${liveModeDescriptionId}${liveModeAvailable ? "" : ` ${liveModeReasonId}`}`}
+                checked={liveMode}
+                disabled={!liveModeAvailable}
+                onCheckedChange={handleLiveModeChange}
+              />
+              <div className="min-w-0 space-y-1">
                 <p
-                  id={liveModeReasonId}
+                  id={liveModeDescriptionId}
                   className="max-w-md text-[12px] leading-4 text-muted-foreground"
                 >
-                  {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
+                  {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
                 </p>
-              )}
+                {!liveModeAvailable && (
+                  <p
+                    id={liveModeReasonId}
+                    className="max-w-md text-[12px] leading-4 text-muted-foreground"
+                  >
+                    {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
+                  </p>
+                )}
+              </div>
             </div>
-            <Switch
-              id={`tool-live-mode-${selectedTool.id}`}
-              aria-describedby={`${liveModeDescriptionId}${liveModeAvailable ? "" : ` ${liveModeReasonId}`}`}
-              checked={liveMode}
-              disabled={!liveModeAvailable}
-              onCheckedChange={handleLiveModeChange}
-            />
           </div>
           {liveMode && (
             <div
