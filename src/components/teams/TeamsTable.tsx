@@ -96,7 +96,7 @@ export function TeamsTable({
               >
                 <TableCell className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded bg-yellow-500">
+                    <div className="flex h-6 w-6 items-center justify-center rounded bg-team-icon-bg">
                       <span className="text-xs font-semibold text-black">{icon}</span>
                     </div>
                     <span className="font-medium text-neutral-900 dark:text-neutral-100">

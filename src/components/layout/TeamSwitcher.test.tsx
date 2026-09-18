@@ -24,6 +24,18 @@ vi.mock("@/hooks/useQuery", () => ({
   useQuery: () => mockUseQuery(),
 }));
 
+let mockAcceptedCount = 0;
+vi.mock("@/components/invitations/PendingInvitationsProvider", () => ({
+  usePendingInvitations: () => ({
+    count: 0,
+    isLoading: false,
+    error: null,
+    open: vi.fn(),
+    acceptedCount: mockAcceptedCount,
+    register: () => () => {},
+  }),
+}));
+
 describe("TeamSwitcher", () => {
   beforeEach(() => {
     mockUseQuery.mockClear();
@@ -253,5 +265,48 @@ describe("TeamSwitcher", () => {
     const globeIcons = container.querySelectorAll("svg");
     // Should have at least 3 icons: All teams + 2 team items
     expect(globeIcons.length).toBeGreaterThanOrEqual(3);
+  });
+
+  describe("after an invitation is accepted", () => {
+    const refetch = vi.fn(() => Promise.resolve({ teams: [] }));
+
+    beforeEach(() => {
+      mockAcceptedCount = 0;
+      refetch.mockClear();
+      mockUseQuery.mockReturnValue({
+        data: { teams: [{ id: "1", name: "Engineering" }] },
+        isLoading: false,
+        error: null,
+        execute: vi.fn(),
+        refetch,
+        setData: vi.fn(),
+      });
+    });
+
+    it("refetches the team list", async () => {
+      const { rerender } = renderTeamSwitcher();
+
+      mockAcceptedCount = 1;
+      rerender(
+        <AuthProvider>
+          <I18nProvider>
+            <SidebarProvider>
+              <TeamSwitcher />
+            </SidebarProvider>
+          </I18nProvider>
+        </AuthProvider>,
+      );
+
+      await waitFor(() => expect(refetch).toHaveBeenCalledTimes(1));
+    });
+
+    it("does not refetch on remount after an earlier acceptance", async () => {
+      mockAcceptedCount = 1;
+
+      renderTeamSwitcher();
+      await screen.findByRole("button", { name: /all teams/i });
+
+      expect(refetch).not.toHaveBeenCalled();
+    });
   });
 });
