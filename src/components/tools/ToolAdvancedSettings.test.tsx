@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@/api/client";
 import * as AuthContextModule from "@/auth/AuthContext";
@@ -64,30 +64,30 @@ const defaultProps = {
 
 describe("ToolBearerTokenAuth", () => {
   it("renders token label", () => {
-    render(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
+    renderWithProviders(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
     expect(screen.getByText("Token")).toBeTruthy();
   });
 
   it("renders required star", () => {
-    render(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
+    renderWithProviders(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
     expect(screen.getByText("*")).toBeTruthy();
   });
 
   it("renders password type input", () => {
-    render(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
+    renderWithProviders(<ToolBearerTokenAuth token="" onTokenChange={vi.fn()} />);
     const input = screen.getByPlaceholderText(/Paste bearer token/i) as HTMLInputElement;
     expect(input.type).toBe("password");
   });
 
   it("displays current token value", () => {
-    render(<ToolBearerTokenAuth token="abc123" onTokenChange={vi.fn()} />);
+    renderWithProviders(<ToolBearerTokenAuth token="abc123" onTokenChange={vi.fn()} />);
     const input = screen.getByPlaceholderText(/Paste bearer token/i) as HTMLInputElement;
     expect(input.value).toBe("abc123");
   });
 
   it("calls onTokenChange when input changes", () => {
     const onTokenChange = vi.fn();
-    render(<ToolBearerTokenAuth token="" onTokenChange={onTokenChange} />);
+    renderWithProviders(<ToolBearerTokenAuth token="" onTokenChange={onTokenChange} />);
     const input = screen.getByPlaceholderText(/Paste bearer token/i);
     fireEvent.change(input, { target: { value: "new-token" } });
     expect(onTokenChange).toHaveBeenCalledWith("new-token");

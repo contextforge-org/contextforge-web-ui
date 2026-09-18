@@ -1,5 +1,7 @@
 import { useIntl } from "react-intl";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -16,7 +18,7 @@ import { ToolBearerTokenAuth } from "@/components/tools/ToolBearerTokenAuth";
 import { CustomHeadersAuth, type CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
 import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
-import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { VisibilityInfoContent } from "@/components/common/VisibilityInfoPopover";
 import { TeamSelect } from "@/components/common/TeamSelect";
 
 export type { CustomHeader };
@@ -114,36 +116,31 @@ export function ToolAdvancedSettings({
   return (
     <div className="space-y-6 py-4">
       {/* Visibility */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-1.5">
-          <label
-            htmlFor="visibility"
-            className="text-sm font-medium text-neutral-950 dark:text-white"
-          >
-            {intl.formatMessage({ id: "tools.details.label.visibility" })}
-          </label>
-          <VisibilityInfoPopover />
-        </div>
-        <Select value={visibility} onValueChange={onVisibilityChange}>
-          <SelectTrigger
-            id="visibility"
-            className="h-10 w-full border-neutral-300 dark:border-neutral-700"
-          >
-            <SelectValue placeholder="Select visibility" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="public">
-              {intl.formatMessage({ id: "common.visibility.internal" })}
-            </SelectItem>
-            <SelectItem value="private">
-              {intl.formatMessage({ id: "common.visibility.private" })}
-            </SelectItem>
-            <SelectItem value="team">
-              {intl.formatMessage({ id: "common.visibility.team" })}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Field
+        id="visibility"
+        info={<VisibilityInfoContent />}
+        labelProps={{ className: "text-neutral-950 dark:text-white" }}
+        label={intl.formatMessage({ id: "tools.details.label.visibility" })}
+      >
+        {(controlProps) => (
+          <Select value={visibility} onValueChange={onVisibilityChange}>
+            <SelectTrigger {...controlProps} className="border-neutral-300 dark:border-neutral-700">
+              <SelectValue placeholder="Select visibility" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="public">
+                {intl.formatMessage({ id: "common.visibility.internal" })}
+              </SelectItem>
+              <SelectItem value="private">
+                {intl.formatMessage({ id: "common.visibility.private" })}
+              </SelectItem>
+              <SelectItem value="team">
+                {intl.formatMessage({ id: "common.visibility.team" })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
 
       {visibility === "team" && (
         <TeamSelect
@@ -157,12 +154,9 @@ export function ToolAdvancedSettings({
 
       {/* Authentication type */}
       <div className="space-y-3">
-        <label
-          id="auth-type-label"
-          className="text-sm font-medium text-neutral-950 dark:text-white"
-        >
+        <Label id="auth-type-label" className="text-neutral-950 dark:text-white">
           Authentication type
-        </label>
+        </Label>
         <div
           role="radiogroup"
           aria-labelledby="auth-type-label"
@@ -205,53 +199,50 @@ export function ToolAdvancedSettings({
       {renderAuthContent()}
 
       {/* Response filter (jq) */}
-      <div className="space-y-2">
-        <label
-          htmlFor="response-filter"
-          className="text-sm font-medium text-neutral-950 dark:text-white"
-        >
-          Response filter (jq)
-        </label>
-        <Input
-          id="response-filter"
-          value={responseFilter}
-          onChange={(e) => onResponseFilterChange(e.target.value)}
-          placeholder="Optional jq expression applied to the upstream response..."
-          className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
-        />
-      </div>
+      <Field
+        id="response-filter"
+        labelProps={{ className: "text-neutral-950 dark:text-white" }}
+        label="Response filter (jq)"
+      >
+        {(controlProps) => (
+          <Input
+            {...controlProps}
+            value={responseFilter}
+            onChange={(e) => onResponseFilterChange(e.target.value)}
+            placeholder="Optional jq expression applied to the upstream response..."
+            className="rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+          />
+        )}
+      </Field>
 
-      {/* Tags */}
-      <div className="space-y-2">
-        <label htmlFor="tags" className="text-sm font-medium text-neutral-950 dark:text-white">
-          Tags
-        </label>
-        <TagInput
-          id="tags"
-          value={tags}
-          onChange={onTagsChange}
-          suggestions={tagSuggestions}
-          maxTags={MAX_TAGS}
-          placeholder={intl.formatMessage({ id: "common.tagInput.placeholder" })}
-        />
-      </div>
+      <Field id="tags" labelProps={{ className: "text-neutral-950 dark:text-white" }} label="Tags">
+        {(controlProps) => (
+          <TagInput
+            {...controlProps}
+            value={tags}
+            onChange={onTagsChange}
+            suggestions={tagSuggestions}
+            maxTags={MAX_TAGS}
+            placeholder={intl.formatMessage({ id: "common.tagInput.placeholder" })}
+          />
+        )}
+      </Field>
 
-      {/* Description */}
-      <div className="space-y-2">
-        <label
-          htmlFor="advanced-description"
-          className="text-sm font-medium text-neutral-950 dark:text-white"
-        >
-          Description
-        </label>
-        <Textarea
-          id="advanced-description"
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Add an optional description..."
-          className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
-        />
-      </div>
+      <Field
+        id="advanced-description"
+        labelProps={{ className: "text-neutral-950 dark:text-white" }}
+        label="Description"
+      >
+        {(controlProps) => (
+          <Textarea
+            {...controlProps}
+            value={description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder="Add an optional description..."
+            className="min-h-20 focus-visible:ring-1 focus-visible:ring-offset-0"
+          />
+        )}
+      </Field>
     </div>
   );
 }

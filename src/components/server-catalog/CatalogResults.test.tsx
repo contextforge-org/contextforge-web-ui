@@ -99,7 +99,21 @@ describe("CatalogResults", () => {
 
     expect(logo).toHaveAttribute("src", "/api/static/catalog-icons/asana.png");
     expect(logo).toHaveClass("size-full", "object-contain");
-    expect(logo?.parentElement).not.toHaveClass("bg-muted");
+    expect(logo?.parentElement?.parentElement).toHaveClass("bg-muted");
+    expect(logo?.parentElement).not.toHaveClass("bg-neutral-100");
+  });
+
+  it("gives solid dark/black catalog icons a light patch behind the glyph, not the whole tile", () => {
+    const { container } = renderWithProviders(
+      catalogResults({ ...availableServer, id: "wix", logo_url: "/static/catalog-icons/wix.png" }),
+    );
+
+    const logo = container.querySelector("img");
+
+    // The small patch directly behind the glyph goes light...
+    expect(logo?.parentElement).toHaveClass("bg-neutral-100");
+    // ...but the outer 32x32 tile still follows the theme like every other icon.
+    expect(logo?.parentElement?.parentElement).toHaveClass("bg-muted");
   });
 
   it("rejects local logo paths outside the catalog icon directory", () => {

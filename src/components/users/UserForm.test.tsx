@@ -9,6 +9,7 @@ vi.mock("@/hooks/useUserForm");
 
 const messages = {
   "common.button.back": "Back",
+  "common.field.required": "(required)",
   "users.form.title": "Create New User",
   "users.form.description": "Add a new user to the system",
   "users.form.email": "Email",

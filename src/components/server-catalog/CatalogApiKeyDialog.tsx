@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { TeamSelect } from "@/components/common/TeamSelect";
-import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
+import { VisibilityInfoContent } from "@/components/common/VisibilityInfoPopover";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,9 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -121,86 +121,84 @@ export function CatalogApiKeyDialog({
           )}
 
           <div className="space-y-5 py-5">
-            <div className="space-y-2.5">
-              <Label htmlFor="catalog-server-name">
-                {intl.formatMessage({ id: "mcpServer.catalog.apiKey.nameLabel" })}
-              </Label>
-              <Input
-                id="catalog-server-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={intl.formatMessage({ id: "mcpServer.catalog.apiKey.namePlaceholder" })}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="space-y-2.5">
-              <Label htmlFor="catalog-server-api-key">
-                {intl.formatMessage({ id: "mcpServer.catalog.apiKey.keyLabel" })}
-                <span className="text-destructive" aria-hidden="true">
-                  {" "}
-                  {intl.formatMessage({ id: "common.required" })}
-                </span>
-              </Label>
-              <Input
-                id="catalog-server-api-key"
-                type="password"
-                autoComplete="off"
-                maxLength={4096}
-                value={apiKey}
-                onChange={(event) => {
-                  setApiKey(event.target.value);
-                  setApiKeyError(undefined);
-                }}
-                placeholder={intl.formatMessage({ id: "mcpServer.catalog.apiKey.keyPlaceholder" })}
-                aria-required="true"
-                aria-invalid={!!apiKeyError}
-                aria-describedby={apiKeyError ? "catalog-server-api-key-error" : undefined}
-                disabled={isSubmitting}
-              />
-              {apiKeyError && (
-                <p id="catalog-server-api-key-error" className="text-sm text-destructive">
-                  {apiKeyError}
-                </p>
+            <Field
+              id="catalog-server-name"
+              label={intl.formatMessage({ id: "mcpServer.catalog.apiKey.nameLabel" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: "mcpServer.catalog.apiKey.namePlaceholder",
+                  })}
+                  disabled={isSubmitting}
+                />
               )}
-            </div>
+            </Field>
 
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5">
-                <Label htmlFor="catalog-server-visibility">
-                  {intl.formatMessage({ id: "gateways.createServer.visibility" })}
-                </Label>
-                <VisibilityInfoPopover />
-              </div>
-              <Select
-                value={visibility}
-                onValueChange={(value: Visibility) => {
-                  setVisibility(value);
-                  setTeamError(undefined);
-                }}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger id="catalog-server-visibility" className="w-full">
-                  <SelectValue
-                    placeholder={intl.formatMessage({
-                      id: "mcpServer.advanced.visibilityPlaceholder",
-                    })}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">
-                    {intl.formatMessage({ id: "common.visibility.private" })}
-                  </SelectItem>
-                  <SelectItem value="team">
-                    {intl.formatMessage({ id: "common.visibility.team" })}
-                  </SelectItem>
-                  {/* The API uses "public" for org-internal visibility; the UI label is "Internal". */}
-                  <SelectItem value="public">
-                    {intl.formatMessage({ id: "common.visibility.internal" })}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Field
+              id="catalog-server-api-key"
+              required
+              error={apiKeyError}
+              label={intl.formatMessage({ id: "mcpServer.catalog.apiKey.keyLabel" })}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="password"
+                  autoComplete="off"
+                  maxLength={4096}
+                  value={apiKey}
+                  onChange={(event) => {
+                    setApiKey(event.target.value);
+                    setApiKeyError(undefined);
+                  }}
+                  placeholder={intl.formatMessage({
+                    id: "mcpServer.catalog.apiKey.keyPlaceholder",
+                  })}
+                  disabled={isSubmitting}
+                />
+              )}
+            </Field>
+
+            <Field
+              id="catalog-server-visibility"
+              info={<VisibilityInfoContent />}
+              label={intl.formatMessage({ id: "gateways.createServer.visibility" })}
+            >
+              {(controlProps) => (
+                <Select
+                  value={visibility}
+                  onValueChange={(value: Visibility) => {
+                    setVisibility(value);
+                    setTeamError(undefined);
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger {...controlProps}>
+                    <SelectValue
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.advanced.visibilityPlaceholder",
+                      })}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">
+                      {intl.formatMessage({ id: "common.visibility.private" })}
+                    </SelectItem>
+                    <SelectItem value="team">
+                      {intl.formatMessage({ id: "common.visibility.team" })}
+                    </SelectItem>
+                    {/* "public" means org-internal visibility; the UI label is "Internal". */}
+                    <SelectItem value="public">
+                      {intl.formatMessage({ id: "common.visibility.internal" })}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </Field>
 
             {visibility === "team" && (
               <TeamSelect
