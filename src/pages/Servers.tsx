@@ -217,7 +217,11 @@ export function Servers() {
         // Needs gateways.update, which the caller may lack. Authorization still succeeded.
         console.error("Failed to fetch components after authorization:", sanitizeError(err));
       }
-      await refetch();
+      try {
+        await refetch();
+      } catch (err) {
+        console.error("Failed to refresh servers after authorization:", sanitizeError(err));
+      }
       await reloadOAuthStatuses();
     },
     [refetch, reloadOAuthStatuses, intl],
