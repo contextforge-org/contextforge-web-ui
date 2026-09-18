@@ -145,12 +145,13 @@ export function usePendingInvitationsData({
     async (invitation: TeamInvitation, action: InvitationAction) => {
       // The row can outlive its expiry while the dialog is open, where the
       // sweep above is paused. Accept only: declining stays available, being
-      // the invitee's one way to clear an expired invitation.
+      // the invitee's one way to clear an expired invitation. The toast is the
+      // whole response: refreshing here would drop a sibling's confirmation,
+      // so the row waits for the sweep or the next refetch on open.
       if (action === "accept" && !isActionable(invitation)) {
         toast.error(intl.formatMessage({ id: "invitations.error.accept" }), {
           description: intl.formatMessage({ id: "invitations.error.expired" }),
         });
-        void load();
         return;
       }
 
@@ -180,7 +181,7 @@ export function usePendingInvitationsData({
         });
       }
     },
-    [intl, load],
+    [intl],
   );
 
   const accept = useCallback(

@@ -212,6 +212,32 @@ describe("usePendingInvitationsData", () => {
       description: "This invitation has expired.",
     });
     expect(result.current.resolutions).toEqual({});
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a sibling's confirmation alone when a lapsed invitation is clicked", async () => {
+    const lapsing = makeInvitation({
+      id: "inv-3",
+      token: "tok-3",
+      expires_at: new Date(Date.now() + 30_000).toISOString(),
+    });
+    vi.mocked(listMyInvitations).mockResolvedValue([one, lapsing]);
+    const { result } = renderInvitations(true, true);
+    await waitFor(() => expect(result.current.invitations).toHaveLength(2));
+
+    await act(async () => {
+      await result.current.accept(one);
+    });
+
+    vi.setSystemTime(Date.now() + 31_000);
+    vi.mocked(listMyInvitations).mockResolvedValue([lapsing]);
+    await act(async () => {
+      await result.current.accept(lapsing);
+    });
+
+    expect(result.current.resolutions).toEqual({ "inv-1": "accepted" });
+    expect(result.current.invitations).toHaveLength(2);
+    expect(listMyInvitations).toHaveBeenCalledTimes(1);
   });
 
   it("still declines an invitation that has lapsed", async () => {
