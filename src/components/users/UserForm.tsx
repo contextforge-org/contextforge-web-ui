@@ -3,7 +3,9 @@ import { ChevronDown, Lock, User } from "lucide-react";
 import { useIntl } from "react-intl";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { useUserForm } from "@/hooks/useUserForm";
@@ -17,41 +19,6 @@ interface UserFormProps {
   onSuccess?: (result?: UserType) => void;
   onOptimisticCreate?: (userData: CreateUserRequest | UpdateUserRequest) => void;
   onError?: (userData: CreateUserRequest | UpdateUserRequest) => void;
-}
-
-interface FormFieldProps {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}
-
-function FormField({ id, label, required = false, error, children }: FormFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label
-        htmlFor={id}
-        className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-      >
-        {label}
-        {required && (
-          <>
-            <span className="text-red-500" aria-hidden="true">
-              *
-            </span>
-            <span className="sr-only">(required)</span>
-          </>
-        )}
-      </label>
-      {children}
-      {error && (
-        <p id={`${id}-error`} className="text-sm text-red-600 dark:text-red-400" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
 }
 
 interface CheckboxFieldProps {
@@ -69,12 +36,9 @@ function CheckboxField({ id, checked, onCheckedChange, label }: CheckboxFieldPro
         checked={checked}
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
-      <label
-        htmlFor={id}
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
+      <Label htmlFor={id} className="peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
         {label}
-      </label>
+      </Label>
     </div>
   );
 }
@@ -163,7 +127,7 @@ export function UserForm({
           </div>
 
           <form className="space-y-6" onSubmit={onSubmit} aria-labelledby="user-form-title">
-            <div className="space-y-1">
+            <div className="space-y-2.5">
               {isEditMode ? (
                 <>
                   <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
@@ -185,44 +149,52 @@ export function UserForm({
                   </p>
                 </>
               ) : (
-                <FormField
+                <Field
                   id="user-email"
-                  label={intl.formatMessage({ id: "users.form.email" })}
                   required
                   error={errors.email}
+                  labelProps={{
+                    className:
+                      "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+                  }}
+                  label={intl.formatMessage({ id: "users.form.email" })}
                 >
-                  <Input
-                    id="user-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder={intl.formatMessage({ id: "users.form.email.placeholder" })}
-                    className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-                    aria-invalid={!!errors.email}
-                    aria-describedby={errors.email ? "user-email-error" : undefined}
-                  />
-                </FormField>
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder={intl.formatMessage({ id: "users.form.email.placeholder" })}
+                      className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                    />
+                  )}
+                </Field>
               )}
             </div>
 
-            <FormField
+            <Field
               id="user-full-name"
-              label={intl.formatMessage({ id: "users.form.fullName" })}
               error={errors.fullName}
+              labelProps={{
+                className:
+                  "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+              }}
+              label={intl.formatMessage({ id: "users.form.fullName" })}
             >
-              <Input
-                id="user-full-name"
-                type="text"
-                autoComplete="name"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                placeholder={intl.formatMessage({ id: "users.form.fullName.placeholder" })}
-                className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-                aria-invalid={!!errors.fullName}
-                aria-describedby={errors.fullName ? "user-full-name-error" : undefined}
-              />
-            </FormField>
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  type="text"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder={intl.formatMessage({ id: "users.form.fullName.placeholder" })}
+                  className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+                />
+              )}
+            </Field>
 
             <PasswordInput
               id="user-password"
