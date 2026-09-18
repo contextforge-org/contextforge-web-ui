@@ -1,15 +1,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
-import {
-  Activity,
-  Blocks,
-  Bot,
-  Box,
-  CircleSlash,
-  Code,
-  MessageSquareCode,
-  Wrench,
-} from "lucide-react";
+import { Blocks, Bot, Box, Code, MessageSquareCode, Wrench } from "lucide-react";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CreateServerForm } from "@/components/gateways/CreateServerForm";
@@ -22,13 +13,20 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { api, ApiError } from "@/api/client";
 import { useQuery } from "@/hooks/useQuery";
+import { useOAuthTokenStatuses } from "@/hooks/useOAuthTokenStatuses";
 import { useRouter } from "@/router";
-import { STATUS_ICON } from "@/lib/status";
-import type { MCPServer, ServerStatus, VirtualServer, VirtualServerTag } from "@/types/server";
+import {
+  getAvailabilityPresentation,
+  getServerAvailability,
+  type OAuthTokenStatus,
+} from "@/lib/serverStatus";
+import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server";
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
@@ -122,41 +120,6 @@ function getPromptCount(server: ListedMCPServer) {
   return server.promptCount ?? server.prompt_count ?? 0;
 }
 
-function getServerStatus(server: ListedMCPServer): ServerStatus {
-  if (!server.enabled) return "draft";
-  if (!server.reachable) return server.lastSeen ? "warning" : "offline";
-  return "active";
-}
-
-function getStatusConfig(status: ServerStatus) {
-  switch (status) {
-    case "active":
-      return {
-        Icon: Activity,
-        labelId: "gateways.source.status.active",
-        className: "text-success",
-      };
-    case "warning":
-      return {
-        Icon: STATUS_ICON.warning,
-        labelId: "gateways.source.status.warning",
-        className: "text-warning",
-      };
-    case "offline":
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.offline",
-        className: "text-muted-foreground",
-      };
-    default:
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.inactive",
-        className: "text-muted-foreground",
-      };
-  }
-}
-
 function getTagValue(tag: string | VirtualServerTag): string | null {
   if (typeof tag === "string") return tag;
   return tag.label ?? tag.name ?? tag.value ?? null;
@@ -225,6 +188,9 @@ function readEditServerIdFromPath(path: string): string | null {
 }
 
 function getCreateServerError(error: unknown, fallbackMessage: string): string {
+  if (error instanceof SourceComponentsError) {
+    return `${error.serverName}: ${getCreateServerError(error.cause, fallbackMessage)}`;
+  }
   if (error instanceof ApiError) {
     const body = error.body as { message?: string; detail?: unknown } | null;
     if (body?.message) return body.message;
@@ -245,22 +211,38 @@ function getCreateServerError(error: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
+/** Names a failing source, so one bad source does not surface as an unattributed error. */
+class SourceComponentsError extends Error {
+  constructor(
+    readonly serverName: string,
+    readonly cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "SourceComponentsError";
+  }
+}
+
 async function getComponentsForSelectedMCPServers(
   mcpServerIds: string[],
+  serverNamesById: Record<string, string> = {},
 ): Promise<ComponentSelection> {
   const componentGroups = await Promise.all(
     mcpServerIds.map(async (serverId) => {
-      const [tools, resources, prompts] = await Promise.all([
-        getAllGatewayComponents<GatewayTool>("tools", "tools", serverId),
-        getAllGatewayComponents<GatewayResource>("resources", "resources", serverId),
-        getAllGatewayComponents<GatewayPrompt>("prompts", "prompts", serverId),
-      ]);
+      try {
+        const [tools, resources, prompts] = await Promise.all([
+          getAllGatewayComponents<GatewayTool>("tools", "tools", serverId),
+          getAllGatewayComponents<GatewayResource>("resources", "resources", serverId),
+          getAllGatewayComponents<GatewayPrompt>("prompts", "prompts", serverId),
+        ]);
 
-      return {
-        tools: tools.map((tool) => tool.id),
-        resources: resources.map((resource) => resource.id),
-        prompts: prompts.map((prompt) => prompt.id),
-      };
+        return {
+          tools: tools.map((tool) => tool.id),
+          resources: resources.map((resource) => resource.id),
+          prompts: prompts.map((prompt) => prompt.id),
+        };
+      } catch (error) {
+        throw new SourceComponentsError(serverNamesById[serverId] ?? serverId, error);
+      }
     }),
   );
 
@@ -361,6 +343,7 @@ function ComponentGroup({
 const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   server,
   isOpen,
+  oauthTokenStatus,
   selectedToolIds,
   selectedResourceIds,
   selectedPromptIds,
@@ -368,6 +351,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
 }: {
   server: ListedMCPServer;
   isOpen: boolean;
+  oauthTokenStatus?: OAuthTokenStatus;
   selectedToolIds: Set<string>;
   selectedResourceIds: Set<string>;
   selectedPromptIds: Set<string>;
@@ -378,6 +362,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: toolsData,
     error: toolsError,
     isLoading: toolsLoading,
+    refetch: refetchTools,
   } = useQuery<GatewayTool[] | { tools: GatewayTool[] }>(
     `/tools?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
@@ -386,6 +371,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: resourcesData,
     error: resourcesError,
     isLoading: resourcesLoading,
+    refetch: refetchResources,
   } = useQuery<GatewayResource[] | { resources: GatewayResource[] }>(
     `/resources?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
@@ -394,13 +380,12 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: promptsData,
     error: promptsError,
     isLoading: promptsLoading,
+    refetch: refetchPrompts,
   } = useQuery<GatewayPrompt[] | { prompts: GatewayPrompt[] }>(
     `/prompts?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
   );
 
-  const status = getStatusConfig(getServerStatus(server));
-  const StatusIcon = status.Icon;
   const tools = useMemo(
     () =>
       getResponseItems(toolsData, "tools").map((tool): SelectableComponent => ({
@@ -426,8 +411,13 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     [promptsData],
   );
   const isLoadingComponents = toolsLoading || resourcesLoading || promptsLoading;
-  const componentError = toolsError ?? resourcesError ?? promptsError;
   const hasComponents = tools.length + resources.length + prompts.length > 0;
+  const availability = getServerAvailability(server, oauthTokenStatus);
+  const failedLists = [
+    { kind: "tools", error: toolsError, retry: refetchTools },
+    { kind: "resources", error: resourcesError, retry: refetchResources },
+    { kind: "prompts", error: promptsError, retry: refetchPrompts },
+  ].filter((list) => list.error);
 
   return (
     <AccordionItem value={server.id} className="rounded-md border border-border/60 px-3">
@@ -465,9 +455,12 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
               count={getPromptCount(server)}
             />
           </span>
-          <span className="hidden shrink-0 items-center gap-2 text-muted-foreground md:flex">
-            <StatusIcon className={`size-3.5 ${status.className}`} aria-hidden="true" />
-            {intl.formatMessage({ id: status.labelId })}
+          <span className="hidden shrink-0 md:flex">
+            <ServerStatusIndicator
+              server={server}
+              oauthTokenStatus={oauthTokenStatus}
+              interactive={false}
+            />
           </span>
         </span>
       </AccordionTrigger>
@@ -503,22 +496,34 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
           <SourcesLoadingStatus message={intl.formatMessage({ id: "common.loading" })} />
         )}
 
-        {!isLoadingComponents && componentError && (
-          <p
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {componentError.message}
-          </p>
-        )}
+        {!isLoadingComponents &&
+          failedLists.map((list) => (
+            <InlineNotification
+              key={list.kind}
+              type="error"
+              message={intl.formatMessage(
+                { id: "gateways.details.componentsLoadFailed" },
+                {
+                  kind: intl.formatMessage({ id: `gateways.details.filter.${list.kind}` }),
+                  detail: list.error?.message ?? "",
+                },
+              )}
+              action={{
+                label: intl.formatMessage({ id: "common.button.retry" }),
+                onClick: () => {
+                  list.retry().catch(() => undefined);
+                },
+              }}
+            />
+          ))}
 
-        {!isLoadingComponents && !componentError && !hasComponents && (
+        {!isLoadingComponents && failedLists.length === 0 && !hasComponents && (
           <p className="rounded-md border border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-            {intl.formatMessage({ id: "gateways.details.noComponentsFound" })}
+            {intl.formatMessage({ id: getAvailabilityPresentation(availability).emptyId })}
           </p>
         )}
 
-        {!isLoadingComponents && !componentError && hasComponents && (
+        {!isLoadingComponents && hasComponents && (
           <div className="grid gap-4">
             <ComponentGroup
               title={intl.formatMessage({ id: "gateways.details.filter.tools" })}
@@ -565,6 +570,7 @@ function EditMCPServersSection({
     isLoading: mcpServersLoading,
   } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH);
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
+  const { oauthTokenStatuses } = useOAuthTokenStatuses(mcpServers);
   const openServerIdSet = useMemo(() => new Set(openServerIds), [openServerIds]);
   const selectedToolIdSet = useMemo(() => new Set(selectedToolIds), [selectedToolIds]);
   const selectedResourceIdSet = useMemo(() => new Set(selectedResourceIds), [selectedResourceIds]);
@@ -615,6 +621,7 @@ function EditMCPServersSection({
               key={server.id}
               server={server}
               isOpen={openServerIdSet.has(server.id)}
+              oauthTokenStatus={oauthTokenStatuses[server.id]}
               selectedToolIds={selectedToolIdSet}
               selectedResourceIds={selectedResourceIdSet}
               selectedPromptIds={selectedPromptIdSet}
@@ -634,6 +641,7 @@ export function CreateServer() {
   const [step, setStep] = useState<CreateServerStep>("details");
   const [serverDetails, setServerDetails] = useState<CreateServerDetails | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedSourceNames, setSelectedSourceNames] = useState<Record<string, string>>({});
   const [selectedComponents, setSelectedComponents] = useState<ComponentSelection>({
     tools: [],
     resources: [],
@@ -736,7 +744,7 @@ export function CreateServer() {
     try {
       const selectedSourceComponents =
         selectedSourceIds.length > 0
-          ? await getComponentsForSelectedMCPServers(selectedSourceIds)
+          ? await getComponentsForSelectedMCPServers(selectedSourceIds, selectedSourceNames)
           : null;
       const detailsWithSources = {
         ...serverDetails,
@@ -805,7 +813,10 @@ export function CreateServer() {
         <SourceSelection
           actionCards={actionCards}
           associatedMCPServerIds={serverDetails?.associatedMCPServerIds}
-          onSelectSources={setSelectedSourceIds}
+          onSelectSources={(ids, namesById) => {
+            setSelectedSourceIds(ids);
+            setSelectedSourceNames(namesById);
+          }}
           createServerActions={{
             onBack: () => setStep("details"),
             onSkip: handleSkipForNow,

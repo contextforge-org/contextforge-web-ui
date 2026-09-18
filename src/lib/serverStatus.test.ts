@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { getAvailabilityPresentation, getServerAvailability } from "./serverStatus";
+import enMessages from "@/i18n/locales/en-US";
+import {
+  getAvailabilityPresentation,
+  getServerAvailability,
+  type ServerAvailability,
+} from "./serverStatus";
 
 const up = { enabled: true, reachable: true };
+
+const AVAILABILITIES: ServerAvailability[] = [
+  "active",
+  "auth",
+  "unreachable",
+  "checking",
+  "inactive",
+];
 
 describe("getServerAvailability", () => {
   it("is active when enabled and reachable", () => {
@@ -52,5 +65,23 @@ describe("getAvailabilityPresentation", () => {
 
     const active = getAvailabilityPresentation("active");
     expect(active.shortLabelId).toBe(active.labelId);
+  });
+
+  it("keeps the empty state off the detail text, which assumes components exist", () => {
+    for (const availability of AVAILABILITIES) {
+      const presentation = getAvailabilityPresentation(availability);
+      expect(presentation.emptyId).not.toBe(presentation.detailId);
+    }
+  });
+
+  it("resolves every message id it hands out", () => {
+    const keys = Object.keys(enMessages);
+    for (const availability of AVAILABILITIES) {
+      const { labelId, shortLabelId, detailId, emptyId } =
+        getAvailabilityPresentation(availability);
+      for (const id of [labelId, shortLabelId, detailId, emptyId]) {
+        expect(keys, `${availability} -> ${id}`).toContain(id);
+      }
+    }
   });
 });

@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import {
-  Activity,
   ArrowLeft,
   Box,
   Building2,
   ChevronDown,
   ChevronRight,
-  CircleSlash,
   Lock,
   MessageSquareCode,
   Plus,
@@ -21,10 +19,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
+import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { useQuery } from "@/hooks/useQuery";
+import { useOAuthTokenStatuses } from "@/hooks/useOAuthTokenStatuses";
 import { cn } from "@/lib/utils";
-import { STATUS_ICON } from "@/lib/status";
-import type { MCPServer, ServerStatus } from "@/types/server";
+import type { MCPServer } from "@/types/server";
 
 const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
 
@@ -60,39 +59,8 @@ function getPromptCount(server: ListedMCPServer) {
   return server.promptCount ?? server.prompt_count ?? 0;
 }
 
-function getServerStatus(server: ListedMCPServer): ServerStatus {
-  if (!server.enabled) return "draft";
-  if (!server.reachable) return server.lastSeen ? "warning" : "offline";
-  return "active";
-}
-
-function getStatusConfig(status: ServerStatus) {
-  switch (status) {
-    case "active":
-      return {
-        Icon: Activity,
-        labelId: "gateways.source.status.active",
-        className: "text-success",
-      };
-    case "warning":
-      return {
-        Icon: STATUS_ICON.warning,
-        labelId: "gateways.source.status.warning",
-        className: "text-warning",
-      };
-    case "offline":
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.offline",
-        className: "text-muted-foreground",
-      };
-    default:
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.inactive",
-        className: "text-muted-foreground",
-      };
-  }
+function getComponentTotal(server: ListedMCPServer) {
+  return getToolCount(server) + getResourceCount(server) + getPromptCount(server);
 }
 
 function getVisibilityConfig(visibility: ListedMCPServer["visibility"]) {
@@ -114,7 +82,7 @@ export function SourceSelection({
 }: {
   actionCards: ActionCard[];
   associatedMCPServerIds?: string[];
-  onSelectSources?: (selectedIds: string[]) => void;
+  onSelectSources?: (selectedIds: string[], namesById: Record<string, string>) => void;
   createServerActions?: {
     onBack: () => void;
     onSkip: () => void;
@@ -151,6 +119,17 @@ export function SourceSelection({
   );
   const hasSelectedMCPServers = selectedMCPServerIds.size > 0;
   const panelId = "connected-sources-panel";
+  const { oauthTokenStatuses } = useOAuthTokenStatuses(mcpServers);
+
+  // Selecting an offline source still works: its components stay in the catalog.
+  // Only a source with nothing to contribute leaves the virtual server empty.
+  const emptySelectedSources = useMemo(
+    () =>
+      availableMCPServers.filter(
+        (server) => selectedMCPServerIds.has(server.id) && getComponentTotal(server) === 0,
+      ),
+    [availableMCPServers, selectedMCPServerIds],
+  );
 
   const handleToggleComponentsPanel = () => {
     setIsComponentsPanelOpen((open) => !open);
@@ -162,7 +141,14 @@ export function SourceSelection({
     if (checked) next.add(serverId);
     else next.delete(serverId);
     setSelectedMCPServerIds(next);
-    onSelectSources?.(Array.from(next));
+    onSelectSources?.(
+      Array.from(next),
+      Object.fromEntries(
+        availableMCPServers
+          .filter((server) => next.has(server.id))
+          .map((server) => [server.id, server.name]),
+      ),
+    );
   };
 
   return (
@@ -382,8 +368,6 @@ export function SourceSelection({
                         const promptCount = getPromptCount(server);
                         const visibility = getVisibilityConfig(server.visibility);
                         const VisibilityIcon = visibility.Icon;
-                        const status = getStatusConfig(getServerStatus(server));
-                        const StatusIcon = status.Icon;
                         const isSelected = selectedMCPServerIds.has(server.id);
 
                         return (
@@ -429,10 +413,12 @@ export function SourceSelection({
                               <VisibilityIcon className="size-3.5" />
                               {intl.formatMessage({ id: visibility.labelId })}
                             </span>
-                            <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                              <StatusIcon className={`size-3.5 ${status.className}`} />
-                              {intl.formatMessage({ id: status.labelId })}
-                            </span>
+                            <ServerStatusIndicator
+                              server={server}
+                              oauthTokenStatus={oauthTokenStatuses[server.id]}
+                              compact
+                              className="justify-self-start"
+                            />
                           </div>
                         );
                       })}
@@ -440,6 +426,18 @@ export function SourceSelection({
                   </div>
                 )}
               </section>
+            )}
+
+            {emptySelectedSources.length > 0 && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {intl.formatMessage(
+                  { id: "gateways.source.emptySelectionWarning" },
+                  {
+                    count: emptySelectedSources.length,
+                    names: emptySelectedSources.map((server) => server.name).join(", "),
+                  },
+                )}
+              </p>
             )}
 
             <div className="flex justify-end">

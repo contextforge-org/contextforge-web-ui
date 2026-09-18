@@ -22,6 +22,8 @@ interface AvailabilityPresentation {
   labelId: string;
   shortLabelId: string;
   detailId: string;
+  /** Shown where the server contributes nothing, which `detailId` does not fit. */
+  emptyId: string;
 }
 
 const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
@@ -31,6 +33,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.active",
     shortLabelId: "mcpServer.status.active",
     detailId: "mcpServer.status.detail.active",
+    emptyId: "gateways.details.noComponentsFound",
   },
   auth: {
     Icon: STATUS_ICON.warning,
@@ -38,6 +41,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.auth",
     shortLabelId: "mcpServer.status.auth.short",
     detailId: "mcpServer.status.detail.auth",
+    emptyId: "mcpServer.status.empty.auth",
   },
   unreachable: {
     Icon: CircleSlash,
@@ -45,6 +49,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.offline",
     shortLabelId: "mcpServer.status.offline",
     detailId: "mcpServer.status.detail.unreachable",
+    emptyId: "mcpServer.status.empty.unreachable",
   },
   checking: {
     Icon: CircleDashed,
@@ -52,6 +57,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.checking",
     shortLabelId: "mcpServer.status.checking",
     detailId: "mcpServer.status.detail.checking",
+    emptyId: "mcpServer.status.empty.checking",
   },
   inactive: {
     Icon: CircleDashed,
@@ -59,6 +65,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.inactive",
     shortLabelId: "mcpServer.status.inactive",
     detailId: "mcpServer.status.detail.inactive",
+    emptyId: "mcpServer.status.empty.inactive",
   },
 };
 
