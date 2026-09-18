@@ -104,7 +104,9 @@ describe("AdvancedSettings", () => {
   it("renders the visibility info popover trigger", () => {
     render(<AdvancedSettings {...makeProps()} />);
 
-    expect(screen.getByRole("button", { name: "About visibility levels" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "More information about Visibility" }),
+    ).toBeInTheDocument();
   });
 
   // The sidebar switcher is authoritative while *creating* only. Edit mode is
