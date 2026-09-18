@@ -37,7 +37,7 @@
   "teams.create.descriptionPlaceholder": "Add an optional description",
   "teams.create.visibility": "Team visibility",
   "teams.create.visibility.private": "Private",
-  "teams.create.visibility.public": "Public",
+  "teams.create.visibility.public": "Internal",
   "teams.create.visibility.description": "Only visible to members, invitation required to join.",
   "teams.create.membersHint": "Add team members and set permission level.",
   "teams.create.memberName": "Name",
