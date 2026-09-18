@@ -1,9 +1,9 @@
 import React from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useIntl } from "react-intl";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 
 interface PasswordInputProps {
   id: string;
@@ -34,66 +34,50 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
   ) {
     const intl = useIntl();
     const [showPassword, setShowPassword] = React.useState(false);
-    const errorId = `${id}-error`;
-    const hintId = `${id}-hint`;
 
     return (
-      <div className="space-y-1">
-        <Label
-          htmlFor={id}
-          className="inline-flex items-center gap-0.5 text-sm font-medium text-neutral-900 dark:text-neutral-100"
-        >
-          {label}
-          {required && (
-            <>
-              <span className="text-red-500" aria-hidden="true">
-                *
-              </span>
-              <span className="sr-only">(required)</span>
-            </>
-          )}
-        </Label>
-        <div className="relative">
-          <Input
-            ref={ref}
-            id={id}
-            type={showPassword ? "text" : "password"}
-            autoComplete={autoComplete}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder={placeholder}
-            className="h-10 border-neutral-300 pr-10 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-            aria-invalid={!!error}
-            aria-describedby={error ? errorId : hint ? hintId : undefined}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-            aria-label={intl.formatMessage({
-              id: showPassword ? "users.form.password.hide" : "users.form.password.show",
-            })}
-            aria-pressed={showPassword}
-          >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <Eye className="h-4 w-4" aria-hidden="true" />
-            )}
-          </Button>
-        </div>
-        {error ? (
-          <p id={errorId} className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
-          </p>
-        ) : hint ? (
-          <p id={hintId} className="text-xs text-neutral-500 dark:text-neutral-400">
-            {hint}
-          </p>
-        ) : null}
-      </div>
+      <Field
+        id={id}
+        required={required}
+        error={error}
+        hint={hint}
+        labelProps={{
+          className: "inline-flex items-center gap-0.5 text-neutral-900 dark:text-neutral-100",
+        }}
+        label={label}
+      >
+        {(controlProps) => (
+          <div className="relative">
+            <Input
+              {...controlProps}
+              ref={ref}
+              type={showPassword ? "text" : "password"}
+              autoComplete={autoComplete}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={placeholder}
+              className="h-10 border-neutral-300 pr-10 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+              aria-label={intl.formatMessage({
+                id: showPassword ? "users.form.password.hide" : "users.form.password.show",
+              })}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+          </div>
+        )}
+      </Field>
     );
   },
 );
