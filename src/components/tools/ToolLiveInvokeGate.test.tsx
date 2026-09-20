@@ -195,6 +195,30 @@ describe("ToolLiveInvokeGate", () => {
     expect(mockHasPermission).toHaveBeenCalledWith("servers.use");
   });
 
+  it("uses the tool action presentation when requested", async () => {
+    const user = userEvent.setup();
+    const invoke = makeInvoke();
+    const { rerender } = render(
+      <ToolLiveInvokeGate
+        presentation="tool"
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={invoke}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Invoke tool" }));
+    expect(invoke.run).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ToolLiveInvokeGate
+        presentation="tool"
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ hasRun: true })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Re-run tool" })).toBeInTheDocument();
+  });
+
   it("confirms local destructive tools before running", async () => {
     const user = userEvent.setup();
     const invoke = makeInvoke();

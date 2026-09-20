@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Loader2, Play, Square } from "lucide-react";
+import { Loader2, Play, Square, Zap } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { useAuth } from "@/auth/useAuth";
@@ -59,6 +59,7 @@ export interface ToolLiveInvokeGateProps {
   disabled?: boolean;
   invalidGatewayId?: boolean;
   invoke: Pick<ToolInvokeState, "run" | "stopWaiting" | "isLoading" | "hasRun">;
+  presentation?: "live" | "tool";
   tool: Tool;
 }
 
@@ -66,6 +67,7 @@ export function ToolLiveInvokeGate({
   disabled = false,
   invalidGatewayId = false,
   invoke,
+  presentation = "live",
   tool,
 }: ToolLiveInvokeGateProps) {
   const intl = useIntl();
@@ -99,17 +101,26 @@ export function ToolLiveInvokeGate({
   }
 
   if (availability.state === "available") {
+    const ActionIcon = presentation === "tool" ? Zap : Play;
     return (
       <Button type="button" variant="default" size="sm" onClick={invoke.run} disabled={disabled}>
-        <Play className="size-3.5" />
+        <ActionIcon className="size-3.5" />
         {intl.formatMessage({
-          id: invoke.hasRun ? "tools.details.invoke.rerun" : "tools.details.invoke.run",
+          id:
+            presentation === "tool"
+              ? invoke.hasRun
+                ? "tools.details.invoke.rerunTool"
+                : "tools.details.invoke.runTool"
+              : invoke.hasRun
+                ? "tools.details.invoke.rerun"
+                : "tools.details.invoke.run",
         })}
       </Button>
     );
   }
 
   if (availability.state === "requiresConfirmation") {
+    const ActionIcon = presentation === "tool" ? Zap : Play;
     return (
       <>
         <Button
@@ -119,9 +130,16 @@ export function ToolLiveInvokeGate({
           onClick={() => setConfirmOpen(true)}
           disabled={disabled}
         >
-          <Play className="size-3.5" />
+          <ActionIcon className="size-3.5" />
           {intl.formatMessage({
-            id: invoke.hasRun ? "tools.details.invoke.rerun" : "tools.details.invoke.run",
+            id:
+              presentation === "tool"
+                ? invoke.hasRun
+                  ? "tools.details.invoke.rerunTool"
+                  : "tools.details.invoke.runTool"
+                : invoke.hasRun
+                  ? "tools.details.invoke.rerun"
+                  : "tools.details.invoke.run",
           })}
         </Button>
         <ConfirmDialog

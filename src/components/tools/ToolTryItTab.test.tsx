@@ -157,6 +157,11 @@ describe("ToolTryItTab", () => {
     ).toHaveTextContent("Clear");
     expect(screen.getByText("Live invocation")).toHaveAttribute("data-slot", "label");
     expect(
+      screen.getByRole("button", {
+        name: "Writes, external requests, and quota use happen immediately.",
+      }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("Writes, external requests, and quota use happen immediately."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
@@ -173,7 +178,7 @@ describe("ToolTryItTab", () => {
         "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
       ),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Live invoke" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invoke tool" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
     expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
@@ -184,7 +189,7 @@ describe("ToolTryItTab", () => {
     await user.click(screen.getByRole("switch", { name: "Live invocation" }));
     expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invoke tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "curl" })).toHaveAttribute("data-state", "active");
     expect(activeCode()).toContain("/v1/tools/preview/github.search_issues");
@@ -247,7 +252,7 @@ describe("ToolTryItTab", () => {
 
     await user.click(screen.getByRole("switch", { name: "Live invocation" }));
     expect(screen.queryByText("Preview 200")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    await user.click(screen.getByRole("button", { name: "Invoke tool" }));
     expect(await screen.findByText("Live invoke 200")).toBeInTheDocument();
 
     await user.click(screen.getByRole("switch", { name: "Live invocation" }));
