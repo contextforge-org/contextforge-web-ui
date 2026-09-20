@@ -220,6 +220,100 @@ describe("ToolTryItTab", () => {
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
   });
 
+  it("reveals argument errors on preview attempt without sending an invalid request", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+    let previewCalls = 0;
+    mswServer.use(
+      http.post("*/v1/tools/preview/:name", () => {
+        previewCalls += 1;
+        return HttpResponse.json({ target: "local", resolved_arguments: {} });
+      }),
+    );
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    const query = screen.getByLabelText(/query/i);
+    const previewButton = screen.getByRole("button", { name: "Preview" });
+    expect(query).toHaveAttribute("aria-invalid", "false");
+    expect(previewButton).toBeEnabled();
+
+    await user.click(previewButton);
+    expect(query).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Required")).toBeInTheDocument();
+    expect(previewCalls).toBe(0);
+
+    await user.type(query, "cloudflare");
+    expect(query).toHaveAttribute("aria-invalid", "false");
+    await user.click(previewButton);
+    await waitFor(() => expect(previewCalls).toBe(1));
+  });
+
+  it("reveals argument errors on live invoke without sending an invalid request", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+    let invokeCalls = 0;
+    mswServer.use(
+      http.post("*/rpc", async ({ request }) => {
+        invokeCalls += 1;
+        const envelope = (await request.json()) as { id: string };
+        return HttpResponse.json({ jsonrpc: "2.0", id: envelope.id, result: { content: [] } });
+      }),
+    );
+
+    render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={selectedTool}
+      />,
+    );
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+    const query = screen.getByLabelText(/query/i);
+    const invokeButton = screen.getByRole("button", { name: "Invoke tool" });
+    expect(invokeButton).toBeEnabled();
+
+    await user.click(invokeButton);
+    expect(query).toHaveAttribute("aria-invalid", "true");
+    expect(invokeCalls).toBe(0);
+
+    await user.type(query, "cloudflare");
+    await user.click(invokeButton);
+    await waitFor(() => expect(invokeCalls).toBe(1));
+  });
+
+  it("resets visible argument validation when switching tools", async () => {
+    const user = userEvent.setup();
+    const firstTool = makeTool({ id: "tool-one" });
+    const secondTool = makeTool({ id: "tool-two", name: "list_issues" });
+    const { rerender } = render(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={firstTool}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "true");
+
+    rerender(
+      <ToolTryItTab
+        serverScope={{ serverId: "virtual-server-1", serverName: "Developer tools" }}
+        selectedTool={secondTool}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "false"),
+    );
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+  });
+
   it("clears preview and live results when switching modes", async () => {
     const user = userEvent.setup();
     const selectedTool = makeTool({ annotations: { readOnlyHint: true } });

@@ -219,6 +219,34 @@ describe("ToolLiveInvokeGate", () => {
     expect(screen.getByRole("button", { name: "Re-run tool" })).toBeInTheDocument();
   });
 
+  it("does not run or confirm when the pre-run check fails", async () => {
+    const user = userEvent.setup();
+    const invoke = makeInvoke();
+    const onBeforeRun = vi.fn(() => false);
+    const { rerender } = render(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={invoke}
+        onBeforeRun={onBeforeRun}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    expect(onBeforeRun).toHaveBeenCalledOnce();
+    expect(invoke.run).not.toHaveBeenCalled();
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { destructiveHint: true } })}
+        invoke={invoke}
+        onBeforeRun={onBeforeRun}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(invoke.run).not.toHaveBeenCalled();
+  });
+
   it("confirms local destructive tools before running", async () => {
     const user = userEvent.setup();
     const invoke = makeInvoke();

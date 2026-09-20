@@ -59,6 +59,7 @@ export interface ToolLiveInvokeGateProps {
   disabled?: boolean;
   invalidGatewayId?: boolean;
   invoke: Pick<ToolInvokeState, "run" | "stopWaiting" | "isLoading" | "hasRun">;
+  onBeforeRun?: () => boolean;
   presentation?: "live" | "tool";
   tool: Tool;
 }
@@ -67,12 +68,17 @@ export function ToolLiveInvokeGate({
   disabled = false,
   invalidGatewayId = false,
   invoke,
+  onBeforeRun,
   presentation = "live",
   tool,
 }: ToolLiveInvokeGateProps) {
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const run = () => {
+    if (onBeforeRun?.() === false) return;
+    void invoke.run();
+  };
   const availability = useMemo(
     () =>
       resolveToolLiveInvokeAvailability({
@@ -103,7 +109,7 @@ export function ToolLiveInvokeGate({
   if (availability.state === "available") {
     const ActionIcon = presentation === "tool" ? Zap : Play;
     return (
-      <Button type="button" variant="default" size="sm" onClick={invoke.run} disabled={disabled}>
+      <Button type="button" variant="default" size="sm" onClick={run} disabled={disabled}>
         <ActionIcon className="size-3.5" />
         {intl.formatMessage({
           id:
@@ -127,7 +133,10 @@ export function ToolLiveInvokeGate({
           type="button"
           variant="destructive"
           size="sm"
-          onClick={() => setConfirmOpen(true)}
+          onClick={() => {
+            if (onBeforeRun?.() === false) return;
+            setConfirmOpen(true);
+          }}
           disabled={disabled}
         >
           <ActionIcon className="size-3.5" />

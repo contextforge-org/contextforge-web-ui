@@ -65,6 +65,7 @@ export function ToolTryItTab({
   );
   const [headers, setHeaders] = useState<ToolHeaderRow[]>([]);
   const [argsValid, setArgsValid] = useState(true);
+  const [argsValidationAttempted, setArgsValidationAttempted] = useState(false);
   const [headersValid, setHeadersValid] = useState(true);
   const [snippetLanguage, setSnippetLanguage] =
     useState<ToolSnippetLanguage>(DEFAULT_SNIPPET_LANGUAGE);
@@ -117,6 +118,7 @@ export function ToolTryItTab({
     setArgs(seedToolArguments(selectedTool.inputSchema));
     setHeaders([]);
     setArgsValid(true);
+    setArgsValidationAttempted(false);
     setHeadersValid(true);
     setLiveMode(false);
     setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
@@ -134,6 +136,11 @@ export function ToolTryItTab({
     setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
     resetPreview();
     resetInvoke();
+  };
+
+  const validateArgumentsForRun = () => {
+    setArgsValidationAttempted(true);
+    return argsValid && headersValid;
   };
 
   return (
@@ -294,6 +301,7 @@ export function ToolTryItTab({
         value={args}
         onChange={setArgs}
         onValidityChange={setArgsValid}
+        validationAttempted={argsValidationAttempted}
       />
 
       <ToolHeadersEditor rows={headers} onChange={setHeaders} onValidityChange={setHeadersValid} />
@@ -322,14 +330,19 @@ export function ToolTryItTab({
 
             <div className="flex flex-wrap items-start justify-end gap-2">
               {(!scopedMode || !liveMode) && (
-                <ToolPreviewButton preview={preview} disabled={!argsValid || !headersValid} />
+                <ToolPreviewButton
+                  preview={preview}
+                  disabled={!headersValid}
+                  onBeforeRun={validateArgumentsForRun}
+                />
               )}
               {(!scopedMode || liveMode) && (
                 <ToolLiveInvokeGate
                   tool={selectedTool}
                   invalidGatewayId={invalidGatewayId}
                   invoke={invoke}
-                  disabled={!argsValid || !headersValid}
+                  disabled={!headersValid}
+                  onBeforeRun={validateArgumentsForRun}
                   presentation={scopedMode ? "tool" : "live"}
                 />
               )}

@@ -497,7 +497,8 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
     await openToolTest(user, "upstream_search");
     expect(screen.getByText("Find issues")).toBeInTheDocument();
-    expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "false");
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/query/i)).toHaveAttribute("type", "text");
     expect(
       document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
