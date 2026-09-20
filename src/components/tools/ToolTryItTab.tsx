@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Ref } from "react";
 import { useIntl } from "react-intl";
-import { TriangleAlert, Wrench } from "lucide-react";
+import { Info, TriangleAlert, Wrench } from "lucide-react";
 
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { CodeBlock } from "@/components/ui/code-block";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Tool } from "@/types/tool";
 import { useToolInvoke } from "@/hooks/useToolInvoke";
@@ -156,7 +157,7 @@ export function ToolTryItTab({
             )}
           </div>
           <Badge
-            variant="draft"
+            variant="secondary"
             className="inline-flex max-w-full items-center gap-1.5 rounded-sm px-2 py-0.5 text-xs text-muted-foreground"
           >
             <Wrench className="size-3 shrink-0" aria-hidden="true" />
@@ -223,13 +224,31 @@ export function ToolTryItTab({
 
       {scopedMode && (
         <div className="space-y-3">
-          <div className="space-y-2 border-y border-border py-3">
-            <Label
-              htmlFor={`tool-live-mode-${selectedTool.id}`}
-              className="text-sm font-medium text-foreground"
-            >
-              {intl.formatMessage({ id: "tools.details.test.liveMode" })}
-            </Label>
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Label
+                htmlFor={`tool-live-mode-${selectedTool.id}`}
+                className="text-sm font-medium text-foreground"
+              >
+                {intl.formatMessage({ id: "tools.details.test.liveMode" })}
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label={intl.formatMessage({
+                      id: "tools.details.test.liveModeDescription",
+                    })}
+                  >
+                    <Info className="size-3.5" aria-hidden="true" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <div className="flex items-start gap-3">
               <Switch
                 id={`tool-live-mode-${selectedTool.id}`}
@@ -260,7 +279,7 @@ export function ToolTryItTab({
           {liveMode && (
             <div
               role="status"
-              className="flex items-start gap-2 rounded-sm bg-muted px-3 py-2 text-[12px] leading-4 text-muted-foreground"
+              className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
             >
               <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
               <span>{intl.formatMessage({ id: "tools.details.test.liveModeWarning" })}</span>
@@ -311,6 +330,7 @@ export function ToolTryItTab({
                   invalidGatewayId={invalidGatewayId}
                   invoke={invoke}
                   disabled={!argsValid || !headersValid}
+                  presentation={scopedMode ? "tool" : "live"}
                 />
               )}
             </div>

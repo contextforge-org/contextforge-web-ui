@@ -127,6 +127,8 @@
   "tools.details.code.mcpVersionBadge": "MCP {version}",
   "tools.details.invoke.run": "Invocação em tempo real",
   "tools.details.invoke.rerun": "Executar novamente ao vivo",
+  "tools.details.invoke.runTool": "Invocar ferramenta",
+  "tools.details.invoke.rerunTool": "Executar ferramenta novamente",
   "tools.details.invoke.running": "Invocando...",
   "tools.details.invoke.stopWaiting": "Cancelar solicitação",
   "tools.details.invoke.checkingAccess": "Verificando acesso",

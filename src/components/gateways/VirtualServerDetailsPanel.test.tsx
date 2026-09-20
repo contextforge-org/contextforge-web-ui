@@ -394,7 +394,7 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     expect(screen.queryByText("Search repository issues")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Live invocation" })).not.toBeChecked();
-    expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invoke tool" })).not.toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="tabs-content"][data-state="active"] pre'),
     ).toHaveTextContent('"server_id":"virtual-server-1"');
@@ -443,7 +443,7 @@ describe("VirtualServerDetailsPanel tool testing", () => {
       await openToolTest(user, "Search issues");
       await user.type(screen.getByLabelText(/query/i), "cloudflare");
       await user.click(screen.getByRole("switch", { name: "Live invocation" }));
-      await user.click(screen.getByRole("button", { name: "Live invoke" }));
+      await user.click(screen.getByRole("button", { name: "Invoke tool" }));
       await waitFor(() => expect(invokeSpy).toHaveBeenCalledOnce());
       expect(signal?.aborted).toBe(false);
 
