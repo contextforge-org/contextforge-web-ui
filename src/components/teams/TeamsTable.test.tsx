@@ -58,11 +58,11 @@ describe("TeamsTable", () => {
     renderTable(<TeamsTable teams={teams} isLoading={false} />);
 
     expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("public")).toBeInTheDocument();
+    expect(screen.getByText("Internal")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
 
     expect(screen.getByText("Beta")).toBeInTheDocument();
-    expect(screen.getByText("private")).toBeInTheDocument();
+    expect(screen.getByText("Private")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
   });
 
