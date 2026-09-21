@@ -52,6 +52,21 @@ export const config = {
   // (e.g. a popup blocked before it navigates), not the OAuth flow itself.
   oauthAuthorizeNonceTtlSeconds: Number(optional("OAUTH_AUTHORIZE_NONCE_TTL_SECONDS", "120")),
 
+  // BFF's own OIDC (PKCE) client of Keycloak — independent of ContextForge's
+  // own /auth/sso/* flow, which isn't usable cross-origin from this SPA.
+  ssoEnabled: optional("SSO_ENABLED", "false") === "true",
+  // Server-to-server base (discovery/token/JWKS calls never leave the BFF).
+  ssoKeycloakBaseUrl: optionalUnset("SSO_KEYCLOAK_BASE_URL"),
+  // Browser-facing base, if it differs from the internal one above.
+  ssoKeycloakPublicBaseUrl: optionalUnset("SSO_KEYCLOAK_PUBLIC_BASE_URL"),
+  ssoKeycloakRealm: optionalUnset("SSO_KEYCLOAK_REALM"),
+  ssoKeycloakClientId: optionalUnset("SSO_KEYCLOAK_CLIENT_ID"),
+  ssoKeycloakClientSecret: optionalUnset("SSO_KEYCLOAK_CLIENT_SECRET"), // pragma: allowlist secret
+  ssoKeycloakScopes: optionalUnset("SSO_KEYCLOAK_SCOPES") ?? "openid profile email",
+  // TTL for the one-time PKCE verifier/state/nonce minted by the login route
+  // and consumed by the callback route — same pattern as the nonce above.
+  ssoLoginStateTtlSeconds: Number(optional("SSO_LOGIN_STATE_TTL_SECONDS", "300")),
+
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
   // local dev process. optionalUnset so REDIS_URL="" also falls through
@@ -138,6 +153,40 @@ if (
   config.oauthAuthorizeNonceTtlSeconds <= 0
 ) {
   throw new Error("OAUTH_AUTHORIZE_NONCE_TTL_SECONDS must be a positive integer");
+}
+
+if (!Number.isSafeInteger(config.ssoLoginStateTtlSeconds) || config.ssoLoginStateTtlSeconds <= 0) {
+  throw new Error("SSO_LOGIN_STATE_TTL_SECONDS must be a positive integer");
+}
+
+// Fail fast at boot, not at the first /auth/sso/login request.
+if (config.ssoEnabled) {
+  const missingSsoVars = [
+    ["SSO_KEYCLOAK_BASE_URL", config.ssoKeycloakBaseUrl],
+    ["SSO_KEYCLOAK_REALM", config.ssoKeycloakRealm],
+    ["SSO_KEYCLOAK_CLIENT_ID", config.ssoKeycloakClientId],
+    ["SSO_KEYCLOAK_CLIENT_SECRET", config.ssoKeycloakClientSecret],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missingSsoVars.length > 0) {
+    throw new Error(`SSO_ENABLED=true requires ${missingSsoVars.join(", ")} to be set`);
+  }
+
+  // Catch a malformed URL at boot instead of at the first /auth/sso/login
+  // request's discovery fetch.
+  for (const [name, value] of [
+    ["SSO_KEYCLOAK_BASE_URL", config.ssoKeycloakBaseUrl],
+    ["SSO_KEYCLOAK_PUBLIC_BASE_URL", config.ssoKeycloakPublicBaseUrl],
+  ] as const) {
+    if (!value) continue; // public base URL is optional
+    try {
+      new URL(value);
+    } catch {
+      throw new Error(`${name} "${value}" is not a valid URL`);
+    }
+  }
 }
 
 // COOKIE_SECURE=true (prod default) with neither PUBLIC_ORIGIN nor TRUST_PROXY
