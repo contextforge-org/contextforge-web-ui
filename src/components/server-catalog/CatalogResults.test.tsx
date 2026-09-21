@@ -99,8 +99,8 @@ describe("CatalogResults", () => {
 
     expect(logo).toHaveAttribute("src", "/api/static/catalog-icons/asana.png");
     expect(logo).toHaveClass("size-full", "object-contain");
-    expect(logo?.parentElement?.parentElement).toHaveClass("bg-muted");
-    expect(logo?.parentElement).not.toHaveClass("bg-neutral-100");
+    expect(logo?.parentElement?.parentElement).toHaveClass("bg-catalog-icon-tile");
+    expect(logo?.parentElement).not.toHaveClass("bg-catalog-icon-backing");
   });
 
   it("gives solid dark/black catalog icons a light patch behind the glyph, not the whole tile", () => {
@@ -111,9 +111,9 @@ describe("CatalogResults", () => {
     const logo = container.querySelector("img");
 
     // The small patch directly behind the glyph goes light...
-    expect(logo?.parentElement).toHaveClass("bg-neutral-100");
+    expect(logo?.parentElement).toHaveClass("bg-catalog-icon-backing");
     // ...but the outer 32x32 tile still follows the theme like every other icon.
-    expect(logo?.parentElement?.parentElement).toHaveClass("bg-muted");
+    expect(logo?.parentElement?.parentElement).toHaveClass("bg-catalog-icon-tile");
   });
 
   it("rejects local logo paths outside the catalog icon directory", () => {
