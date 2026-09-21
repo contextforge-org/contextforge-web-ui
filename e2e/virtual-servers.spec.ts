@@ -1333,7 +1333,6 @@ test.describe("Virtual Servers page", () => {
             jsonrpc: "2.0",
             id: rpcBody.id ?? "invoke-1",
             result: {
-              target: { kind: "federated", gateway_name: "github-mcp" },
               content: [
                 {
                   type: "text",
@@ -1387,12 +1386,12 @@ test.describe("Virtual Servers page", () => {
 
       await panel.getByRole("switch", { name: "Live invocation" }).click();
       await expect(panel.getByText(/Live invocation is enabled/)).toBeVisible();
-      await expect(panel.getByRole("button", { name: "Live invoke" })).toBeVisible();
-      await panel.getByRole("button", { name: "Live invoke" }).click();
+      await expect(panel.getByRole("button", { name: "Invoke tool" })).toBeVisible();
+      await panel.getByRole("button", { name: "Invoke tool" }).click();
 
       await expect(panel.getByText("Live invoke 200")).toBeVisible();
       await expect(panel.getByText("Requested through testVS")).toBeVisible();
-      await expect(panel.getByText("Answered by github-mcp")).toBeVisible();
+      await expect(panel.getByText(/Answered by/)).toHaveCount(0);
       await expect(panel.getByText("Scoped result from virtual server").first()).toBeVisible();
       expect(rpcBody).toMatchObject({
         jsonrpc: "2.0",

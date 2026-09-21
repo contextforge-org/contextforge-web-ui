@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
 
-import type { ToolPreviewResponse } from "@/api/tools";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
@@ -27,7 +26,6 @@ export interface ToolLiveInvokeResultProps {
 }
 
 export interface ToolLiveInvokeResultContext {
-  backingGatewayName?: string;
   requestName?: string;
 }
 
@@ -42,9 +40,6 @@ export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultPr
   const toolResultIsError = response ? getToolResultIsError(response) : false;
   const succeeded = result !== null;
   const statusOk = succeeded && !toolResultIsError;
-  const backingGatewayName = statusOk
-    ? (context?.backingGatewayName ?? getBackingGatewayName(response))
-    : undefined;
   const statusLabel = succeeded
     ? intl.formatMessage({ id: "tools.details.invoke.statusOk" }, { status: result.status })
     : error?.code !== undefined
@@ -79,24 +74,14 @@ export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultPr
         </span>
       </div>
 
-      {(context?.requestName || backingGatewayName) && (
+      {context?.requestName && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-          {context?.requestName && (
-            <span>
-              {intl.formatMessage(
-                { id: "tools.details.invoke.context.requestedThrough" },
-                { name: context.requestName },
-              )}
-            </span>
-          )}
-          {backingGatewayName && (
-            <span>
-              {intl.formatMessage(
-                { id: "tools.details.invoke.context.answeredBy" },
-                { name: backingGatewayName },
-              )}
-            </span>
-          )}
+          <span>
+            {intl.formatMessage(
+              { id: "tools.details.invoke.context.requestedThrough" },
+              { name: context.requestName },
+            )}
+          </span>
         </div>
       )}
 
@@ -126,26 +111,6 @@ export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultPr
       )}
     </section>
   );
-}
-
-function getBackingGatewayName(response: ToolPreviewResponse | undefined): string | undefined {
-  if (!response) return undefined;
-  const root = response as Record<string, unknown>;
-  const target = typeof response.target === "object" && response.target ? response.target : null;
-  return (
-    getNonEmptyString(root.gateway_name) ??
-    getNonEmptyString(root.gatewayName) ??
-    getNonEmptyString(root.resolved_gateway_name) ??
-    getNonEmptyString(root.resolvedGatewayName) ??
-    getNonEmptyString(target?.gateway_name) ??
-    getNonEmptyString(target?.gatewayName) ??
-    getNonEmptyString(target?.gateway_slug) ??
-    getNonEmptyString(target?.gatewaySlug)
-  );
-}
-
-function getNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 function RawLiveResponse({ response }: { response: unknown }) {

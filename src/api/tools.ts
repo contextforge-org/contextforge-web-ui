@@ -225,6 +225,8 @@ export const toolsApi = {
         `/v1/tools/preview/${encodeURIComponent(validName)}`,
         {
           arguments: args,
+          // Backend acceptance and enforcement of this scope is tracked by
+          // IBM/mcp-context-forge#6743; the virtual-server UI stays flag-gated until then.
           ...(options.serverId ? { server_id: options.serverId } : {}),
         } satisfies ToolPreviewRequest,
         { headers: passthroughHeaders, signal: options.signal },

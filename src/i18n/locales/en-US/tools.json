@@ -147,7 +147,6 @@
   "tools.details.test.liveModeDescription": "Writes, external requests, and quota use happen immediately.",
   "tools.details.test.liveModeWarning": "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
   "tools.details.invoke.context.requestedThrough": "Requested through {name}",
-  "tools.details.invoke.context.answeredBy": "Answered by {name}",
   "tools.details.invoke.unavailable.checkingAccess": "Checking your tool permissions.",
   "tools.details.invoke.unavailable.missingExecutePermission": "Live invoke requires tools.execute.",
   "tools.details.invoke.unavailable.missingServerUsePermission": "Live invoke requires servers.use.",

@@ -997,7 +997,6 @@ function VirtualServerToolTestView({
         invalidGatewayId={tool.invalidGatewayId}
         resultContext={{
           requestName: server.name,
-          backingGatewayName: tool.gatewaySlug || undefined,
         }}
         selectedTool={tool}
         serverScope={{ serverId: server.id, serverName: server.name }}

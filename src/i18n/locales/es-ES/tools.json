@@ -147,7 +147,6 @@
   "tools.details.test.liveModeDescription": "Las escrituras, las solicitudes externas y el consumo de cuota ocurren de inmediato.",
   "tools.details.test.liveModeWarning": "La invocación en vivo está activada. Revise los argumentos detenidamente o vuelva al modo de vista previa.",
   "tools.details.invoke.context.requestedThrough": "Solicitado a través de {name}",
-  "tools.details.invoke.context.answeredBy": "Respondido por {name}",
   "tools.details.invoke.unavailable.checkingAccess": "Comprobando sus permisos de herramienta.",
   "tools.details.invoke.unavailable.missingExecutePermission": "La invocación en vivo requiere tools.execute.",
   "tools.details.invoke.unavailable.missingServerUsePermission": "La invocación en vivo requiere servers.use.",
