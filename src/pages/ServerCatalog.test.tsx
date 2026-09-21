@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import {
   disconnectCatalogGateway,
   getGatewayImpactPreview,
+  type OAuthGatewayStatusMap,
   registerCatalogServer,
   testCatalogServer,
 } from "@/api/catalog";
@@ -323,6 +324,19 @@ describe("ServerCatalog", () => {
   it("collects OAuth credentials in the catalog dialog and registers them in one call", async () => {
     const user = userEvent.setup();
     const authWindow = { close: vi.fn() } as unknown as Window;
+    const oauthStatusSetData = vi.fn();
+    const refetchOAuthStatuses = vi.fn().mockResolvedValue(undefined);
+    mockUseQuery.mockImplementation((path) => {
+      if (path === "/v1/catalog?limit=1000") return queryResult();
+      if (path === "/oauth/callback-url") {
+        return queryResult({ data: { redirectUri: "http://localhost:3000/oauth/callback" } });
+      }
+      return queryResult({
+        data: undefined,
+        refetch: refetchOAuthStatuses,
+        setData: oauthStatusSetData,
+      });
+    });
     mockOpenOAuthAuthorizationPopup.mockReturnValue(authWindow);
     mockRegisterCatalogServer.mockImplementation(async () => {
       expect(mockOpenOAuthAuthorizationPopup).toHaveBeenCalledOnce();
@@ -369,6 +383,19 @@ describe("ServerCatalog", () => {
     );
     expect(mockToggleEnabled).toHaveBeenCalledWith("registered-server", true);
     expect(mockFetchToolsAfterOAuth).toHaveBeenCalledWith("registered-server");
+    expect(oauthStatusSetData).toHaveBeenCalledOnce();
+    const updateOAuthStatuses = oauthStatusSetData.mock.calls[0][0] as (
+      current: OAuthGatewayStatusMap | undefined,
+    ) => OAuthGatewayStatusMap;
+    expect(
+      updateOAuthStatuses({
+        "registered-server": {
+          oauth_enabled: true,
+          user_token_status: { status: "missing", authorized: false },
+        },
+      })["registered-server"].user_token_status,
+    ).toMatchObject({ status: "valid", authorized: true });
+    expect(refetchOAuthStatuses).toHaveBeenCalledOnce();
   });
 
   it("does not register OAuth credentials when popup creation is blocked", async () => {

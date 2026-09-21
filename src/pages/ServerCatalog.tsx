@@ -263,6 +263,25 @@ function setCatalogServerOAuthPending(
   return { ...catalog, servers };
 }
 
+function setOAuthGatewayAuthorized(
+  statuses: OAuthGatewayStatusMap | undefined,
+  gatewayId: string,
+): OAuthGatewayStatusMap {
+  const currentStatus = statuses?.[gatewayId];
+  return {
+    ...statuses,
+    [gatewayId]: {
+      ...currentStatus,
+      oauth_enabled: true,
+      user_token_status: {
+        ...currentStatus?.user_token_status,
+        status: "valid",
+        authorized: true,
+      },
+    },
+  };
+}
+
 function getRetryAfterMs(value: string | null): number {
   const seconds = Number(value);
   const dateDelay = value ? Date.parse(value) - Date.now() : Number.NaN;
@@ -410,9 +429,15 @@ export function ServerCatalog() {
     () => getOAuthStatusesPath(data?.servers ?? []),
     [data?.servers],
   );
-  const { data: oauthStatuses } = useQuery<OAuthGatewayStatusMap>(oauthStatusesPath, {
-    enabled: oauthStatusesPath !== null,
-  });
+  const {
+    data: oauthStatuses,
+    refetch: refetchOAuthStatuses,
+    setData: setOAuthStatuses,
+  } = useQuery<OAuthGatewayStatusMap>(oauthStatusesPath, { enabled: oauthStatusesPath !== null });
+  const refetchOAuthStatusesRef = useRef(refetchOAuthStatuses);
+  useEffect(() => {
+    refetchOAuthStatusesRef.current = refetchOAuthStatuses;
+  }, [refetchOAuthStatuses]);
   const canTest = !permissionsLoading && hasPermission("gateways.read");
   const canDisconnect = !permissionsLoading && hasPermission("gateways.delete");
   const { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters } =
@@ -463,6 +488,14 @@ export function ServerCatalog() {
       current.filter((notification) => notification.id !== notificationId),
     );
   }, []);
+
+  const markOAuthAuthorized = useCallback(
+    (gatewayId: string) => {
+      setOAuthStatuses((current) => setOAuthGatewayAuthorized(current, gatewayId));
+      void refetchOAuthStatusesRef.current().catch(() => undefined);
+    },
+    [setOAuthStatuses],
+  );
 
   useEffect(() => {
     if (!focusActionsForServerId) return;
@@ -703,6 +736,7 @@ export function ServerCatalog() {
             ),
           });
         }
+        markOAuthAuthorized(gatewayId);
         setData((current) => setCatalogServerOAuthPending(current, oauthServer.id, false));
         void refreshCatalogSilently();
         setPendingOAuthGatewayId(null);
@@ -725,6 +759,7 @@ export function ServerCatalog() {
     },
     [
       intl,
+      markOAuthAuthorized,
       oauthServer,
       pendingOAuthGatewayId,
       refreshCatalogSilently,
@@ -753,6 +788,7 @@ export function ServerCatalog() {
             ),
           });
         }
+        markOAuthAuthorized(server.gateway_id);
         setData((current) => setCatalogServerOAuthPending(current, server.id, false));
         void refreshCatalogSilently();
       } catch (error) {
@@ -773,6 +809,7 @@ export function ServerCatalog() {
       dismissRegistrationNotification,
       endAdding,
       intl,
+      markOAuthAuthorized,
       refreshCatalogSilently,
       setData,
       showRegistrationNotification,
