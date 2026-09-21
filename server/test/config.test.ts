@@ -190,6 +190,75 @@ describe("config validation", () => {
     resetModules();
   });
 
+  it("allows a plain http: SSO_KEYCLOAK_BASE_URL on a non-loopback host (internal, server-to-server)", async () => {
+    process.env.SSO_ENABLED = "true";
+    process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak.internal:8080";
+    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
+  it.each([["SSO_KEYCLOAK_BASE_URL"], ["SSO_KEYCLOAK_PUBLIC_BASE_URL"]])(
+    "rejects a non-http(s) scheme for %s",
+    async (key) => {
+      process.env.SSO_ENABLED = "true";
+      process.env.SSO_KEYCLOAK_BASE_URL = "http://localhost:8180";
+      process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+      process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+      process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+      process.env[key] = "file:///etc/passwd";
+
+      const { resetModules, run } = await freshImport();
+      await expect(run()).rejects.toThrow(`${key} "file:///etc/passwd" must use http: or https:`);
+      resetModules();
+    },
+  );
+
+  it("rejects a plain http: SSO_KEYCLOAK_PUBLIC_BASE_URL on a non-loopback host", async () => {
+    process.env.SSO_ENABLED = "true";
+    process.env.SSO_KEYCLOAK_BASE_URL = "http://localhost:8180";
+    process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "http://keycloak.example.com";
+    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).rejects.toThrow(
+      'SSO_KEYCLOAK_PUBLIC_BASE_URL "http://keycloak.example.com" must use https:',
+    );
+    resetModules();
+  });
+
+  it("allows a plain http: SSO_KEYCLOAK_PUBLIC_BASE_URL on loopback (local dev)", async () => {
+    process.env.SSO_ENABLED = "true";
+    process.env.SSO_KEYCLOAK_BASE_URL = "http://localhost:8180";
+    process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "http://127.0.0.1:8180";
+    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
+  it("allows an https: SSO_KEYCLOAK_PUBLIC_BASE_URL on any host", async () => {
+    process.env.SSO_ENABLED = "true";
+    process.env.SSO_KEYCLOAK_BASE_URL = "http://localhost:8180";
+    process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "https://keycloak.example.com";
+    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
   it("rejects a non-positive SSO login state TTL", async () => {
     process.env.SSO_LOGIN_STATE_TTL_SECONDS = "0";
 

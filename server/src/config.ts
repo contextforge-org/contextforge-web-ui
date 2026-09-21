@@ -20,6 +20,28 @@ function optionalUnset(name: string): string | undefined {
 // RFC 7230 token chars — blocks CR/LF/space/separators (header-injection guard).
 const HTTP_TOKEN_RE = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+// Rejects file:/javascript:/data:/etc, and (for the browser-facing URL)
+// plain http: outside loopback -- an intercepted redirect there could leak
+// the PKCE code/authorization code over the network.
+function validateKeycloakUrl(name: string, value: string, requireHttps: boolean): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} "${value}" is not a valid URL`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`${name} "${value}" must use http: or https:`);
+  }
+  if (requireHttps && parsed.protocol !== "https:" && !LOOPBACK_HOSTS.has(parsed.hostname)) {
+    throw new Error(
+      `${name} "${value}" must use https: (http: only allowed for localhost/127.0.0.1)`,
+    );
+  }
+}
+
 export const config = {
   port: Number(optional("PORT", "3000")),
   host: optional("HOST", "0.0.0.0"),
@@ -174,18 +196,15 @@ if (config.ssoEnabled) {
     throw new Error(`SSO_ENABLED=true requires ${missingSsoVars.join(", ")} to be set`);
   }
 
-  // Catch a malformed URL at boot instead of at the first /auth/sso/login
-  // request's discovery fetch.
-  for (const [name, value] of [
-    ["SSO_KEYCLOAK_BASE_URL", config.ssoKeycloakBaseUrl],
-    ["SSO_KEYCLOAK_PUBLIC_BASE_URL", config.ssoKeycloakPublicBaseUrl],
-  ] as const) {
-    if (!value) continue; // public base URL is optional
-    try {
-      new URL(value);
-    } catch {
-      throw new Error(`${name} "${value}" is not a valid URL`);
-    }
+  // Catch a malformed or unsafe URL at boot instead of at the first
+  // /auth/sso/login request's discovery fetch. Only the browser-facing
+  // (public) URL must be https: -- the internal one is server-to-server and
+  // may legitimately be plain http: on a private/Docker network.
+  if (config.ssoKeycloakBaseUrl) {
+    validateKeycloakUrl("SSO_KEYCLOAK_BASE_URL", config.ssoKeycloakBaseUrl, false);
+  }
+  if (config.ssoKeycloakPublicBaseUrl) {
+    validateKeycloakUrl("SSO_KEYCLOAK_PUBLIC_BASE_URL", config.ssoKeycloakPublicBaseUrl, true);
   }
 }
 
