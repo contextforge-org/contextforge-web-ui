@@ -11,6 +11,7 @@ import {
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import { serversApi } from "@/api/servers";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { I18nProvider } from "@/i18n";
@@ -160,7 +161,9 @@ async function selectSectionOption(user: UserEvent, section: string, option: str
 function withProviders(ui: ReactElement) {
   return (
     <RouterProvider>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <TooltipProvider>{ui}</TooltipProvider>
+      </I18nProvider>
     </RouterProvider>
   );
 }
@@ -173,7 +176,14 @@ function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
 describe("ServerCatalog", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
-    mockUseQuery.mockReturnValue(queryResult());
+    mockUseQuery.mockImplementation((path) =>
+      queryResult({
+        data:
+          path === "/oauth/callback-url"
+            ? { redirectUri: "http://localhost:3000/oauth/callback" }
+            : response,
+      }),
+    );
     mockRegisterCatalogServer.mockReset();
     mockRegisterCatalogServer.mockResolvedValue({
       success: true,
@@ -346,9 +356,10 @@ describe("ServerCatalog", () => {
           grant_type: "authorization_code",
           issuer: "https://github.com",
           client_id: "github-client",
-          client_secret: "github-secret",
+          client_secret: "github-secret", // pragma: allowlist secret
           authorization_url: "https://github.com/login/oauth/authorize",
           token_url: "https://github.com/login/oauth/access_token",
+          redirect_uri: "http://localhost:3000/oauth/callback",
           scopes: ["repo", "read:user"],
         },
       }),

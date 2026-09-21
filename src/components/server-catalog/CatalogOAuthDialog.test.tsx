@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 
@@ -36,12 +36,23 @@ const server: CatalogServer = {
 
 const mockUseQuery = vi.mocked(useQuery);
 
-function renderDialog(overrides: Partial<ComponentProps<typeof CatalogOAuthDialog>> = {}) {
+function renderDialog(
+  overrides: Partial<ComponentProps<typeof CatalogOAuthDialog>> = {},
+  callbackQueryOverrides: Partial<ReturnType<typeof useQuery>> = {},
+) {
   const onOpenChange = vi.fn();
   const onSubmit = vi.fn().mockResolvedValue(true);
-  mockUseQuery.mockReturnValue({ data: undefined } as ReturnType<typeof useQuery>);
+  mockUseQuery.mockReturnValue({
+    data: { redirectUri: "http://localhost:3000/oauth/callback" },
+    error: null,
+    isLoading: false,
+    execute: vi.fn(),
+    refetch: vi.fn(),
+    setData: vi.fn(),
+    ...callbackQueryOverrides,
+  } as ReturnType<typeof useQuery>);
 
-  renderWithProviders(
+  const rendered = renderWithProviders(
     <CatalogOAuthDialog
       server={server}
       onOpenChange={onOpenChange}
@@ -51,7 +62,7 @@ function renderDialog(overrides: Partial<ComponentProps<typeof CatalogOAuthDialo
     />,
   );
 
-  return { onOpenChange, onSubmit };
+  return { onOpenChange, onSubmit, ...rendered };
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
@@ -127,12 +138,17 @@ describe("CatalogOAuthDialog", () => {
     expect(screen.getByLabelText(/^Client Secret/i)).toHaveValue("");
   });
 
-  it("shows callback URL and submits normalized authorization-code credentials", async () => {
+  it("submits the displayed BFF callback URL with normalized authorization-code credentials", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     const onSubmit = vi.fn().mockResolvedValue(true);
     mockUseQuery.mockReturnValue({
-      data: { redirectUri: "https://gateway.example/oauth/callback" },
+      data: { redirectUri: "http://localhost:3000/oauth/callback" },
+      error: null,
+      isLoading: false,
+      execute: vi.fn(),
+      refetch: vi.fn(),
+      setData: vi.fn(),
     } as ReturnType<typeof useQuery>);
 
     renderWithProviders(
@@ -145,6 +161,7 @@ describe("CatalogOAuthDialog", () => {
     );
 
     expect(screen.getByText("Redirect URI")).toBeInTheDocument();
+    expect(screen.getByText("http://localhost:3000/oauth/callback")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Custom name (optional)"), " My GitHub ");
     await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
@@ -161,11 +178,79 @@ describe("CatalogOAuthDialog", () => {
           client_secret: "github-secret", // pragma: allowlist secret
           authorization_url: "https://github.com/login/oauth/authorize",
           token_url: "https://github.com/login/oauth/access_token",
+          redirect_uri: "http://localhost:3000/oauth/callback",
           scopes: ["repo", "read:user"],
         },
       }),
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it.each([
+    { data: undefined, isLoading: true, error: null },
+    { data: undefined, isLoading: false, error: { message: "Unavailable" } },
+    { data: {}, isLoading: false, error: null },
+    { data: { redirectUri: "invalid" }, isLoading: false, error: null },
+  ])("blocks registration when callback URL is unresolved: %j", async (callbackQuery) => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderDialog({}, callbackQuery);
+
+    await fillRequiredFields(user);
+
+    const submitButton = screen.getByRole("button", { name: "Configure and authorize" });
+    expect(submitButton).toBeDisabled();
+    fireEvent.submit(submitButton.closest("form")!);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        callbackQuery.isLoading
+          ? "Loading redirect URI…"
+          : "Couldn't load the default redirect URI. Save is disabled until this resolves.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("retries callback lookup and submits once it succeeds", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    const onOpenChange = vi.fn();
+    const refetch = vi.fn().mockRejectedValue({ message: "Unavailable" });
+    const { rerender } = renderDialog(
+      { onSubmit, onOpenChange },
+      { data: undefined, error: { message: "Unavailable" }, refetch },
+    );
+    await fillRequiredFields(user);
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refetch).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Configure and authorize" })).toBeDisabled();
+
+    mockUseQuery.mockReturnValue({
+      data: { redirectUri: "https://web.example.com/oauth/callback" },
+      error: null,
+      isLoading: false,
+      execute: vi.fn(),
+      refetch,
+      setData: vi.fn(),
+    } as ReturnType<typeof useQuery>);
+    rerender(
+      <CatalogOAuthDialog
+        server={server}
+        onOpenChange={onOpenChange}
+        onSubmit={onSubmit}
+        isSubmitting={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+
+    const expected = expect.objectContaining({
+      redirect_uri: "https://web.example.com/oauth/callback",
+    });
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oauth_credentials: expected, // pragma: allowlist secret
+      }),
+    );
   });
 
   it("resets values and notifies parent when cancelled", async () => {

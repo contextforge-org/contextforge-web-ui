@@ -75,9 +75,12 @@ export function CatalogOAuthDialog({
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [teamId, setTeamId] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const { data: callbackData } = useQuery<{ redirectUri: string }>("/oauth/callback-url", {
-    enabled: true,
-  });
+  const {
+    data: callbackData,
+    error: callbackError,
+    isLoading: isCallbackLoading,
+    refetch: retryCallback,
+  } = useQuery<{ redirectUri: string }>("/oauth/callback-url", { enabled: true });
   const { teams, onTeamChange } = useTeamScope({
     visibility,
     teamId,
@@ -85,6 +88,8 @@ export function CatalogOAuthDialog({
   });
 
   const callbackUrl = callbackData?.redirectUri;
+  const isCallbackUrlReady =
+    Boolean(callbackUrl && isHttpUrl(callbackUrl)) && !isCallbackLoading && !callbackError;
   const scopesList = useMemo(
     () =>
       scopes
@@ -150,7 +155,7 @@ export function CatalogOAuthDialog({
           : { team: intl.formatMessage({ id: "mcpServer.catalog.apiKey.teamRequired" }) }),
       };
       setErrors(nextErrors);
-      if (Object.keys(nextErrors).length > 0) return;
+      if (Object.keys(nextErrors).length > 0 || !isCallbackUrlReady) return;
 
       const registered = await onSubmit({
         name: name.trim() || null,
@@ -164,6 +169,7 @@ export function CatalogOAuthDialog({
           client_secret: clientSecret, // pragma: allowlist secret
           authorization_url: authorizationUrl.trim(),
           token_url: tokenUrl.trim(),
+          redirect_uri: callbackUrl,
           scopes: scopesList,
         },
       });
@@ -171,10 +177,12 @@ export function CatalogOAuthDialog({
     },
     [
       authorizationUrl,
+      callbackUrl,
       clientId,
       clientSecret,
       handleOpenChange,
       intl,
+      isCallbackUrlReady,
       issuer,
       name,
       onSubmit,
@@ -285,18 +293,33 @@ export function CatalogOAuthDialog({
               {fieldError("scopes")}
             </div>
 
-            {callbackUrl && (
-              <div className="space-y-2.5">
-                <Label>{intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}</Label>
-                <CopyValue
-                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
-                  value={callbackUrl}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
+            <div className="space-y-2.5">
+              <Label>{intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}</Label>
+              {isCallbackUrlReady && callbackUrl ? (
+                <>
+                  <CopyValue
+                    label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
+                    value={callbackUrl}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
+                  </p>
+                </>
+              ) : isCallbackLoading ? (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoading" })}
                 </p>
-              </div>
-            )}
+              ) : (
+                <InlineNotification
+                  type="error"
+                  message={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoadError" })}
+                  action={{
+                    label: intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriRetry" }),
+                    onClick: () => void retryCallback().catch(() => {}),
+                  }}
+                />
+              )}
+            </div>
 
             <div className="space-y-2.5">
               <Label htmlFor="catalog-oauth-client-id">
@@ -450,7 +473,11 @@ export function CatalogOAuthDialog({
             >
               {intl.formatMessage({ id: "common.button.cancel" })}
             </Button>
-            <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !isCallbackUrlReady}
+              aria-busy={isSubmitting || isCallbackLoading}
+            >
               {isSubmitting
                 ? intl.formatMessage({ id: "mcpServer.catalog.adding" })
                 : intl.formatMessage({ id: "mcpServer.catalog.oauth.submit" })}
