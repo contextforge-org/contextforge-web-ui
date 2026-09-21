@@ -132,9 +132,9 @@ describe("TeamForm", () => {
 
       // Private is the default and shows the lock hint.
       expect(screen.getByRole("radio", { name: /private/i })).toBeChecked();
-      const publicRadio = screen.getByRole("radio", { name: /public/i });
-      await user.click(publicRadio);
-      expect(publicRadio).toBeChecked();
+      const internalRadio = screen.getByRole("radio", { name: /internal/i });
+      await user.click(internalRadio);
+      expect(internalRadio).toBeChecked();
     });
   });
 
@@ -194,7 +194,7 @@ describe("TeamForm", () => {
       expect(screen.getByRole("heading", { name: /edit team/i })).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/add team name/i)).toHaveValue("Platform");
       expect(screen.getByRole("textbox", { name: /description/i })).toHaveValue("Platform team");
-      expect(screen.getByRole("radio", { name: /public/i })).toBeChecked();
+      expect(screen.getByRole("radio", { name: /internal/i })).toBeChecked();
       expect(screen.getByRole("button", { name: /^save changes$/i })).toBeInTheDocument();
     });
 
