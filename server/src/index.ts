@@ -23,6 +23,7 @@ import changePasswordRequiredRoute from "./routes/auth/change-password-required.
 import loginRoute from "./routes/auth/login.js";
 import logoutRoute from "./routes/auth/logout.js";
 import sessionRoute from "./routes/auth/session.js";
+import ssoLoginRoute from "./routes/auth/sso-login.js";
 import catchAllProxyRoute from "./routes/proxy/catch-all.js";
 import oauthAuthorizeProxyRoute from "./routes/proxy/oauth-authorize.js";
 import oauthAuthorizeNonceRoute from "./routes/proxy/oauth-authorize-nonce.js";
@@ -53,6 +54,7 @@ fastify.get("/healthz", async () => ({ ok: true }));
 await fastify.register(loginRoute);
 await fastify.register(logoutRoute);
 await fastify.register(sessionRoute);
+await fastify.register(ssoLoginRoute);
 await fastify.register(changePasswordRequiredRoute);
 await fastify.register(sseRoutes);
 await fastify.register(publicPasswordResetRoute);
