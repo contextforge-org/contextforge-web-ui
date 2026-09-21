@@ -1,17 +1,15 @@
 import { useState } from "react";
 
-import { ServerIcon } from "@/components/servers/ServerIcon";
+import { MCPIcon } from "@/components/icons/MCPIcon";
 import type { CatalogServer } from "@/generated/types";
 import { cn } from "@/lib/utils";
 
 const CATALOG_ICON_PATH = /^\/static\/catalog-icons\/[A-Za-z0-9][A-Za-z0-9._-]*\.png$/;
 
-// Catalog ids whose bundled icon is a solid dark/black mark with no light-mode
-// backdrop of its own (e.g. a bare wordmark or glyph). The tile normally follows
-// the app theme (bg-muted), which goes dark in dark mode and swallows these, so
-// they get a small light patch directly behind the glyph that stays light
-// regardless of theme - the outer tile itself still follows the theme like
-// every other icon. Add an id here if a newly bundled icon has the same problem.
+const TILE =
+  "flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-catalog-icon-tile p-2 shadow-xs";
+
+// Dark marks on a transparent background, which are not visible on the dark-mode tile.
 const LIGHT_BACKING_CATALOG_IDS = new Set([
   "zine",
   "gitmcp",
@@ -52,8 +50,8 @@ export function CatalogLogo({ server }: { server: CatalogServer }) {
 
   if (!logoUrl || failedLogoUrl === logoUrl) {
     return (
-      <div aria-hidden="true">
-        <ServerIcon name={server.name} size="lg" />
+      <div aria-hidden="true" className={TILE}>
+        <MCPIcon className="size-full text-foreground" />
       </div>
     );
   }
@@ -61,17 +59,11 @@ export function CatalogLogo({ server }: { server: CatalogServer }) {
   const needsLightBacking = LIGHT_BACKING_CATALOG_IDS.has(server.id);
 
   return (
-    <div
-      aria-hidden="true"
-      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted p-2"
-    >
+    <div aria-hidden="true" className={TILE}>
       <div
         className={cn(
           "flex size-full items-center justify-center",
-          // Only the small patch directly behind the glyph goes light, not the
-          // whole tile - the outer 32x32 still follows the theme like every
-          // other catalog icon.
-          needsLightBacking && "bg-neutral-100",
+          needsLightBacking && "bg-catalog-icon-backing",
         )}
       >
         <img

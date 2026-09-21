@@ -1,5 +1,5 @@
 import { useIntl } from "react-intl";
-import { MoreVertical, SquareMenu } from "lucide-react";
+import { Building2, Lock, MoreVertical, SquareMenu } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -23,6 +23,15 @@ import { formatLocalDateTime } from "../../utils/formatDate";
 
 function getTeamIcon(name: string): string {
   return name.charAt(0).toUpperCase();
+}
+
+function getVisibilityConfig(visibility: Team["visibility"]) {
+  switch (visibility) {
+    case "private":
+      return { labelId: "common.visibility.private", Icon: Lock };
+    default:
+      return { labelId: "common.visibility.internal", Icon: Building2 };
+  }
 }
 
 interface TeamsTableProps {
@@ -88,6 +97,8 @@ export function TeamsTable({
         <TableBody>
           {teams.map((team) => {
             const icon = getTeamIcon(team.name);
+            const visibility = getVisibilityConfig(team.visibility);
+            const VisibilityIcon = visibility.Icon;
 
             return (
               <TableRow
@@ -105,7 +116,10 @@ export function TeamsTable({
                   </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-neutral-600 dark:text-neutral-400">
-                  {team.visibility}
+                  <div className="inline-flex items-center gap-1.5">
+                    <VisibilityIcon className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
+                    <span>{intl.formatMessage({ id: visibility.labelId })}</span>
+                  </div>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-xs text-neutral-600 dark:text-neutral-400">
                   {team.member_count}
