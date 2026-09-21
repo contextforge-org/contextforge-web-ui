@@ -115,9 +115,9 @@ test.describe("Teams page", () => {
       await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
       await expect(main.getByText("Engineering")).toBeVisible();
       await expect(page.getByRole("cell", { name: "5", exact: true })).toBeVisible();
-      await expect(main.getByRole("cell", { name: "private", exact: true })).toBeVisible();
+      await expect(main.getByRole("cell", { name: "Private", exact: true })).toBeVisible();
       await expect(main.getByText("Public Team")).toBeVisible();
-      await expect(main.getByRole("cell", { name: "public", exact: true })).toBeVisible();
+      await expect(main.getByRole("cell", { name: "Internal", exact: true })).toBeVisible();
 
       // Description is revealed via a popover, not shown inline in the row.
       await page.getByRole("button", { name: "View description for Engineering" }).click();
@@ -227,7 +227,7 @@ test.describe("Teams page", () => {
 
       await page.locator("#team-name").fill("New Team");
       await page.getByRole("textbox", { name: "Description" }).fill("A new team");
-      await page.getByText("Public", { exact: true }).click();
+      await page.getByText("Internal", { exact: true }).click();
       await selectRadixOption(page, page.locator("#max-members"), "25");
 
       await page.getByRole("button", { name: "Create Team" }).click();
@@ -585,7 +585,7 @@ test.describe("Teams page", () => {
       await page.locator("#team-name").fill("Engineering Updated");
       await page.getByRole("textbox", { name: "Description" }).clear();
       await page.getByRole("textbox", { name: "Description" }).fill("Updated description");
-      await page.getByText("Public", { exact: true }).click();
+      await page.getByText("Internal", { exact: true }).click();
       await selectRadixOption(page, page.locator("#max-members"), "100");
 
       await page.getByRole("button", { name: "Save Changes" }).click();
