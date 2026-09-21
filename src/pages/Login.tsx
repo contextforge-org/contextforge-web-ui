@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 
 export function Login() {
   const intl = useIntl();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, ssoEnabled, ssoProviderName } = useAuth();
   const { navigate } = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +23,18 @@ export function Login() {
       navigate(returnTo);
     }
   }, [isAuthenticated, navigate, returnTo]);
+
+  useEffect(() => {
+    const errorParam = new URLSearchParams(window.location.search).get("error");
+    if (errorParam?.startsWith("sso_")) {
+      setError(intl.formatMessage({ id: "auth.login.error.ssoFailed" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount, reading the URL at load time
+  }, []);
+
+  function handleSsoLogin() {
+    window.location.href = `/auth/sso/login?next=${encodeURIComponent(returnTo)}`;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,6 +117,23 @@ export function Login() {
               : intl.formatMessage({ id: "auth.login.submit" })}
           </Button>
         </form>
+        {ssoEnabled && ssoProviderName && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-neutral-200 dark:border-neutral-700" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white dark:bg-neutral-800 px-2 text-neutral-500 dark:text-neutral-400">
+                  {intl.formatMessage({ id: "auth.login.sso.divider" })}
+                </span>
+              </div>
+            </div>
+            <Button type="button" variant="outline" onClick={handleSsoLogin} className="w-full">
+              {intl.formatMessage({ id: "auth.login.sso.signIn" }, { provider: ssoProviderName })}
+            </Button>
+          </>
+        )}
         <div className="mt-4 text-center">
           <Button
             type="button"
