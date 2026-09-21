@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
-import { EllipsisVertical, FileText, Plus } from "lucide-react";
+import { EllipsisVertical, FileText, KeyRound, Lock, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
 import type { OAuthGatewayStatus } from "@/api/catalog";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
+import { getAuthTypeGroupId, getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
@@ -101,6 +101,8 @@ function CatalogCard({
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
   );
+  const authTypeGroupId = getAuthTypeGroupId(server.auth_type);
+  const requiresAuthentication = authTypeGroupId === "apiKey" || authTypeGroupId === "oauth";
   const StatusIcon = STATUS_ICON[oauthState.severity];
 
   useEffect(() => {
@@ -122,6 +124,21 @@ function CatalogCard({
           <CardContent className="flex flex-1 flex-col px-5 py-5">
             <div className="flex items-start justify-between gap-3">
               <CatalogLogo server={server} />
+              {server.is_registered ? (
+                <span
+                  role="img"
+                  aria-label={intl.formatMessage({ id: "mcpServer.catalog.authenticated" })}
+                  title={intl.formatMessage({ id: "mcpServer.catalog.authenticated" })}
+                  className="inline-flex size-5 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+                >
+                  <Lock className="size-3" aria-hidden="true" />
+                </span>
+              ) : requiresAuthentication ? (
+                <span className="inline-flex items-center gap-2 rounded-sm bg-muted p-1 text-[10px] font-medium leading-[14px] text-foreground">
+                  <KeyRound className="size-3" aria-hidden="true" />
+                  {intl.formatMessage({ id: "mcpServer.catalog.authRequired" })}
+                </span>
+              ) : null}
             </div>
 
             <h2 id={headingId} className="mt-4 truncate text-sm font-medium text-foreground">

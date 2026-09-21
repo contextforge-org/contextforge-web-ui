@@ -109,6 +109,8 @@
   "mcpServer.catalog.selectTags": "Selecionar",
   "mcpServer.catalog.selectedCount": "{count, plural, one {# selecionado} other {# selecionados}}",
   "mcpServer.catalog.connected": "Conectado",
+  "mcpServer.catalog.authRequired": "Autenticação necessária",
+  "mcpServer.catalog.authenticated": "Autenticado",
   "mcpServer.catalog.notConnected": "Não conectado",
   "mcpServer.catalog.viewServer": "Ver {name}",
   "mcpServer.catalog.add": "Adicionar",

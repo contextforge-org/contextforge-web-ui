@@ -53,6 +53,29 @@ describe("CatalogResults", () => {
     expect(screen.getByRole("button", { name: "Adding Public Notes…" })).toBeDisabled();
   });
 
+  it("shows authentication affordances from the catalog design", () => {
+    const oauthServer = {
+      ...availableServer,
+      id: "github",
+      name: "GitHub",
+      auth_type: "OAuth2.1",
+    };
+    const { rerender } = renderWithProviders(catalogResults(oauthServer));
+
+    expect(screen.getByText("Auth required")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Authenticated" })).not.toBeInTheDocument();
+
+    rerender(catalogResults({ ...oauthServer, is_registered: true }));
+
+    expect(screen.queryByText("Auth required")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Authenticated" })).toBeInTheDocument();
+
+    rerender(catalogResults(availableServer));
+
+    expect(screen.queryByText("Auth required")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Authenticated" })).not.toBeInTheDocument();
+  });
+
   it("moves focus from Add to Actions after registration", async () => {
     const user = userEvent.setup();
     const { rerender } = renderWithProviders(catalogResults(availableServer));
