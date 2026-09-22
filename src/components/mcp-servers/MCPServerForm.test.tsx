@@ -36,7 +36,7 @@ vi.mock("@/hooks/useMCPServerForm", async (importOriginal) => {
 // Mock API responses for ExposeComponentsForm and gateway creation
 const server = setupServer(
   http.get("/auth/session", () => {
-    return HttpResponse.json({ authenticated: false });
+    return HttpResponse.json({ authenticated: false, ssoEnabled: false });
   }),
   // Mock gateway creation
   http.post("/api/v1/mcp-servers", () => {

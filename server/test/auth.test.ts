@@ -7,6 +7,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "../src/config.js";
 import { buildTestApp, type TestApp } from "./helpers/build-app.js";
 
+const SSO_ENV_KEYS = [
+  "SSO_ENABLED",
+  "SSO_KEYCLOAK_BASE_URL",
+  "SSO_KEYCLOAK_REALM",
+  "SSO_KEYCLOAK_CLIENT_ID",
+  "SSO_KEYCLOAK_CLIENT_SECRET",
+] as const;
+
+// Sets SSO env vars, runs `run` against a freshly-imported build-app.js (config.ts
+// reads them at import time), then always restores the env and resets modules --
+// via try/finally, so a failing assertion inside `run` can't leak SSO_ENABLED=true
+// into every later test in this file.
+async function withSsoEnabled<T>(run: () => Promise<T>): Promise<T> {
+  process.env.SSO_ENABLED = "true";
+  process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak-internal:8080";
+  process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+  process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+  process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+  vi.resetModules();
+
+  try {
+    return await run();
+  } finally {
+    for (const key of SSO_ENV_KEYS) delete process.env[key];
+    vi.resetModules();
+  }
+}
+
 function mockUpstreamLogin(ok: boolean, body: unknown, status = ok ? 200 : 401): void {
   vi.stubGlobal(
     "fetch",
@@ -534,78 +562,54 @@ describe("GET /auth/session", () => {
   });
 
   it("includes ssoEnabled/providerName when SSO is configured, for an anonymous visitor", async () => {
-    process.env.SSO_ENABLED = "true";
-    process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak-internal:8080";
-    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
-    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
-    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const app = await freshBuildTestApp();
 
-    vi.resetModules();
-    const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
-    const app = await freshBuildTestApp();
+      const response = await app.fastify.inject({ method: "GET", url: "/auth/session" });
 
-    const response = await app.fastify.inject({ method: "GET", url: "/auth/session" });
-
-    expect(response.json()).toEqual({
-      authenticated: false,
-      ssoEnabled: true,
-      providerName: "Keycloak",
+      expect(response.json()).toEqual({
+        authenticated: false,
+        ssoEnabled: true,
+        providerName: "Keycloak",
+      });
     });
-
-    delete process.env.SSO_ENABLED;
-    delete process.env.SSO_KEYCLOAK_BASE_URL;
-    delete process.env.SSO_KEYCLOAK_REALM;
-    delete process.env.SSO_KEYCLOAK_CLIENT_ID;
-    delete process.env.SSO_KEYCLOAK_CLIENT_SECRET;
-    vi.resetModules();
   });
 
   it("includes ssoEnabled/providerName once logged in too", async () => {
-    process.env.SSO_ENABLED = "true";
-    process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak-internal:8080";
-    process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
-    process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
-    process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const app = await freshBuildTestApp();
 
-    vi.resetModules();
-    const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
-    const app = await freshBuildTestApp();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: "upstream-jwt", // pragma: allowlist secret
+            user: { email: "user@example.com", is_admin: false },
+          }),
+          text: async () => "",
+        })),
+      );
+      const loginResponse = await app.fastify.inject({
+        method: "POST",
+        url: "/auth/login",
+        payload: { email: "user@example.com", password: "secret" }, // pragma: allowlist secret
+      });
+      const cookies = loginResponse.cookies.map((c) => `${c.name}=${c.value}`);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          access_token: "upstream-jwt", // pragma: allowlist secret
-          user: { email: "user@example.com", is_admin: false },
-        }),
-        text: async () => "",
-      })),
-    );
-    const loginResponse = await app.fastify.inject({
-      method: "POST",
-      url: "/auth/login",
-      payload: { email: "user@example.com", password: "secret" }, // pragma: allowlist secret
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/auth/session",
+        headers: { cookie: cookies.join("; ") },
+      });
+
+      const payload = response.json();
+      expect(payload.ssoEnabled).toBe(true);
+      expect(payload.providerName).toBe("Keycloak");
     });
-    const cookies = loginResponse.cookies.map((c) => `${c.name}=${c.value}`);
-
-    const response = await app.fastify.inject({
-      method: "GET",
-      url: "/auth/session",
-      headers: { cookie: cookies.join("; ") },
-    });
-
-    const payload = response.json();
-    expect(payload.ssoEnabled).toBe(true);
-    expect(payload.providerName).toBe("Keycloak");
-
-    delete process.env.SSO_ENABLED;
-    delete process.env.SSO_KEYCLOAK_BASE_URL;
-    delete process.env.SSO_KEYCLOAK_REALM;
-    delete process.env.SSO_KEYCLOAK_CLIENT_ID;
-    delete process.env.SSO_KEYCLOAK_CLIENT_SECRET;
-    vi.resetModules();
   });
 
   it("reports the session user and a fresh csrfToken once logged in", async () => {

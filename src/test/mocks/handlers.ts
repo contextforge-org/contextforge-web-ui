@@ -57,7 +57,7 @@ export const handlers = [
 
   // Mock session-check endpoint (BFF-owned) — always 200, unauthenticated by default
   http.get("*/auth/session", () => {
-    return HttpResponse.json({ authenticated: false });
+    return HttpResponse.json({ authenticated: false, ssoEnabled: false });
   }),
 
   // Mock gateways endpoint with cursor pagination
