@@ -8,17 +8,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ENV_KEYS = [
+  "SSO_ENABLED",
   "SSO_KEYCLOAK_BASE_URL",
   "SSO_KEYCLOAK_PUBLIC_BASE_URL",
   "SSO_KEYCLOAK_REALM",
+  "SSO_KEYCLOAK_CLIENT_ID",
+  "SSO_KEYCLOAK_CLIENT_SECRET",
 ] as const;
 
 let savedEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
   savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+  process.env.SSO_ENABLED = "true";
   process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak-internal:8080";
   process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+  process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+  process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
   delete process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL;
 });
 
@@ -121,8 +127,10 @@ describe("getDiscoveryDocument", () => {
     expect(doc.authorizationEndpoint).toBe(
       "https://keycloak.example.com:9443/realms/mcp-gateway/protocol/openid-connect/auth",
     );
-    // Server-to-server endpoints stay on the internal host -- only the
-    // browser-facing hop is rewritten.
+    expect(doc.endSessionEndpoint).toBe(
+      "https://keycloak.example.com:9443/realms/mcp-gateway/protocol/openid-connect/logout",
+    );
+    // Server-to-server endpoints stay on the internal host.
     expect(doc.tokenEndpoint).toBe(
       "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
     );
@@ -149,6 +157,24 @@ describe("getDiscoveryDocument", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(second).toEqual(first);
     expect(third).toEqual(first);
+  });
+
+  it("throws OidcDiscoveryError when SSO_ENABLED is false, even with stale Keycloak vars still set", async () => {
+    process.env.SSO_ENABLED = "false";
+    mockDiscoveryFetch(discoveryBody());
+    const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
+
+    await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
+  });
+
+  it("throws OidcDiscoveryError on an issuer mismatch", async () => {
+    mockDiscoveryFetch(
+      discoveryBody({ issuer: "http://attacker-controlled:8080/realms/mcp-gateway" }),
+    );
+    const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
+
+    await expect(getDiscoveryDocument()).rejects.toThrow(/issuer mismatch/);
+    await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
   });
 
   it("throws OidcDiscoveryError when the fetch itself fails", async () => {

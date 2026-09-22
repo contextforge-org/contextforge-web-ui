@@ -18,13 +18,13 @@ const DISCOVERY_FETCH_TIMEOUT_MS = 5000;
 
 export interface OidcDiscoveryDocument {
   issuer: string;
-  // Browser-facing -- rewritten to ssoKeycloakPublicBaseUrl when configured.
-  // Every other endpoint below is called by the BFF, server-to-server only.
+  // Browser-redirect targets -- rewritten to ssoKeycloakPublicBaseUrl when configured.
   authorizationEndpoint: string;
-  tokenEndpoint: string;
-  jwksUri: string;
   // Not every OIDC provider advertises this.
   endSessionEndpoint?: string;
+  // Called by the BFF, server-to-server only -- stay on the internal host.
+  tokenEndpoint: string;
+  jwksUri: string;
 }
 
 export class OidcDiscoveryError extends Error {
@@ -49,20 +49,21 @@ export async function getDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
   }
 
   if (!inFlight) {
-    inFlight = fetchDiscoveryDocument().finally(() => {
-      inFlight = undefined;
-    });
+    inFlight = fetchDiscoveryDocument()
+      .then((document) => {
+        cached = { document, fetchedAt: Date.now() };
+        return document;
+      })
+      .finally(() => {
+        inFlight = undefined;
+      });
   }
 
-  const document = await inFlight;
-  cached = { document, fetchedAt: Date.now() };
-  return document;
+  return inFlight;
 }
 
 async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
-  if (!config.ssoKeycloakBaseUrl || !config.ssoKeycloakRealm) {
-    // config.ts fails closed on boot when SSO_ENABLED=true, so this is only
-    // reachable if a caller invokes this with SSO disabled.
+  if (!config.ssoEnabled || !config.ssoKeycloakBaseUrl || !config.ssoKeycloakRealm) {
     throw new OidcDiscoveryError("SSO is not configured (missing Keycloak base URL or realm)");
   }
 
@@ -90,6 +91,13 @@ async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
   }
 
   const issuer = requireStringField(body, "issuer", url);
+  const expectedIssuer = `${config.ssoKeycloakBaseUrl}/realms/${encodeURIComponent(config.ssoKeycloakRealm)}`;
+  if (issuer !== expectedIssuer) {
+    throw new OidcDiscoveryError(
+      `Keycloak discovery issuer mismatch: expected "${expectedIssuer}", got "${issuer}"`,
+    );
+  }
+
   const authorizationEndpoint = requireStringField(body, "authorization_endpoint", url);
   const tokenEndpoint = requireStringField(body, "token_endpoint", url);
   const jwksUri = requireStringField(body, "jwks_uri", url);
@@ -98,10 +106,11 @@ async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
 
   return {
     issuer,
-    authorizationEndpoint: rewritePublicBaseUrl(authorizationEndpoint),
+    authorizationEndpoint: rewritePublicBaseUrl(authorizationEndpoint, "authorization_endpoint"),
     tokenEndpoint,
     jwksUri,
-    endSessionEndpoint,
+    endSessionEndpoint:
+      endSessionEndpoint && rewritePublicBaseUrl(endSessionEndpoint, "end_session_endpoint"),
   };
 }
 
@@ -115,7 +124,7 @@ function requireStringField(body: Record<string, unknown>, field: string, url: s
 
 // Swaps only scheme+host+port to ssoKeycloakPublicBaseUrl, keeping the
 // discovered path -- the browser can't reach the internal host.
-function rewritePublicBaseUrl(endpoint: string): string {
+function rewritePublicBaseUrl(endpoint: string, fieldName: string): string {
   if (!config.ssoKeycloakPublicBaseUrl) return endpoint;
   try {
     const publicBase = new URL(config.ssoKeycloakPublicBaseUrl);
@@ -124,11 +133,8 @@ function rewritePublicBaseUrl(endpoint: string): string {
     rewritten.host = publicBase.host; // host includes port
     return rewritten.toString();
   } catch (err) {
-    // endpoint is remote-supplied (Keycloak's own discovery document);
-    // requireStringField only checks it's a non-empty string, not a valid
-    // absolute URL.
     throw new OidcDiscoveryError(
-      `Keycloak discovery returned a malformed authorization_endpoint: "${endpoint}"`,
+      `Keycloak discovery returned a malformed ${fieldName}: "${endpoint}"`,
       { cause: err },
     );
   }
