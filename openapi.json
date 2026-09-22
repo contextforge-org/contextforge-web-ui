@@ -42642,6 +42642,58 @@
         "title": "CatalogListResponse",
         "description": "Response containing catalog servers."
       },
+      "CatalogOAuthMetadata": {
+        "properties": {
+          "issuer": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Issuer",
+            "description": "OAuth issuer / authorization server base URL"
+          },
+          "authorization_url": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Authorization Url",
+            "description": "OAuth authorization endpoint"
+          },
+          "token_url": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Token Url",
+            "description": "OAuth token endpoint"
+          },
+          "scopes": {
+            "items": { "type": "string" },
+            "type": "array",
+            "title": "Scopes",
+            "description": "Scopes recognized by this provider's OAuth server"
+          },
+          "supports_dcr": {
+            "type": "boolean",
+            "title": "Supports Dcr",
+            "description": "Whether the provider supports Dynamic Client Registration (RFC 7591)",
+            "default": false
+          },
+          "resource": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ],
+            "title": "Resource",
+            "description": "RFC 8707 resource indicator for this server"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CatalogOAuthMetadata",
+        "description": "Public OAuth discovery metadata seeded for a catalog server entry.\n\nNon-secret only: ``client_id``/``client_secret`` are per-deployment values\nand never belong here. Seeding these fields lets a catalog entry skip the\noutbound discovery probe at registration time, which matters for\nrestricted-egress deployments and for providers that publish no discovery\ndocument at all (see issue #6461)."
+      },
       "CatalogServer": {
         "properties": {
           "id": {
@@ -42774,6 +42826,13 @@
             "title": "Requires Oauth Config",
             "description": "Whether server is registered but needs OAuth configuration",
             "default": false
+          },
+          "oauth": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/CatalogOAuthMetadata" },
+              { "type": "null" }
+            ],
+            "description": "Seeded public OAuth discovery metadata for OAuth entries, when known (no secrets)"
           }
         },
         "type": "object",
@@ -42816,6 +42875,17 @@
             "title": "Api Key",
             "description": "API key if the catalog entry requires one"
           },
+          "oauth_credentials": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              { "type": "null" }
+            ],
+            "title": "Oauth Credentials",
+            "description": "OAuth credentials if the catalog entry requires OAuth"
+          },
           "visibility": {
             "anyOf": [
               {
@@ -42848,7 +42918,7 @@
         },
         "type": "object",
         "title": "CatalogServerRegisterBody",
-        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides. OAuth configuration is out of scope here (#5967)."
+        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides."
       },
       "CatalogServerRegisterRequest": {
         "properties": {
