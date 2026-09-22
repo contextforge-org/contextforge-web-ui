@@ -7,7 +7,7 @@ import {
   ToolInvokeJsonRpcError,
   toolsApi,
   type ToolInvokeRequestId,
-  type ToolPreviewResponse,
+  type ToolInvokeResultPayload,
 } from "@/api/tools";
 import { parseApiError } from "@/lib/errorUtils";
 
@@ -15,7 +15,7 @@ export const TOOL_INVOKE_TIMEOUT_MS = 120_000;
 
 export interface ToolInvokeSuccess {
   id: ToolInvokeRequestId | null;
-  result: ToolPreviewResponse;
+  result: ToolInvokeResultPayload;
   renderTimeMs: number;
   status: number;
 }

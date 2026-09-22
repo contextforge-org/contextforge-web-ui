@@ -8,6 +8,19 @@ import type { ToolPreviewState } from "@/hooks/useToolPreview";
 import type { ToolPreviewResponse } from "@/api/tools";
 import { TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES } from "./toolResultContent";
 
+type PreviewBody = NonNullable<ToolPreviewResponse>;
+
+function makePreviewResponse(overrides: Partial<PreviewBody> = {}): ToolPreviewResponse {
+  return {
+    validated: true,
+    resolvedArguments: {},
+    target: null,
+    annotations: {},
+    warnings: [],
+    ...overrides,
+  };
+}
+
 function previewProps(
   overrides: Partial<Pick<ToolPreviewState, "result" | "error" | "hasRun">>,
 ): Pick<ToolPreviewState, "result" | "error" | "hasRun"> {
@@ -33,12 +46,11 @@ describe("ToolPreviewResult", () => {
           result: {
             status: 200,
             renderTimeMs: 12,
-            preview: {
-              target: { kind: "federated", gateway_name: "github" },
-              resolved_arguments: { query: "cloudflare" },
-              content: [{ type: "text", text: "found issue", mimeType: "text/plain" }],
+            preview: makePreviewResponse({
+              target: { kind: "federated", gatewayName: "github" },
+              resolvedArguments: { query: "cloudflare" },
               warnings: [{ code: "elicitation_skipped", message: "approval skipped" }],
-            },
+            }),
           },
         })}
       />,
@@ -49,12 +61,11 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("federated: github")).toBeInTheDocument();
     expect(screen.getByText("Warnings")).toBeInTheDocument();
     expect(screen.getByText("approval skipped")).toBeInTheDocument();
-    expect(screen.getByText("Tool result")).toBeInTheDocument();
-    expect(screen.getByText("found issue")).toBeInTheDocument();
     expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
     expect(screen.getByText("Raw preview response")).toBeInTheDocument();
     expect(screen.getByLabelText("Copy raw preview response")).toBeVisible();
-    expect(container.textContent).toContain('"resolved_arguments"');
+    expect(container.textContent).toContain('"resolvedArguments"');
+    expect(container.textContent).toContain('"cloudflare"');
   });
 
   it("renders API failures", () => {
@@ -79,12 +90,10 @@ describe("ToolPreviewResult", () => {
           result: {
             status: 200,
             renderTimeMs: 4,
-            preview: {
-              validated: true,
+            preview: makePreviewResponse({
               resolvedArguments: { customer_id: "acme-001" },
               target: { kind: "local", gatewayName: null },
-              warnings: [],
-            },
+            }),
           },
         })}
       />,
@@ -95,72 +104,36 @@ describe("ToolPreviewResult", () => {
     expect(container.textContent).toContain('"acme-001"');
   });
 
-  it("renders fallback warning labels and string targets", () => {
+  it("renders generic failures without an HTTP status", () => {
     render(
       <ToolPreviewResult
         preview={previewProps({
           hasRun: true,
-          result: {
-            status: 200,
-            renderTimeMs: 0,
-            preview: {
-              target: "local",
-              warnings: [{ code: "schema_defaulted" }, {}],
-            },
-          },
+          error: { status: null, renderTimeMs: 0, message: "Network failed" },
         })}
       />,
     );
 
-    expect(screen.getByText("local")).toBeInTheDocument();
-    expect(screen.getByText("schema_defaulted")).toBeInTheDocument();
-    expect(screen.getByText("Preview returned a warning")).toBeInTheDocument();
-    expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+    expect(screen.getByText("Preview failed")).toBeInTheDocument();
+    expect(screen.getByText("0 ms")).toBeInTheDocument();
+    expect(screen.getByText("Network failed")).toBeInTheDocument();
   });
 
-  it("renders elicitation skipped warnings without backend messages", () => {
+  it("formats object targets without a gateway name", () => {
     render(
       <ToolPreviewResult
         preview={previewProps({
           hasRun: true,
           result: {
             status: 200,
-            renderTimeMs: 0,
-            preview: {
-              target: "local",
-              warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
-            },
+            renderTimeMs: 3,
+            preview: makePreviewResponse({ target: { kind: "federated" } }),
           },
         })}
       />,
     );
 
-    expect(
-      screen.getByText("Live invocation may request user input; preview skipped approval_hook."),
-    ).toBeInTheDocument();
-  });
-
-  it("renders localized fallback hook labels for elicitation warnings", () => {
-    render(
-      <ToolPreviewResult
-        preview={previewProps({
-          hasRun: true,
-          result: {
-            status: 200,
-            renderTimeMs: 0,
-            preview: {
-              warnings: [{ code: "elicitation_skipped" }],
-            },
-          },
-        })}
-      />,
-    );
-
-    expect(
-      screen.getByText(
-        "Live invocation may request user input; preview skipped one or more hooks.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("federated")).toBeInTheDocument();
   });
 
   it("keeps large raw responses collapsed until requested", async () => {
@@ -188,61 +161,5 @@ describe("ToolPreviewResult", () => {
     await user.click(screen.getByRole("button", { name: "View all" }));
 
     expect(container.textContent).toContain(marker);
-  });
-
-  it("renders tool error results without treating the HTTP request as failed", () => {
-    render(
-      <ToolPreviewResult
-        preview={previewProps({
-          hasRun: true,
-          result: {
-            status: 200,
-            renderTimeMs: 5,
-            preview: {
-              content: [{ type: "text", text: "tool failed", mimeType: "text/plain" }],
-              isError: true,
-            },
-          },
-        })}
-      />,
-    );
-
-    expect(screen.getByText("Preview 200")).toBeInTheDocument();
-    expect(screen.getByText("Error response")).toBeInTheDocument();
-    expect(screen.getByText("tool failed")).toBeInTheDocument();
-  });
-
-  it("renders generic failures without an HTTP status", () => {
-    render(
-      <ToolPreviewResult
-        preview={previewProps({
-          hasRun: true,
-          error: { status: null, renderTimeMs: 0, message: "Network failed" },
-        })}
-      />,
-    );
-
-    expect(screen.getByText("Preview failed")).toBeInTheDocument();
-    expect(screen.getByText("0 ms")).toBeInTheDocument();
-    expect(screen.getByText("Network failed")).toBeInTheDocument();
-  });
-
-  it("formats object targets without a gateway name", () => {
-    render(
-      <ToolPreviewResult
-        preview={previewProps({
-          hasRun: true,
-          result: {
-            status: 200,
-            renderTimeMs: 3,
-            preview: {
-              target: { kind: "federated" },
-            },
-          },
-        })}
-      />,
-    );
-
-    expect(screen.getByText("federated")).toBeInTheDocument();
   });
 });

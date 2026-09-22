@@ -1,4 +1,4 @@
-import type { ToolPreviewResponse, ToolResultContentBlock, ToolResultResource } from "@/api/tools";
+import type { ToolResultContentBlock, ToolResultResource } from "@/api/tools";
 import type { CodeBlockLanguage } from "@/components/ui/code-block";
 
 export const TOOL_RESULT_BLOCK_SIZE_LIMIT_BYTES = 256 * 1024;
@@ -7,6 +7,16 @@ export const TOOL_RESULT_BLOCK_COUNT_LIMIT = 20;
 export const TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES = 256 * 1024;
 
 const DEFAULT_MIME_TYPE = "application/octet-stream";
+
+/**
+ * Loosely-shaped tool result payload: an MCP `tools/call` result or a REST
+ * preview response, whichever the caller happens to be rendering. Both shapes
+ * are sniffed for `content`/`structuredOutput`/`isError` under a few possible
+ * key spellings and nesting levels (see {@link getToolResultPayload}), so a
+ * plain index-signature record is the honest type here rather than a specific
+ * generated one.
+ */
+export type ToolResultPayload = Record<string, unknown>;
 
 export interface NormalizedToolContentBlock {
   type: string;
@@ -29,7 +39,7 @@ export interface ToolResultBlockWindow {
 }
 
 export function getToolResultContentBlocks(
-  response: ToolPreviewResponse,
+  response: ToolResultPayload,
 ): NormalizedToolContentBlock[] {
   const payload = getToolResultPayload(response);
   const content = payload.content;
@@ -40,14 +50,14 @@ export function getToolResultContentBlocks(
     .filter((block): block is NormalizedToolContentBlock => block !== null);
 }
 
-export function getToolStructuredOutput(response: ToolPreviewResponse): unknown {
+export function getToolStructuredOutput(response: ToolResultPayload): unknown {
   const payload = getToolResultPayload(response);
   if (hasOwn(payload, "structured_output")) return payload.structured_output;
   if (hasOwn(payload, "structuredOutput")) return payload.structuredOutput;
   return undefined;
 }
 
-export function getToolResultIsError(response: ToolPreviewResponse): boolean {
+export function getToolResultIsError(response: ToolResultPayload): boolean {
   const payload = getToolResultPayload(response);
   return payload.isError === true || payload.is_error === true;
 }
@@ -194,7 +204,7 @@ export function estimateJsonByteSize(value: unknown, byteLimit = Infinity): numb
   return total;
 }
 
-function getToolResultPayload(response: ToolPreviewResponse): Record<string, unknown> {
+function getToolResultPayload(response: ToolResultPayload): Record<string, unknown> {
   if (isToolResultPayload(response)) return response;
 
   for (const key of ["result", "tool_result", "toolResult", "output"]) {
