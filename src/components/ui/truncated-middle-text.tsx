@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { truncateMiddle } from "@/components/gateways/utils";
+import { cn } from "@/lib/utils";
 
 /**
  * Middle-truncates `value` for display and reports whether it actually did.
@@ -41,7 +42,7 @@ export function TruncatedMiddleText({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={className}>
+        <span className={cn("block truncate", className)}>
           <span aria-hidden={isTruncated || undefined}>{display}</span>
           {isTruncated && <span className="sr-only">{value}</span>}
         </span>

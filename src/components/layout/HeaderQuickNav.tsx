@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
@@ -59,6 +60,7 @@ interface VisibleSearchItem {
   id: string;
   name: string;
   summary: string;
+  summaryIsUrl: boolean;
 }
 
 interface VisibleSearchGroup {
@@ -114,17 +116,14 @@ function getItemName(item: GlobalSearchItem): string {
   );
 }
 
-function getItemSummary(item: GlobalSearchItem): string {
-  return (
-    getString(item.description) ||
-    getString(item.email) ||
-    getString(item.slug) ||
-    getString(item.url) ||
-    getString(item.endpoint_url) ||
-    getString(item.uri) ||
-    getString(item.original_name) ||
-    getString(item.id)
-  );
+function getItemSummary(item: GlobalSearchItem): { value: string; isUrlLike: boolean } {
+  const prose = getString(item.description) || getString(item.email) || getString(item.slug);
+  if (prose) return { value: prose, isUrlLike: false };
+
+  const urlLike = getString(item.url) || getString(item.endpoint_url) || getString(item.uri);
+  if (urlLike) return { value: urlLike, isUrlLike: true };
+
+  return { value: getString(item.original_name) || getString(item.id), isUrlLike: false };
 }
 
 function isAbortError(error: unknown): boolean {
@@ -156,11 +155,15 @@ export function HeaderQuickNav() {
         .map((group) => ({
           entity_type: group.entity_type,
           items: group.items
-            .map((item) => ({
-              id: getItemId(item),
-              name: getItemName(item),
-              summary: getItemSummary(item),
-            }))
+            .map((item) => {
+              const summary = getItemSummary(item);
+              return {
+                id: getItemId(item),
+                name: getItemName(item),
+                summary: summary.value,
+                summaryIsUrl: summary.isUrlLike,
+              };
+            })
             .filter((item) => item.id && item.name),
         }))
         .filter((group) => group.items.length > 0),
@@ -411,9 +414,17 @@ export function HeaderQuickNav() {
                   {item.name}
                 </TruncatedText>
                 {item.summary && item.summary !== item.name ? (
-                  <TruncatedText className="w-full text-xs text-muted-foreground">
-                    {item.summary}
-                  </TruncatedText>
+                  item.summaryIsUrl ? (
+                    <TruncatedMiddleText
+                      value={item.summary}
+                      maxLength={40}
+                      className="w-full text-xs text-muted-foreground"
+                    />
+                  ) : (
+                    <TruncatedText className="w-full text-xs text-muted-foreground">
+                      {item.summary}
+                    </TruncatedText>
+                  )
                 ) : null}
               </Button>
             );

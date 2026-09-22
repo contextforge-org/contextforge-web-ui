@@ -1221,10 +1221,6 @@ test.describe("Virtual Servers page", () => {
       });
     });
 
-    // Narrow enough that the full endpoint URL can't fit on one line, forcing
-    // TruncatedText's CSS ellipsis to actually clip it.
-    await page.setViewportSize({ width: 480, height: 800 });
-
     await page.goto(APP.GATEWAYS);
     await page.waitForLoadState("networkidle");
 
@@ -1238,18 +1234,17 @@ test.describe("Virtual Servers page", () => {
     // Scope to the tabpanel — the sidebar's own "URL" field renders the same
     // endpoint value (via a different component), which would otherwise be an
     // ambiguous second match.
-    const endpoint = detailsPanel
+    // The endpoint is middle-truncated before render; the full value only lives
+    // in a screen-reader-only span inside the hover trigger.
+    const fullEndpoint = detailsPanel
       .getByRole("tabpanel")
       .getByText(new RegExp(`/servers/${MOCK_VIRTUAL_SERVER.id}/mcp$`));
-    await expect(endpoint).toBeVisible();
-    const fullEndpointText = (await endpoint.textContent())?.trim();
+    const fullEndpointText = (await fullEndpoint.textContent())?.trim();
     expect(fullEndpointText).toBeTruthy();
 
-    // The full value stays in the DOM regardless of visual clipping — confirm
-    // it's actually clipped at its current rendered width before relying on
-    // the tooltip to reveal it.
-    const isTruncated = await endpoint.evaluate((el) => el.scrollWidth > el.clientWidth);
-    expect(isTruncated).toBe(true);
+    const endpoint = fullEndpoint.locator("..");
+    await expect(endpoint).toBeVisible();
+    await expect(endpoint.locator('[aria-hidden="true"]')).toContainText("...");
 
     await expect(page.getByRole("tooltip")).toHaveCount(0);
     await endpoint.hover();
