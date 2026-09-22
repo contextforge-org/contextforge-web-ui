@@ -227,8 +227,11 @@ describe("Login", () => {
   });
 
   describe("SSO", () => {
+    const originalPath = window.location.pathname + window.location.search;
+
     afterEach(() => {
       vi.unstubAllGlobals();
+      window.history.replaceState(null, "", originalPath);
     });
 
     it("does not render an SSO button when ssoEnabled is false", () => {
@@ -280,10 +283,26 @@ describe("Login", () => {
 
       renderWithI18n(<Login />);
 
-      await waitFor(() => {
-        expect(screen.getByRole("alert")).toHaveTextContent(/Single sign-on failed/i);
-      });
+      expect(screen.getByRole("alert")).toHaveTextContent(/Single sign-on failed/i);
       expect(mockNavigate).not.toHaveBeenCalled();
+
+      await waitFor(() => {
+        expect(window.location.search).toBe("");
+      });
+    });
+
+    it("strips the error param but keeps other query params (e.g. next) intact", async () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+      window.history.pushState({}, "", "/app/login?next=%2Fapp%2Ftools&error=sso_access_denied");
+
+      renderWithI18n(<Login />);
+
+      await waitFor(() => {
+        expect(window.location.search).toBe("?next=%2Fapp%2Ftools");
+      });
     });
   });
 });

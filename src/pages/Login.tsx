@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { useAuth } from "../auth/useAuth";
 import { useRouter, resolveNextParam } from "../router";
@@ -14,9 +14,15 @@ export function Login() {
   const { navigate } = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const returnTo = resolveNextParam(window.location.search);
+  const ssoErrorParam = useMemo(() => {
+    const param = new URLSearchParams(window.location.search).get("error");
+    return param?.startsWith("sso_") ? param : null;
+  }, []);
+  const [error, setError] = useState<string | null>(() =>
+    ssoErrorParam ? intl.formatMessage({ id: "auth.login.error.ssoFailed" }) : null,
+  );
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -25,12 +31,11 @@ export function Login() {
   }, [isAuthenticated, navigate, returnTo]);
 
   useEffect(() => {
-    const errorParam = new URLSearchParams(window.location.search).get("error");
-    if (errorParam?.startsWith("sso_")) {
-      setError(intl.formatMessage({ id: "auth.login.error.ssoFailed" }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount, reading the URL at load time
-  }, []);
+    if (!ssoErrorParam) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, [ssoErrorParam]);
 
   function handleSsoLogin() {
     window.location.href = `/auth/sso/login?next=${encodeURIComponent(returnTo)}`;
