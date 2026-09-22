@@ -128,6 +128,29 @@ describe("getDiscoveryDocument", () => {
     );
   });
 
+  it("throws OidcDiscoveryError, not a raw TypeError, for a malformed authorization_endpoint when a public base URL is set", async () => {
+    process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "https://keycloak.example.com";
+    mockDiscoveryFetch(discoveryBody({ authorization_endpoint: "not a url" }));
+    const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
+
+    await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
+  });
+
+  it("de-dupes concurrent callers into a single in-flight fetch", async () => {
+    const fetchMock = mockDiscoveryFetch(discoveryBody());
+    const { getDiscoveryDocument } = await freshImport();
+
+    const [first, second, third] = await Promise.all([
+      getDiscoveryDocument(),
+      getDiscoveryDocument(),
+      getDiscoveryDocument(),
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(second).toEqual(first);
+    expect(third).toEqual(first);
+  });
+
   it("throws OidcDiscoveryError when the fetch itself fails", async () => {
     vi.stubGlobal(
       "fetch",

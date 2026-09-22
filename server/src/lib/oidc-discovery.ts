@@ -35,6 +35,9 @@ export class OidcDiscoveryError extends Error {
 }
 
 let cached: { document: OidcDiscoveryDocument; fetchedAt: number } | undefined;
+// De-dupes concurrent callers hitting a cold/expired cache into one fetch,
+// instead of each firing its own request at Keycloak (thundering herd).
+let inFlight: Promise<OidcDiscoveryDocument> | undefined;
 
 /**
  * Fetches and caches the discovery document. Throws OidcDiscoveryError on
@@ -45,7 +48,13 @@ export async function getDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
     return cached.document;
   }
 
-  const document = await fetchDiscoveryDocument();
+  if (!inFlight) {
+    inFlight = fetchDiscoveryDocument().finally(() => {
+      inFlight = undefined;
+    });
+  }
+
+  const document = await inFlight;
   cached = { document, fetchedAt: Date.now() };
   return document;
 }
@@ -108,9 +117,19 @@ function requireStringField(body: Record<string, unknown>, field: string, url: s
 // discovered path -- the browser can't reach the internal host.
 function rewritePublicBaseUrl(endpoint: string): string {
   if (!config.ssoKeycloakPublicBaseUrl) return endpoint;
-  const publicBase = new URL(config.ssoKeycloakPublicBaseUrl);
-  const rewritten = new URL(endpoint);
-  rewritten.protocol = publicBase.protocol;
-  rewritten.host = publicBase.host; // host includes port
-  return rewritten.toString();
+  try {
+    const publicBase = new URL(config.ssoKeycloakPublicBaseUrl);
+    const rewritten = new URL(endpoint);
+    rewritten.protocol = publicBase.protocol;
+    rewritten.host = publicBase.host; // host includes port
+    return rewritten.toString();
+  } catch (err) {
+    // endpoint is remote-supplied (Keycloak's own discovery document);
+    // requireStringField only checks it's a non-empty string, not a valid
+    // absolute URL.
+    throw new OidcDiscoveryError(
+      `Keycloak discovery returned a malformed authorization_endpoint: "${endpoint}"`,
+      { cause: err },
+    );
+  }
 }
