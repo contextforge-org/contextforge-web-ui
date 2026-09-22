@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { ApiError } from "@/api/client";
 import { I18nProvider } from "@/i18n";
-import { ToolInvokeJsonRpcError, toolsApi } from "@/api/tools";
+import { ToolInvokeJsonRpcError, toolsApi, type ToolResultContentBlock } from "@/api/tools";
 import { TOOL_INVOKE_TIMEOUT_MS, useToolInvoke } from "./useToolInvoke";
 
 vi.mock("sonner", () => ({
@@ -58,7 +58,8 @@ describe("useToolInvoke", () => {
       }),
     );
     expect(result.current.result?.status).toBe(200);
-    expect(result.current.result?.result.content?.[0]?.text).toBe("done");
+    const block = result.current.result?.result.content?.[0] as ToolResultContentBlock | undefined;
+    expect(block?.text).toBe("done");
     expect(result.current.error).toBeNull();
     expect(result.current.hasRun).toBe(true);
     expect(toolsApi.cancelInvoke).not.toHaveBeenCalled();
@@ -80,6 +81,41 @@ describe("useToolInvoke", () => {
     expect(result.current.error?.status).toBeNull();
     expect(result.current.result).toBeNull();
     expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes serverId through for scoped live invokes", async () => {
+    vi.mocked(toolsApi.invoke).mockResolvedValue({
+      id: "invoke-1",
+      result: { content: [] },
+      status: 200,
+    });
+    const { result } = renderHook(
+      () =>
+        useToolInvoke(
+          "github.search_issues",
+          { query: "cloudflare" },
+          {},
+          { serverId: "virtual-server-1" },
+        ),
+      {
+        wrapper: ({ children }) => <I18nProvider>{children}</I18nProvider>,
+      },
+    );
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(toolsApi.invoke).toHaveBeenCalledWith(
+      "github.search_issues",
+      { query: "cloudflare" },
+      {},
+      expect.objectContaining({
+        requestId: expect.stringMatching(/^tool-live-/),
+        serverId: "virtual-server-1",
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("captures HTTP ApiError failures", async () => {

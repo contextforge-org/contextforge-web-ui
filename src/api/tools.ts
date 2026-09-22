@@ -9,8 +9,6 @@ import type {
   ToolPreviewResponse as GeneratedToolPreviewResponse,
   ToolPreviewTarget as GeneratedToolPreviewTarget,
   ToolPreviewWarning as GeneratedToolPreviewWarning,
-  ToolResultContentBlock as GeneratedToolResultContentBlock,
-  ToolResultResource as GeneratedToolResultResource,
 } from "@/generated/types";
 
 /**
@@ -40,17 +38,60 @@ export interface GenerateSchemasFromOpenapiResult {
 
 export interface ToolPreviewRequest {
   arguments: Record<string, unknown>;
+  server_id?: string;
 }
 
 export type ToolPreviewWarning = GeneratedToolPreviewWarning;
 export type ToolPreviewTarget = GeneratedToolPreviewTarget;
-export type ToolResultResource = GeneratedToolResultResource;
-export type ToolResultContentBlock = GeneratedToolResultContentBlock;
 export type ToolPreviewResponse = GeneratedToolPreviewResponse;
 
 export interface ToolPreviewResult {
   preview: ToolPreviewResponse;
   status: number;
+}
+
+/**
+ * A single content block from an MCP `tools/call` result (text, image, blob, or
+ * embedded resource). Hand-typed rather than generated: JSON-RPC methods like
+ * `tools/call` live outside the REST surface orval generates types from, and MCP
+ * servers vary in which key spellings they emit (`mimeType` vs `mime_type`, etc.),
+ * hence the index signature.
+ */
+export interface ToolResultResource {
+  uri?: string;
+  mimeType?: string;
+  mime_type?: string;
+  text?: string;
+  blob?: string;
+  data?: string;
+  [key: string]: unknown;
+}
+
+export interface ToolResultContentBlock {
+  type?: string;
+  text?: string;
+  data?: string;
+  blob?: string;
+  mimeType?: string;
+  mime_type?: string;
+  uri?: string;
+  resource?: ToolResultResource;
+  [key: string]: unknown;
+}
+
+/**
+ * Result of an MCP `tools/call` JSON-RPC request. Hand-typed for the same reason
+ * as {@link ToolResultContentBlock} above: this isn't part of the OpenAPI surface,
+ * and MCP servers may nest the payload under alternate keys (`tool_result`,
+ * `toolResult`, `output`) or use snake_case field variants.
+ */
+export interface ToolInvokeResultPayload {
+  content?: unknown[];
+  structuredOutput?: unknown;
+  structured_output?: unknown;
+  isError?: boolean;
+  is_error?: boolean;
+  [key: string]: unknown;
 }
 
 export type ToolInvokeRequestId = string | number;
@@ -61,6 +102,7 @@ export interface ToolInvokeRequest {
   method: "tools/call";
   params: {
     name: string;
+    server_id?: string;
     arguments: Record<string, unknown>;
   };
 }
@@ -84,12 +126,12 @@ export interface ToolJsonRpcErrorBody {
 export interface ToolInvokeJsonRpcResponse {
   jsonrpc?: "2.0";
   id?: ToolInvokeRequestId | null;
-  result?: ToolPreviewResponse;
+  result?: ToolInvokeResultPayload;
   error?: ToolJsonRpcErrorBody;
 }
 
 export interface ToolInvokeResult {
-  result: ToolPreviewResponse;
+  result: ToolInvokeResultPayload;
   status: number;
   id: ToolInvokeRequestId | null;
 }
@@ -215,13 +257,18 @@ export const toolsApi = {
     name: string,
     args: Record<string, unknown> = {},
     passthroughHeaders: Record<string, string> = {},
-    options: { signal?: AbortSignal } = {},
+    options: { serverId?: string; signal?: AbortSignal } = {},
   ): Promise<ToolPreviewResult> => {
     const validName = validateToolName(name);
     return api
       .postWithMeta<ToolPreviewResponse>(
-        `/tools/preview/${encodeURIComponent(validName)}`,
-        { arguments: args } satisfies ToolPreviewRequest,
+        `/v1/tools/preview/${encodeURIComponent(validName)}`,
+        {
+          arguments: args,
+          // Backend acceptance and enforcement of this scope is tracked by
+          // IBM/mcp-context-forge#6743; the virtual-server UI stays flag-gated until then.
+          ...(options.serverId ? { server_id: options.serverId } : {}),
+        } satisfies ToolPreviewRequest,
         { headers: passthroughHeaders, signal: options.signal },
       )
       .then(({ data, status }) => ({ preview: data, status }));
@@ -239,7 +286,7 @@ export const toolsApi = {
     name: string,
     args: Record<string, unknown> = {},
     passthroughHeaders: Record<string, string> = {},
-    options: { requestId?: ToolInvokeRequestId; signal?: AbortSignal } = {},
+    options: { requestId?: ToolInvokeRequestId; serverId?: string; signal?: AbortSignal } = {},
   ): Promise<ToolInvokeResult> => {
     const validName = validateToolName(name);
     const requestId = options.requestId ?? `tool-live-${Date.now()}`;
@@ -249,6 +296,7 @@ export const toolsApi = {
       method: "tools/call",
       params: {
         name: validName,
+        ...(options.serverId ? { server_id: options.serverId } : {}),
         arguments: args,
       },
     };

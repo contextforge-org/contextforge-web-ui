@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.9+ (ref: 589c69)"
+    "version": "1.0.10+ (ref: af4eeca)"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -877,6 +877,87 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ToolRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/preview/{name}": {
+      "post": {
+        "tags": [
+          "Tools"
+        ],
+        "summary": "Preview Tool",
+        "description": "Validate and resolve a tool invocation without executing it (#5629).\n\nDry-run counterpart to live tool invocation: no REST/MCP/A2A/gRPC call is made, and no\nTOOL_POST_INVOKE hook runs. Shares tool resolution/RBAC with the live invocation path\n(see ``ToolService._resolve_tool_for_invocation``), so the two can never disagree about\nwhether a tool exists or is accessible.\n\nArgs:\n    name: Name of the tool to preview.\n    request: FastAPI request object, used to resolve the caller's visibility scope.\n    body: Candidate arguments to validate against the tool's input schema.\n    db: Database session.\n    user: Authenticated user with permissions.\n\nReturns:\n    ToolPreviewResponse: The dry-run envelope (validation result, target, annotations,\n        plugin pre-hooks that actually ran, and non-fatal warnings).\n\nRaises:\n    HTTPException: 404 if the feature is disabled, or if the tool is not found or not\n        accessible to the caller (same visibility rules as live invocation). 400 if\n        resolution fails for a reason short of not-found -- an ambiguous tool name or a\n        deprecated tool (same as live invocation's own ``ToolInvocationError`` handling).",
+        "operationId": "preview_tool_v1_tools_preview__name__post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ToolPreviewRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolPreviewResponse"
                 }
               }
             }
@@ -10454,7 +10535,7 @@
           "Teams"
         ],
         "summary": "Create Team",
-        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    background_tasks: Response-scoped background task scheduler\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException: If team creation fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
+        "description": "Create a new team, optionally seeding it with members.\n\nMembers supplied in the request are routed by the server: an address that\nbelongs to an active user is added to the team directly, anything else is\nsent an invitation. Team, memberships and invitations are written as one\ntransaction, so a bad row fails the whole request rather than leaving a\nhalf-populated team behind.\n\nArgs:\n    request: Team creation request data\n    background_tasks: Response-scoped background task scheduler\n    current_user_ctx: Currently authenticated user context\n    db: Database session\n\nReturns:\n    TeamCreateResponse: Created team data, plus how each seeded member was resolved\n\nRaises:\n    HTTPException 400: Active team with same name exists (platform admin callers).\n    HTTPException 403: Team creation disabled; caller is not platform admin.\n    HTTPException 409: Active team with same name exists (non-admin; generic message prevents name enumeration).\n    HTTPException 500: Unexpected service error.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(create_team)\n    True",
         "operationId": "create_team_v1_teams__post",
         "security": [
           {
@@ -10517,7 +10598,7 @@
           "Teams"
         ],
         "summary": "List Teams",
-        "description": "List teams visible to the caller.\n\n- Administrators see all non-personal teams plus their own personal team (paginated)\n- Regular users see only teams they are a member of (paginated client-side)\n\nArgs:\n    skip: Number of teams to skip for pagination\n    limit: Maximum number of teams to return\n    cursor: Pagination cursor\n    include_pagination: Include pagination metadata\n    current_user_ctx: Current user context with permissions and database session\n    db: Database session\n\nReturns:\n    Union[TeamListResponse, CursorPaginatedTeamsResponse]: List of teams\n\nRaises:\n    HTTPException: If there's an error listing teams",
+        "description": "List teams visible to the caller.\n\n- Administrators see all non-personal teams plus their own personal team (paginated)\n- Regular users see only teams they are a member of (paginated client-side)\n- search_query, when set, narrows either population to teams whose name, slug, or\n  description contains it (case-insensitive)\n\nArgs:\n    skip: Number of teams to skip for pagination\n    limit: Maximum number of teams to return\n    cursor: Pagination cursor\n    include_pagination: Include pagination metadata\n    search_query: Substring filter on name/slug/description\n    current_user_ctx: Current user context with permissions and database session\n    db: Database session\n\nReturns:\n    Union[TeamListResponse, CursorPaginatedTeamsResponse]: List of teams\n\nRaises:\n    HTTPException: If there's an error listing teams",
         "operationId": "list_teams_v1_teams__get",
         "security": [
           {
@@ -10583,6 +10664,25 @@
               "title": "Include Pagination"
             },
             "description": "Include pagination metadata (cursor)"
+          },
+          {
+            "name": "search_query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter teams by a substring of name, slug, or description",
+              "title": "Search Query"
+            },
+            "description": "Filter teams by a substring of name, slug, or description"
           },
           {
             "name": "jwt_token",
@@ -35006,7 +35106,7 @@
           "Catalog"
         ],
         "summary": "Register Catalog Server",
-        "description": "Register a catalog server as a gateway for the authenticated API caller.\n\nUnknown catalog ids map to HTTP 404 and already-registered servers to HTTP 409.\nRemaining business failures (unreachable server, auth failure) are returned as an\nHTTP 200 envelope with ``success=False`` and a mapped message; the ``error`` field\nis blanked because the service captures raw exception text there. The admin\nregistration endpoint keeps its 200-envelope contract unchanged.\n\nArgs:\n    catalog_id: Catalog server ID to register.\n    request: FastAPI request object.\n    body: Optional overrides (custom name, API key).\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Registration result envelope.\n\nRaises:\n    HTTPException: If the catalog feature is disabled (404), the catalog id is\n        unknown (404), or the server is already registered (409).",
+        "description": "Register a catalog server as a gateway for the authenticated API caller.\n\nUnknown catalog ids map to HTTP 404 and already-registered servers to HTTP 409.\nRemaining business failures (unreachable server, auth failure) are returned as an\nHTTP 200 envelope with ``success=False`` and a mapped message; the ``error`` field\nis blanked because the service captures raw exception text there. The admin\nregistration endpoint keeps its 200-envelope contract unchanged.\n\nArgs:\n    catalog_id: Catalog server ID to register.\n    request: FastAPI request object.\n    body: Optional overrides (custom name, API key, OAuth credentials).\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Registration result envelope.\n\nRaises:\n    HTTPException: If the catalog feature is disabled (404), the catalog id is\n        unknown (404), or the server is already registered (409).",
         "operationId": "register_catalog_server_v1_catalog__catalog_id__register_post",
         "security": [
           {
@@ -37864,7 +37964,7 @@
           "oauth"
         ],
         "summary": "Get Oauth Status",
-        "description": "Get OAuth status for a gateway.\n\nRequires authentication and authorization to prevent information disclosure\nabout gateway OAuth configuration (client IDs, scopes, etc.).\n\nArgs:\n    gateway_id: ID of the gateway\n    current_user: Authenticated user (enforces authentication)\n    db: Database session\n    request: Request with token-scoping context.\n\nReturns:\n    OAuth status information\n\nRaises:\n    HTTPException: If not authenticated, not authorized, gateway not found, or error",
+        "description": "Get OAuth status for a gateway.\n\nRequires authentication and authorization to prevent information disclosure\nabout gateway OAuth configuration (client IDs, scopes, etc.).\n\nFor the authorization_code grant, also reports the *caller's own* token\nstate (``user_token_status``), derived from authenticated identity - never\na client-supplied user. This is per-caller and never shared across users.\n\nArgs:\n    gateway_id: ID of the gateway\n    current_user: Authenticated user (enforces authentication)\n    db: Database session\n    request: Request with token-scoping context.\n\nReturns:\n    OAuth status information\n\nRaises:\n    HTTPException: If not authenticated, not authorized, gateway not found, or error",
         "operationId": "get_oauth_status_oauth_status__gateway_id__get",
         "security": [
           {
@@ -37907,6 +38007,87 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Oauth Status Oauth Status  Gateway Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/status": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Get Oauth Status Batch",
+        "description": "Get OAuth status for multiple gateways in a single call.\n\nBatched equivalent of ``GET /oauth/status/{gateway_id}`` so a grid of\ncards (catalog, gateways list) can render caller-scoped OAuth state\nwithout issuing one request per card.\n\nArgs:\n    request: Incoming request with token-scoping context.\n    gateway_ids: Gateway identifiers to look up (repeated query param).\n    current_user: Authenticated user (enforces authentication).\n    db: Database session.\n\nReturns:\n    Mapping of gateway_id to the same payload ``GET /oauth/status/{gateway_id}``\n    returns. Gateway ids that don't exist or aren't visible to the caller\n    are omitted rather than failing the whole batch.\n\nRaises:\n    HTTPException: If no gateway ids are supplied, or more than\n        ``OAUTH_STATUS_BATCH_MAX_IDS`` are requested at once.",
+        "operationId": "get_oauth_status_batch_oauth_status_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Gateway ids to look up; repeat the parameter for multiple ids",
+              "title": "Gateway Ids"
+            },
+            "description": "Gateway ids to look up; repeat the parameter for multiple ids"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Oauth Status Batch Oauth Status Get"
                 }
               }
             }
@@ -42642,6 +42823,76 @@
         "title": "CatalogListResponse",
         "description": "Response containing catalog servers."
       },
+      "CatalogOAuthMetadata": {
+        "properties": {
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer",
+            "description": "OAuth issuer / authorization server base URL"
+          },
+          "authorization_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Url",
+            "description": "OAuth authorization endpoint"
+          },
+          "token_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Url",
+            "description": "OAuth token endpoint"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scopes",
+            "description": "Scopes recognized by this provider's OAuth server"
+          },
+          "supports_dcr": {
+            "type": "boolean",
+            "title": "Supports Dcr",
+            "description": "Whether the provider supports Dynamic Client Registration (RFC 7591)",
+            "default": false
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource",
+            "description": "RFC 8707 resource indicator for this server"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CatalogOAuthMetadata",
+        "description": "Public OAuth discovery metadata seeded for a catalog server entry.\n\nNon-secret only: ``client_id``/``client_secret`` are per-deployment values\nand never belong here. Seeding these fields lets a catalog entry skip the\noutbound discovery probe at registration time, which matters for\nrestricted-egress deployments and for providers that publish no discovery\ndocument at all (see issue #6461)."
+      },
       "CatalogServer": {
         "properties": {
           "id": {
@@ -42774,6 +43025,17 @@
             "title": "Requires Oauth Config",
             "description": "Whether server is registered but needs OAuth configuration",
             "default": false
+          },
+          "oauth": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogOAuthMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seeded public OAuth discovery metadata for OAuth entries, when known (no secrets)"
           }
         },
         "type": "object",
@@ -42816,6 +43078,19 @@
             "title": "Api Key",
             "description": "API key if the catalog entry requires one"
           },
+          "oauth_credentials": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oauth Credentials",
+            "description": "OAuth credentials if the catalog entry requires OAuth"
+          },
           "visibility": {
             "anyOf": [
               {
@@ -42848,7 +43123,7 @@
         },
         "type": "object",
         "title": "CatalogServerRegisterBody",
-        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides. OAuth configuration is out of scope here (#5967)."
+        "description": "Body for the v1 catalog register endpoint.\n\nThe catalog server id comes from the path; this body carries only the\noptional overrides."
       },
       "CatalogServerRegisterRequest": {
         "properties": {
@@ -52293,6 +52568,18 @@
             "type": "boolean",
             "title": "Enabled"
           },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Fully-qualified MCP endpoint URL for this virtual server, derived from APP_DOMAIN. This value is also the RFC 8707 OAuth resource/audience identifier; keep its path format stable and use a separate function for any future display-only path change. None if APP_DOMAIN isn't a usable URL."
+          },
           "associatedTools": {
             "items": {
               "type": "string"
@@ -54516,6 +54803,68 @@
         "title": "TokenUsageStatsResponse",
         "description": "Schema for token usage statistics.\n\nAttributes:\n    period_days: Number of days analyzed\n    total_requests: Total number of requests\n    successful_requests: Number of successful requests\n    blocked_requests: Number of blocked requests\n    success_rate: Success rate percentage\n    average_response_time_ms: Average response time\n    top_endpoints: Most accessed endpoints\n\nExamples:\n    >>> stats = TokenUsageStatsResponse(\n    ...     period_days=30,\n    ...     total_requests=100,\n    ...     successful_requests=95,\n    ...     blocked_requests=5,\n    ...     success_rate=0.95,\n    ...     average_response_time_ms=150.5,\n    ...     top_endpoints=[(\"/tools\", 50), (\"/resources\", 30)]\n    ... )\n    >>> stats.success_rate\n    0.95"
       },
+      "ToolAnnotations": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "readOnlyHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readonlyhint"
+          },
+          "destructiveHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destructivehint"
+          },
+          "idempotentHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotenthint"
+          },
+          "openWorldHint": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openworldhint"
+          }
+        },
+        "type": "object",
+        "title": "ToolAnnotations",
+        "description": "Tool behavior hints for clients (MCP spec-compliant).\n\nAttributes:\n    title (Optional[str]): Human-readable display name for the tool.\n    read_only_hint (Optional[bool]): If true, tool does not modify its environment.\n    destructive_hint (Optional[bool]): If true, tool may perform destructive updates.\n                                      Only meaningful when read_only_hint == false.\n    idempotent_hint (Optional[bool]): If true, calling repeatedly with same arguments\n                                     has no additional effect. Only meaningful when\n                                     read_only_hint == false.\n    open_world_hint (Optional[bool]): If true, tool may interact with an \"open world\"\n                                     of external entities (e.g., web search)."
+      },
       "ToolCreate": {
         "properties": {
           "allow_auto": {
@@ -55185,182 +55534,74 @@
         "description": "A single tool plugin binding record returned from the API.\n\nAttributes:\n    id: Unique binding identifier (UUID).\n    team_id: Team the binding belongs to.\n    tool_name: Tool name the policy applies to.\n    plugin_id: Plugin identifier.\n    mode: Execution mode.\n    priority: Execution priority.\n    config: Plugin-specific configuration.\n    created_at: Creation timestamp.\n    created_by: Email of creator.\n    updated_at: Last update timestamp.\n    updated_by: Email of last updater.",
         "nullable": true
       },
-      "ToolResultContentBlock": {
+      "ToolPreviewRequest": {
         "properties": {
-          "type": {
-            "type": "string",
-            "title": "Type"
-          },
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "data": {
-            "type": "string",
-            "title": "Data"
-          },
-          "blob": {
-            "type": "string",
-            "title": "Blob"
-          },
-          "mimeType": {
-            "type": "string",
-            "title": "Mimetype"
-          },
-          "mime_type": {
-            "type": "string",
-            "title": "Mime Type"
-          },
-          "uri": {
-            "type": "string",
-            "title": "Uri"
-          },
-          "resource": {
-            "$ref": "#/components/schemas/ToolResultResource"
+          "arguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Arguments",
+            "description": "Arguments to validate against the tool's input schema"
           }
         },
-        "additionalProperties": true,
         "type": "object",
-        "title": "ToolResultContentBlock"
-      },
-      "ToolResultResource": {
-        "properties": {
-          "uri": {
-            "type": "string",
-            "title": "Uri"
-          },
-          "mimeType": {
-            "type": "string",
-            "title": "Mimetype"
-          },
-          "mime_type": {
-            "type": "string",
-            "title": "Mime Type"
-          },
-          "text": {
-            "type": "string",
-            "title": "Text"
-          },
-          "blob": {
-            "type": "string",
-            "title": "Blob"
-          },
-          "data": {
-            "type": "string",
-            "title": "Data"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "title": "ToolResultResource"
+        "title": "ToolPreviewRequest",
+        "description": "Schema for tool preview (dry-run) requests.\n\nCompanion to :class:`ToolInvocation`, minus the ``name`` field (the tool\nname is a path parameter on the preview route, not part of the body).\nSee #5629.\n\nAttributes:\n    arguments (Dict[str, Any]): Arguments to validate against the tool's input schema.\n                               Not executed against the tool; see :class:`ToolPreviewResponse`.\n\nExamples:\n    >>> ToolPreviewRequest().arguments\n    {}\n    >>> ToolPreviewRequest(arguments={}).arguments\n    {}\n    >>> # An explicit JSON null for \"arguments\" is as good as omitting the key entirely --\n    >>> # a client that always serializes the field shouldn't 422 for doing so (#5629).\n    >>> ToolPreviewRequest(arguments=None).arguments\n    {}",
+        "nullable": true
       },
       "ToolPreviewResponse": {
         "properties": {
-          "content": {
-            "items": {
-              "$ref": "#/components/schemas/ToolResultContentBlock"
-            },
-            "type": "array",
-            "title": "Content"
-          },
-          "resolved_arguments": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Resolved Arguments"
+          "validated": {
+            "type": "boolean",
+            "title": "Validated"
           },
           "resolvedArguments": {
             "additionalProperties": true,
             "type": "object",
             "title": "Resolvedarguments"
           },
-          "structured_output": {
-            "title": "Structured Output"
-          },
-          "structuredOutput": {
-            "title": "Structuredoutput"
-          },
-          "isError": {
-            "type": "boolean",
-            "title": "Iserror"
-          },
-          "is_error": {
-            "type": "boolean",
-            "title": "Is Error"
-          },
           "target": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "local",
-                  "federated"
-                ]
-              },
-              {
-                "$ref": "#/components/schemas/ToolPreviewTarget"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target"
+            "$ref": "#/components/schemas/ToolPreviewTarget"
           },
           "annotations": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Annotations"
+            "$ref": "#/components/schemas/ToolAnnotations"
           },
-          "pre_hooks_run": {
-            "anyOf": [
-              {
-                "items": {},
-                "type": "array"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pre Hooks Run"
+          "preHooksRun": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Prehooksrun",
+            "description": "Plugins whose TOOL_PRE_INVOKE hook actually ran during preview"
           },
           "warnings": {
             "items": {
               "$ref": "#/components/schemas/ToolPreviewWarning"
             },
             "type": "array",
-            "title": "Warnings"
+            "title": "Warnings",
+            "description": "Non-fatal caveats about this preview"
           }
         },
-        "additionalProperties": true,
         "type": "object",
+        "required": [
+          "validated",
+          "resolvedArguments",
+          "target",
+          "annotations"
+        ],
         "title": "ToolPreviewResponse",
-        "description": "Response body returned by MCP tool preview and JSON-RPC tool invocation results."
+        "description": "Schema for tool preview (dry-run) responses. Companion to :class:`ToolPreviewRequest`. See #5629.\n\nReports whether the given arguments would validate against the tool's input\nschema and where a live invocation would be dispatched, without invoking the\ntool: no REST/MCP/A2A/gRPC call is made, and no TOOL_POST_INVOKE hook runs.\n\nAttributes:\n    validated (bool): True when ``arguments`` validate against the tool's input schema.\n    resolved_arguments (Dict[str, Any]): The input arguments, unchanged (pre-invoke hook\n        payload modifications are not applied back here).\n    target (ToolPreviewTarget): Where a live invocation would be dispatched.\n    annotations (ToolAnnotations): The tool's declared behavior hints (readOnlyHint, etc.).\n    pre_hooks_run (List[str]): Names of plugins whose TOOL_PRE_INVOKE hook actually ran\n        (only plugins tagged ``preview_safe``; see plugins/AGENTS.md).\n    warnings (List[ToolPreviewWarning]): Non-fatal caveats, e.g. invalid arguments or\n        hooks that were skipped rather than exercised.",
+        "nullable": true
       },
       "ToolPreviewTarget": {
         "properties": {
           "kind": {
             "type": "string",
-            "title": "Kind"
-          },
-          "gateway_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "local",
+              "federated"
             ],
-            "title": "Gateway Name"
+            "title": "Kind"
           },
           "gatewayName": {
             "anyOf": [
@@ -55371,9 +55612,26 @@
                 "type": "null"
               }
             ],
-            "title": "Gatewayname"
+            "title": "Gatewayname",
+            "description": "Name of the owning gateway (federated tools only); never the gateway URL or credentials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "ToolPreviewTarget",
+        "description": "Where a live invocation of the previewed tool would be dispatched.\n\nNever carries the remote gateway's URL, transport, or credentials \u2014\nonly the gateway's name, so a caller can tell \"federated\" from \"local\"\nwithout gaining any information useful for reaching the gateway directly.\n\nAttributes:\n    kind (Literal[\"local\", \"federated\"]): \"local\" for a manually registered tool\n        (``gateway_id IS NULL``), \"federated\" for a tool proxied through a gateway.\n    gateway_name (Optional[str]): Name of the owning gateway when kind is \"federated\";\n        None for local tools.",
+        "nullable": true
+      },
+      "ToolPreviewWarning": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Machine-readable warning code"
           },
-          "name": {
+          "hook": {
             "anyOf": [
               {
                 "type": "string"
@@ -55382,38 +55640,23 @@
                 "type": "null"
               }
             ],
-            "title": "Name"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "title": "ToolPreviewTarget"
-      },
-      "ToolPreviewWarning": {
-        "properties": {
-          "code": {
-            "type": "string",
-            "title": "Code"
+            "title": "Hook",
+            "description": "Name of the plugin hook this warning concerns, if any"
           },
           "message": {
             "type": "string",
-            "title": "Message"
-          },
-          "hook": {
-            "type": "string",
-            "title": "Hook"
-          },
-          "hooks": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Hooks"
+            "title": "Message",
+            "description": "Human-readable explanation"
           }
         },
-        "additionalProperties": true,
         "type": "object",
-        "title": "ToolPreviewWarning"
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ToolPreviewWarning",
+        "description": "A single non-fatal caveat surfaced by a tool preview.\n\nAttributes:\n    code (str): Machine-readable warning code (e.g. \"hook_not_previewed\").\n    hook (Optional[str]): Name of the plugin hook the warning concerns, if any.\n    message (str): Human-readable explanation.",
+        "nullable": true
       },
       "ToolRead": {
         "properties": {

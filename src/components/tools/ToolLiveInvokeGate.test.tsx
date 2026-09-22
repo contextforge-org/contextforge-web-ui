@@ -106,6 +106,26 @@ describe("resolveToolLiveInvokeAvailability", () => {
     ).toEqual({ state: "requiresConfirmation" });
   });
 
+  it("blocks live invocation when gateway identity is malformed", () => {
+    expect(
+      resolveToolLiveInvokeAvailability({
+        canExecute: true,
+        canUseServers: true,
+        permissionsLoading: false,
+        invalidGatewayId: true,
+        tool: { annotations: { destructiveHint: true }, gatewayId: null },
+      }),
+    ).toEqual({ state: "unavailableInvalidGateway" });
+    expect(
+      resolveToolLiveInvokeAvailability({
+        canExecute: true,
+        canUseServers: true,
+        permissionsLoading: false,
+        tool: { annotations: { readOnlyHint: true }, gatewayId: "" },
+      }),
+    ).toEqual({ state: "unavailableInvalidGateway" });
+  });
+
   it("treats destructiveHint as higher priority than readOnlyHint", () => {
     expect(
       resolveToolLiveInvokeAvailability({
@@ -173,6 +193,58 @@ describe("ToolLiveInvokeGate", () => {
     expect(invoke.run).toHaveBeenCalledTimes(1);
     expect(mockHasPermission).toHaveBeenCalledWith("tools.execute");
     expect(mockHasPermission).toHaveBeenCalledWith("servers.use");
+  });
+
+  it("uses the tool action presentation when requested", async () => {
+    const user = userEvent.setup();
+    const invoke = makeInvoke();
+    const { rerender } = render(
+      <ToolLiveInvokeGate
+        presentation="tool"
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={invoke}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Invoke tool" }));
+    expect(invoke.run).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ToolLiveInvokeGate
+        presentation="tool"
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ hasRun: true })}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Re-run tool" })).toBeInTheDocument();
+  });
+
+  it("does not run or confirm when the pre-run check fails", async () => {
+    const user = userEvent.setup();
+    const invoke = makeInvoke();
+    const onBeforeRun = vi.fn(() => false);
+    const { rerender } = render(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={invoke}
+        onBeforeRun={onBeforeRun}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    expect(onBeforeRun).toHaveBeenCalledOnce();
+    expect(invoke.run).not.toHaveBeenCalled();
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { destructiveHint: true } })}
+        invoke={invoke}
+        onBeforeRun={onBeforeRun}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Live invoke" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(invoke.run).not.toHaveBeenCalled();
   });
 
   it("confirms local destructive tools before running", async () => {

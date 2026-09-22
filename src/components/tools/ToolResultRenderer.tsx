@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Download, ExternalLink } from "lucide-react";
 import { useIntl } from "react-intl";
 
-import type { ToolPreviewResponse } from "@/api/tools";
 import {
   Accordion,
   AccordionContent,
@@ -25,10 +24,11 @@ import {
   isTextualMime,
   TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES,
   type NormalizedToolContentBlock,
+  type ToolResultPayload,
 } from "./toolResultContent";
 
 export interface ToolResultRendererProps {
-  response: ToolPreviewResponse;
+  response: ToolResultPayload;
 }
 
 const resultRenderKeys = new WeakMap<object, number>();
@@ -282,7 +282,7 @@ function StructuredOutput({ value }: { value: unknown }) {
   );
 }
 
-function getResultRenderKey(response: ToolPreviewResponse): string {
+function getResultRenderKey(response: ToolResultPayload): string {
   const cached = resultRenderKeys.get(response);
   if (cached !== undefined) return String(cached);
 
