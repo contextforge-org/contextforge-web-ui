@@ -140,9 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<SessionResponse>("/auth/session")
       .then((data) => {
-        if (cancelled || version !== authVersion.current) return;
-        setCsrfToken(data.csrfToken ?? null);
+        if (cancelled) return;
         setSso({ enabled: data.ssoEnabled, providerName: data.providerName });
+        if (version !== authVersion.current) return;
+        setCsrfToken(data.csrfToken ?? null);
         if (data.authenticated && data.user) {
           setState({
             user: data.user,
