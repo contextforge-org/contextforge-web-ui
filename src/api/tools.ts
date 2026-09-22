@@ -40,6 +40,7 @@ export interface GenerateSchemasFromOpenapiResult {
 
 export interface ToolPreviewRequest {
   arguments: Record<string, unknown>;
+  server_id?: string;
 }
 
 export type ToolPreviewWarning = GeneratedToolPreviewWarning;
@@ -61,6 +62,7 @@ export interface ToolInvokeRequest {
   method: "tools/call";
   params: {
     name: string;
+    server_id?: string;
     arguments: Record<string, unknown>;
   };
 }
@@ -215,13 +217,18 @@ export const toolsApi = {
     name: string,
     args: Record<string, unknown> = {},
     passthroughHeaders: Record<string, string> = {},
-    options: { signal?: AbortSignal } = {},
+    options: { serverId?: string; signal?: AbortSignal } = {},
   ): Promise<ToolPreviewResult> => {
     const validName = validateToolName(name);
     return api
       .postWithMeta<ToolPreviewResponse>(
-        `/tools/preview/${encodeURIComponent(validName)}`,
-        { arguments: args } satisfies ToolPreviewRequest,
+        `/v1/tools/preview/${encodeURIComponent(validName)}`,
+        {
+          arguments: args,
+          // Backend acceptance and enforcement of this scope is tracked by
+          // IBM/mcp-context-forge#6743; the virtual-server UI stays flag-gated until then.
+          ...(options.serverId ? { server_id: options.serverId } : {}),
+        } satisfies ToolPreviewRequest,
         { headers: passthroughHeaders, signal: options.signal },
       )
       .then(({ data, status }) => ({ preview: data, status }));
@@ -239,7 +246,7 @@ export const toolsApi = {
     name: string,
     args: Record<string, unknown> = {},
     passthroughHeaders: Record<string, string> = {},
-    options: { requestId?: ToolInvokeRequestId; signal?: AbortSignal } = {},
+    options: { requestId?: ToolInvokeRequestId; serverId?: string; signal?: AbortSignal } = {},
   ): Promise<ToolInvokeResult> => {
     const validName = validateToolName(name);
     const requestId = options.requestId ?? `tool-live-${Date.now()}`;
@@ -249,6 +256,7 @@ export const toolsApi = {
       method: "tools/call",
       params: {
         name: validName,
+        ...(options.serverId ? { server_id: options.serverId } : {}),
         arguments: args,
       },
     };

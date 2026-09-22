@@ -21,10 +21,15 @@ import {
 } from "./toolResultContent";
 
 export interface ToolLiveInvokeResultProps {
+  context?: ToolLiveInvokeResultContext;
   invoke: Pick<ToolInvokeState, "result" | "error" | "hasRun">;
 }
 
-export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
+export interface ToolLiveInvokeResultContext {
+  requestName?: string;
+}
+
+export function ToolLiveInvokeResult({ context, invoke }: ToolLiveInvokeResultProps) {
   const intl = useIntl();
   const { result, error, hasRun } = invoke;
 
@@ -68,6 +73,17 @@ export function ToolLiveInvokeResult({ invoke }: ToolLiveInvokeResultProps) {
           {intl.formatMessage({ id: "tools.details.preview.renderMs" }, { ms: renderTimeMs })}
         </span>
       </div>
+
+      {context?.requestName && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+          <span>
+            {intl.formatMessage(
+              { id: "tools.details.invoke.context.requestedThrough" },
+              { name: context.requestName },
+            )}
+          </span>
+        </div>
+      )}
 
       {response && <ToolResultRenderer response={response} />}
 

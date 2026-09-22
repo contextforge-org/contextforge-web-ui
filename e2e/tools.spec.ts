@@ -324,7 +324,7 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewBody = route.request().postDataJSON();
       previewHeaders = route.request().headers();
       await route.fulfill({
@@ -361,7 +361,11 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("Read-only")).toBeVisible();
 
     const previewButton = panel.getByRole("button", { name: "Preview" });
-    await expect(previewButton).toBeDisabled();
+    await expect(previewButton).toBeEnabled();
+    await previewButton.click();
+    await expect(panel.getByLabel("query")).toHaveAttribute("aria-invalid", "true");
+    await expect(panel.getByText("Required")).toBeVisible();
+    expect(previewBody).toBeNull();
 
     await panel.getByLabel("query").fill("cloudflare");
     await panel.getByLabel("limit").fill("5");
@@ -426,7 +430,12 @@ test.describe("Tools page", () => {
     const panel = await openToolDetails(page, "github-server");
 
     await expect(panel.getByText("MCP 2025-11-25")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    const invokeButton = panel.getByRole("button", { name: "Live invoke" });
+    await expect(invokeButton).toBeEnabled();
+    await invokeButton.click();
+    await expect(panel.getByLabel("query")).toHaveAttribute("aria-invalid", "true");
+    await expect(panel.getByText("Required")).toBeVisible();
+    expect(rpcBody).toBeNull();
 
     await panel.getByLabel("query").fill("cloudflare");
     await panel.getByLabel("limit").fill("5");
@@ -434,7 +443,7 @@ test.describe("Tools page", () => {
     await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
     await panel.getByLabel("Header 1 value").fill("team-a");
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await invokeButton.click();
 
     await expect(panel.getByText("Live invoke 200")).toBeVisible();
     await expect(panel.getByText("Live result from gateway").first()).toBeVisible();
@@ -624,7 +633,7 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewHeaders = route.request().headers();
       await route.fulfill({
         status: 200,
