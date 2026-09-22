@@ -86,7 +86,7 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
           </div>
           <ul className="mt-2 space-y-1 text-muted-foreground">
             {warnings.map((warning, index) => (
-              <li key={`${warning.code}-${index}`}>{warning.message}</li>
+              <li key={`${warning.code}-${index}`}>{formatWarning(warning, intl.formatMessage)}</li>
             ))}
           </ul>
         </div>
@@ -172,4 +172,25 @@ function RawPreviewResponse({ response }: { response: ToolPreviewResponse }) {
 function formatTarget(target: ToolPreviewTarget) {
   if (!target) return null;
   return target.gatewayName ? `${target.kind}: ${target.gatewayName}` : target.kind;
+}
+
+// Backend guarantees `message`/`code`, but this reads an HTTP boundary — stay
+// defensive and fall back to a localized string if either is ever missing.
+function formatWarning(
+  warning: NonNullable<ToolPreviewWarning>,
+  formatMessage: (descriptor: { id: string }, values?: Record<string, string>) => string,
+): string {
+  if (warning.message) return warning.message;
+
+  if (warning.code === "elicitation_skipped") {
+    return formatMessage(
+      { id: "tools.details.preview.warnings.elicitationSkipped" },
+      {
+        hooks:
+          warning.hook ?? formatMessage({ id: "tools.details.preview.warnings.unspecifiedHooks" }),
+      },
+    );
+  }
+
+  return warning.code || formatMessage({ id: "tools.details.preview.warnings.generic" });
 }

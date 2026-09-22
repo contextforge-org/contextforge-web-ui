@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ToolPreviewResult } from "./ToolPreviewResult";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
-import type { ToolPreviewResponse } from "@/api/tools";
+import type { ToolPreviewResponse, ToolPreviewWarning } from "@/api/tools";
 import { TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES } from "./toolResultContent";
 
 type PreviewBody = NonNullable<ToolPreviewResponse>;
@@ -117,6 +117,71 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("Preview failed")).toBeInTheDocument();
     expect(screen.getByText("0 ms")).toBeInTheDocument();
     expect(screen.getByText("Network failed")).toBeInTheDocument();
+  });
+
+  it("falls back to a localized generic warning when the backend omits a message", () => {
+    // Backend guarantees `message`, but the formatter is defensive about an HTTP
+    // boundary sending malformed data — simulate that here.
+    const warning = { code: "schema_defaulted" } as unknown as ToolPreviewWarning;
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: makePreviewResponse({ warnings: [warning] }),
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("schema_defaulted")).toBeInTheDocument();
+  });
+
+  it("falls back to a localized elicitation-skipped message naming the hook", () => {
+    const warning = {
+      code: "elicitation_skipped",
+      hook: "approval_hook",
+    } as unknown as ToolPreviewWarning;
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: makePreviewResponse({ warnings: [warning] }),
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Live invocation may request user input; preview skipped approval_hook."),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to an unspecified-hooks label when neither message nor hook is present", () => {
+    const warning = { code: "elicitation_skipped" } as unknown as ToolPreviewWarning;
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 0,
+            preview: makePreviewResponse({ warnings: [warning] }),
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Live invocation may request user input; preview skipped one or more hooks.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("formats object targets without a gateway name", () => {
