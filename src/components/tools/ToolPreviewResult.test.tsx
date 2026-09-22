@@ -86,6 +86,20 @@ describe("ToolPreviewResult", () => {
     expect(screen.queryByText("Preview 200")).not.toBeInTheDocument();
   });
 
+  it("renders a warning status when the backend returns a null response body", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: { status: 200, renderTimeMs: 5, preview: null },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Preview 200 - no response data")).toBeInTheDocument();
+    expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+  });
+
   it("renders API failures", () => {
     render(
       <ToolPreviewResult

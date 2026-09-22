@@ -35,9 +35,18 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
   const response = result?.preview;
   const resolvedArguments = response?.resolvedArguments;
   const succeeded = result !== null;
-  const validated = response?.validated ?? true;
+  // The 200 response body is nullable (a preview can succeed with no data),
+  // so `validated` only makes sense once a response body actually exists.
+  const hasResponse = response != null;
+  const validated = hasResponse ? response.validated : false;
   const statusCode = result?.status ?? error?.status ?? null;
-  const severity = !succeeded ? "error" : validated ? "success" : "warning";
+  const severity = !succeeded
+    ? "error"
+    : !hasResponse
+      ? "warning"
+      : validated
+        ? "success"
+        : "warning";
   const StatusIcon = STATUS_ICON[severity];
   const statusLabel = !succeeded
     ? statusCode !== null
@@ -46,12 +55,20 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
           { status: statusCode },
         )
       : intl.formatMessage({ id: "tools.details.preview.statusError" })
-    : validated
-      ? intl.formatMessage({ id: "tools.details.preview.statusOk" }, { status: statusCode ?? 200 })
-      : intl.formatMessage(
-          { id: "tools.details.preview.statusInvalid" },
+    : !hasResponse
+      ? intl.formatMessage(
+          { id: "tools.details.preview.statusEmpty" },
           { status: statusCode ?? 200 },
-        );
+        )
+      : validated
+        ? intl.formatMessage(
+            { id: "tools.details.preview.statusOk" },
+            { status: statusCode ?? 200 },
+          )
+        : intl.formatMessage(
+            { id: "tools.details.preview.statusInvalid" },
+            { status: statusCode ?? 200 },
+          );
 
   const target = response ? formatTarget(response.target) : null;
   const warnings = (response?.warnings ?? []).filter(

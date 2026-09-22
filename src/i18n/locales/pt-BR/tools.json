@@ -71,6 +71,7 @@
   "tools.details.preview.error": "Falha na prévia da ferramenta",
   "tools.details.preview.statusOk": "Prévia {status}",
   "tools.details.preview.statusInvalid": "Prévia {status} - argumentos inválidos",
+  "tools.details.preview.statusEmpty": "Prévia {status} - sem dados de resposta",
   "tools.details.preview.statusError": "Falha na prévia",
   "tools.details.preview.statusErrorWithCode": "Falha na prévia {status}",
   "tools.details.preview.renderMs": "{ms} ms",

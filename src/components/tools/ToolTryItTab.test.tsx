@@ -227,7 +227,12 @@ describe("ToolTryItTab", () => {
     mswServer.use(
       http.post("*/v1/tools/preview/:name", () => {
         previewCalls += 1;
-        return HttpResponse.json({ target: "local", resolved_arguments: {} });
+        return HttpResponse.json({
+          validated: true,
+          target: { kind: "local" },
+          resolvedArguments: {},
+          annotations: {},
+        });
       }),
     );
 
@@ -321,7 +326,12 @@ describe("ToolTryItTab", () => {
     mswServer.use(
       http.post("*/v1/tools/preview/:name", () => {
         previewCalls += 1;
-        return HttpResponse.json({ target: "local", resolved_arguments: { query: "cloudflare" } });
+        return HttpResponse.json({
+          validated: true,
+          target: { kind: "local" },
+          resolvedArguments: { query: "cloudflare" },
+          annotations: {},
+        });
       }),
       http.post("*/rpc", async ({ request }) => {
         const envelope = (await request.json()) as { id: string };
