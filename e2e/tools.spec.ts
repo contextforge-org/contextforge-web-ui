@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { test, expect } from "./fixtures/api-mock";
+import { test, expect, MOCK_CSRF_TOKEN } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { Tool } from "../src/types/tool";
 
@@ -387,6 +387,7 @@ test.describe("Tools page", () => {
 
   test("live invokes a read-only tool with JSON-RPC args and passthrough headers", async ({
     page,
+    apiMock,
   }) => {
     const liveTool = makeTool("search_issues", "github-server", {
       description: "Search repository issues",
@@ -454,7 +455,8 @@ test.describe("Tools page", () => {
     });
     expect(rpcBody?.params).not.toHaveProperty("server_id");
     expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
-    expect(rpcHeaders["x-csrf-token"]).toBe("mock-csrf-token");
+    // Real mode gets a real, randomly-generated token from the real login.
+    expect(rpcHeaders["x-csrf-token"]).toBe((await apiMock.getRealCsrfToken()) ?? MOCK_CSRF_TOKEN);
   });
 
   test("confirms destructive local live invoke before calling /rpc", async ({ page }) => {

@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { STATUS_ICON } from "@/lib/status";
+import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
 import type { ToolPreviewResponse, ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
 import {
@@ -35,15 +35,23 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
   const response = result?.preview;
   const resolvedArguments = response?.resolvedArguments;
   const succeeded = result !== null;
+  const validated = response?.validated ?? true;
   const statusCode = result?.status ?? error?.status ?? null;
-  const statusLabel = succeeded
-    ? intl.formatMessage({ id: "tools.details.preview.statusOk" }, { status: statusCode ?? 200 })
-    : statusCode !== null
+  const severity = !succeeded ? "error" : validated ? "success" : "warning";
+  const StatusIcon = STATUS_ICON[severity];
+  const statusLabel = !succeeded
+    ? statusCode !== null
       ? intl.formatMessage(
           { id: "tools.details.preview.statusErrorWithCode" },
           { status: statusCode },
         )
-      : intl.formatMessage({ id: "tools.details.preview.statusError" });
+      : intl.formatMessage({ id: "tools.details.preview.statusError" })
+    : validated
+      ? intl.formatMessage({ id: "tools.details.preview.statusOk" }, { status: statusCode ?? 200 })
+      : intl.formatMessage(
+          { id: "tools.details.preview.statusInvalid" },
+          { status: statusCode ?? 200 },
+        );
 
   const target = response ? formatTarget(response.target) : null;
   const warnings = (response?.warnings ?? []).filter(
@@ -57,14 +65,8 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
         aria-live="polite"
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
-        {succeeded ? (
-          <STATUS_ICON.success className="size-4 text-success" />
-        ) : (
-          <STATUS_ICON.error className="size-4 text-destructive" />
-        )}
-        <span className={cn("font-medium", succeeded ? "text-foreground" : "text-destructive")}>
-          {statusLabel}
-        </span>
+        <StatusIcon className={cn("size-4", STATUS_TONE_CLASS[severity])} />
+        <span className={cn("font-medium", STATUS_TONE_CLASS[severity])}>{statusLabel}</span>
         <span className="text-muted-foreground" aria-hidden="true">
           -
         </span>

@@ -70,6 +70,7 @@
   "tools.details.preview.running": "Generando vista previa...",
   "tools.details.preview.error": "Error en la vista previa de la herramienta",
   "tools.details.preview.statusOk": "Vista previa {status}",
+  "tools.details.preview.statusInvalid": "Vista previa {status} - argumentos no válidos",
   "tools.details.preview.statusError": "Error en la vista previa",
   "tools.details.preview.statusErrorWithCode": "Error en la vista previa {status}",
   "tools.details.preview.renderMs": "{ms} ms",

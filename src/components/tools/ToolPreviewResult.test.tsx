@@ -68,6 +68,24 @@ describe("ToolPreviewResult", () => {
     expect(container.textContent).toContain('"cloudflare"');
   });
 
+  it("renders a warning status when the backend reports invalid arguments", () => {
+    render(
+      <ToolPreviewResult
+        preview={previewProps({
+          hasRun: true,
+          result: {
+            status: 200,
+            renderTimeMs: 5,
+            preview: makePreviewResponse({ validated: false }),
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Preview 200 - arguments invalid")).toBeInTheDocument();
+    expect(screen.queryByText("Preview 200")).not.toBeInTheDocument();
+  });
+
   it("renders API failures", () => {
     render(
       <ToolPreviewResult
