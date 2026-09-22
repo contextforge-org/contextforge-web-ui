@@ -30,6 +30,8 @@ interface SessionResponse {
   authenticated: boolean;
   user?: User;
   csrfToken?: string;
+  ssoEnabled: boolean;
+  providerName?: string;
 }
 
 interface LoginResponse {
@@ -81,12 +83,25 @@ interface AuthContextValue extends AuthState {
    * GET /rbac/my/permissions before suspecting the gate.
    */
   hasPermission: (perm: string) => boolean;
+  /**
+   * From GET /auth/session -- static per-deployment config, not per-user auth
+   * state. Optional (not just possibly-false) so the many hand-built
+   * AuthContextValue mocks elsewhere don't all need updating for a field only
+   * the login page reads; the real provider always supplies a real boolean.
+   */
+  ssoEnabled?: boolean;
+  ssoProviderName?: string;
 }
 
 interface PermissionsState {
   permissions: string[];
   loading: boolean;
   error: boolean;
+}
+
+interface SsoState {
+  enabled: boolean;
+  providerName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: false,
     error: false,
   });
+  // Kept separate from AuthState -- SSO config doesn't change on login/logout,
+  // so it must not be wiped by their wholesale setState({...}) calls.
+  const [sso, setSso] = useState<SsoState>({ enabled: false });
 
   const setSelectedTeamId = useCallback((teamId: string | null) => {
     setState((prev) => ({ ...prev, selectedTeamId: teamId }));
@@ -124,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         if (cancelled || version !== authVersion.current) return;
         setCsrfToken(data.csrfToken ?? null);
+        setSso({ enabled: data.ssoEnabled, providerName: data.providerName });
         if (data.authenticated && data.user) {
           setState({
             user: data.user,
@@ -281,8 +300,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       permissionsLoading: perms.loading,
       permissionsError: perms.error,
       hasPermission,
+      ssoEnabled: sso.enabled,
+      ssoProviderName: sso.providerName,
     }),
-    [state, login, completePasswordChangeRequired, logout, setSelectedTeamId, perms, hasPermission],
+    [
+      state,
+      login,
+      completePasswordChangeRequired,
+      logout,
+      setSelectedTeamId,
+      perms,
+      hasPermission,
+      sso,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
