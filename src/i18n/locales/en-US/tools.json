@@ -70,6 +70,8 @@
   "tools.details.preview.running": "Previewing...",
   "tools.details.preview.error": "Tool preview failed",
   "tools.details.preview.statusOk": "Preview {status}",
+  "tools.details.preview.statusInvalid": "Preview {status} - arguments invalid",
+  "tools.details.preview.statusEmpty": "Preview {status} - no response data",
   "tools.details.preview.statusError": "Preview failed",
   "tools.details.preview.statusErrorWithCode": "Preview failed {status}",
   "tools.details.preview.renderMs": "{ms} ms",

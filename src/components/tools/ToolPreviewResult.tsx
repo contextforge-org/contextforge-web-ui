@@ -12,14 +12,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { STATUS_ICON } from "@/lib/status";
+import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
 import type { ToolPreviewState } from "@/hooks/useToolPreview";
 import type { ToolPreviewResponse, ToolPreviewTarget, ToolPreviewWarning } from "@/api/tools";
-import { ToolResultRenderer } from "./ToolResultRenderer";
 import {
   estimateJsonByteSize,
   formatToolResultBytes,
-  getToolResultIsError,
   TOOL_RESULT_STRUCTURED_OUTPUT_SIZE_LIMIT_BYTES,
 } from "./toolResultContent";
 
@@ -35,22 +33,47 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.preview;
-  const resolvedArguments = response?.resolved_arguments ?? response?.resolvedArguments;
-  const toolResultIsError = response ? getToolResultIsError(response) : false;
+  const resolvedArguments = response?.resolvedArguments;
   const succeeded = result !== null;
-  const statusOk = succeeded && !toolResultIsError;
+  // The 200 response body is nullable (a preview can succeed with no data),
+  // so `validated` only makes sense once a response body actually exists.
+  const hasResponse = response != null;
+  const validated = hasResponse ? response.validated : false;
   const statusCode = result?.status ?? error?.status ?? null;
-  const statusLabel = succeeded
-    ? intl.formatMessage({ id: "tools.details.preview.statusOk" }, { status: statusCode ?? 200 })
-    : statusCode !== null
+  const severity = !succeeded
+    ? "error"
+    : !hasResponse
+      ? "warning"
+      : validated
+        ? "success"
+        : "warning";
+  const StatusIcon = STATUS_ICON[severity];
+  const statusLabel = !succeeded
+    ? statusCode !== null
       ? intl.formatMessage(
           { id: "tools.details.preview.statusErrorWithCode" },
           { status: statusCode },
         )
-      : intl.formatMessage({ id: "tools.details.preview.statusError" });
+      : intl.formatMessage({ id: "tools.details.preview.statusError" })
+    : !hasResponse
+      ? intl.formatMessage(
+          { id: "tools.details.preview.statusEmpty" },
+          { status: statusCode ?? 200 },
+        )
+      : validated
+        ? intl.formatMessage(
+            { id: "tools.details.preview.statusOk" },
+            { status: statusCode ?? 200 },
+          )
+        : intl.formatMessage(
+            { id: "tools.details.preview.statusInvalid" },
+            { status: statusCode ?? 200 },
+          );
 
   const target = response ? formatTarget(response.target) : null;
-  const warnings = response?.warnings ?? [];
+  const warnings = (response?.warnings ?? []).filter(
+    (warning): warning is NonNullable<ToolPreviewWarning> => warning !== null,
+  );
 
   return (
     <div className="space-y-4">
@@ -59,14 +82,8 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
         aria-live="polite"
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]"
       >
-        {statusOk ? (
-          <STATUS_ICON.success className="size-4 text-success" />
-        ) : (
-          <STATUS_ICON.error className="size-4 text-destructive" />
-        )}
-        <span className={cn("font-medium", statusOk ? "text-foreground" : "text-destructive")}>
-          {statusLabel}
-        </span>
+        <StatusIcon className={cn("size-4", STATUS_TONE_CLASS[severity])} />
+        <span className={cn("font-medium", STATUS_TONE_CLASS[severity])}>{statusLabel}</span>
         <span className="text-muted-foreground" aria-hidden="true">
           -
         </span>
@@ -88,15 +105,11 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
           </div>
           <ul className="mt-2 space-y-1 text-muted-foreground">
             {warnings.map((warning, index) => (
-              <li key={`${warning.code ?? "warning"}-${index}`}>
-                {formatWarning(warning, intl.formatMessage)}
-              </li>
+              <li key={`${warning.code}-${index}`}>{formatWarning(warning, intl.formatMessage)}</li>
             ))}
           </ul>
         </div>
       )}
-
-      {response && <ToolResultRenderer response={response} />}
 
       {resolvedArguments && (
         <section className="space-y-2">
@@ -175,43 +188,28 @@ function RawPreviewResponse({ response }: { response: ToolPreviewResponse }) {
   );
 }
 
+function formatTarget(target: ToolPreviewTarget) {
+  if (!target) return null;
+  return target.gatewayName ? `${target.kind}: ${target.gatewayName}` : target.kind;
+}
+
+// Backend guarantees `message`/`code`, but this reads an HTTP boundary — stay
+// defensive and fall back to a localized string if either is ever missing.
 function formatWarning(
-  warning: ToolPreviewWarning,
+  warning: NonNullable<ToolPreviewWarning>,
   formatMessage: (descriptor: { id: string }, values?: Record<string, string>) => string,
-) {
+): string {
+  if (warning.message) return warning.message;
+
   if (warning.code === "elicitation_skipped") {
-    const hooks = formatWarningHooks(warning, formatMessage);
-    return (
-      warning.message ??
-      formatMessage({ id: "tools.details.preview.warnings.elicitationSkipped" }, { hooks })
+    return formatMessage(
+      { id: "tools.details.preview.warnings.elicitationSkipped" },
+      {
+        hooks:
+          warning.hook ?? formatMessage({ id: "tools.details.preview.warnings.unspecifiedHooks" }),
+      },
     );
   }
 
-  return (
-    warning.message ??
-    warning.code ??
-    formatMessage({ id: "tools.details.preview.warnings.generic" })
-  );
-}
-
-function formatWarningHooks(
-  warning: ToolPreviewWarning,
-  formatMessage: (descriptor: { id: string }) => string,
-) {
-  const hooks = [
-    typeof warning.hook === "string" ? warning.hook : null,
-    ...(Array.isArray(warning.hooks) ? warning.hooks : []),
-  ].filter((hook): hook is string => typeof hook === "string" && hook.length > 0);
-
-  return hooks.length > 0
-    ? hooks.join(", ")
-    : formatMessage({ id: "tools.details.preview.warnings.unspecifiedHooks" });
-}
-
-function formatTarget(target: ToolPreviewTarget | "local" | "federated" | null | undefined) {
-  if (!target) return null;
-  if (typeof target === "string") return target;
-  const kind = typeof target.kind === "string" ? target.kind : null;
-  const gateway = target.gateway_name ?? target.gatewayName ?? target.name ?? null;
-  return gateway ? `${kind ?? "target"}: ${gateway}` : kind;
+  return warning.code || formatMessage({ id: "tools.details.preview.warnings.generic" });
 }

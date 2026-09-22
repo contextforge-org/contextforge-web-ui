@@ -1315,10 +1315,11 @@ test.describe("Virtual Servers page", () => {
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            target: { kind: "federated", gateway_name: "github-mcp" },
-            resolved_arguments: previewBody.arguments ?? {},
+            validated: true,
+            target: { kind: "federated", gatewayName: "github-mcp" },
+            resolvedArguments: previewBody.arguments ?? {},
             annotations: { readOnlyHint: true },
-            pre_hooks_run: [],
+            preHooksRun: [],
             warnings: [],
           }),
         });

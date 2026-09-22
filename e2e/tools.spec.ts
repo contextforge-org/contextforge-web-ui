@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { test, expect } from "./fixtures/api-mock";
+import { test, expect, MOCK_CSRF_TOKEN } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { Tool } from "../src/types/tool";
 
@@ -331,21 +331,19 @@ test.describe("Tools page", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          validated: true,
           target: { kind: "local" },
-          resolved_arguments: { query: "cloudflare", limit: 5 },
-          content: [
-            { type: "text", text: "Found 2 matching issues", mimeType: "text/plain" },
-            { type: "text", text: '{"total":2}', mimeType: "application/json" },
+          resolvedArguments: { query: "cloudflare", limit: 5 },
+          annotations: { readOnlyHint: true },
+          preHooksRun: [],
+          warnings: [
             {
-              type: "image",
-              text: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>',
-              mimeType: "image/svg+xml",
+              code: "elicitation_skipped",
+              hook: "approval_hook",
+              message:
+                "Approval hook skipped during preview; live invocation may prompt for input.",
             },
           ],
-          structured_output: { total: 2, query: "cloudflare" },
-          annotations: { readOnlyHint: true },
-          pre_hooks_run: [],
-          warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
         }),
       });
     });
@@ -378,12 +376,10 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("Preview 200")).toBeVisible();
     await expect(panel.getByText("Warnings", { exact: true }).first()).toBeVisible();
     await expect(
-      panel.getByText("Live invocation may request user input; preview skipped approval_hook."),
+      panel
+        .getByText("Approval hook skipped during preview; live invocation may prompt for input.")
+        .first(),
     ).toBeVisible();
-    await expect(panel.getByText("Tool result")).toBeVisible();
-    await expect(panel.getByText("Found 2 matching issues").first()).toBeVisible();
-    await expect(panel.getByRole("img", { name: "Tool result image 3" })).toBeVisible();
-    await expect(panel.getByText("Structured output")).toBeVisible();
     await expect(panel.getByText("Resolved arguments")).toBeVisible();
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
     expect(previewHeaders["x-tenant-id"]).toBe("team-a");
@@ -391,6 +387,7 @@ test.describe("Tools page", () => {
 
   test("live invokes a read-only tool with JSON-RPC args and passthrough headers", async ({
     page,
+    apiMock,
   }) => {
     const liveTool = makeTool("search_issues", "github-server", {
       description: "Search repository issues",
@@ -458,7 +455,8 @@ test.describe("Tools page", () => {
     });
     expect(rpcBody?.params).not.toHaveProperty("server_id");
     expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
-    expect(rpcHeaders["x-csrf-token"]).toBe("mock-csrf-token");
+    // Real mode gets a real, randomly-generated token from the real login.
+    expect(rpcHeaders["x-csrf-token"]).toBe((await apiMock.getRealCsrfToken()) ?? MOCK_CSRF_TOKEN);
   });
 
   test("confirms destructive local live invoke before calling /rpc", async ({ page }) => {
@@ -638,7 +636,12 @@ test.describe("Tools page", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ target: "local", resolved_arguments: { query: "cloudflare" } }),
+        body: JSON.stringify({
+          validated: true,
+          target: { kind: "local" },
+          resolvedArguments: { query: "cloudflare" },
+          annotations: {},
+        }),
       });
     });
 
