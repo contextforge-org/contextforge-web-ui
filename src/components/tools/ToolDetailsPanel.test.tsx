@@ -128,7 +128,7 @@ describe("ToolDetailsPanel", () => {
 
     expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Definition", selected: false })).toBeInTheDocument();
-    expect(screen.getByText("Tool preview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tools" })).toBeInTheDocument();
   });
 
   it.each([undefined, "", "   "])(

@@ -15,6 +15,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+/** Field descriptions come from JSON Schema written for models, so a single
+ * argument can carry a long block of instructions; clip it and let the user
+ * expand it in place rather than pushing the rest of the form down by
+ * default. */
+const DESCRIPTION_TRUNCATE_LENGTH = 180;
+
 export interface ToolArgumentsFormProps {
   schema: Record<string, unknown> | null | undefined;
   value: Record<string, unknown>;
@@ -391,11 +397,36 @@ function FieldMeta({
   errorId: string;
 }) {
   const intl = useIntl();
+  const [expanded, setExpanded] = useState(false);
+  const description = field.description;
+  const canTruncate = Boolean(description) && description!.length > DESCRIPTION_TRUNCATE_LENGTH;
+  const visibleDescription =
+    canTruncate && !expanded
+      ? `${description!.slice(0, DESCRIPTION_TRUNCATE_LENGTH).trimEnd()}…`
+      : description;
+
   return (
     <>
-      {field.description && (
+      {description && (
         <p id={id} className="text-[12px] leading-4 text-muted-foreground">
-          {field.description}
+          {visibleDescription}
+          {canTruncate && (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="font-medium text-foreground underline-offset-2 hover:underline"
+                aria-expanded={expanded}
+                onClick={() => setExpanded((current) => !current)}
+              >
+                {intl.formatMessage({
+                  id: expanded
+                    ? "tools.details.preview.arguments.showLess"
+                    : "tools.details.preview.arguments.showMore",
+                })}
+              </button>
+            </>
+          )}
         </p>
       )}
       {error && (

@@ -355,7 +355,7 @@ test.describe("Tools page", () => {
     await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
-    await expect(panel.getByText("Tool preview")).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
     await expect(panel.getByText("Read-only")).toBeVisible();
 
     const previewButton = panel.getByRole("button", { name: "Preview" });
@@ -426,8 +426,9 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("MCP 2025-11-25")).toBeVisible();
-    const invokeButton = panel.getByRole("button", { name: "Live invoke" });
+    await expect(panel.getByText("MCP version 2025-11-25")).toBeVisible();
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
+    const invokeButton = panel.getByRole("button", { name: "Invoke tool" });
     await expect(invokeButton).toBeEnabled();
     await invokeButton.click();
     await expect(panel.getByLabel("query")).toHaveAttribute("aria-invalid", "true");
@@ -485,15 +486,16 @@ test.describe("Tools page", () => {
     await page.goto(APP.TOOLS);
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "local-gateway");
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Invoke destructive tool" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).not.toBeVisible();
     expect(rpcRequestCount).toBe(0);
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
     await page
       .getByRole("alertdialog", { name: "Invoke destructive tool" })
       .getByRole("button", { name: "Invoke tool" })
@@ -549,8 +551,9 @@ test.describe("Tools page", () => {
     await page.goto(APP.TOOLS);
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
     await expect(panel.getByRole("button", { name: "Cancel request" })).toBeVisible();
     await panel.getByRole("button", { name: "Cancel request" }).click();
 
@@ -583,8 +586,9 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+    await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
   });
 
   test("hides live invoke when servers.use is missing", async ({ page, apiMock }) => {
@@ -599,8 +603,9 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("Live invoke requires servers.use.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+    await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
   });
 
   test("does not offer live invoke for federated tools without readOnlyHint", async ({ page }) => {
@@ -617,7 +622,8 @@ test.describe("Tools page", () => {
     await expect(
       panel.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
     ).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
   });
 
   test("warns for denied passthrough headers and excludes them from preview", async ({ page }) => {
@@ -658,10 +664,10 @@ test.describe("Tools page", () => {
     await panel.getByLabel("Header 1 value").fill("Bearer typed-token");
 
     await expect(panel.getByText("This header is not forwardable from the web UI.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeDisabled();
 
     await panel.getByLabel("Header 1 name").fill("X-Api-Key");
-    await panel.getByRole("button", { name: "Preview" }).click();
+    await panel.getByRole("button", { name: "Preview", exact: true }).click();
 
     await expect(panel.getByText("Preview 200")).toBeVisible();
     expect(previewHeaders.authorization).toBeUndefined();
