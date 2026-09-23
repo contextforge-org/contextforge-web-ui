@@ -13,11 +13,11 @@ export function SsoSettings() {
         {(controlProps) => (
           <Input
             {...controlProps}
+            // Settings.tsx only mounts this tab when ssoEnabled is true; the disabled branch is defensive/test-only.
             value={intl.formatMessage({
               id: ssoEnabled ? "settings.sso.statusEnabled" : "settings.sso.statusDisabled",
             })}
             readOnly
-            aria-readonly="true"
             className="bg-muted text-muted-foreground"
           />
         )}
@@ -29,7 +29,6 @@ export function SsoSettings() {
               {...controlProps}
               value={ssoProviderName}
               readOnly
-              aria-readonly="true"
               className="bg-muted text-muted-foreground"
             />
           )}

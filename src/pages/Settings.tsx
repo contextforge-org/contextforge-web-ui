@@ -23,7 +23,7 @@ export function Settings({ tab }: SettingsProps) {
   const { user, ssoEnabled } = useAuthContext();
   const { navigate } = useRouter();
   const isAdmin = Boolean(user?.is_admin);
-  const showSsoTab = isAdmin && Boolean(ssoEnabled);
+  const showSsoTab = isAdmin && !!ssoEnabled;
   // Toolbar slot rendered on the tab row; the active tab portals its actions
   // (search, create, …) here so they sit inline with the tab triggers.
   const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
@@ -31,11 +31,10 @@ export function Settings({ tab }: SettingsProps) {
   const [tabsHidden, setTabsHidden] = useState(false);
   const tabsContext = useMemo(() => ({ toolbar: toolbarEl, setTabsHidden }), [toolbarEl]);
 
-  const availableTabs = [
-    "tokens",
-    ...(isAdmin ? ["users", "teams"] : []),
-    ...(showSsoTab ? ["sso"] : []),
-  ];
+  const availableTabs = useMemo(
+    () => ["tokens", ...(isAdmin ? ["users", "teams"] : []), ...(showSsoTab ? ["sso"] : [])],
+    [isAdmin, showSsoTab],
+  );
 
   if (tab !== undefined && !availableTabs.includes(tab)) {
     return <Redirect to="/app/settings" />;
