@@ -125,7 +125,7 @@ export function Login() {
         {ssoEnabled && ssoProviderName && (
           <>
             <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
                 <span className="w-full border-t border-neutral-200 dark:border-neutral-700" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">

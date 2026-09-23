@@ -257,6 +257,19 @@ describe("Login", () => {
       expect(screen.queryByRole("button", { name: /Sign in with/i })).not.toBeInTheDocument();
     });
 
+    it("does not render an SSO button when ssoEnabled is true but ssoProviderName is absent", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+        ssoEnabled: true,
+        ssoProviderName: undefined,
+      } as unknown as ReturnType<typeof useAuth>);
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("button", { name: /Sign in with/i })).not.toBeInTheDocument();
+    });
+
     it("renders and navigates via a full-page redirect when SSO is enabled", () => {
       vi.mocked(useAuth).mockReturnValue({
         isAuthenticated: false,
@@ -289,6 +302,19 @@ describe("Login", () => {
       await waitFor(() => {
         expect(window.location.search).toBe("");
       });
+    });
+
+    it("ignores a non-SSO error param", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+      window.history.pushState({}, "", "/app/login?error=auth_failed");
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(window.location.search).toBe("?error=auth_failed");
     });
 
     it("strips the error param but keeps other query params (e.g. next) intact", async () => {
