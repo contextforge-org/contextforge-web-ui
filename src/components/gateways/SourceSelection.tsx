@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import {
   ArrowLeft,
@@ -98,6 +98,7 @@ export function SourceSelection({
   const [isComponentsPanelOpen, setIsComponentsPanelOpen] = useState(false);
   const [hasRequestedMCPServers, setHasRequestedMCPServers] = useState(false);
   const [selectedMCPServerIds, setSelectedMCPServerIds] = useState<Set<string>>(new Set());
+  const selectedNamesRef = useRef<Record<string, string>>({});
   const {
     data: mcpServersData,
     error: mcpServersError,
@@ -141,14 +142,16 @@ export function SourceSelection({
     if (checked) next.add(serverId);
     else next.delete(serverId);
     setSelectedMCPServerIds(next);
-    onSelectSources?.(
-      Array.from(next),
-      Object.fromEntries(
-        availableMCPServers
-          .filter((server) => next.has(server.id))
-          .map((server) => [server.id, server.name]),
-      ),
-    );
+
+    // Kept from when each source was picked, so a refetch that drops one does not lose its name.
+    const names = selectedNamesRef.current;
+    if (checked) {
+      const selected = availableMCPServers.find((server) => server.id === serverId);
+      if (selected) names[serverId] = selected.name;
+    } else {
+      delete names[serverId];
+    }
+    onSelectSources?.(Array.from(next), { ...names });
   };
 
   return (

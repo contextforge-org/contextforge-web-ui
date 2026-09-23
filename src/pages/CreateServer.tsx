@@ -189,7 +189,11 @@ function readEditServerIdFromPath(path: string): string | null {
 
 function getCreateServerError(error: unknown, fallbackMessage: string): string {
   if (error instanceof SourceComponentsError) {
-    return `${error.serverName}: ${getCreateServerError(error.cause, fallbackMessage)}`;
+    return error.failures
+      .map(
+        ({ serverName, cause }) => `${serverName}: ${getCreateServerError(cause, fallbackMessage)}`,
+      )
+      .join("; ");
   }
   if (error instanceof ApiError) {
     const body = error.body as { message?: string; detail?: unknown } | null;
@@ -211,13 +215,15 @@ function getCreateServerError(error: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
-/** Names a failing source, so one bad source does not surface as an unattributed error. */
+interface SourceComponentsFailure {
+  serverName: string;
+  cause: unknown;
+}
+
+/** Names the failing sources, so a bad source does not surface as an unattributed error. */
 class SourceComponentsError extends Error {
-  constructor(
-    readonly serverName: string,
-    readonly cause: unknown,
-  ) {
-    super(cause instanceof Error ? cause.message : String(cause));
+  constructor(readonly failures: SourceComponentsFailure[]) {
+    super(failures.map(({ serverName }) => serverName).join(", "));
     this.name = "SourceComponentsError";
   }
 }
@@ -226,24 +232,32 @@ async function getComponentsForSelectedMCPServers(
   mcpServerIds: string[],
   serverNamesById: Record<string, string> = {},
 ): Promise<ComponentSelection> {
-  const componentGroups = await Promise.all(
+  // Settled rather than all: every failing source has to be named, not just the first to reject.
+  const results = await Promise.allSettled(
     mcpServerIds.map(async (serverId) => {
-      try {
-        const [tools, resources, prompts] = await Promise.all([
-          getAllGatewayComponents<GatewayTool>("tools", "tools", serverId),
-          getAllGatewayComponents<GatewayResource>("resources", "resources", serverId),
-          getAllGatewayComponents<GatewayPrompt>("prompts", "prompts", serverId),
-        ]);
+      const [tools, resources, prompts] = await Promise.all([
+        getAllGatewayComponents<GatewayTool>("tools", "tools", serverId),
+        getAllGatewayComponents<GatewayResource>("resources", "resources", serverId),
+        getAllGatewayComponents<GatewayPrompt>("prompts", "prompts", serverId),
+      ]);
 
-        return {
-          tools: tools.map((tool) => tool.id),
-          resources: resources.map((resource) => resource.id),
-          prompts: prompts.map((prompt) => prompt.id),
-        };
-      } catch (error) {
-        throw new SourceComponentsError(serverNamesById[serverId] ?? serverId, error);
-      }
+      return {
+        tools: tools.map((tool) => tool.id),
+        resources: resources.map((resource) => resource.id),
+        prompts: prompts.map((prompt) => prompt.id),
+      };
     }),
+  );
+
+  const failures = results.flatMap((result, index) => {
+    if (result.status !== "rejected") return [];
+    const serverId = mcpServerIds[index];
+    return [{ serverName: serverNamesById[serverId] ?? serverId, cause: result.reason }];
+  });
+  if (failures.length > 0) throw new SourceComponentsError(failures);
+
+  const componentGroups = results.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
   );
 
   return {

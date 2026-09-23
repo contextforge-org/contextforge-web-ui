@@ -384,4 +384,54 @@ describe("SourceSelection", () => {
 
     expect(onSelectSources).toHaveBeenCalledWith(["s-1"], { "s-1": "alpha" });
   });
+
+  it("keeps the name of a selected source that has dropped out of the list", async () => {
+    const user = userEvent.setup();
+    const onSelectSources = vi.fn();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            { id: "s-1", name: "alpha", enabled: true, reachable: true, tool_count: 1 },
+            { id: "s-2", name: "beta", enabled: true, reachable: true, tool_count: 1 },
+          ],
+        }),
+      ),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+    );
+
+    const { rerender } = renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        onSelectSources={onSelectSources}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+    await screen.findByText("beta");
+    await user.click(screen.getByRole("checkbox", { name: "Select beta" }));
+
+    // beta leaves the available list while it is still selected.
+    rerender(
+      <SourceSelection
+        actionCards={actionCards}
+        associatedMCPServerIds={["s-2"]}
+        onSelectSources={onSelectSources}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+    expect(screen.queryByText("beta")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Select alpha" }));
+
+    expect(onSelectSources).toHaveBeenLastCalledWith(["s-2", "s-1"], {
+      "s-1": "alpha",
+      "s-2": "beta",
+    });
+  });
 });
