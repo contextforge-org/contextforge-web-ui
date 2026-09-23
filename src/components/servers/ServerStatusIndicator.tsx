@@ -133,6 +133,7 @@ export function ServerStatusIndicator({
       <PopoverContent align="end" className="w-auto max-w-xs p-3">
         <ServerStatusDetail
           availability={availability}
+          enabled={server.enabled}
           lastSeen={server.lastSeen}
           lastError={server.lastError}
         />

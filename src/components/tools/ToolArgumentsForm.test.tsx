@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { renderWithProviders as render } from "@/test/test-utils";
@@ -34,10 +34,12 @@ function FormHarness({
   schema = SCHEMA,
   onValidityChange = vi.fn(),
   onArgsChange = vi.fn(),
+  validationAttempted = false,
 }: {
   schema?: Record<string, unknown>;
   onValidityChange?: (valid: boolean) => void;
   onArgsChange?: (value: Record<string, unknown>) => void;
+  validationAttempted?: boolean;
 }) {
   const [value, setValue] = useState(() => seedToolArguments(schema));
   return (
@@ -49,6 +51,7 @@ function FormHarness({
         onArgsChange(next);
       }}
       onValidityChange={onValidityChange}
+      validationAttempted={validationAttempted}
     />
   );
 }
@@ -73,6 +76,46 @@ describe("ToolArgumentsForm", () => {
     expect(validateToolArguments(seedToolArguments(SCHEMA), spec.fields)).toEqual({
       query: "required",
     });
+  });
+
+  it("keeps required fields neutral until they are touched", async () => {
+    const user = userEvent.setup();
+    const onValidityChange = vi.fn();
+    render(<FormHarness onValidityChange={onValidityChange} />);
+
+    const query = screen.getByLabelText(/query/i);
+    expect(query).toHaveAttribute("aria-invalid", "false");
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+    await waitFor(() => expect(onValidityChange).toHaveBeenLastCalledWith(false));
+
+    await user.click(query);
+    await user.tab();
+    expect(query).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Required")).toBeInTheDocument();
+
+    await user.type(query, "cloudflare");
+    expect(query).toHaveAttribute("aria-invalid", "false");
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+  });
+
+  it("reveals all invalid fields after validation is attempted", () => {
+    render(
+      <FormHarness
+        schema={{
+          type: "object",
+          required: ["query", "mode"],
+          properties: {
+            query: { type: "string" },
+            mode: { type: "string", enum: ["fast", "full"] },
+          },
+        }}
+        validationAttempted
+      />,
+    );
+
+    expect(screen.getByLabelText(/query/i)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("combobox", { name: /mode/i })).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getAllByText("Required")).toHaveLength(2);
   });
 
   it("validates integer and number field types", () => {

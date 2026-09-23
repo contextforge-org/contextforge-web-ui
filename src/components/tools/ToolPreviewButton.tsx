@@ -7,9 +7,14 @@ import type { ToolPreviewState } from "@/hooks/useToolPreview";
 export interface ToolPreviewButtonProps {
   preview: Pick<ToolPreviewState, "run" | "isLoading" | "hasRun">;
   disabled?: boolean;
+  onBeforeRun?: () => boolean;
 }
 
-export function ToolPreviewButton({ preview, disabled = false }: ToolPreviewButtonProps) {
+export function ToolPreviewButton({
+  preview,
+  disabled = false,
+  onBeforeRun,
+}: ToolPreviewButtonProps) {
   const intl = useIntl();
   const { run, isLoading, hasRun } = preview;
 
@@ -18,7 +23,10 @@ export function ToolPreviewButton({ preview, disabled = false }: ToolPreviewButt
       type="button"
       variant="outline"
       size="sm"
-      onClick={run}
+      onClick={() => {
+        if (onBeforeRun?.() === false) return;
+        void run();
+      }}
       disabled={disabled || isLoading}
     >
       {isLoading ? (
