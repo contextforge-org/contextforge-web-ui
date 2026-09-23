@@ -10,6 +10,7 @@ vi.mock("sonner", () => ({
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@testing-library/react";
+import { byTextContent } from "@/test/test-utils";
 import { http, HttpResponse } from "msw";
 import { toast } from "sonner";
 import { server } from "@/test/mocks/server";
@@ -1439,7 +1440,7 @@ describe("Tools", () => {
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
-        expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
+        expect(screen.getByText(byTextContent("https://api.example.com"))).toBeInTheDocument();
       });
     });
 

@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { HandshakeTestPanel } from "./HandshakeTestPanel";
 
 const TEST_ENDPOINT = "*/v1/virtual-servers/:serverId/test-handshake";
@@ -26,7 +26,7 @@ describe("HandshakeTestPanel", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
     expect(screen.getByText(/^endpoint$/i)).toBeInTheDocument();
-    expect(screen.getByText(defaultProps.serverUrl)).toBeInTheDocument();
+    expect(screen.getByText(byTextContent(defaultProps.serverUrl))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^test connection$/i })).toBeInTheDocument();
     expect(screen.getByText(/run a test to open a mcp session/i)).toBeInTheDocument();
   });
@@ -34,7 +34,7 @@ describe("HandshakeTestPanel", () => {
   it("shows the endpoint read-only and copyable, with no editable URL field", () => {
     render(<HandshakeTestPanel {...defaultProps} />);
 
-    expect(screen.getByText(defaultProps.serverUrl)).toBeInTheDocument();
+    expect(screen.getByText(byTextContent(defaultProps.serverUrl))).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /endpoint/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^copy endpoint$/i })).toBeInTheDocument();
   });

@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import { getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
+import { TruncatedMiddleText, getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
 import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
 import { isVirtualServerToolTryItEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
@@ -753,6 +753,13 @@ export function VirtualServerDetailsPanel({
                           visibleComponents.map((component) => {
                             const title = component.title;
                             const identifier = getComponentIdentifier(component);
+                            // Resource URIs keep scheme and file name visible.
+                            const identifierText =
+                              component.type === "resources" ? (
+                                <TruncatedMiddleText value={identifier} maxLength={32} />
+                              ) : (
+                                <TruncatedText>{identifier}</TruncatedText>
+                              );
                             const testableTool =
                               component.type === "tools"
                                 ? fetchedToolsById.get(component.id)
@@ -778,7 +785,7 @@ export function VirtualServerDetailsPanel({
                                       {title}
                                     </TruncatedText>
                                     <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                      <TruncatedText>{identifier}</TruncatedText>
+                                      {identifierText}
                                       <CopyButton
                                         value={identifier}
                                         label={intl.formatMessage(
@@ -794,7 +801,7 @@ export function VirtualServerDetailsPanel({
                                 ) : (
                                   <>
                                     <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                      <TruncatedText>{identifier}</TruncatedText>
+                                      {identifierText}
                                       <CopyButton
                                         value={identifier}
                                         label={intl.formatMessage(
