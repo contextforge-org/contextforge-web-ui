@@ -1242,9 +1242,89 @@ describe("Servers", () => {
       await user.click(actionsButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByRole("menuitem", { name: /edit/i })).toBeInTheDocument();
+        expect(screen.getByRole("menuitem", { name: /view details/i })).toBeInTheDocument();
       });
       expect(screen.queryByRole("menuitem", { name: /^refresh$/i })).not.toBeInTheDocument();
+    });
+
+    it("hides Edit and Activate/Deactivate when the caller lacks gateways.update", async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation((perm: string) => perm !== "gateways.update");
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /view details/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /^edit$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: /^deactivate$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: /^activate$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^delete$/i })).toBeInTheDocument();
+    });
+
+    it("hides Delete when the caller lacks gateways.delete", async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation((perm: string) => perm !== "gateways.delete");
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /^edit$/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /^delete$/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^deactivate$/i })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^refresh$/i })).toBeInTheDocument();
+    });
+
+    it("shows the full menu when the caller has both gateways.update and gateways.delete", async () => {
+      const user = userEvent.setup();
+      mockHasPermission.mockImplementation(() => true);
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: createMockServers(0, 1),
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /view details/i })).toBeInTheDocument();
+      });
+      expect(screen.getByRole("menuitem", { name: /^edit$/i })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^delete$/i })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^deactivate$/i })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /^refresh$/i })).toBeInTheDocument();
     });
 
     it("disables the Refresh item for the same server while a refresh is in-flight", async () => {
