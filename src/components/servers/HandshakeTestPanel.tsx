@@ -15,7 +15,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { JsonHighlighter } from "../ui/json-highlighter";
 import { CopyButton } from "../ui/copy-button";
-import { TruncatedText } from "../ui/truncated-text";
+import { TruncatedMiddleText } from "../ui/truncated-middle-text";
 import { testVirtualServerHandshake } from "@/api/virtualServers";
 import type { GatewayHandshakeResponse } from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
@@ -620,9 +620,11 @@ export function HandshakeTestPanel({
         </Label>
         <div className="flex items-center gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <TruncatedText className="min-w-0 font-mono text-sm text-foreground">
-              {serverUrl}
-            </TruncatedText>
+            <TruncatedMiddleText
+              value={serverUrl}
+              maxLength={48}
+              className="min-w-0 font-mono text-sm text-foreground"
+            />
             <CopyButton
               value={serverUrl}
               label={intl.formatMessage(

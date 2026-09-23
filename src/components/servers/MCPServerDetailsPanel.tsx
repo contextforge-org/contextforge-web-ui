@@ -24,6 +24,7 @@ import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import { CopyValue } from "@/components/ui/copy-value";
 import { Input } from "@/components/ui/input";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
@@ -471,8 +472,13 @@ export function MCPServerDetailsPanel({
                     {!componentsLoading &&
                       visibleComponents.map((component) => {
                         const title = component.title;
-                        const identifier =
-                          component.type === "resources" ? component.uri : component.originalName;
+                        const isUri = component.type === "resources";
+                        const identifier = isUri ? component.uri : component.originalName;
+                        const identifierText = isUri ? (
+                          <TruncatedMiddleText value={identifier} maxLength={32} />
+                        ) : (
+                          <TruncatedText>{identifier}</TruncatedText>
+                        );
 
                         return (
                           <div
@@ -494,7 +500,7 @@ export function MCPServerDetailsPanel({
                                   {title}
                                 </TruncatedText>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <TruncatedText>{identifier}</TruncatedText>
+                                  {identifierText}
                                   <CopyButton
                                     value={identifier}
                                     label={intl.formatMessage(
@@ -510,7 +516,7 @@ export function MCPServerDetailsPanel({
                             ) : (
                               <>
                                 <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] text-muted-foreground">
-                                  <TruncatedText>{identifier}</TruncatedText>
+                                  {identifierText}
                                   <CopyButton
                                     value={identifier}
                                     label={intl.formatMessage(

@@ -4,9 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { createElement, type ComponentType } from "react";
 import { server } from "@/test/mocks/server";
-import { renderWithProviders } from "@/test/test-utils";
+import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
+import { truncateMiddle } from "@/components/gateways/utils";
 import { CreateServer } from "./CreateServer";
 
 interface MockCreateServerFormProps {
@@ -831,6 +832,46 @@ describe("CreateServer", () => {
       act(() => {
         toolCheckbox.click();
       });
+    });
+
+    it("center-truncates a resource's URI when it has no name", async () => {
+      routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
+      const longUri = "https://example.com/mcp/resources/very-long-identifier-path/data.json";
+      server.use(
+        http.get("*/v1/virtual-servers/gateway-1", () =>
+          HttpResponse.json({ id: "gateway-1", name: "Test Edit Server", visibility: "team" }),
+        ),
+        http.get("*/v1/mcp-servers", () =>
+          HttpResponse.json({
+            gateways: [
+              { id: "mcp-server-1", name: "MCP Server 1", enabled: true, reachable: true },
+            ],
+          }),
+        ),
+        http.get("*/tools", () => HttpResponse.json({ tools: [] })),
+        http.get("*/resources", () =>
+          HttpResponse.json({ resources: [{ id: "resource-1", uri: longUri }] }),
+        ),
+        http.get("*/prompts", () => HttpResponse.json({ prompts: [] })),
+      );
+
+      renderWithProviders(<CreateServer />);
+
+      await waitFor(() => {
+        expect(screen.getByText("MCP Server 1")).toBeInTheDocument();
+      });
+
+      const trigger = screen.getByText("MCP Server 1");
+      act(() => {
+        trigger.click();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(`Select ${longUri}`)).toBeInTheDocument();
+      });
+
+      // Middle-truncated (not end-truncated) since the row's label fell back to a URI.
+      expect(screen.getByText(byTextContent(truncateMiddle(longUri, 40)))).toBeInTheDocument();
     });
 
     it("renders every MCP server status and visibility in the edit accordion", async () => {

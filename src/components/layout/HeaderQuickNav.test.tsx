@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { searchEntities } from "@/api/search";
 import { useAuthContext } from "@/auth/AuthContext";
 import { useRouter } from "@/router";
+import { truncateMiddle } from "@/components/gateways/utils";
+import { byTextContent } from "@/test/test-utils";
 import { HeaderQuickNav } from "./HeaderQuickNav";
 
 vi.mock("@/api/search", () => ({
@@ -339,6 +341,35 @@ describe("HeaderQuickNav", () => {
     expect(screen.getByText("Handles payment tools")).toBeInTheDocument();
   });
 
+  it("center-truncates a result's summary when it falls back to a URL", async () => {
+    const longUrl = "https://example.com/mcp/gateways/very-long-identifier-path/service";
+    vi.mocked(searchEntities).mockResolvedValue({
+      query: "server",
+      entity_types: ["gateways"],
+      limit_per_type: 8,
+      results: {},
+      groups: [
+        {
+          entity_type: "gateways",
+          count: 1,
+          items: [{ id: "gateway-1", name: "Payments MCP", url: longUrl }],
+        },
+      ],
+      items: [],
+      count: 1,
+    });
+
+    renderQuickNav();
+
+    const input = screen.getByRole("searchbox", { name: "Search" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "server" } });
+
+    expect(await screen.findByText("Payments MCP")).toBeInTheDocument();
+    // Middle-truncated (not end-truncated) since the summary fell back to a URL.
+    expect(screen.getByText(byTextContent(truncateMiddle(longUrl, 40)))).toBeInTheDocument();
+  });
+
   it("shows an error state when global search fails", async () => {
     vi.mocked(searchEntities).mockRejectedValue(new Error("Search failed"));
 
@@ -621,7 +652,7 @@ describe("HeaderQuickNav", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "query" } });
 
-    expect(await screen.findByText("resource://only-uri")).toBeInTheDocument();
+    expect(await screen.findByText(byTextContent("resource://only-uri"))).toBeInTheDocument();
     expect(screen.getByText("Full Name Person")).toBeInTheDocument();
     expect(screen.getByText("tool-slug")).toBeInTheDocument();
   });

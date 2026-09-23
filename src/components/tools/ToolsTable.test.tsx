@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { ToolsTable } from "./ToolsTable";
 import * as gatewayUtils from "@/lib/clipboard";
 import type { Tool } from "@/types/tool";
@@ -107,7 +107,7 @@ describe("ToolsTable", () => {
     render(<ToolsTable tools={tools} onSelectTool={mockOnSelectTool} />);
 
     // truncateMiddle("very-long-tool-id-...", 18) → edgeLength=7 → "very-lo...-middle"
-    const idCell = screen.getByText("very-lo...-middle");
+    const idCell = screen.getByText(byTextContent("very-lo...-middle"));
     expect(idCell).toBeInTheDocument();
   });
 

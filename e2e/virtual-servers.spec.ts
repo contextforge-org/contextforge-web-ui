@@ -1221,10 +1221,6 @@ test.describe("Virtual Servers page", () => {
       });
     });
 
-    // Narrow enough that the full endpoint URL can't fit on one line, forcing
-    // TruncatedText's CSS ellipsis to actually clip it.
-    await page.setViewportSize({ width: 480, height: 800 });
-
     await page.goto(APP.GATEWAYS);
     await page.waitForLoadState("networkidle");
 
@@ -1238,18 +1234,17 @@ test.describe("Virtual Servers page", () => {
     // Scope to the tabpanel — the sidebar's own "URL" field renders the same
     // endpoint value (via a different component), which would otherwise be an
     // ambiguous second match.
-    const endpoint = detailsPanel
+    // The endpoint is middle-truncated before render; the full value only lives
+    // in a screen-reader-only span inside the hover trigger.
+    const fullEndpoint = detailsPanel
       .getByRole("tabpanel")
       .getByText(new RegExp(`/servers/${MOCK_VIRTUAL_SERVER.id}/mcp$`));
-    await expect(endpoint).toBeVisible();
-    const fullEndpointText = (await endpoint.textContent())?.trim();
+    const fullEndpointText = (await fullEndpoint.textContent())?.trim();
     expect(fullEndpointText).toBeTruthy();
 
-    // The full value stays in the DOM regardless of visual clipping — confirm
-    // it's actually clipped at its current rendered width before relying on
-    // the tooltip to reveal it.
-    const isTruncated = await endpoint.evaluate((el) => el.scrollWidth > el.clientWidth);
-    expect(isTruncated).toBe(true);
+    const endpoint = fullEndpoint.locator("..");
+    await expect(endpoint).toBeVisible();
+    await expect(endpoint.locator('[aria-hidden="true"]')).toContainText("...");
 
     await expect(page.getByRole("tooltip")).toHaveCount(0);
     await endpoint.hover();
@@ -1257,6 +1252,52 @@ test.describe("Virtual Servers page", () => {
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toHaveText(fullEndpointText!);
+  });
+
+  test("copy buttons in the details panel copy the full untruncated value", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.route("**/v1/virtual-servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+      });
+    });
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+      });
+    });
+
+    await page.goto(APP.GATEWAYS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Actions for testVS" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const detailsPanel = page.getByRole("region", { name: "testVS details" });
+    await expect(detailsPanel).toBeVisible();
+
+    // Each button must copy the full value, not its middle-truncated display text.
+    const expectCopied = async (name: string, value: string) => {
+      await detailsPanel.getByRole("button", { name, exact: true }).click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(value);
+    };
+
+    const endpoint = `http://localhost:5173/servers/${MOCK_VIRTUAL_SERVER.id}/mcp`;
+    await expectCopied("Copy Endpoint", endpoint);
+    await expectCopied("Copy server ID", MOCK_VIRTUAL_SERVER.id);
+    await expectCopied("Copy URL", endpoint);
+
+    await detailsPanel.getByRole("tab", { name: "Components" }).click();
+    await expectCopied("Copy tool name for Get Repo Issues", "GITHUB_GET_REPO_ISSUES");
+    await expectCopied("Copy resource", "github://repo/{owner}/{repo}");
+    await expectCopied("Copy prompt", "summarize_pull_request");
   });
 
   test("details panel add source button navigates to edit the virtual server", async ({ page }) => {

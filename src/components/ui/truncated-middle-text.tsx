@@ -1,5 +1,8 @@
+import { useCallback, useRef, useState } from "react";
+
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { truncateMiddle } from "@/components/gateways/utils";
+import { cn } from "@/lib/utils";
 
 /**
  * Middle-truncates `value` for display and reports whether it actually did.
@@ -37,16 +40,46 @@ export function TruncatedMiddleText({
   className,
 }: TruncatedMiddleTextProps) {
   const { display, isTruncated } = getTruncatedMiddle(value, maxLength);
+  const [isClipped, setIsClipped] = useState(false);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  // Tail length matches `truncateMiddle`'s edge, so the end stays visible.
+  const tailLength = Math.max(4, Math.floor((maxLength - 3) / 2));
+  const canSplit = display.length > tailLength;
+
+  // Head shrinks with a CSS ellipsis when even `display` is too wide; tail never shrinks.
+  const headRef = useCallback((node: HTMLSpanElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!node) return;
+
+    const measure = () => setIsClipped(node.scrollWidth > node.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
+
+  const showFull = isTruncated || isClipped;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={className}>
-          <span aria-hidden={isTruncated || undefined}>{display}</span>
+        <span className={cn("flex min-w-0 overflow-hidden whitespace-nowrap", className)}>
+          {canSplit ? (
+            <span aria-hidden={isTruncated || undefined} className="flex min-w-0">
+              <span ref={headRef} className="min-w-0 truncate">
+                {display.slice(0, -tailLength)}
+              </span>
+              <span className="shrink-0">{display.slice(-tailLength)}</span>
+            </span>
+          ) : (
+            <span aria-hidden={isTruncated || undefined}>{display}</span>
+          )}
           {isTruncated && <span className="sr-only">{value}</span>}
         </span>
       </TooltipTrigger>
-      {isTruncated && <TooltipContent>{value}</TooltipContent>}
+      {showFull && <TooltipContent>{value}</TooltipContent>}
     </Tooltip>
   );
 }

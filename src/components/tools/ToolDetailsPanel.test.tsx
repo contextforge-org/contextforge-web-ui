@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { ToolDetailsPanel } from "./ToolDetailsPanel";
 import type { Tool } from "@/types/tool";
 
@@ -371,7 +371,7 @@ describe("ToolDetailsPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
+      expect(screen.getByText(byTextContent("https://api.example.com"))).toBeInTheDocument();
     });
 
     expect(screen.getByLabelText("Copy URL")).toBeInTheDocument();
