@@ -90,19 +90,16 @@ async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
     });
   }
 
+  // Keycloak's issuer reflects its own configured hostname, not the address
+  // the BFF dials to reach it -- the two commonly differ (KC_HOSTNAME, a
+  // reverse proxy). mcp-context-forge's own sso_service.py treats the
+  // discovered issuer as authoritative rather than cross-checking it against
+  // config, and this file follows that same trust model.
   const issuer = requireStringField(body, "issuer", url);
-  const expectedIssuer = `${config.ssoKeycloakBaseUrl}/realms/${encodeURIComponent(config.ssoKeycloakRealm)}`;
-  if (issuer !== expectedIssuer) {
-    throw new OidcDiscoveryError(
-      `Keycloak discovery issuer mismatch: expected "${expectedIssuer}", got "${issuer}"`,
-    );
-  }
-
   const authorizationEndpoint = requireStringField(body, "authorization_endpoint", url);
   const tokenEndpoint = requireStringField(body, "token_endpoint", url);
   const jwksUri = requireStringField(body, "jwks_uri", url);
-  const endSessionEndpoint =
-    typeof body.end_session_endpoint === "string" ? body.end_session_endpoint : undefined;
+  const endSessionEndpoint = optionalStringField(body, "end_session_endpoint");
 
   return {
     issuer,
@@ -115,11 +112,16 @@ async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
 }
 
 function requireStringField(body: Record<string, unknown>, field: string, url: string): string {
-  const value = body[field];
-  if (typeof value !== "string" || !value) {
+  const value = optionalStringField(body, field);
+  if (!value) {
     throw new OidcDiscoveryError(`Keycloak discovery document missing "${field}": ${url}`);
   }
   return value;
+}
+
+function optionalStringField(body: Record<string, unknown>, field: string): string | undefined {
+  const value = body[field];
+  return typeof value === "string" && value ? value : undefined;
 }
 
 // Swaps only scheme+host+port to ssoKeycloakPublicBaseUrl, keeping the

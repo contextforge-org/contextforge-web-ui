@@ -167,14 +167,17 @@ describe("getDiscoveryDocument", () => {
     await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
   });
 
-  it("throws OidcDiscoveryError on an issuer mismatch", async () => {
-    mockDiscoveryFetch(
-      discoveryBody({ issuer: "http://attacker-controlled:8080/realms/mcp-gateway" }),
-    );
-    const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
+  it("accepts an issuer that differs from the dial address (KC_HOSTNAME / reverse proxy)", async () => {
+    // Keycloak's issuer reflects its own configured hostname, not the address
+    // used to reach it -- the two commonly differ even in the reference
+    // docker-compose stack (KC_HOSTNAME=localhost while the BFF dials the
+    // container's service name).
+    mockDiscoveryFetch(discoveryBody({ issuer: "http://localhost:8080/realms/mcp-gateway" }));
+    const { getDiscoveryDocument } = await freshImport();
 
-    await expect(getDiscoveryDocument()).rejects.toThrow(/issuer mismatch/);
-    await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
+    const doc = await getDiscoveryDocument();
+
+    expect(doc.issuer).toBe("http://localhost:8080/realms/mcp-gateway");
   });
 
   it("throws OidcDiscoveryError when the fetch itself fails", async () => {
@@ -206,6 +209,15 @@ describe("getDiscoveryDocument", () => {
 
   it("tolerates a missing end_session_endpoint (not every provider advertises one)", async () => {
     mockDiscoveryFetch(discoveryBody({ end_session_endpoint: undefined }));
+    const { getDiscoveryDocument } = await freshImport();
+
+    const doc = await getDiscoveryDocument();
+
+    expect(doc.endSessionEndpoint).toBeUndefined();
+  });
+
+  it("treats an empty-string end_session_endpoint as absent, not as a value to rewrite", async () => {
+    mockDiscoveryFetch(discoveryBody({ end_session_endpoint: "" }));
     const { getDiscoveryDocument } = await freshImport();
 
     const doc = await getDiscoveryDocument();
