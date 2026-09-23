@@ -59,6 +59,27 @@ describe("ServerStatusIndicator", () => {
     expect(screen.queryByText(/certificate has expired/)).not.toBeInTheDocument();
   });
 
+  it("withholds it from a disabled server whose token has also expired", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ServerStatusIndicator
+        server={{
+          ...server,
+          enabled: false,
+          reachable: false,
+          lastSeen: "2026-04-16T13:23:12Z",
+          lastError: "certificate has expired",
+        }}
+        oauthTokenStatus="expired"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Authorization/i }));
+
+    expect(await screen.findByText(/You have not authorized this server/)).toBeInTheDocument();
+    expect(screen.queryByText(/certificate has expired/)).not.toBeInTheDocument();
+  });
+
   it("hands authorization straight to the OAuth flow", async () => {
     const user = userEvent.setup();
     const onAuthorize = vi.fn().mockResolvedValue(undefined);
