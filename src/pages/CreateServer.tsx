@@ -1,15 +1,6 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
-import {
-  Activity,
-  Blocks,
-  Bot,
-  Box,
-  CircleSlash,
-  Code,
-  MessageSquareCode,
-  Wrench,
-} from "lucide-react";
+import { Blocks, Bot, Box, Code, MessageSquareCode, Wrench } from "lucide-react";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CreateServerForm } from "@/components/gateways/CreateServerForm";
@@ -25,11 +16,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
+import { ServerStatusDetail } from "@/components/servers/ServerStatusDetail";
+import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { api, ApiError } from "@/api/client";
+import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
-import { STATUS_ICON } from "@/lib/status";
-import type { MCPServer, ServerStatus, VirtualServer, VirtualServerTag } from "@/types/server";
+import { getServerAvailability, isOAuthServer } from "@/lib/serverStatus";
+import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server";
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
@@ -121,41 +116,6 @@ function getResourceCount(server: ListedMCPServer) {
 
 function getPromptCount(server: ListedMCPServer) {
   return server.promptCount ?? server.prompt_count ?? 0;
-}
-
-function getServerStatus(server: ListedMCPServer): ServerStatus {
-  if (!server.enabled) return "draft";
-  if (!server.reachable) return server.lastSeen ? "warning" : "offline";
-  return "active";
-}
-
-function getStatusConfig(status: ServerStatus) {
-  switch (status) {
-    case "active":
-      return {
-        Icon: Activity,
-        labelId: "gateways.source.status.active",
-        className: "text-success",
-      };
-    case "warning":
-      return {
-        Icon: STATUS_ICON.warning,
-        labelId: "gateways.source.status.warning",
-        className: "text-warning",
-      };
-    case "offline":
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.offline",
-        className: "text-muted-foreground",
-      };
-    default:
-      return {
-        Icon: CircleSlash,
-        labelId: "gateways.source.status.inactive",
-        className: "text-muted-foreground",
-      };
-  }
 }
 
 function getTagValue(tag: string | VirtualServerTag): string | null {
@@ -379,6 +339,8 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   selectedResourceIds,
   selectedPromptIds,
   onComponentSelectionChange,
+  oauthStatus,
+  onRetryOAuthStatus,
 }: {
   server: ListedMCPServer;
   isOpen: boolean;
@@ -386,6 +348,8 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   selectedResourceIds: Set<string>;
   selectedPromptIds: Set<string>;
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
+  oauthStatus?: OAuthStatusEntry;
+  onRetryOAuthStatus: () => void;
 }) {
   const intl = useIntl();
   const {
@@ -413,8 +377,8 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     { enabled: isOpen },
   );
 
-  const status = getStatusConfig(getServerStatus(server));
-  const StatusIcon = status.Icon;
+  const availability = getServerAvailability(server, oauthStatus);
+  const showOAuthDetail = availability.startsWith("authorization_");
   const tools = useMemo(
     () =>
       getResponseItems(toolsData, "tools").map((tool): SelectableComponent => ({
@@ -479,13 +443,28 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
               count={getPromptCount(server)}
             />
           </span>
-          <span className="hidden shrink-0 items-center gap-2 text-muted-foreground md:flex">
-            <StatusIcon className={`size-3.5 ${status.className}`} aria-hidden="true" />
-            {intl.formatMessage({ id: status.labelId })}
+          <span className="hidden shrink-0 md:flex">
+            <ServerStatusIndicator server={server} oauthStatus={oauthStatus} interactive={false} />
           </span>
         </span>
       </AccordionTrigger>
       <AccordionContent className="space-y-4">
+        {showOAuthDetail && (
+          <div className="rounded-md border border-border/60 px-3 py-2">
+            <ServerStatusDetail
+              availability={availability}
+              enabled={server.enabled}
+              lastSeen={server.lastSeen}
+              lastError={server.lastError}
+              onRetry={
+                oauthStatus?.state === "unavailable" && oauthStatus.retryable
+                  ? onRetryOAuthStatus
+                  : undefined
+              }
+              authorizationManagementHint
+            />
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 text-xs sm:hidden">
           <ComponentCount
             icon={Wrench}
@@ -579,6 +558,11 @@ function EditMCPServersSection({
     isLoading: mcpServersLoading,
   } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH);
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
+  const oauthServerIds = useMemo(
+    () => mcpServers.filter(isOAuthServer).map((server) => server.id),
+    [mcpServers],
+  );
+  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds);
   const openServerIdSet = useMemo(() => new Set(openServerIds), [openServerIds]);
   const selectedToolIdSet = useMemo(() => new Set(selectedToolIds), [selectedToolIds]);
   const selectedResourceIdSet = useMemo(() => new Set(selectedResourceIds), [selectedResourceIds]);
@@ -633,6 +617,8 @@ function EditMCPServersSection({
               selectedResourceIds={selectedResourceIdSet}
               selectedPromptIds={selectedPromptIdSet}
               onComponentSelectionChange={onComponentSelectionChange}
+              oauthStatus={oauthStatuses[server.id]}
+              onRetryOAuthStatus={() => void retryOAuthStatus(server.id)}
             />
           ))}
         </Accordion>

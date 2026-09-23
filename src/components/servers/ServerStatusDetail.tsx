@@ -1,45 +1,42 @@
 import { useIntl } from "react-intl";
 
-import { getAvailabilityPresentation, type ServerAvailability } from "@/lib/serverStatus";
+import { Button } from "@/components/ui/button";
+import type { ServerAvailability } from "@/lib/serverStatus";
+import { getAvailabilityPresentation, needsOAuthAuthorization } from "@/lib/serverStatus";
 import { formatLocalDateTime } from "@/utils/formatDate";
 
-interface ServerStatusDetailProps {
-  availability: ServerAvailability;
-  enabled: boolean;
-  lastSeen?: string | null;
-  lastError?: string | null;
-}
-
-/**
- * What a status means, plus the last response and last error where the server
- * has them. This is the only place either value is surfaced in the UI.
- *
- * Disabled servers withhold the error: the health loop clears `last_error` only
- * on enabled servers, so theirs is left over from an outage before they were
- * turned off and reads as a current failure. The test is `enabled` rather than
- * the `inactive` state, because `auth` outranks `inactive`, so a disabled
- * server whose token has also expired is classified `auth` and would otherwise
- * slip past the guard.
- */
 export function ServerStatusDetail({
   availability,
   enabled,
   lastSeen,
   lastError,
-}: ServerStatusDetailProps) {
+  onRetry,
+  authorizationManagementHint = false,
+}: {
+  availability: ServerAvailability;
+  enabled: boolean;
+  lastSeen?: string | null;
+  lastError?: string | null;
+  onRetry?: () => void;
+  authorizationManagementHint?: boolean;
+}) {
   const intl = useIntl();
+  const presentation = getAvailabilityPresentation(availability);
   const showLastError = Boolean(lastError) && enabled;
 
   return (
     <div className="space-y-2 text-sm">
-      <p className="text-foreground">
-        {intl.formatMessage({ id: getAvailabilityPresentation(availability).detailId })}
-      </p>
-      {lastSeen && (
+      <p className="text-foreground">{intl.formatMessage({ id: presentation.detailId })}</p>
+      {authorizationManagementHint && needsOAuthAuthorization(availability) && (
         <p className="text-muted-foreground">
+          {intl.formatMessage({ id: "mcpServer.status.detail.manageAuthorization" })}
+        </p>
+      )}
+      {lastSeen && (
+        <p className="text-xs text-muted-foreground">
           {intl.formatMessage(
             { id: "mcpServer.status.detail.lastSeen" },
-            { timestamp: formatLocalDateTime(lastSeen, "") },
+            { timestamp: formatLocalDateTime(lastSeen, lastSeen) },
           )}
         </p>
       )}
@@ -47,6 +44,11 @@ export function ServerStatusDetail({
         <p className="break-words text-muted-foreground">
           {intl.formatMessage({ id: "mcpServer.status.detail.lastError" }, { error: lastError })}
         </p>
+      )}
+      {onRetry && (
+        <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+          {intl.formatMessage({ id: "mcpServer.status.retry" })}
+        </Button>
       )}
     </div>
   );

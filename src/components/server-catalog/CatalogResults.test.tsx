@@ -140,8 +140,13 @@ describe("CatalogResults", () => {
         canDisconnect={false}
         oauthStatuses={{
           "gateway-github": {
-            oauth_enabled: true,
-            user_token_status: { status: "expired", authorized: false },
+            state: "ready",
+            tokenStatus: "expired",
+            status: {
+              oauth_enabled: true,
+              grant_type: "authorization_code",
+              user_token_status: { status: "expired", authorized: false },
+            },
           },
         }}
       />,
@@ -184,8 +189,13 @@ describe("CatalogResults", () => {
         canDisconnect
         oauthStatuses={{
           "gateway-github": {
-            oauth_enabled: true,
-            user_token_status: { status: "expired", authorized: false },
+            state: "ready",
+            tokenStatus: "expired",
+            status: {
+              oauth_enabled: true,
+              grant_type: "authorization_code",
+              user_token_status: { status: "expired", authorized: false },
+            },
           },
         }}
       />,
@@ -239,12 +249,22 @@ describe("CatalogResults", () => {
         canDisconnect={false}
         oauthStatuses={{
           "gateway-valid": {
-            oauth_enabled: true,
-            user_token_status: { status: "valid", authorized: true },
+            state: "ready",
+            tokenStatus: "valid",
+            status: {
+              oauth_enabled: true,
+              grant_type: "authorization_code",
+              user_token_status: { status: "valid", authorized: true },
+            },
           },
           "gateway-expiring": {
-            oauth_enabled: true,
-            user_token_status: { status: "near_expiry", authorized: true },
+            state: "ready",
+            tokenStatus: "near_expiry",
+            status: {
+              oauth_enabled: true,
+              grant_type: "authorization_code",
+              user_token_status: { status: "near_expiry", authorized: true },
+            },
           },
         }}
       />,
@@ -254,8 +274,7 @@ describe("CatalogResults", () => {
     expect(screen.getByText("Connected")).toBeInTheDocument();
   });
 
-  it("shows authorization needed when OAuth configuration is incomplete", async () => {
-    const user = userEvent.setup();
+  it("does not infer authorization from the catalog configuration flag", () => {
     const onAuthorize = vi.fn();
     const server = {
       ...availableServer,
@@ -282,13 +301,12 @@ describe("CatalogResults", () => {
       />,
     );
 
-    expect(screen.getByText("Needs authorization")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Actions for GitHub pending" }));
-    await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
-    expect(onAuthorize).toHaveBeenCalledOnce();
+    expect(screen.getByText("Authorization status unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Needs authorization")).not.toBeInTheDocument();
+    expect(onAuthorize).not.toHaveBeenCalled();
   });
 
-  it("keeps a registered OAuth card connected while token status is unavailable", () => {
+  it("never shows a registered OAuth card as connected while token status is unavailable", () => {
     const server = {
       ...availableServer,
       id: "github-status-pending",
@@ -313,7 +331,8 @@ describe("CatalogResults", () => {
       />,
     );
 
-    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("Authorization status unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
   });
 
   it("shows unregistered catalog servers as not connected in details", async () => {
@@ -322,6 +341,24 @@ describe("CatalogResults", () => {
     );
 
     expect(screen.getByText("Not connected")).toBeInTheDocument();
+  });
+
+  it("never labels unavailable OAuth status connected in details", () => {
+    renderWithProviders(
+      <CatalogServerDetailsDialog
+        server={{
+          ...availableServer,
+          auth_type: "OAuth2.1",
+          is_registered: true,
+          gateway_id: "gateway-oauth",
+        }}
+        oauthStatus={{ state: "unavailable", retryable: true }}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Authorization status unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Connected")).not.toBeInTheDocument();
   });
 
   it("routes bundled catalog logos through the BFF", () => {
