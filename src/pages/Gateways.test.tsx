@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { renderWithProviders } from "@/test/test-utils";
+import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { Gateways } from "./Gateways";
 import { useQuery } from "@/hooks/useQuery";
 import {
@@ -822,7 +822,9 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("tab", { name: "Components" }));
     expect(screen.getByText("Get Repo Issues")).toBeInTheDocument();
     expect(screen.getByText("GITHUB_GET_REPO_ISSUES")).toBeInTheDocument();
-    expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(byTextContent("github://repo/{owner}/{repo}")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("summarize_pull_request").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: "Tools" }));
@@ -838,7 +840,9 @@ describe("Gateways", () => {
     await user.click(await screen.findByRole("menuitem", { name: "View details" }));
 
     await user.click(await screen.findByRole("tab", { name: "Components" }));
-    expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(byTextContent("github://repo/{owner}/{repo}")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("summarize_pull_request").length).toBeGreaterThan(0);
   });
 
