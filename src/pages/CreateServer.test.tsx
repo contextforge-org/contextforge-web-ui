@@ -612,8 +612,8 @@ describe("CreateServer", () => {
 
     // Status labels exercise every getServerStatus / getStatusConfig branch.
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Warning")).toBeInTheDocument();
     expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
     expect(screen.getByText("Inactive")).toBeInTheDocument();
 
     // Visibility labels exercise team / private / internal.
@@ -877,8 +877,8 @@ describe("CreateServer", () => {
       );
 
       // Each server's computed status label is shown on its accordion row.
-      expect(await screen.findByText("Warning")).toBeInTheDocument();
-      expect(screen.getByText("Offline")).toBeInTheDocument();
+      expect(await screen.findByText("Offline")).toBeInTheDocument();
+      expect(screen.getByText("Connecting")).toBeInTheDocument();
       expect(screen.getByText("Inactive")).toBeInTheDocument();
 
       // Visibility labels cover team / private / internal.

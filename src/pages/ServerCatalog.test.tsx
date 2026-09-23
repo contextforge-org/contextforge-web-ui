@@ -6,11 +6,11 @@ import userEvent from "@testing-library/user-event";
 import {
   disconnectCatalogGateway,
   getGatewayImpactPreview,
-  type OAuthGatewayStatusMap,
   registerCatalogServer,
   testCatalogServer,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
+import { getOAuthStatuses } from "@/api/oauth";
 import { serversApi } from "@/api/servers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
@@ -49,6 +49,9 @@ vi.mock("@/api/catalog", () => ({
   getGatewayImpactPreview: vi.fn(),
   testCatalogServer: vi.fn(),
 }));
+vi.mock("@/api/oauth", () => ({
+  getOAuthStatuses: vi.fn(),
+}));
 vi.mock("@/api/servers", () => ({
   serversApi: {
     openOAuthAuthorizationPopup: vi.fn(),
@@ -63,6 +66,7 @@ const mockRegisterCatalogServer = vi.mocked(registerCatalogServer);
 const mockDisconnectCatalogGateway = vi.mocked(disconnectCatalogGateway);
 const mockGetGatewayImpactPreview = vi.mocked(getGatewayImpactPreview);
 const mockTestCatalogServer = vi.mocked(testCatalogServer);
+const mockGetOAuthStatuses = vi.mocked(getOAuthStatuses);
 const mockOpenOAuthAuthorizationPopup = vi.mocked(serversApi.openOAuthAuthorizationPopup);
 const mockTriggerOAuthAuthorization = vi.mocked(serversApi.triggerOAuthAuthorization);
 const mockToggleEnabled = vi.mocked(serversApi.toggleEnabled);
@@ -202,6 +206,8 @@ describe("ServerCatalog", () => {
     });
     mockGetGatewayImpactPreview.mockResolvedValue({ gatewayId: "gateway-globalping", servers: [] });
     mockTestCatalogServer.mockResolvedValue({ statusCode: 200, latencyMs: 12 });
+    mockGetOAuthStatuses.mockReset();
+    mockGetOAuthStatuses.mockResolvedValue({ statuses: {}, failures: {} });
     mockOpenOAuthAuthorizationPopup.mockReset();
     mockTriggerOAuthAuthorization.mockReset();
     mockToggleEnabled.mockReset();
@@ -221,7 +227,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("status", { name: "Loading..." })).toBeInTheDocument();
   });
 
-  it("loads caller-scoped OAuth status in one batch for registered OAuth cards", () => {
+  it("loads caller-scoped OAuth status in one batch for registered OAuth cards", async () => {
     mockUseQuery.mockReturnValue(
       queryResult({
         data: {
@@ -234,9 +240,12 @@ describe("ServerCatalog", () => {
 
     renderWithRouter(<ServerCatalog />);
 
-    expect(mockUseQuery).toHaveBeenCalledWith("/oauth/status?gateway_ids=gateway-github", {
-      enabled: true,
-    });
+    await waitFor(() =>
+      expect(mockGetOAuthStatuses).toHaveBeenCalledWith(
+        ["gateway-github"],
+        expect.any(AbortSignal),
+      ),
+    );
   });
 
   it("keeps cached catalog data visible during refreshes and refresh failures", () => {
@@ -324,18 +333,12 @@ describe("ServerCatalog", () => {
   it("collects OAuth credentials in the catalog dialog and registers them in one call", async () => {
     const user = userEvent.setup();
     const authWindow = { close: vi.fn() } as unknown as Window;
-    const oauthStatusSetData = vi.fn();
-    const refetchOAuthStatuses = vi.fn().mockResolvedValue(undefined);
     mockUseQuery.mockImplementation((path) => {
       if (path === "/v1/catalog?limit=1000") return queryResult();
       if (path === "/oauth/callback-url") {
         return queryResult({ data: { redirectUri: "http://localhost:3000/oauth/callback" } });
       }
-      return queryResult({
-        data: undefined,
-        refetch: refetchOAuthStatuses,
-        setData: oauthStatusSetData,
-      });
+      return queryResult({ data: undefined });
     });
     mockOpenOAuthAuthorizationPopup.mockReturnValue(authWindow);
     mockRegisterCatalogServer.mockImplementation(async () => {
@@ -383,19 +386,10 @@ describe("ServerCatalog", () => {
     );
     expect(mockToggleEnabled).toHaveBeenCalledWith("registered-server", true);
     expect(mockFetchToolsAfterOAuth).toHaveBeenCalledWith("registered-server");
-    expect(oauthStatusSetData).toHaveBeenCalledOnce();
-    const updateOAuthStatuses = oauthStatusSetData.mock.calls[0][0] as (
-      current: OAuthGatewayStatusMap | undefined,
-    ) => OAuthGatewayStatusMap;
-    expect(
-      updateOAuthStatuses({
-        "registered-server": {
-          oauth_enabled: true,
-          user_token_status: { status: "missing", authorized: false },
-        },
-      })["registered-server"].user_token_status,
-    ).toMatchObject({ status: "valid", authorized: true });
-    expect(refetchOAuthStatuses).toHaveBeenCalledOnce();
+    expect(mockGetOAuthStatuses).toHaveBeenCalledWith(
+      ["registered-server"],
+      expect.any(AbortSignal),
+    );
   });
 
   it("does not register OAuth credentials when popup creation is blocked", async () => {

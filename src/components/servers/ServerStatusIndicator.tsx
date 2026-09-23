@@ -2,61 +2,51 @@ import { useState } from "react";
 import { useIntl } from "react-intl";
 
 import { StatusIndicator } from "@/components/ui/status-indicator";
-import { cn } from "@/lib/utils";
+import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
 import {
   getAvailabilityPresentation,
   getServerAvailability,
-  type OAuthTokenStatus,
+  needsOAuthAuthorization,
   type ServerAvailabilityInput,
 } from "@/lib/serverStatus";
+import { cn } from "@/lib/utils";
 import { ServerStatusDetail } from "./ServerStatusDetail";
 
 interface ServerStatusIndicatorProps {
-  server: ServerAvailabilityInput & {
-    name: string;
-    lastError?: string | null;
-  };
-  oauthTokenStatus?: OAuthTokenStatus;
-  /** Use the short label, for narrow columns. Screen readers still get the full one. */
+  server: ServerAvailabilityInput & { name: string; lastError?: string | null };
+  oauthStatus?: OAuthStatusEntry;
   compact?: boolean;
-  /** Render as plain text rather than a button. Required inside another button. */
   interactive?: boolean;
-  /**
-   * Starts the OAuth authorization flow. Given only where the caller can run
-   * it; without it the `auth` state explains itself like every other state.
-   */
   onAuthorize?: () => Promise<void>;
+  onRetry?: () => void;
+  authorizationManagementHint?: boolean;
   className?: string;
 }
 
-/**
- * Server status icon and label.
- *
- * States with nothing to resolve open a popover explaining themselves, the way
- * visibility does. `auth` is the exception: it hands off to the OAuth flow
- * rather than describing it, since authorizing is the whole point of the state.
- *
- * That button stacks its two labels so the wider one sets the width, keeping
- * the row still while the flow is open.
- */
 export function ServerStatusIndicator({
   server,
-  oauthTokenStatus,
+  oauthStatus,
   compact = false,
   interactive = true,
   onAuthorize,
+  onRetry,
+  authorizationManagementHint = false,
   className,
 }: ServerStatusIndicatorProps) {
   const intl = useIntl();
   const [isAuthorizing, setIsAuthorizing] = useState(false);
-  const availability = getServerAvailability(server, oauthTokenStatus);
+  const availability = getServerAvailability(server, oauthStatus);
   const presentation = getAvailabilityPresentation(availability);
   const StatusIcon = presentation.Icon;
-  const authorize = availability === "auth" ? onAuthorize : undefined;
+  const authorize = needsOAuthAuthorization(availability) ? onAuthorize : undefined;
+  const canRetry =
+    availability === "authorization_unavailable" &&
+    oauthStatus?.state === "unavailable" &&
+    oauthStatus.retryable;
   const statusLabel = intl.formatMessage({
     id: compact ? presentation.shortLabelId : presentation.labelId,
   });
-  const authorizingLabel = intl.formatMessage({ id: "mcpServer.status.action.authorizing" });
+  const authorizingLabel = intl.formatMessage({ id: "mcpServer.status.authorizing" });
   const label = isAuthorizing ? authorizingLabel : statusLabel;
   const fullLabel = intl.formatMessage({ id: presentation.labelId });
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
@@ -65,14 +55,6 @@ export function ServerStatusIndicator({
     const layout = "inline-flex items-center gap-1.5 text-xs";
     const trigger =
       "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-    const icon = (
-      <StatusIcon
-        className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
-        aria-hidden="true"
-        focusable="false"
-      />
-    );
-
     const runAuthorize = async () => {
       setIsAuthorizing(true);
       try {
@@ -81,7 +63,6 @@ export function ServerStatusIndicator({
         setIsAuthorizing(false);
       }
     };
-
     return (
       <button
         type="button"
@@ -93,7 +74,11 @@ export function ServerStatusIndicator({
         )}
         className={cn(layout, trigger, "disabled:opacity-70", className)}
       >
-        {icon}
+        <StatusIcon
+          className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
+          aria-hidden="true"
+          focusable="false"
+        />
         <span className="grid justify-items-start text-muted-foreground">
           <span className="col-start-1 row-start-1">{label}</span>
           <span className="invisible col-start-1 row-start-1" aria-hidden="true">
@@ -126,6 +111,8 @@ export function ServerStatusIndicator({
         enabled={server.enabled}
         lastSeen={server.lastSeen}
         lastError={server.lastError}
+        onRetry={canRetry ? onRetry : undefined}
+        authorizationManagementHint={authorizationManagementHint}
       />
     </StatusIndicator>
   );
