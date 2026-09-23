@@ -1254,6 +1254,52 @@ test.describe("Virtual Servers page", () => {
     await expect(tooltip).toHaveText(fullEndpointText!);
   });
 
+  test("copy buttons in the details panel copy the full untruncated value", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.route("**/v1/virtual-servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+      });
+    });
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+      });
+    });
+
+    await page.goto(APP.GATEWAYS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Actions for testVS" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const detailsPanel = page.getByRole("region", { name: "testVS details" });
+    await expect(detailsPanel).toBeVisible();
+
+    // Each button must copy the full value, not its middle-truncated display text.
+    const expectCopied = async (name: string, value: string) => {
+      await detailsPanel.getByRole("button", { name, exact: true }).click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(value);
+    };
+
+    const endpoint = `http://localhost:5173/servers/${MOCK_VIRTUAL_SERVER.id}/mcp`;
+    await expectCopied("Copy Endpoint", endpoint);
+    await expectCopied("Copy server ID", MOCK_VIRTUAL_SERVER.id);
+    await expectCopied("Copy URL", endpoint);
+
+    await detailsPanel.getByRole("tab", { name: "Components" }).click();
+    await expectCopied("Copy tool name for Get Repo Issues", "GITHUB_GET_REPO_ISSUES");
+    await expectCopied("Copy resource", "github://repo/{owner}/{repo}");
+    await expectCopied("Copy prompt", "summarize_pull_request");
+  });
+
   test("details panel add source button navigates to edit the virtual server", async ({ page }) => {
     await page.route("**/v1/virtual-servers?*", async (route) => {
       await route.fulfill({

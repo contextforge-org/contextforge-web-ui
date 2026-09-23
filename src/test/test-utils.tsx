@@ -22,4 +22,10 @@ export function renderWithProviders(ui: ReactElement, options?: Omit<RenderOptio
   return render(ui, { wrapper: AllTheProviders, ...options });
 }
 
+// Matches text split across child spans (e.g. TruncatedMiddleText's head/tail).
+export function byTextContent(text: string) {
+  return (_: string, el: Element | null) =>
+    el?.textContent === text && ![...el.children].some((child) => child.textContent === text);
+}
+
 export * from "@testing-library/react";

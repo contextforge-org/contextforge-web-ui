@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { createElement, type ComponentType } from "react";
 import { server } from "@/test/mocks/server";
-import { renderWithProviders } from "@/test/test-utils";
+import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
 import { truncateMiddle } from "@/components/gateways/utils";
@@ -830,7 +830,7 @@ describe("CreateServer", () => {
       });
 
       // Middle-truncated (not end-truncated) since the row's label fell back to a URI.
-      expect(screen.getByText(truncateMiddle(longUri, 40))).toBeInTheDocument();
+      expect(screen.getByText(byTextContent(truncateMiddle(longUri, 40)))).toBeInTheDocument();
     });
 
     it("renders every MCP server status and visibility in the edit accordion", async () => {

@@ -7,6 +7,7 @@ import { searchEntities } from "@/api/search";
 import { useAuthContext } from "@/auth/AuthContext";
 import { useRouter } from "@/router";
 import { truncateMiddle } from "@/components/gateways/utils";
+import { byTextContent } from "@/test/test-utils";
 import { HeaderQuickNav } from "./HeaderQuickNav";
 
 vi.mock("@/api/search", () => ({
@@ -366,7 +367,7 @@ describe("HeaderQuickNav", () => {
 
     expect(await screen.findByText("Payments MCP")).toBeInTheDocument();
     // Middle-truncated (not end-truncated) since the summary fell back to a URL.
-    expect(screen.getByText(truncateMiddle(longUrl, 40))).toBeInTheDocument();
+    expect(screen.getByText(byTextContent(truncateMiddle(longUrl, 40)))).toBeInTheDocument();
   });
 
   it("shows an error state when global search fails", async () => {
@@ -651,7 +652,7 @@ describe("HeaderQuickNav", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "query" } });
 
-    expect(await screen.findByText("resource://only-uri")).toBeInTheDocument();
+    expect(await screen.findByText(byTextContent("resource://only-uri"))).toBeInTheDocument();
     expect(screen.getByText("Full Name Person")).toBeInTheDocument();
     expect(screen.getByText("tool-slug")).toBeInTheDocument();
   });

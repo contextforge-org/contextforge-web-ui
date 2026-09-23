@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, delay } from "msw";
 import { server as mswServer } from "@/test/mocks/server";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { VirtualServerDetailsPanel } from "./VirtualServerDetailsPanel";
 import type { VirtualServer } from "@/types/server";
 import type { Tool } from "@/types/tool";
@@ -194,7 +194,7 @@ describe("VirtualServerDetailsPanel components list", () => {
     expect(screen.getByText("titled-tool-id")).toBeInTheDocument();
     // Untitled rows render the identifier directly.
     expect(screen.getByText("Plain Tool")).toBeInTheDocument();
-    expect(screen.getByText("res://example/thing")).toBeInTheDocument();
+    expect(screen.getByText(byTextContent("res://example/thing"))).toBeInTheDocument();
     expect(screen.getByText("greeting-prompt")).toBeInTheDocument();
 
     // Type badges for each component kind.
