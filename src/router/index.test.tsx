@@ -11,6 +11,7 @@ import {
   resolveNextParam,
 } from ".";
 import { I18nProvider } from "../i18n";
+import { REDIRECT_VALIDATION_VECTORS } from "./redirect-validation.fixtures";
 import type { ReactNode } from "react";
 
 vi.mock("../auth/AuthContext", () => ({
@@ -522,4 +523,11 @@ describe("resolveNextParam", () => {
     expect(resolveNextParam("?next=%2Fapp%2Flogin")).toBe("/app/");
     expect(resolveNextParam("?next=%2Fapp%2Flogin%3Fnext%3D%252Fapp%252Ftools")).toBe("/app/");
   });
+
+  it.each(REDIRECT_VALIDATION_VECTORS)(
+    "resolves %j the same way server/src/routes/auth/sso-login.ts's safeReturnTo does",
+    ({ next, expected }) => {
+      expect(resolveNextParam(`?next=${encodeURIComponent(next)}`)).toBe(expected);
+    },
+  );
 });

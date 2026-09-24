@@ -10,22 +10,23 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
 import { setNoStore } from "../../lib/no-store.js";
-import { getDiscoveryDocument, OidcDiscoveryError } from "../../lib/oidc-discovery.js";
+import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
 import { isForbiddenCrossOrigin, resolvePublicOrigin } from "../../lib/origin-guard.js";
-import { mintSsoLoginState } from "../../lib/sso-login-state.js";
+import { mintSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 
 const APP_PREFIX = "/app";
 const DEFAULT_RETURN_TO = `${APP_PREFIX}/`;
+const LOGIN_ERROR_REDIRECT = `${APP_PREFIX}/login`;
 
 interface SsoLoginQuerystring {
-  next?: string;
+  next?: string | string[];
 }
 
-// Mirrors src/router/index.tsx's validateDestination -- can't import it (a
-// different package/tsconfig), so the same open-redirect rules are
-// reimplemented here for the one param this route reads off the query string.
-function safeReturnTo(next: string | undefined): string {
-  if (!next) return DEFAULT_RETURN_TO;
+// Mirrors src/router/index.tsx's validateDestination -- can't import it
+// across the package boundary, so reimplemented (vectors shared in tests).
+export function safeReturnTo(next: string | string[] | undefined): string {
+  // Fastify turns a repeated ?next=a&next=b into an array; treat non-string as absent.
+  if (typeof next !== "string" || !next) return DEFAULT_RETURN_TO;
   if (/[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(next)) return DEFAULT_RETURN_TO;
   if (next.startsWith("//")) return DEFAULT_RETURN_TO;
 
@@ -44,43 +45,57 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
     async (request: FastifyRequest<{ Querystring: SsoLoginQuerystring }>, reply: FastifyReply) => {
       setNoStore(reply);
 
+      // The only caller is a top-level browser navigation (Login.tsx sets
+      // window.location.href), so every failure redirects back to the login
+      // page with a `sso_`-prefixed error code instead of rendering raw JSON.
       if (!config.ssoEnabled) {
-        return reply.code(404).send({ error: "sso_disabled" });
+        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_disabled`);
       }
 
       // Login-CSRF guard only -- no session exists yet to hijack here, and
       // nothing mutates until the callback validates `state`. Same guard
       // login.ts uses for its own unauthenticated entrypoint.
       if (isForbiddenCrossOrigin(request)) {
-        return reply.code(403).send({ error: "cross_site_request_forbidden" });
+        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_cross_site_forbidden`);
       }
 
       let authorizationEndpoint: string;
       try {
         authorizationEndpoint = (await getDiscoveryDocument()).authorizationEndpoint;
       } catch (err) {
+        // err.message can leak the internal Keycloak URL -- log only, never return it.
         request.log.error({ err }, "SSO discovery failed");
-        return reply.code(502).send({
-          error: "sso_discovery_failed",
-          detail: err instanceof OidcDiscoveryError ? err.message : undefined,
-        });
+        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_discovery_failed`);
       }
 
       const returnTo = safeReturnTo(request.query.next);
-      const { state, nonce, codeChallenge } = await mintSsoLoginState(fastify.redis, returnTo);
+      const redirectUri = `${resolvePublicOrigin(request)}/auth/sso/callback`;
+      const { state, nonce, codeChallenge, binding } = await mintSsoLoginState(
+        fastify.redis,
+        returnTo,
+        redirectUri,
+      );
 
       const authorizeUrl = new URL(authorizationEndpoint);
       authorizeUrl.searchParams.set("response_type", "code");
       authorizeUrl.searchParams.set("client_id", config.ssoKeycloakClientId!);
-      authorizeUrl.searchParams.set(
-        "redirect_uri",
-        `${resolvePublicOrigin(request)}/auth/sso/callback`,
-      );
+      authorizeUrl.searchParams.set("redirect_uri", redirectUri);
       authorizeUrl.searchParams.set("scope", config.ssoKeycloakScopes);
       authorizeUrl.searchParams.set("state", state);
       authorizeUrl.searchParams.set("code_challenge", codeChallenge);
       authorizeUrl.searchParams.set("code_challenge_method", "S256");
       authorizeUrl.searchParams.set("nonce", nonce);
+
+      // Same attributes as session-store.ts's setSessionCookie -- lax (not
+      // strict) so it still rides along on the top-level GET back from Keycloak.
+      reply.setCookie(SSO_LOGIN_BINDING_COOKIE, binding, {
+        httpOnly: true,
+        secure: config.cookieSecure,
+        sameSite: "lax",
+        path: "/",
+        domain: config.cookieDomain,
+        maxAge: config.ssoLoginStateTtlSeconds,
+      });
 
       return reply.redirect(authorizeUrl.toString());
     },

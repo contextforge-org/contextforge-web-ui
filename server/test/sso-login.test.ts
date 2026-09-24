@@ -8,6 +8,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { REDIRECT_VALIDATION_VECTORS } from "../../src/router/redirect-validation.fixtures.js";
+import { SSO_LOGIN_BINDING_COOKIE } from "../src/lib/sso-login-state.js";
+import { safeReturnTo } from "../src/routes/auth/sso-login.js";
+
 const ENV_KEYS = [
   "SSO_ENABLED",
   "SSO_KEYCLOAK_BASE_URL",
@@ -64,17 +68,18 @@ async function freshBuildTestApp(): Promise<typeof import("./helpers/build-app.j
 }
 
 describe("GET /auth/sso/login", () => {
-  it("404s when SSO is disabled", async () => {
+  it("redirects to the login page with a prefixed error when SSO is disabled", async () => {
     delete process.env.SSO_ENABLED;
     const buildTestApp = await freshBuildTestApp();
     const app = await buildTestApp();
 
     const response = await app.fastify.inject({ method: "GET", url: "/auth/sso/login" });
 
-    expect(response.statusCode).toBe(404);
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe("/app/login?error=sso_disabled");
   });
 
-  it("403s a cross-site request", async () => {
+  it("redirects to the login page with a prefixed error on a cross-site request", async () => {
     enableSso();
     const buildTestApp = await freshBuildTestApp();
     const app = await buildTestApp();
@@ -85,7 +90,9 @@ describe("GET /auth/sso/login", () => {
       headers: { "sec-fetch-site": "cross-site" },
     });
 
-    expect(response.statusCode).toBe(403);
+    expect(response.statusCode).toBe(302);
+    // Must start with "sso_" -- Login.tsx's error-param filter drops anything else.
+    expect(response.headers.location).toBe("/app/login?error=sso_cross_site_forbidden");
   });
 
   it("redirects to Keycloak's authorization endpoint with all required PKCE/OAuth params", async () => {
@@ -114,6 +121,39 @@ describe("GET /auth/sso/login", () => {
     expect(location.searchParams.get("nonce")).toBeTruthy();
   });
 
+  it("sets an httpOnly, lax binding cookie tying the state to this browser", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+
+    const response = await app.fastify.inject({ method: "GET", url: "/auth/sso/login" });
+
+    const cookie = response.cookies.find((c) => c.name === SSO_LOGIN_BINDING_COOKIE);
+    expect(cookie).toBeTruthy();
+    expect(cookie?.value).toBeTruthy();
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.sameSite).toBe("Lax");
+    expect(cookie?.path).toBe("/");
+  });
+
+  it("stores the exact redirect_uri sent to Keycloak in the login-state record", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+
+    const response = await app.fastify.inject({ method: "GET", url: "/auth/sso/login" });
+
+    const location = new URL(response.headers.location as string);
+    const state = location.searchParams.get("state")!;
+    const binding = response.cookies.find((c) => c.name === SSO_LOGIN_BINDING_COOKIE)!.value;
+    const { consumeSsoLoginState } = await import("../src/lib/sso-login-state.js");
+    const record = await consumeSsoLoginState(app.redis as never, state, binding);
+
+    expect(record?.redirectUri).toBe(location.searchParams.get("redirect_uri"));
+  });
+
   it("falls back to the default return path for an invalid next param", async () => {
     enableSso();
     mockDiscoveryFetch();
@@ -128,12 +168,13 @@ describe("GET /auth/sso/login", () => {
     expect(response.statusCode).toBe(302);
     const location = new URL(response.headers.location as string);
     const state = location.searchParams.get("state")!;
+    const binding = response.cookies.find((c) => c.name === SSO_LOGIN_BINDING_COOKIE)!.value;
     const { consumeSsoLoginState } = await import("../src/lib/sso-login-state.js");
-    const record = await consumeSsoLoginState(app.redis as never, state);
+    const record = await consumeSsoLoginState(app.redis as never, state, binding);
     expect(record?.returnTo).toBe("/app/");
   });
 
-  it("502s with a clean error when discovery fails", async () => {
+  it("redirects to the login page with a prefixed error when discovery fails", async () => {
     enableSso();
     vi.stubGlobal(
       "fetch",
@@ -146,7 +187,37 @@ describe("GET /auth/sso/login", () => {
 
     const response = await app.fastify.inject({ method: "GET", url: "/auth/sso/login" });
 
-    expect(response.statusCode).toBe(502);
-    expect(response.json()).toMatchObject({ error: "sso_discovery_failed" });
+    expect(response.statusCode).toBe(302);
+    // Proves no internal-URL detail leaks in the redirect (OidcDiscoveryError.message embeds it).
+    expect(response.headers.location).toBe("/app/login?error=sso_discovery_failed");
+  });
+
+  it("falls back to the default return path instead of crashing on a repeated next param", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/auth/sso/login?next=/app/a&next=/app/b",
+    });
+
+    expect(response.statusCode).toBe(302);
+    const location = new URL(response.headers.location as string);
+    const state = location.searchParams.get("state")!;
+    const binding = response.cookies.find((c) => c.name === SSO_LOGIN_BINDING_COOKIE)!.value;
+    const { consumeSsoLoginState } = await import("../src/lib/sso-login-state.js");
+    const record = await consumeSsoLoginState(app.redis as never, state, binding);
+    expect(record?.returnTo).toBe("/app/");
+  });
+
+  describe("safeReturnTo", () => {
+    it.each(REDIRECT_VALIDATION_VECTORS)(
+      "resolves %j the same way src/router/index.tsx's validateDestination does",
+      ({ next, expected }) => {
+        expect(safeReturnTo(next)).toBe(expected);
+      },
+    );
   });
 });
