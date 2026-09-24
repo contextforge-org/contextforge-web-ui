@@ -507,6 +507,8 @@ export function ServerCatalog() {
       delete next[serverId];
       return next;
     });
+    // Emptied on every retry, so a repeat failure is still a change to announce.
+    setAddErrorAnnouncement("");
   }, []);
 
   const dismissRegistrationNotification = useCallback((notificationId: string) => {

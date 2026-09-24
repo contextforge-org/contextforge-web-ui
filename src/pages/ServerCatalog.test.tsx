@@ -847,6 +847,39 @@ describe("ServerCatalog", () => {
     expect(announcement).toHaveAttribute("aria-live", "polite");
   });
 
+  it("reannounces a repeat failure and drops the announcement once the add succeeds", async () => {
+    const user = userEvent.setup();
+    let failSecondAttempt: (error: Error) => void = () => {};
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("network")).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failSecondAttempt = reject;
+        }),
+    );
+    renderWithRouter(<ServerCatalog />);
+    const liveRegion = () => document.querySelector("p[aria-live='polite']:not([role])");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    // The second failure repeats the first message, so the region has to empty
+    // while the attempt is in flight for there to be a change to announce.
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    expect(liveRegion()).toBeEmptyDOMElement();
+
+    failSecondAttempt(new Error("network"));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      message: "Registered",
+      server_id: "gw-public-notes",
+    });
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    await waitFor(() => expect(liveRegion()).toBeEmptyDOMElement());
+  });
+
   it("clears the card error when the add is retried", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValueOnce(new Error("first attempt failed"));
