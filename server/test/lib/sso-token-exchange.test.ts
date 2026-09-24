@@ -71,6 +71,16 @@ describe("exchangeSsoCode", () => {
     expect(body.get("code_verifier")).toBe(PARAMS.codeVerifier);
   });
 
+  it("does not follow redirects (would re-send client_secret to wherever it points)", async () => {
+    const fetchMock = mockTokenFetch({ access_token: "at" }); // pragma: allowlist secret
+    const { exchangeSsoCode } = await freshImport();
+
+    await exchangeSsoCode(PARAMS);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.redirect).toBe("error");
+  });
+
   it("maps the token response to camelCase", async () => {
     mockTokenFetch({
       access_token: "at", // pragma: allowlist secret
@@ -90,6 +100,13 @@ describe("exchangeSsoCode", () => {
     });
   });
 
+  it("throws SsoTokenExchangeError when SSO is not configured", async () => {
+    process.env.SSO_ENABLED = "false";
+    const { exchangeSsoCode, SsoTokenExchangeError } = await freshImport();
+
+    await expect(exchangeSsoCode(PARAMS)).rejects.toBeInstanceOf(SsoTokenExchangeError);
+  });
+
   it("throws SsoTokenExchangeError when the fetch itself fails", async () => {
     vi.stubGlobal(
       "fetch",
@@ -102,11 +119,12 @@ describe("exchangeSsoCode", () => {
     await expect(exchangeSsoCode(PARAMS)).rejects.toBeInstanceOf(SsoTokenExchangeError);
   });
 
-  it("throws SsoTokenExchangeError on a non-2xx response", async () => {
+  it("throws SsoTokenExchangeError on a non-2xx response and surfaces Keycloak's own error code", async () => {
     mockTokenFetch({ error: "invalid_grant" }, false, 400);
     const { exchangeSsoCode, SsoTokenExchangeError } = await freshImport();
 
     await expect(exchangeSsoCode(PARAMS)).rejects.toBeInstanceOf(SsoTokenExchangeError);
+    await expect(exchangeSsoCode(PARAMS)).rejects.toThrow("invalid_grant");
   });
 
   it("throws SsoTokenExchangeError on a non-JSON body", async () => {
@@ -125,6 +143,13 @@ describe("exchangeSsoCode", () => {
     await expect(exchangeSsoCode(PARAMS)).rejects.toBeInstanceOf(SsoTokenExchangeError);
   });
 
+  it("throws SsoTokenExchangeError when the body is JSON null", async () => {
+    mockTokenFetch(null);
+    const { exchangeSsoCode, SsoTokenExchangeError } = await freshImport();
+
+    await expect(exchangeSsoCode(PARAMS)).rejects.toBeInstanceOf(SsoTokenExchangeError);
+  });
+
   it("throws SsoTokenExchangeError when access_token is missing", async () => {
     mockTokenFetch({ token_type: "bearer" });
     const { exchangeSsoCode, SsoTokenExchangeError } = await freshImport();
@@ -134,10 +159,24 @@ describe("exchangeSsoCode", () => {
 
   it("never leaks the token endpoint URL in the error message", async () => {
     mockTokenFetch({}, false, 500);
+    const { exchangeSsoCode, SsoTokenExchangeError } = await freshImport();
+
+    const err = await exchangeSsoCode(PARAMS).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SsoTokenExchangeError);
+    expect((err as Error).message).not.toContain(PARAMS.tokenEndpoint);
+  });
+
+  it("does not treat a non-string refresh_token/id_token or non-number expires_in as present", async () => {
+    mockTokenFetch({
+      access_token: "at", // pragma: allowlist secret
+      refresh_token: 12345,
+      id_token: null,
+      expires_in: "300",
+    });
     const { exchangeSsoCode } = await freshImport();
 
-    await expect(exchangeSsoCode(PARAMS)).rejects.not.toThrow(
-      expect.stringContaining(PARAMS.tokenEndpoint),
-    );
+    const result = await exchangeSsoCode(PARAMS);
+
+    expect(result).toEqual({ accessToken: "at" });
   });
 });
