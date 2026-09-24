@@ -21,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useQuery } from "@/hooks/useQuery";
 import { tokensApi } from "@/api/tokens";
 import { parseApiError } from "@/lib/errorUtils";
-import type { TeamsResponse } from "@/types/team";
+import { useTeams } from "@/hooks/useTeams";
 import type { PermissionListResponse } from "@/generated/types/permissionListResponse";
 import type { TokenScopeRequestTimeRestrictions } from "@/generated/types/tokenScopeRequestTimeRestrictions";
 import type { TokenScopeRequestUsageLimits } from "@/generated/types/tokenScopeRequestUsageLimits";
@@ -93,8 +93,7 @@ export function TokenForm({ onCancel, onCreated }: TokenFormProps) {
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: teamsData } = useQuery<TeamsResponse>("/teams");
-  const teams = useMemo(() => teamsData?.teams ?? [], [teamsData?.teams]);
+  const { teams } = useTeams();
   const showTeamSelector = teams.length > 1;
 
   // Resolve the team the token is scoped to. With a single team we submit that

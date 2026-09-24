@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -65,7 +66,9 @@ function renderWithRouter(ui: ReactElement) {
   window.history.pushState({}, "", "/app/teams");
   return render(
     <RouterProvider>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <TeamsProvider>{ui}</TeamsProvider>
+      </I18nProvider>
     </RouterProvider>,
   );
 }
@@ -330,6 +333,30 @@ describe("Teams", () => {
     expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("Team 0"));
   });
 
+  it("refreshes the shared team list after a delete so the sidebar switcher drops the team", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      Promise.resolve({ teams: createMockTeams(0, 3), nextCursor: null, path }),
+    );
+
+    renderWithRouter(<Teams />);
+    await waitFor(() => {
+      expect(screen.getByText("Team 0")).toBeInTheDocument();
+    });
+    const sharedFetches = () =>
+      vi.mocked(api.get).mock.calls.filter(([path]) => path === "/teams").length;
+    const before = sharedFetches();
+
+    mockDeleteTeam.mockResolvedValueOnce(undefined);
+    await user.click(screen.getByRole("button", { name: "Actions for Team 0" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^delete$/i }));
+    await user.click(await screen.findByRole("button", { name: /delete/i }));
+
+    await waitFor(() => {
+      expect(sharedFetches()).toBe(before + 1);
+    });
+  });
+
   it("optimistically removes team from list immediately on delete confirmation", async () => {
     const user = userEvent.setup();
 
@@ -546,7 +573,13 @@ describe("Teams", () => {
     });
 
     mockDeleteTeam.mockResolvedValueOnce(undefined);
-    vi.mocked(api.get).mockRejectedValueOnce(new Error("Refetch failed"));
+    // The shared `/teams` list (TeamsProvider) refreshes too; only the page's own
+    // paginated request should fail here.
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      path === "/teams"
+        ? Promise.resolve({ teams: [] })
+        : Promise.reject(new Error("Refetch failed")),
+    );
 
     await user.click(screen.getByRole("button", { name: "Actions for Team 0" }));
     await user.click(await screen.findByRole("menuitem", { name: /^delete$/i }));

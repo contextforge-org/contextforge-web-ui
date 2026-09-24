@@ -2,6 +2,7 @@ import { ReactElement, ReactNode } from "react";
 import { render, RenderOptions } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 
 // Mock authenticated state by default
 export function setupAuthenticatedTest() {
@@ -13,7 +14,9 @@ export function setupAuthenticatedTest() {
 function AllTheProviders({ children }: { children: ReactNode }) {
   return (
     <I18nProvider>
-      <TooltipProvider>{children}</TooltipProvider>
+      <TooltipProvider>
+        <TeamsProvider>{children}</TeamsProvider>
+      </TooltipProvider>
     </I18nProvider>
   );
 }

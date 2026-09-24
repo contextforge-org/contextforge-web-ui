@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { ManageTeamMembersDialog } from "@/components/teams/ManageTeamMembersDialog";
 import { SettingsToolbar, useHideSettingsTabs } from "@/components/settings/settings-toolbar";
 import { useQuery } from "@/hooks/useQuery";
+import { useTeamsContext } from "@/hooks/TeamsProvider";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { api } from "@/api/client";
 import { deleteTeam } from "@/api/teams";
@@ -47,6 +48,9 @@ export function Teams() {
     isLoading,
     refetch,
   } = useQuery<TeamsResponse>(queryPath);
+  // The Teams page pages its own list; every other consumer (sidebar switcher,
+  // team pickers) reads the shared one, so mutations must refresh both.
+  const { refetch: refreshSharedTeams } = useTeamsContext();
 
   useEffect(() => {
     if (response) {
@@ -120,12 +124,13 @@ export function Teams() {
   );
 
   const handleMembersSuccess = useCallback(async () => {
+    void refreshSharedTeams();
     try {
       await refetch();
     } catch (refreshErr) {
       console.error("Failed to refresh teams after member changes:", sanitizeError(refreshErr));
     }
-  }, [refetch]);
+  }, [refetch, refreshSharedTeams]);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!teamToDelete) return;
@@ -142,6 +147,7 @@ export function Teams() {
       await deleteTeam(idToDelete);
       toast.success(intl.formatMessage({ id: "teams.delete.success" }, { name: nameToDelete }));
 
+      void refreshSharedTeams();
       try {
         await refetch();
       } catch (refreshErr) {
@@ -156,25 +162,27 @@ export function Teams() {
       });
       console.error("Failed to delete team:", errorMessage);
     }
-  }, [allTeams, teamToDelete, intl, refetch]);
+  }, [allTeams, teamToDelete, intl, refetch, refreshSharedTeams]);
 
   const handleCreateSuccess = useCallback(async () => {
     toast.success(intl.formatMessage({ id: "teams.create.success" }));
+    void refreshSharedTeams();
     try {
       await refetch();
     } catch (refreshErr) {
       console.error("Failed to refresh teams after creation:", sanitizeError(refreshErr));
     }
-  }, [intl, refetch]);
+  }, [intl, refetch, refreshSharedTeams]);
 
   const handleEditSuccess = useCallback(async () => {
     toast.success(intl.formatMessage({ id: "teams.edit.success" }));
+    void refreshSharedTeams();
     try {
       await refetch();
     } catch (refreshErr) {
       console.error("Failed to refresh teams after update:", sanitizeError(refreshErr));
     }
-  }, [intl, refetch]);
+  }, [intl, refetch, refreshSharedTeams]);
 
   return (
     <div>

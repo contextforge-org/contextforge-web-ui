@@ -4,6 +4,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { ChangePassword } from "./pages/ChangePassword";
 import { ThemeProvider } from "./hooks/useTheme";
+import { TeamsProvider } from "./hooks/TeamsProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RouterProvider, Route, Redirect, AuthGuard, useRouter, matchPath } from "./router";
@@ -157,19 +158,21 @@ function PrivateRoutes() {
 
   return (
     <AuthGuard>
-      <AppShell>
-        {/* ErrorBoundary + Suspense both sit inside AppShell so sidebar/header
-            stay mounted: a broken route chunk (or a render error in one page)
-            shows a fallback in the route body only, never takes down nav. */}
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <ClearReloadGuardOnMount active={isActive} />
-            {PRIVATE_ROUTE_DEFS.map((r) => (
-              <Route key={r.path} path={r.path} component={r.component} />
-            ))}
-          </Suspense>
-        </ErrorBoundary>
-      </AppShell>
+      <TeamsProvider>
+        <AppShell>
+          {/* ErrorBoundary + Suspense both sit inside AppShell so sidebar/header
+              stay mounted: a broken route chunk (or a render error in one page)
+              shows a fallback in the route body only, never takes down nav. */}
+          <ErrorBoundary>
+            <Suspense fallback={<Loading />}>
+              <ClearReloadGuardOnMount active={isActive} />
+              {PRIVATE_ROUTE_DEFS.map((r) => (
+                <Route key={r.path} path={r.path} component={r.component} />
+              ))}
+            </Suspense>
+          </ErrorBoundary>
+        </AppShell>
+      </TeamsProvider>
     </AuthGuard>
   );
 }
