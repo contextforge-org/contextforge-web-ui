@@ -35,8 +35,21 @@ export function safeReturnTo(next: string | string[] | undefined): string {
 
   const isAppPath = pathname === APP_PREFIX || pathname.startsWith(`${APP_PREFIX}/`);
   if (!isAppPath) return DEFAULT_RETURN_TO;
+  // Mirrors resolveNextParam: never bounce the post-login redirect back to
+  // the login page itself.
+  if (pathname === LOGIN_ERROR_REDIRECT) return DEFAULT_RETURN_TO;
 
   return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+// Preserves the caller's destination across a failure redirect so a retry
+// doesn't lose it (resolveNextParam re-validates on read, so round-tripping
+// it through the login page's own `next` param is safe).
+function loginErrorRedirect(returnTo: string, code: string): string {
+  const url = new URL(LOGIN_ERROR_REDIRECT, "http://placeholder");
+  url.searchParams.set("error", `sso_${code}`);
+  if (returnTo !== DEFAULT_RETURN_TO) url.searchParams.set("next", returnTo);
+  return url.pathname + url.search;
 }
 
 export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<void> {
@@ -45,18 +58,20 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
     async (request: FastifyRequest<{ Querystring: SsoLoginQuerystring }>, reply: FastifyReply) => {
       setNoStore(reply);
 
+      const returnTo = safeReturnTo(request.query.next);
+
       // The only caller is a top-level browser navigation (Login.tsx sets
       // window.location.href), so every failure redirects back to the login
       // page with a `sso_`-prefixed error code instead of rendering raw JSON.
       if (!config.ssoEnabled) {
-        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_disabled`);
+        return reply.redirect(loginErrorRedirect(returnTo, "disabled"));
       }
 
       // Login-CSRF guard only -- no session exists yet to hijack here, and
       // nothing mutates until the callback validates `state`. Same guard
       // login.ts uses for its own unauthenticated entrypoint.
       if (isForbiddenCrossOrigin(request)) {
-        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_cross_site_forbidden`);
+        return reply.redirect(loginErrorRedirect(returnTo, "cross_site_forbidden"));
       }
 
       let authorizationEndpoint: string;
@@ -65,10 +80,9 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
       } catch (err) {
         // err.message can leak the internal Keycloak URL -- log only, never return it.
         request.log.error({ err }, "SSO discovery failed");
-        return reply.redirect(`${LOGIN_ERROR_REDIRECT}?error=sso_discovery_failed`);
+        return reply.redirect(loginErrorRedirect(returnTo, "discovery_failed"));
       }
 
-      const returnTo = safeReturnTo(request.query.next);
       const redirectUri = `${resolvePublicOrigin(request)}/auth/sso/callback`;
       const { state, nonce, codeChallenge, binding } = await mintSsoLoginState(
         fastify.redis,
@@ -88,6 +102,11 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
 
       // Same attributes as session-store.ts's setSessionCookie -- lax (not
       // strict) so it still rides along on the top-level GET back from Keycloak.
+      // One cookie per browser, so concurrent logins in two tabs make the
+      // first tab's callback fail its binding check (state_invalid) once the
+      // second overwrites it -- accepted trade-off, safer than a
+      // multi-binding cookie jar for a login flow that's rare to run twice
+      // at once.
       reply.setCookie(SSO_LOGIN_BINDING_COOKIE, binding, {
         httpOnly: true,
         secure: config.cookieSecure,

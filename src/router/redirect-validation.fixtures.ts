@@ -15,4 +15,9 @@ export const REDIRECT_VALIDATION_VECTORS: RedirectValidationVector[] = [
   { next: "//evil.example.com", expected: "/app/" },
   { next: "/app/../admin", expected: "/app/" },
   { next: "/admin", expected: "/app/" },
+  { next: "/app/login", expected: "/app/" },
+  { next: "/app/login?next=%2Fapp%2Ftools", expected: "/app/" },
+  { next: "/appx", expected: "/app/" },
+  { next: "/app?x=//evil.com", expected: "/app?x=//evil.com" },
+  { next: "/app/%2e%2e/admin", expected: "/app/%2e%2e/admin" },
 ];
