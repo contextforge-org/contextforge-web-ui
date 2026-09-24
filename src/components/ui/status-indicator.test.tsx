@@ -25,6 +25,23 @@ describe("StatusIndicator", () => {
     expect(await screen.findByText("Unable to add this server.")).toBeVisible();
   });
 
+  it("names the popover it opens", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <StatusIndicator
+        {...props}
+        triggerAriaLabel="Show details"
+        contentAriaLabel="Acme add failure details"
+      >
+        <p>Unable to add this server.</p>
+      </StatusIndicator>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+
+    expect(await screen.findByRole("dialog", { name: "Acme add failure details" })).toBeVisible();
+  });
+
   it("announces the full label where the visible one is abbreviated", () => {
     renderWithProviders(
       <StatusIndicator {...props} fullLabel="Error adding server" triggerAriaLabel="Show details">

@@ -294,6 +294,10 @@ function CatalogCard({
                     { id: "mcpServer.catalog.addFailed.trigger" },
                     { name: server.name },
                   )}
+                  contentAriaLabel={intl.formatMessage(
+                    { id: "mcpServer.catalog.addFailed.detail" },
+                    { name: server.name },
+                  )}
                 >
                   <p className="break-words text-sm text-foreground">{addError}</p>
                 </StatusIndicator>

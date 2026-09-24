@@ -14,6 +14,8 @@ interface StatusIndicatorProps {
   fullLabel?: string;
   /** Accessible name for the trigger. Required wherever `children` are given. */
   triggerAriaLabel?: string;
+  /** Accessible name for the popover, which Radix leaves unnamed. */
+  contentAriaLabel?: string;
   size?: "xs" | "sm";
   /** Render as plain text rather than a button. Required inside another button. */
   interactive?: boolean;
@@ -40,6 +42,7 @@ export function StatusIndicator({
   label,
   fullLabel,
   triggerAriaLabel,
+  contentAriaLabel,
   size = "xs",
   interactive = true,
   children,
@@ -79,7 +82,7 @@ export function StatusIndicator({
       >
         {content}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto max-w-xs p-3">
+      <PopoverContent align="end" aria-label={contentAriaLabel} className="w-auto max-w-xs p-3">
         {children}
       </PopoverContent>
     </Popover>

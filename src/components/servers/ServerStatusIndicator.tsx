@@ -114,6 +114,10 @@ export function ServerStatusIndicator({
         { id: "mcpServer.status.trigger" },
         { name: server.name, status: fullLabel },
       )}
+      contentAriaLabel={intl.formatMessage(
+        { id: "mcpServer.status.detail.label" },
+        { name: server.name },
+      )}
       interactive={interactive}
       className={className}
     >
