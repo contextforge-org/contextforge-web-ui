@@ -23,6 +23,7 @@ import changePasswordRequiredRoute from "./routes/auth/change-password-required.
 import loginRoute from "./routes/auth/login.js";
 import logoutRoute from "./routes/auth/logout.js";
 import sessionRoute from "./routes/auth/session.js";
+import ssoCallbackRoute from "./routes/auth/sso-callback.js";
 import ssoLoginRoute from "./routes/auth/sso-login.js";
 import catchAllProxyRoute from "./routes/proxy/catch-all.js";
 import oauthAuthorizeProxyRoute from "./routes/proxy/oauth-authorize.js";
@@ -55,6 +56,7 @@ await fastify.register(loginRoute);
 await fastify.register(logoutRoute);
 await fastify.register(sessionRoute);
 await fastify.register(ssoLoginRoute);
+await fastify.register(ssoCallbackRoute);
 await fastify.register(changePasswordRequiredRoute);
 await fastify.register(sseRoutes);
 await fastify.register(publicPasswordResetRoute);

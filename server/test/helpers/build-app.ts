@@ -17,6 +17,7 @@ import changePasswordRequiredRoute from "../../src/routes/auth/change-password-r
 import loginRoute from "../../src/routes/auth/login.js";
 import logoutRoute from "../../src/routes/auth/logout.js";
 import sessionRoute from "../../src/routes/auth/session.js";
+import ssoCallbackRoute from "../../src/routes/auth/sso-callback.js";
 import ssoLoginRoute from "../../src/routes/auth/sso-login.js";
 import catchAllProxyRoute from "../../src/routes/proxy/catch-all.js";
 import oauthAuthorizeProxyRoute from "../../src/routes/proxy/oauth-authorize.js";
@@ -72,6 +73,7 @@ export async function buildTestApp(opts: { withProxy?: boolean } = {}): Promise<
   await fastify.register(logoutRoute);
   await fastify.register(sessionRoute);
   await fastify.register(ssoLoginRoute);
+  await fastify.register(ssoCallbackRoute);
   await fastify.register(changePasswordRequiredRoute);
   await fastify.register(publicPasswordResetRoute);
 
