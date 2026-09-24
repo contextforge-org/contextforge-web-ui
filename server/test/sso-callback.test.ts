@@ -6,7 +6,9 @@
 // the module registry and re-imports build-app.js fresh -- same pattern as
 // sso-login.test.ts.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { generateKeyPairSync, sign as signBuffer, type KeyObject } from "node:crypto";
+
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SSO_LOGIN_BINDING_COOKIE } from "../src/lib/sso-login-state.js";
 import type { TestApp } from "./helpers/build-app.js";
@@ -20,8 +22,17 @@ const ENV_KEYS = [
   "SSO_KEYCLOAK_CLIENT_SECRET",
 ] as const;
 
-const TOKEN_ENDPOINT =
-  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token";
+const ISSUER = "http://keycloak-internal:8080/realms/mcp-gateway";
+const TOKEN_ENDPOINT = `${ISSUER}/protocol/openid-connect/token`;
+const JWKS_ENDPOINT = `${ISSUER}/protocol/openid-connect/certs`;
+const CLIENT_ID = "contextforge-web-ui"; // matches enableSso()'s SSO_KEYCLOAK_CLIENT_ID
+const KID = "test-kid";
+
+let keyPair: { publicKey: KeyObject; privateKey: KeyObject };
+
+beforeAll(() => {
+  keyPair = generateKeyPairSync("rsa", { modulusLength: 2048 });
+});
 
 let savedEnv: Record<string, string | undefined>;
 
@@ -45,10 +56,29 @@ function enableSso(): void {
   process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
 }
 
-function makeIdToken(claims: Record<string, unknown>): string {
-  const header = Buffer.from(JSON.stringify({ alg: "RS256" })).toString("base64url");
+function publicJwk(): Record<string, unknown> {
+  return { ...keyPair.publicKey.export({ format: "jwk" }), kid: KID, use: "sig", alg: "RS256" };
+}
+
+// iss/aud/exp default to values verifySsoIdToken accepts, so call sites only
+// need to override the claims their test actually cares about (email, nonce, ...).
+function makeIdToken(claimOverrides: Record<string, unknown>): string {
+  const claims = {
+    iss: ISSUER,
+    aud: CLIENT_ID,
+    exp: Math.floor(Date.now() / 1000) + 300,
+    ...claimOverrides,
+  };
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT", kid: KID })).toString(
+    "base64url",
+  );
   const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
-  return `${header}.${payload}.signature`;
+  const signature = signBuffer(
+    "RSA-SHA256",
+    Buffer.from(`${header}.${payload}`),
+    keyPair.privateKey,
+  );
+  return `${header}.${payload}.${signature.toString("base64url")}`;
 }
 
 function mockDiscoveryFetch(): void {
@@ -58,23 +88,26 @@ function mockDiscoveryFetch(): void {
       ok: true,
       status: 200,
       json: async () => ({
-        issuer: "http://keycloak-internal:8080/realms/mcp-gateway",
-        authorization_endpoint:
-          "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/auth",
+        issuer: ISSUER,
+        authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
         token_endpoint: TOKEN_ENDPOINT,
-        jwks_uri: "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/certs",
+        jwks_uri: JWKS_ENDPOINT,
       }),
     })),
   );
 }
 
 // Discovery is cached after the login call, so this only needs to serve the
-// token endpoint for the callback -- anything else is a test-setup bug.
+// token and JWKS endpoints for the callback -- anything else is a test-setup bug.
 function mockTokenExchange(idTokenClaims: Record<string, unknown>, ok = true, status = 400): void {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
-      if (!String(url).endsWith("/protocol/openid-connect/token")) {
+      const href = String(url);
+      if (href === JWKS_ENDPOINT) {
+        return { ok: true, status: 200, json: async () => ({ keys: [publicJwk()] }) };
+      }
+      if (href !== TOKEN_ENDPOINT) {
         throw new Error(`unexpected fetch during callback test: ${url}`);
       }
       if (!ok) {
@@ -127,7 +160,12 @@ describe("GET /auth/sso/callback", () => {
     const app = await buildTestApp();
     const { state, nonce, binding } = await performLogin(app, "/app/tools");
 
-    mockTokenExchange({ email: "user@example.com", name: "Test User", nonce });
+    mockTokenExchange({
+      email: "user@example.com",
+      email_verified: true,
+      name: "Test User",
+      nonce,
+    });
     const response = await app.fastify.inject({
       method: "GET",
       url: callbackUrl({ code: "auth-code", state }),
@@ -157,7 +195,7 @@ describe("GET /auth/sso/callback", () => {
     const app = await buildTestApp();
     const { state, nonce, binding } = await performLogin(app);
 
-    mockTokenExchange({ email: "user@example.com", nonce });
+    mockTokenExchange({ email: "user@example.com", email_verified: true, nonce });
     const response = await app.fastify.inject({
       method: "GET",
       url: callbackUrl({ code: "auth-code", state }),
@@ -175,7 +213,7 @@ describe("GET /auth/sso/callback", () => {
     const app = await buildTestApp();
     const { state, nonce, binding } = await performLogin(app);
 
-    mockTokenExchange({ email: "user@example.com", nonce });
+    mockTokenExchange({ email: "user@example.com", email_verified: true, nonce });
     const headers = { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` };
     const first = await app.fastify.inject({
       method: "GET",

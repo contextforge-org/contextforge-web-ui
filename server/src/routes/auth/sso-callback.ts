@@ -14,7 +14,7 @@ import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
 import { consumeSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 import { exchangeSsoCode } from "../../lib/sso-token-exchange.js";
-import { decodeSsoIdToken, resolveSsoUser } from "../../lib/sso-user-resolution.js";
+import { resolveSsoUser, verifySsoIdToken } from "../../lib/sso-user-resolution.js";
 
 const LOGIN_PATH = "/app/login";
 
@@ -96,9 +96,9 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
 
       let claims;
       try {
-        claims = decodeSsoIdToken(tokens.idToken);
+        claims = await verifySsoIdToken(tokens.idToken);
       } catch (err) {
-        request.log.error({ err }, "SSO ID token decode failed");
+        request.log.error({ err }, "SSO ID token verification failed");
         return reply.redirect(loginErrorRedirect("id_token_invalid"));
       }
 
