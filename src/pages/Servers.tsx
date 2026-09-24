@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { MCPIcon } from "@/components/icons/MCPIcon";
@@ -12,10 +12,11 @@ import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { ApiError, api } from "@/api/client";
-import { serversApi } from "@/api/servers";
+import { OAuthCancelledError, serversApi } from "@/api/servers";
 import { useRouter } from "@/router";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 import type { MCPServer, ServersResponse } from "@/types/server";
+import type { OAuthTokenStatus } from "@/lib/serverStatus";
 import { Loading } from "@/components/ui/loading";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { useIntl } from "react-intl";
@@ -37,6 +38,10 @@ export function Servers() {
   const [updateServerId, setUpdateServerId] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [refreshingServerIds, setRefreshingServerIds] = useState<Set<string>>(new Set());
+  const [oauthTokenStatuses, setOAuthTokenStatuses] = useState<Record<string, OAuthTokenStatus>>(
+    {},
+  );
+  const latestOAuthRequestIdRef = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedServerIdForDetails, setSelectedServerIdForDetails] = useState<string | null>(null);
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
@@ -100,6 +105,42 @@ export function Servers() {
 
   // Derive servers from accumulated list
   const servers = allServers;
+
+  // Only OAuth servers have a per-user token, and the batch does sequential lookups.
+  const oauthServerIds = useMemo(
+    () => allServers.filter((server) => server.authType === "oauth").map((server) => server.id),
+    [allServers],
+  );
+
+  const loadOAuthStatuses = useCallback(async () => {
+    if (oauthServerIds.length === 0) {
+      latestOAuthRequestIdRef.current += 1;
+      setOAuthTokenStatuses({});
+      return;
+    }
+    // Concurrent lookups share state, so only the latest-issued may publish it.
+    const requestId = ++latestOAuthRequestIdRef.current;
+    try {
+      const statuses = await serversApi.getOAuthStatus(oauthServerIds);
+      if (requestId !== latestOAuthRequestIdRef.current) return;
+      setOAuthTokenStatuses(
+        Object.fromEntries(
+          Object.entries(statuses).flatMap(([id, status]) =>
+            status.user_token_status
+              ? [[id, status.user_token_status.status as OAuthTokenStatus]]
+              : [],
+          ),
+        ),
+      );
+    } catch (err) {
+      // Statuses are left as they are, so rows keep their last known state.
+      console.error("Failed to load OAuth status:", sanitizeError(err));
+    }
+  }, [oauthServerIds]);
+
+  useEffect(() => {
+    void loadOAuthStatuses();
+  }, [loadOAuthStatuses]);
 
   const getServerText = useCallback(
     (server: MCPServer) => `${server.name} ${server.description ?? ""} ${server.id}`,
@@ -192,6 +233,36 @@ export function Servers() {
       }
     },
     [refetch],
+  );
+
+  const handleAuthorize = useCallback(
+    async (id: string) => {
+      try {
+        await serversApi.triggerOAuthAuthorization(id);
+      } catch (err) {
+        if (err instanceof OAuthCancelledError) return;
+        toast.error(
+          intl.formatMessage(
+            { id: "mcpServer.status.action.error" },
+            { error: sanitizeError(err) },
+          ),
+        );
+        return;
+      }
+      try {
+        await serversApi.fetchToolsAfterOAuth(id);
+      } catch (err) {
+        // Needs gateways.update, which the caller may lack. Authorization still succeeded.
+        console.error("Failed to fetch components after authorization:", sanitizeError(err));
+      }
+      try {
+        await refetch();
+      } catch (err) {
+        console.error("Failed to refresh servers after authorization:", sanitizeError(err));
+      }
+      await loadOAuthStatuses();
+    },
+    [refetch, loadOAuthStatuses, intl],
   );
 
   const handleRefresh = useCallback(
@@ -447,6 +518,8 @@ export function Servers() {
                 onToggleEnabled={handleToggleEnabled}
                 onRefresh={canUpdateServer ? handleRefresh : undefined}
                 refreshingServerIds={refreshingServerIds}
+                oauthTokenStatuses={oauthTokenStatuses}
+                onAuthorize={handleAuthorize}
               />
               {query.trim() && filteredServers.length === 0 && (
                 <p className="mt-6 text-sm text-muted-foreground">

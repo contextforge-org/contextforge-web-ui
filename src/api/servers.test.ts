@@ -499,6 +499,61 @@ describe("serversApi", () => {
     });
   });
 
+  describe("getOAuthStatus", () => {
+    const statusResponse = (body: unknown) =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    const idsFrom = (call: unknown[]) =>
+      new URL(String(call[0]), "http://localhost").searchParams.getAll("gateway_ids");
+
+    it("sends one request and returns its statuses", async () => {
+      const body = { "srv-1": { user_token_status: { status: "missing" } } };
+      mockFetch.mockResolvedValueOnce(statusResponse(body));
+
+      const result = await serversApi.getOAuthStatus(["srv-1"]);
+
+      expect(result).toEqual(body);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(idsFrom(mockFetch.mock.calls[0])).toEqual(["srv-1"]);
+    });
+
+    it("splits over 100 ids across requests and merges the responses", async () => {
+      const ids = Array.from({ length: 101 }, (_, index) => `srv-${index}`);
+      mockFetch
+        .mockResolvedValueOnce(
+          statusResponse({ "srv-0": { user_token_status: { status: "valid" } } }),
+        )
+        .mockResolvedValueOnce(
+          statusResponse({ "srv-100": { user_token_status: { status: "expired" } } }),
+        );
+
+      const result = await serversApi.getOAuthStatus(ids);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(idsFrom(mockFetch.mock.calls[0])).toHaveLength(100);
+      expect(idsFrom(mockFetch.mock.calls[1])).toEqual(["srv-100"]);
+      expect(result).toEqual({
+        "srv-0": { user_token_status: { status: "valid" } },
+        "srv-100": { user_token_status: { status: "expired" } },
+      });
+    });
+
+    it("makes no request for an empty id list", async () => {
+      await expect(serversApi.getOAuthStatus([])).resolves.toEqual({});
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed id before any request", async () => {
+      await expect(serversApi.getOAuthStatus(["../etc"])).rejects.toThrow(
+        "Invalid server ID format",
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("testConnection", () => {
     it("POSTs /v1/mcp-servers/:id/test and returns the result", async () => {
       mockFetch.mockResolvedValueOnce(
