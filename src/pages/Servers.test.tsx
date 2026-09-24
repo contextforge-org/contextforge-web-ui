@@ -45,6 +45,7 @@ vi.mock("@/auth/useAuth", () => ({
 }));
 
 import { api, ApiError } from "@/api/client";
+import { serversApi } from "@/api/servers";
 
 const mockToastSuccess = vi.mocked(toast.success);
 const mockToastError = vi.mocked(toast.error);
@@ -159,7 +160,7 @@ describe("Servers", () => {
     renderWithRouter(<Servers />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole("button", { name: /Connect/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Connect" }).length).toBeGreaterThan(0);
     });
   });
 
@@ -172,7 +173,7 @@ describe("Servers", () => {
     await waitFor(() => {
       expect(screen.queryByText("Connect MCP server")).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
   });
 
   it("hides the toolbar Connect button when the caller lacks gateways.create", async () => {
@@ -187,7 +188,7 @@ describe("Servers", () => {
     await waitFor(() => {
       expect(screen.getByText("Test Server 0")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /Connect/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
   });
 
   it("renders servers list when data is loaded", async () => {
@@ -251,7 +252,7 @@ describe("Servers", () => {
       screen.getByText(/Register a MCP server to federate its tools, resources, and prompts/i),
     ).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /Connect/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
 
     expect(screen.queryByText("MCP Servers")).not.toBeInTheDocument();
   });
@@ -541,6 +542,46 @@ describe("Servers", () => {
       expect(panel.getByText("Engineering")).toBeInTheDocument();
       expect(panel.getByText("test@example.com")).toBeInTheDocument();
     });
+  });
+
+  it("reloads OAuth status after authorizing even when the server refetch fails", async () => {
+    const user = userEvent.setup();
+    let tokenStatus = "missing";
+    let listCalls = 0;
+
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/oauth/status")) {
+        return Promise.resolve({
+          "server-0": { user_token_status: { status: tokenStatus } },
+        } as never);
+      }
+      if (listCalls++ === 0) {
+        return Promise.resolve({
+          gateways: [{ ...createMockServers(0, 1)[0], authType: "oauth", reachable: true }],
+          nextCursor: null,
+        } as never);
+      }
+      return Promise.reject(new Error("Service down"));
+    });
+
+    vi.spyOn(serversApi, "triggerOAuthAuthorization").mockResolvedValue({
+      type: "oauth_callback",
+      status: "success",
+    });
+
+    renderWithRouter(<Servers />);
+
+    const authorize = await screen.findByRole("button", { name: /authorize test server 0/i });
+
+    tokenStatus = "valid";
+    await user.click(authorize);
+
+    await waitFor(() => {
+      expect(screen.getByText("Active")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /authorize test server 0/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows inline error notification when toggleEnabled fails", async () => {
@@ -1001,7 +1042,7 @@ describe("Servers", () => {
     });
 
     // Click Connect to open form
-    const connectButton = screen.getByRole("button", { name: /Connect/i });
+    const connectButton = screen.getByRole("button", { name: "Connect" });
     await user.click(connectButton);
 
     // Form should appear
