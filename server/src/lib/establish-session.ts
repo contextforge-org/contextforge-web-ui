@@ -23,6 +23,11 @@ export interface UpstreamAuthenticationResponse {
   user: SessionUser;
 }
 
+export interface SsoTokens {
+  refreshToken?: string;
+  idToken?: string;
+}
+
 /**
  * Thrown when the upstream auth response still reports
  * password_change_required=true. This is the single chokepoint every
@@ -47,6 +52,7 @@ export async function establishSession(
   request: FastifyRequest,
   reply: FastifyReply,
   auth: UpstreamAuthenticationResponse, // pragma: allowlist secret
+  ssoTokens?: SsoTokens,
 ): Promise<{ user: SessionUser; csrfToken: string }> {
   if (auth.user?.password_change_required === true) {
     throw new PasswordChangeStillRequiredError();
@@ -72,7 +78,13 @@ export async function establishSession(
 
   const sessionId = await createSession(
     fastify.redis,
-    { bearerToken: auth.access_token, user: auth.user },
+    {
+      bearerToken: auth.access_token,
+      user: auth.user,
+      refreshToken: ssoTokens?.refreshToken,
+      idToken: ssoTokens?.idToken,
+      tokenExpiresAt: ssoTokens ? Math.floor(Date.now() / 1000) + ttlSeconds : undefined,
+    },
     ttlSeconds,
   );
 

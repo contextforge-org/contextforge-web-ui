@@ -42,6 +42,10 @@ export interface SessionUser {
 export interface SessionRecord {
   bearerToken: string;
   user: SessionUser;
+  // SSO-only; undefined for password-login sessions.
+  refreshToken?: string;
+  idToken?: string;
+  tokenExpiresAt?: number;
 }
 
 export function sessionRedisKey(sessionId: string): string {
