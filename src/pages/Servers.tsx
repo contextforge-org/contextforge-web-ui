@@ -29,6 +29,7 @@ export function Servers() {
   const { hasPermission, permissionsLoading } = useAuth();
   const canCreateServer = !permissionsLoading && hasPermission("gateways.create");
   const canUpdateServer = !permissionsLoading && hasPermission("gateways.update");
+  const canDeleteServer = !permissionsLoading && hasPermission("gateways.delete");
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [allServers, setAllServers] = useState<MCPServer[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -441,10 +442,10 @@ export function Servers() {
               <ServersTable
                 servers={filteredServers}
                 isLoading={isLoading}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
+                onEdit={canUpdateServer ? handleEdit : undefined}
+                onDelete={canDeleteServer ? handleDelete : undefined}
                 onViewDetails={handleViewDetails}
-                onToggleEnabled={handleToggleEnabled}
+                onToggleEnabled={canUpdateServer ? handleToggleEnabled : undefined}
                 onRefresh={canUpdateServer ? handleRefresh : undefined}
                 refreshingServerIds={refreshingServerIds}
               />
@@ -541,7 +542,7 @@ export function Servers() {
         error={detailsError}
         open={isDetailsDrawerOpen}
         onClose={() => handleCloseDetails(false)}
-        onAddTag={handleAddServerTag}
+        onAddTag={canUpdateServer ? handleAddServerTag : undefined}
       />
     </div>
   );

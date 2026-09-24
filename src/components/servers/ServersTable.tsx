@@ -87,8 +87,8 @@ function getStatusConfig(status: ServerStatus) {
 interface ServersTableProps {
   servers: MCPServer[];
   isLoading: boolean;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onViewDetails?: (id: string) => void;
   onToggleEnabled?: (id: string, enabled: boolean) => void;
   onRefresh?: (id: string) => void;

@@ -11,8 +11,8 @@ import type { MCPServer } from "../../types/server";
 
 interface ServerActionsMenuProps {
   server: MCPServer;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string) => void;
   onViewDetails?: (id: string) => void;
   onToggleEnabled?: (id: string, enabled: boolean) => void;
   onRefresh?: (id: string) => void;
@@ -55,9 +55,11 @@ export function ServerActionsMenu({
             {intl.formatMessage({ id: "mcpServer.table.actions.viewDetails" })}
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={() => onEdit(server.id)} role="menuitem">
-          {intl.formatMessage({ id: "mcpServer.table.actions.edit" })}
-        </DropdownMenuItem>
+        {onEdit && (
+          <DropdownMenuItem onClick={() => onEdit(server.id)} role="menuitem">
+            {intl.formatMessage({ id: "mcpServer.table.actions.edit" })}
+          </DropdownMenuItem>
+        )}
         {onRefresh && (
           <DropdownMenuItem
             onClick={() => onRefresh(server.id)}
@@ -81,13 +83,15 @@ export function ServerActionsMenu({
             })}
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onClick={() => onDelete(server.id)}
-          className="text-red-600 dark:text-red-400"
-          role="menuitem"
-        >
-          {intl.formatMessage({ id: "mcpServer.table.actions.delete" })}
-        </DropdownMenuItem>
+        {onDelete && (
+          <DropdownMenuItem
+            onClick={() => onDelete(server.id)}
+            className="text-red-600 dark:text-red-400"
+            role="menuitem"
+          >
+            {intl.formatMessage({ id: "mcpServer.table.actions.delete" })}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
