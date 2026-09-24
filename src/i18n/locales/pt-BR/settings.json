@@ -2,5 +2,11 @@
   "settings.title": "Configurações",
   "settings.tabs.apiTokens": "Tokens de API",
   "settings.tabs.users": "Usuários",
-  "settings.tabs.teams": "Equipes"
+  "settings.tabs.teams": "Equipes",
+  "settings.tabs.sso": "SSO",
+  "settings.sso.statusLabel": "Status",
+  "settings.sso.statusEnabled": "Ativado",
+  "settings.sso.statusDisabled": "Desativado",
+  "settings.sso.providerLabel": "Provedor",
+  "settings.sso.hint": "O SSO é configurado por variáveis de ambiente no servidor. Esta página é somente leitura."
 }
