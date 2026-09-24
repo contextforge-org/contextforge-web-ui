@@ -9,9 +9,8 @@ import {
   type ToolInvokeRequestId,
   type ToolInvokeResultPayload,
 } from "@/api/tools";
+import { TOOL_INVOKE_TIMEOUT_MS } from "@/config/toolInvocation";
 import { parseApiError } from "@/lib/errorUtils";
-
-export const TOOL_INVOKE_TIMEOUT_MS = 120_000;
 
 export interface ToolInvokeSuccess {
   id: ToolInvokeRequestId | null;

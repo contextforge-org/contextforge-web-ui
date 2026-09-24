@@ -551,6 +551,7 @@ test.describe("Tools page", () => {
     const panel = await openToolDetails(page, "github-server");
 
     await panel.getByRole("button", { name: "Live invoke" }).click();
+    await expect(panel.getByRole("button", { name: "Cancel request" })).not.toBeVisible();
     await expect(panel.getByRole("button", { name: "Cancel request" })).toBeVisible();
     await panel.getByRole("button", { name: "Cancel request" }).click();
 

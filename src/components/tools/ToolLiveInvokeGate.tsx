@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Play, Square, Zap } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { useAuth } from "@/auth/useAuth";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
 import { getToolAnnotationHints } from "./toolAnnotations";
@@ -75,6 +76,21 @@ export function ToolLiveInvokeGate({
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showCancelRequest, setShowCancelRequest] = useState(false);
+
+  useEffect(() => {
+    if (!invoke.isLoading) {
+      setShowCancelRequest(false);
+      return;
+    }
+
+    const revealTimer = window.setTimeout(() => {
+      setShowCancelRequest(true);
+    }, TOOL_CANCEL_REVEAL_DELAY_MS);
+
+    return () => window.clearTimeout(revealTimer);
+  }, [invoke.isLoading]);
+
   const run = () => {
     if (onBeforeRun?.() === false) return;
     void invoke.run();
@@ -98,10 +114,12 @@ export function ToolLiveInvokeGate({
           <Loader2 className="size-3.5 animate-spin" />
           {intl.formatMessage({ id: "tools.details.invoke.running" })}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
-          <Square className="size-3.5" />
-          {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
-        </Button>
+        {showCancelRequest && (
+          <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
+            <Square className="size-3.5" />
+            {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
+          </Button>
+        )}
       </div>
     );
   }
