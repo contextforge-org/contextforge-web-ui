@@ -288,6 +288,8 @@ function CatalogCard({
                 <StatusIndicator
                   Icon={STATUS_ICON.error}
                   iconClassName={STATUS_TONE_CLASS.error}
+                  labelClassName="text-foreground"
+                  className="ml-2"
                   label={intl.formatMessage({ id: "mcpServer.catalog.addFailed.short" })}
                   fullLabel={intl.formatMessage({ id: "mcpServer.catalog.addFailed.label" })}
                   triggerAriaLabel={intl.formatMessage(

@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils";
 
 interface StatusIndicatorProps {
   Icon: LucideIcon;
-  /** Applies to the icon only; the label always stays muted. */
+  /** Applies to the icon only. */
   iconClassName: string;
+  /** Overrides the muted label colour, which the catalog card does. */
+  labelClassName?: string;
   /** The visible label. Pass the abbreviated form where the column is narrow. */
   label: string;
   /** The unabbreviated label, announced in place of `label` when the two differ. */
@@ -39,6 +41,7 @@ const SIZE_CLASS = {
 export function StatusIndicator({
   Icon,
   iconClassName,
+  labelClassName = "text-muted-foreground",
   label,
   fullLabel,
   triggerAriaLabel,
@@ -58,7 +61,7 @@ export function StatusIndicator({
         aria-hidden="true"
         focusable="false"
       />
-      <span className="text-muted-foreground" aria-hidden={isAbbreviated || undefined}>
+      <span className={labelClassName} aria-hidden={isAbbreviated || undefined}>
         {label}
       </span>
       {isAbbreviated && <span className="sr-only">{fullLabel}</span>}

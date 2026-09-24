@@ -63,6 +63,16 @@ describe("StatusIndicator", () => {
     expect(screen.getByText("Error")).not.toHaveAttribute("aria-hidden");
   });
 
+  it("mutes the label unless the caller overrides it", () => {
+    const { rerender } = renderWithProviders(<StatusIndicator {...props} />);
+
+    expect(screen.getByText("Error")).toHaveClass("text-muted-foreground");
+
+    rerender(<StatusIndicator {...props} labelClassName="text-foreground" />);
+
+    expect(screen.getByText("Error")).toHaveClass("text-foreground");
+  });
+
   it("renders as plain text where a button cannot nest", () => {
     renderWithProviders(
       <StatusIndicator {...props} interactive={false}>
