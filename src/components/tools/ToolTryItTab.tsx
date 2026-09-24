@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Ref } from "react";
 import { useIntl } from "react-intl";
-import { Tag, TriangleAlert, Wrench } from "lucide-react";
+import { Info, Tag, TriangleAlert, Wrench } from "lucide-react";
 
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ import { ToolLiveInvokeResult } from "./ToolLiveInvokeResult";
 import { ToolPreviewButton } from "./ToolPreviewButton";
 import { ToolPreviewResult } from "./ToolPreviewResult";
 import { LiveInvokeInfoPopover } from "./LiveInvokeInfoPopover";
-import { getToolAnnotationHints } from "./toolAnnotations";
+import { TruncatedDescription } from "./TruncatedDescription";
 
 const DEFAULT_SNIPPET_LANGUAGE: ToolSnippetLanguage = "curl";
 
@@ -60,6 +60,7 @@ export function ToolTryItTab({
   const intl = useIntl();
   const liveModeDescriptionId = useId();
   const liveModeReasonId = useId();
+  const toolDescriptionId = useId();
   const { hasPermission, permissionsLoading, permissionsError } = useAuth();
   const [args, setArgs] = useState<Record<string, unknown>>(() =>
     seedToolArguments(selectedTool.inputSchema),
@@ -73,7 +74,6 @@ export function ToolTryItTab({
   const [liveMode, setLiveMode] = useState(false);
   const scopedMode = Boolean(serverScope);
   const forwardableHeaders = useMemo(() => getForwardableHeaders(headers), [headers]);
-  const annotationHints = getToolAnnotationHints(selectedTool.annotations);
   const liveAvailability = useMemo(
     () =>
       resolveToolLiveInvokeAvailability({
@@ -133,9 +133,18 @@ export function ToolTryItTab({
     setLiveMode(false);
   }, [liveModeAvailable]);
 
+  // Only curl, Python and TypeScript are offered by both snippet lists (the
+  // preview list has JSON, the live list has JSON-RPC); fall back to the
+  // default tab whenever the active one isn't in the current list, whether
+  // that's from the toggle below or from live mode being turned off
+  // automatically (e.g. once permissions resolve).
+  useEffect(() => {
+    if (snippetSpecs.some((spec) => spec.value === snippetLanguage)) return;
+    setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
+  }, [snippetSpecs, snippetLanguage]);
+
   const handleLiveModeChange = (checked: boolean) => {
     setLiveMode(checked);
-    setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
     resetPreview();
     resetInvoke();
   };
@@ -177,21 +186,9 @@ export function ToolTryItTab({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 ref={headingRef} className="text-sm font-semibold text-foreground">
-              {intl.formatMessage({ id: "tools.details.picker.title" })}
-            </h3>
-            {annotationHints.readOnlyHint && (
-              <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px]">
-                {intl.formatMessage({ id: "tools.details.preview.annotation.readOnly" })}
-              </Badge>
-            )}
-            {annotationHints.destructiveHint && (
-              <Badge variant="destructive" className="rounded-full px-2 py-0 text-[11px]">
-                {intl.formatMessage({ id: "tools.details.preview.annotation.destructive" })}
-              </Badge>
-            )}
-          </div>
+          <h3 ref={headingRef} className="text-sm font-semibold text-foreground">
+            {intl.formatMessage({ id: "tools.details.picker.title" })}
+          </h3>
 
           {availableTools.length > 1 && onSelectTool && (
             <div
@@ -223,7 +220,7 @@ export function ToolTryItTab({
             </div>
           )}
 
-          <div className="flex max-w-4xl flex-wrap items-center gap-x-2 gap-y-1 whitespace-normal break-words text-[13px] leading-4 text-muted-foreground">
+          <div className="flex max-w-4xl flex-wrap items-baseline gap-x-2 gap-y-1 whitespace-normal break-words text-[13px] leading-4 text-muted-foreground">
             <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
               <Tag className="size-3" aria-hidden="true" />
               {intl.formatMessage(
@@ -231,7 +228,13 @@ export function ToolTryItTab({
                 { version: TOOL_SNIPPET_MCP_VERSION },
               )}
             </span>
-            {selectedTool.description && <span>{selectedTool.description}</span>}
+            {selectedTool.description && (
+              <TruncatedDescription
+                text={selectedTool.description}
+                id={toolDescriptionId}
+                className="min-w-0 flex-1"
+              />
+            )}
           </div>
         </div>
       )}
@@ -246,7 +249,7 @@ export function ToolTryItTab({
               >
                 {intl.formatMessage({ id: "tools.details.test.liveMode" })}
               </Label>
-              <LiveInvokeInfoPopover />
+              <LiveInvokeInfoPopover mode={liveMode ? "live" : "preview"} />
             </div>
             <div className="flex items-start gap-3">
               <Switch
@@ -257,23 +260,28 @@ export function ToolTryItTab({
                 disabled={liveModeToggleVisibility === "disabled"}
                 onCheckedChange={handleLiveModeChange}
               />
-              <div className="min-w-0 space-y-1">
-                <p
-                  id={liveModeDescriptionId}
-                  className="max-w-md text-[12px] leading-4 text-muted-foreground"
-                >
-                  {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
-                </p>
-                {!liveModeAvailable && (
-                  <p
-                    id={liveModeReasonId}
-                    className="max-w-md text-[12px] leading-4 text-muted-foreground"
-                  >
-                    {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
-                  </p>
+              <p
+                id={liveModeDescriptionId}
+                className={cn(
+                  "max-w-md text-[12px] leading-4",
+                  liveMode ? "text-foreground" : "text-muted-foreground",
                 )}
-              </div>
+              >
+                {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
+              </p>
             </div>
+            {liveModeToggleVisibility === "disabled" && (
+              <div
+                id={liveModeReasonId}
+                role="status"
+                className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
+              >
+                <Info className="size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
+                </span>
+              </div>
+            )}
           </div>
         )}
         {liveMode && (

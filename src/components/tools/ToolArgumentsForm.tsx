@@ -14,12 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-
-/** Field descriptions come from JSON Schema written for models, so a single
- * argument can carry a long block of instructions; clip it and let the user
- * expand it in place rather than pushing the rest of the form down by
- * default. */
-const DESCRIPTION_TRUNCATE_LENGTH = 180;
+import { TruncatedDescription } from "./TruncatedDescription";
 
 export interface ToolArgumentsFormProps {
   schema: Record<string, unknown> | null | undefined;
@@ -231,7 +226,7 @@ export function ToolArgumentsForm({
       </div>
 
       {spec.fields.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={cn("grid gap-4", spec.fields.length > 1 && "md:grid-cols-2")}>
           {spec.fields.map((field) => {
             const key = field.path.join(".");
             const error = validationAttempted || touchedFields.has(key) ? errors[key] : undefined;
@@ -397,37 +392,15 @@ function FieldMeta({
   errorId: string;
 }) {
   const intl = useIntl();
-  const [expanded, setExpanded] = useState(false);
-  const description = field.description;
-  const canTruncate = Boolean(description) && description!.length > DESCRIPTION_TRUNCATE_LENGTH;
-  const visibleDescription =
-    canTruncate && !expanded
-      ? `${description!.slice(0, DESCRIPTION_TRUNCATE_LENGTH).trimEnd()}…`
-      : description;
 
   return (
     <>
-      {description && (
-        <p id={id} className="text-[12px] leading-4 text-muted-foreground">
-          {visibleDescription}
-          {canTruncate && (
-            <>
-              {" "}
-              <button
-                type="button"
-                className="font-medium text-foreground underline-offset-2 hover:underline"
-                aria-expanded={expanded}
-                onClick={() => setExpanded((current) => !current)}
-              >
-                {intl.formatMessage({
-                  id: expanded
-                    ? "tools.details.preview.arguments.showLess"
-                    : "tools.details.preview.arguments.showMore",
-                })}
-              </button>
-            </>
-          )}
-        </p>
+      {field.description && (
+        <TruncatedDescription
+          text={field.description}
+          id={id}
+          className="text-[12px] leading-4 text-muted-foreground"
+        />
       )}
       {error && (
         <p id={errorId} className="text-[12px] leading-4 text-destructive" role="alert">

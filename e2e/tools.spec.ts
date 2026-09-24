@@ -356,7 +356,9 @@ test.describe("Tools page", () => {
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
     await expect(panel.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
-    await expect(panel.getByText("Read-only")).toBeVisible();
+    // Read-only/destructive annotation badges aren't part of the design here
+    // (they stay in use to gate live invocation, just not shown as badges).
+    await expect(panel.getByText("Read-only")).not.toBeVisible();
 
     const previewButton = panel.getByRole("button", { name: "Preview" });
     await expect(previewButton).toBeEnabled();

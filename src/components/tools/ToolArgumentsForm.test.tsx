@@ -294,11 +294,24 @@ describe("ToolArgumentsForm", () => {
     expect(description?.textContent).toContain("…");
     expect(description?.textContent).not.toContain(longDescription.trim());
 
-    await user.click(screen.getByRole("button", { name: "Show more" }));
+    const toggle = screen.getByRole("button", { name: "Show more" });
+    expect(toggle).toHaveAttribute("aria-controls", "tool-arg-query-description");
+
+    await user.click(toggle);
     expect(description?.textContent).not.toContain("…");
     expect(description?.textContent).toContain(longDescription.trim());
 
     await user.click(screen.getByRole("button", { name: "Show less" }));
     expect(description?.textContent).toContain("…");
+  });
+
+  it("spans a single argument across the full row instead of half width", () => {
+    const { container: singleField } = render(
+      <FormHarness schema={{ type: "object", properties: { query: { type: "string" } } }} />,
+    );
+    expect(singleField.querySelector(".grid")).not.toHaveClass("md:grid-cols-2");
+
+    const { container: twoFields } = render(<FormHarness />);
+    expect(twoFields.querySelector(".grid")).toHaveClass("md:grid-cols-2");
   });
 });

@@ -17,9 +17,24 @@ describe("LiveInvokeInfoPopover", () => {
 
     await user.click(screen.getByRole("button", { name: "About invocation modes" }));
 
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    // Labeled to match its trigger, per WCAG.
+    expect(dialog).toHaveAccessibleName("About invocation modes");
     expect(screen.getByText(/^Preview: checks your arguments/)).toBeInTheDocument();
     expect(screen.getByText(/^Live invocation: sends the call/)).toBeInTheDocument();
+  });
+
+  it("describes only the active mode when live invocation is on", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LiveInvokeInfoPopover mode="live" />);
+
+    await user.click(screen.getByRole("button", { name: "About invocation modes" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/^Live invocation is active\./)).toBeInTheDocument();
+    expect(screen.queryByText(/^Preview: checks your arguments/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Live invocation: sends the call/)).not.toBeInTheDocument();
   });
 
   it("dismisses on Escape", async () => {
