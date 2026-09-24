@@ -68,8 +68,6 @@ export interface ServersResponse {
   nextCursor?: string | null;
 }
 
-export type ServerStatus = "draft" | "active" | "offline" | "warning";
-
 /** `GET /oauth/status` payload. Hand-built server-side, so the keys stay snake_case. */
 export interface GatewayOAuthStatus {
   oauth_enabled: boolean;

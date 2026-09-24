@@ -480,6 +480,47 @@ describe("CreateServer", () => {
     expect(mockNavigate).not.toHaveBeenCalledWith("/app/gateways");
   });
 
+  it("names every source whose components could not be loaded", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            { id: "s-1", name: "alpha", enabled: true, reachable: true, tool_count: 1 },
+            { id: "s-2", name: "beta", enabled: true, reachable: true, tool_count: 1 },
+          ],
+        }),
+      ),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+      http.get("*/tools", ({ request }) => {
+        const gatewayId = new URL(request.url).searchParams.get("gateway_id");
+        return HttpResponse.json({ message: `${gatewayId} is down` }, { status: 500 });
+      }),
+      http.get("*/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/prompts", () => HttpResponse.json({ prompts: [] })),
+    );
+
+    renderWithProviders(<CreateServer />);
+
+    await user.type(screen.getByLabelText(/Name/), "Research server");
+    await user.click(screen.getByRole("button", { name: /Continue/ }));
+    await screen.findByRole("heading", { name: "Connect a source" });
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+    await screen.findByText("alpha");
+    await user.click(screen.getByRole("checkbox", { name: "Select alpha" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select beta" }));
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("alpha: s-1 is down");
+    expect(alert).toHaveTextContent("beta: s-2 is down");
+    expect(mockCreateVirtualServer).not.toHaveBeenCalled();
+  });
+
   it("opens the MCP server connection form from the post-create source selection", async () => {
     const user = userEvent.setup();
     renderWithProviders(<CreateServer />);
@@ -610,10 +651,10 @@ describe("CreateServer", () => {
     expect(screen.getByText("Offline Server")).toBeInTheDocument();
     expect(screen.getByText("Draft Server")).toBeInTheDocument();
 
-    // Status labels exercise every getServerStatus / getStatusConfig branch.
+    // Status labels exercise every getServerAvailability branch.
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Warning")).toBeInTheDocument();
     expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
     expect(screen.getByText("Inactive")).toBeInTheDocument();
 
     // Visibility labels exercise team / private / internal.
@@ -877,8 +918,8 @@ describe("CreateServer", () => {
       );
 
       // Each server's computed status label is shown on its accordion row.
-      expect(await screen.findByText("Warning")).toBeInTheDocument();
-      expect(screen.getByText("Offline")).toBeInTheDocument();
+      expect(await screen.findByText("Offline")).toBeInTheDocument();
+      expect(screen.getByText("Connecting")).toBeInTheDocument();
       expect(screen.getByText("Inactive")).toBeInTheDocument();
 
       // Visibility labels cover team / private / internal.
@@ -910,7 +951,7 @@ describe("CreateServer", () => {
       });
     });
 
-    it("renders componentError alert when tools fetch fails inside accordion", async () => {
+    it("names the list that failed and offers a retry inside the accordion", async () => {
       routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
       server.use(
         http.get("*/v1/virtual-servers/gateway-1", () => {
@@ -953,8 +994,11 @@ describe("CreateServer", () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText("HTTP 500")).toBeInTheDocument();
+        expect(screen.getByText(/Could not load Tools: HTTP 500/)).toBeInTheDocument();
       });
+      expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+      // Resources and prompts loaded, so they must not be reported as failures.
+      expect(screen.queryByText(/Could not load Resources/)).not.toBeInTheDocument();
     });
 
     it("renders fallback error message when editServerError has no message", async () => {
