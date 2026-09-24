@@ -403,6 +403,8 @@ export function ServerCatalog() {
   const [registrationNotifications, setRegistrationNotifications] = useState<
     RegistrationNotification[]
   >([]);
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const [addErrorAnnouncement, setAddErrorAnnouncement] = useState("");
   const [apiKeyDialogNotification, setApiKeyDialogNotification] = useState<
     RegistrationNotification | undefined
   >();
@@ -482,6 +484,30 @@ export function ServerCatalog() {
     },
     [],
   );
+
+  const showAddError = useCallback(
+    (server: CatalogServer, message: string) => {
+      setAddErrors((current) => ({ ...current, [server.id]: message }));
+      setAddErrorAnnouncement(
+        intl.formatMessage(
+          { id: "mcpServer.catalog.addFailed.announcement" },
+          {
+            name: server.name,
+          },
+        ),
+      );
+    },
+    [intl],
+  );
+
+  const clearAddError = useCallback((serverId: string) => {
+    setAddErrors((current) => {
+      if (!(serverId in current)) return current;
+      const next = { ...current };
+      delete next[serverId];
+      return next;
+    });
+  }, []);
 
   const dismissRegistrationNotification = useCallback((notificationId: string) => {
     setRegistrationNotifications((current) =>
@@ -572,19 +598,23 @@ export function ServerCatalog() {
         notification: RegistrationNotification,
         shouldFocus?: boolean,
       ) => void = showRegistrationNotification,
+      onAddFailure?: (server: CatalogServer, message: string) => void,
     ): Promise<RegistrationResult> => {
       if (!beginAdding(server.id)) return { success: false };
       dismissRegistrationNotification(`add:${server.id}`);
+      clearAddError(server.id);
+      const reportAddFailure = (message: string) => {
+        if (onAddFailure) onAddFailure(server, message);
+        else reportNotification({ id: `add:${server.id}`, type: "error", message });
+      };
       try {
         const result = body
           ? await registerCatalogServer(server.id, body)
           : await registerCatalogServer(server.id);
         if (!result.success) {
-          reportNotification({
-            id: `add:${server.id}`,
-            type: "error",
-            message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
-          });
+          reportAddFailure(
+            result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
+          );
           return { success: false };
         }
 
@@ -627,11 +657,7 @@ export function ServerCatalog() {
           return { success: false };
         }
 
-        reportNotification({
-          id: `add:${server.id}`,
-          type: "error",
-          message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
-        });
+        reportAddFailure(intl.formatMessage({ id: "mcpServer.catalog.addError" }));
         return { success: false };
       } finally {
         endAdding(server.id);
@@ -639,6 +665,7 @@ export function ServerCatalog() {
     },
     [
       beginAdding,
+      clearAddError,
       dismissRegistrationNotification,
       endAdding,
       intl,
@@ -660,9 +687,11 @@ export function ServerCatalog() {
         setOAuthServer(server);
         return;
       }
-      if (server.auth_type === OPEN_AUTH_TYPE) void registerServer(server);
+      if (server.auth_type === OPEN_AUTH_TYPE) {
+        void registerServer(server, undefined, undefined, showAddError);
+      }
     },
-    [registerServer],
+    [registerServer, showAddError],
   );
 
   const handleApiKeySubmit = useCallback(
@@ -1252,7 +1281,12 @@ export function ServerCatalog() {
         canTest={canTest}
         canDisconnect={canDisconnect}
         oauthStatuses={oauthStatuses}
+        addErrors={addErrors}
       />
+
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        {addErrorAnnouncement}
+      </p>
 
       <CatalogServerDetailsDialog server={selectedServer} onOpenChange={handleDetailsOpenChange} />
       <ConfirmDialog

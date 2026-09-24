@@ -544,7 +544,11 @@ describe("ServerCatalog", () => {
     await screen.findByText("Globalping connection failed with status 503 in 12 ms.");
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
-    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+    expect(
+      await screen.findByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    ).toBeVisible();
     expect(
       screen.getByText("Globalping connection failed with status 503 in 12 ms."),
     ).toBeVisible();
@@ -813,17 +817,60 @@ describe("ServerCatalog", () => {
     expect(screen.getAllByText("Connected")).toHaveLength(2);
   });
 
-  it("reports catalog registration failures", async () => {
+  it("reports catalog registration failures on the card that failed", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Unable to add this server. Try again.",
-    );
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Public Notes" })).toBeEnabled();
+
+    await user.click(indicator);
+
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
+  });
+
+  it("announces an add failure the card indicator only shows silently", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    const announcement = await screen.findByText("Error adding Public Notes");
+    expect(announcement).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("clears the card error when the add is retried", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("first attempt failed"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      message: "Registered",
+      server_id: "gw-public-notes",
+    });
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", {
+          name: "Public Notes status: error adding server. Show details",
+        }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("registers an available server then refetches authoritative gateway state", async () => {

@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StatusIndicator } from "@/components/ui/status-indicator";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getAuthTypeGroupId, getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
@@ -30,6 +31,7 @@ import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
 const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthGatewayStatus>> = {};
+const EMPTY_ADD_ERRORS: Readonly<Record<string, string>> = {};
 
 function getOAuthCardState(server: CatalogServer, status?: OAuthGatewayStatus) {
   const tokenState = status?.user_token_status?.status;
@@ -77,6 +79,7 @@ function CatalogCard({
   canTest,
   canDisconnect,
   oauthStatuses,
+  addError,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
@@ -90,6 +93,8 @@ function CatalogCard({
   canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
+  addError?: string;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -278,6 +283,21 @@ function CatalogCard({
                   <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
                 </Button>
               )}
+
+              {!server.is_registered && addError && !isAdding && (
+                <StatusIndicator
+                  Icon={STATUS_ICON.error}
+                  iconClassName={STATUS_TONE_CLASS.error}
+                  label={intl.formatMessage({ id: "mcpServer.catalog.addFailed.short" })}
+                  fullLabel={intl.formatMessage({ id: "mcpServer.catalog.addFailed.label" })}
+                  triggerAriaLabel={intl.formatMessage(
+                    { id: "mcpServer.catalog.addFailed.trigger" },
+                    { name: server.name },
+                  )}
+                >
+                  <p className="break-words text-sm text-foreground">{addError}</p>
+                </StatusIndicator>
+              )}
             </div>
           </CardContent>
         </article>
@@ -375,6 +395,7 @@ export function CatalogResults({
   canTest,
   canDisconnect,
   oauthStatuses = EMPTY_OAUTH_STATUSES,
+  addErrors = EMPTY_ADD_ERRORS,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -389,6 +410,7 @@ export function CatalogResults({
   canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  addErrors?: Readonly<Record<string, string>>;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -418,6 +440,7 @@ export function CatalogResults({
               canTest={canTest}
               canDisconnect={canDisconnect}
               oauthStatuses={oauthStatuses}
+              addError={addErrors[server.id]}
             />
           ))}
         </ul>
