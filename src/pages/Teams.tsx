@@ -235,12 +235,8 @@ export function Teams() {
                           )}
                           placeholder={intl.formatMessage({ id: "common.search" })}
                         />
-                        <Button
-                          variant="default"
-                          className="h-7 rounded-sm px-4"
-                          onClick={() => setCreateFormOpen(true)}
-                        >
-                          <Plus className="h-4 w-4" />
+                        <Button variant="default" size="sm" onClick={() => setCreateFormOpen(true)}>
+                          <Plus className="h-4 w-4" data-icon="inline-start" />
                           {intl.formatMessage({ id: "teams.createTeam" })}
                         </Button>
                       </div>
