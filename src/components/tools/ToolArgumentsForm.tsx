@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { TruncatedDescription } from "./TruncatedDescription";
 
 export interface ToolArgumentsFormProps {
   schema: Record<string, unknown> | null | undefined;
@@ -225,7 +226,7 @@ export function ToolArgumentsForm({
       </div>
 
       {spec.fields.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={cn("grid gap-4", spec.fields.length > 1 && "md:grid-cols-2")}>
           {spec.fields.map((field) => {
             const key = field.path.join(".");
             const error = validationAttempted || touchedFields.has(key) ? errors[key] : undefined;
@@ -391,12 +392,15 @@ function FieldMeta({
   errorId: string;
 }) {
   const intl = useIntl();
+
   return (
     <>
       {field.description && (
-        <p id={id} className="text-[12px] leading-4 text-muted-foreground">
-          {field.description}
-        </p>
+        <TruncatedDescription
+          text={field.description}
+          id={id}
+          className="text-[12px] leading-4 text-muted-foreground"
+        />
       )}
       {error && (
         <p id={errorId} className="text-[12px] leading-4 text-destructive" role="alert">

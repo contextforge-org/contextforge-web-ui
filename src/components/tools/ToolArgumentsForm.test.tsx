@@ -272,4 +272,46 @@ describe("ToolArgumentsForm", () => {
     fireEvent.change(rawJson, { target: { value: '{"query":"ok"}' } });
     expect(onArgsChange).toHaveBeenLastCalledWith({ query: "ok" });
   });
+
+  it("truncates long field descriptions behind a show more/less toggle", async () => {
+    const user = userEvent.setup();
+    const longDescription =
+      "This argument accepts a search query string that is matched against the issue title, body, labels, and comments across the entire repository history, so keep it specific. ".repeat(
+        2,
+      );
+
+    render(
+      <FormHarness
+        schema={{
+          type: "object",
+          properties: { query: { type: "string", description: longDescription } },
+        }}
+      />,
+    );
+
+    const description = document.getElementById("tool-arg-query-description");
+    expect(description).not.toBeNull();
+    expect(description?.textContent).toContain("…");
+    expect(description?.textContent).not.toContain(longDescription.trim());
+
+    const toggle = screen.getByRole("button", { name: "Show more" });
+    expect(toggle).toHaveAttribute("aria-controls", "tool-arg-query-description");
+
+    await user.click(toggle);
+    expect(description?.textContent).not.toContain("…");
+    expect(description?.textContent).toContain(longDescription.trim());
+
+    await user.click(screen.getByRole("button", { name: "Show less" }));
+    expect(description?.textContent).toContain("…");
+  });
+
+  it("spans a single argument across the full row instead of half width", () => {
+    const { container: singleField } = render(
+      <FormHarness schema={{ type: "object", properties: { query: { type: "string" } } }} />,
+    );
+    expect(singleField.querySelector(".grid")).not.toHaveClass("md:grid-cols-2");
+
+    const { container: twoFields } = render(<FormHarness />);
+    expect(twoFields.querySelector(".grid")).toHaveClass("md:grid-cols-2");
+  });
 });

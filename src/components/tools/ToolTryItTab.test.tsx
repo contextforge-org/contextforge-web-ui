@@ -8,18 +8,28 @@ import { server as mswServer } from "@/test/mocks/server";
 import type { Tool } from "@/types/tool";
 import { ToolTryItTab } from "./ToolTryItTab";
 
-const authMock = vi.hoisted(() => ({ permissionsLoading: false }));
+const authMock = vi.hoisted(() => ({
+  permissionsLoading: false,
+  permissionsError: false,
+  canExecute: true,
+  canUseServers: true,
+}));
 
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => ({
     hasPermission: (permission: string) =>
-      permission === "tools.execute" || permission === "servers.use",
+      (permission === "tools.execute" && authMock.canExecute) ||
+      (permission === "servers.use" && authMock.canUseServers),
     permissionsLoading: authMock.permissionsLoading,
+    permissionsError: authMock.permissionsError,
   }),
 }));
 
 beforeEach(() => {
   authMock.permissionsLoading = false;
+  authMock.permissionsError = false;
+  authMock.canExecute = true;
+  authMock.canUseServers = true;
 });
 
 function activeCode(): string {
@@ -69,7 +79,7 @@ function makeTool(overrides: Partial<Tool> = {}): Tool {
 }
 
 describe("ToolTryItTab", () => {
-  it("renders live tools/call snippets against a gateway placeholder", async () => {
+  it("defaults the Tools drawer to preview and switches to live invocation via the toggle", async () => {
     const user = userEvent.setup();
     const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
 
@@ -77,27 +87,100 @@ describe("ToolTryItTab", () => {
       <ToolTryItTab tools={[selectedTool]} selectedTool={selectedTool} onSelectTool={vi.fn()} />,
     );
 
+    expect(screen.getByRole("heading", { name: "Tools" })).toBeInTheDocument();
+    expect(screen.getByText("MCP version 2025-11-25")).toBeInTheDocument();
+    expect(screen.getByText("Search repository issues")).toBeInTheDocument();
+    // Read-only/destructive annotation badges aren't shown here, even for a
+    // read-only-hinted tool — the hints stay in use only to gate live invoke.
+    expect(screen.queryByText("Read-only")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /clear selected tool/i })).not.toBeInTheDocument();
+
+    // Defaults to preview: preview snippet tabs/action, no live invoke yet.
     expect(screen.getByRole("tab", { name: "curl" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "JSON" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Python" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "TypeScript" })).toBeInTheDocument();
-    expect(screen.getByText("MCP 2025-11-25")).toBeInTheDocument();
+    expect(activeCode()).toContain("/v1/tools/preview/search_issues");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invoke tool" })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Writes, external requests, and quota use happen immediately."),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/query/i), "cloudflare");
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+
+    expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
     expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
     expect(activeCode()).toContain('"method":"tools/call"');
     expect(activeCode()).toContain('"name":"search_issues"');
-    expect(activeCode()).not.toContain("/api/rpc");
-    expect(
-      screen.queryByText("Writes, external requests, and quota use happen immediately."),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /clear selected tool/i })).not.toBeInTheDocument();
-
-    await user.type(screen.getByLabelText(/query/i), "cloudflare");
-    expect(screen.getByRole("button", { name: "Live invoke" })).toBeEnabled();
+    expect(activeCode()).not.toContain("server_id");
+    expect(screen.getByRole("button", { name: "Invoke tool" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
     expect(activeCode()).toContain('"method": "tools/call"');
     expect(activeCode()).toContain('"name": "search_issues"');
     expect(activeCode()).not.toContain("server_id");
+  });
+
+  it("falls back to the default snippet tab when the selected one isn't offered by the new mode", async () => {
+    const user = userEvent.setup();
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+
+    render(
+      <ToolTryItTab tools={[selectedTool]} selectedTool={selectedTool} onSelectTool={vi.fn()} />,
+    );
+
+    // "JSON" only exists in the preview snippet list.
+    await user.click(screen.getByRole("tab", { name: "JSON" }));
+    expect(screen.getByRole("tab", { name: "JSON" })).toHaveAttribute("data-state", "active");
+
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+
+    // No trigger named "JSON" exists in the live list (it's "JSON-RPC"), so
+    // the tab falls back to curl instead of leaving nothing selected.
+    expect(screen.queryByRole("tab", { name: "JSON" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "curl" })).toHaveAttribute("data-state", "active");
+    expect(activeCode()).toContain("$MCPGATEWAY_URL/rpc");
+
+    // Same the other way: "JSON-RPC" only exists in the live list.
+    await user.click(screen.getByRole("tab", { name: "JSON-RPC" }));
+    await user.click(screen.getByRole("switch", { name: "Live invocation" }));
+
+    expect(screen.queryByRole("tab", { name: "JSON-RPC" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "curl" })).toHaveAttribute("data-state", "active");
+    expect(activeCode()).toContain("/v1/tools/preview/search_issues");
+  });
+
+  it("truncates a long tool description in the Tools drawer header", async () => {
+    const user = userEvent.setup();
+    const longDescription = "Retrieves and summarizes repository issues. ".repeat(6);
+    const selectedTool = makeTool({ description: longDescription });
+
+    render(
+      <ToolTryItTab tools={[selectedTool]} selectedTool={selectedTool} onSelectTool={vi.fn()} />,
+    );
+
+    const toggle = screen.getByRole("button", { name: "Show more" });
+    expect(screen.queryByText(longDescription.trim())).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(screen.getByText(longDescription.trim(), { exact: false })).toBeInTheDocument();
+  });
+
+  it("hides the live invocation toggle in the Tools drawer when the caller lacks permission", () => {
+    authMock.canExecute = false;
+    const selectedTool = makeTool({ annotations: { readOnlyHint: true } });
+
+    render(
+      <ToolTryItTab tools={[selectedTool]} selectedTool={selectedTool} onSelectTool={vi.fn()} />,
+    );
+
+    expect(screen.queryByRole("switch", { name: "Live invocation" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Live invocation")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
   });
 
   it("preserves draft arguments and headers when the same tool is refreshed", async () => {
@@ -156,14 +239,12 @@ describe("ToolTryItTab", () => {
       screen.getByRole("button", { name: "Clear selected tool and return to components" }),
     ).toHaveTextContent("Clear");
     expect(screen.getByText("Live invocation")).toHaveAttribute("data-slot", "label");
-    expect(
-      screen.getByRole("button", {
-        name: "Writes, external requests, and quota use happen immediately.",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Writes, external requests, and quota use happen immediately."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About invocation modes" })).toBeInTheDocument();
+    const liveModeCopy = screen.getByText(
+      "Writes, external requests, and quota use happen immediately.",
+    );
+    expect(liveModeCopy).toBeInTheDocument();
+    expect(liveModeCopy).toHaveClass("text-muted-foreground");
     expect(screen.queryByText(/Live invocation is enabled/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Live invoke" })).not.toBeInTheDocument();
@@ -178,6 +259,11 @@ describe("ToolTryItTab", () => {
         "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
       ),
     ).toBeVisible();
+    expect(liveModeCopy).toHaveClass("text-foreground");
+    await user.click(screen.getByRole("button", { name: "About invocation modes" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Live invocation is active.");
+    expect(screen.queryByText(/^Preview: checks your arguments/)).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "Invoke tool" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
@@ -380,9 +466,14 @@ describe("ToolTryItTab", () => {
     await user.type(screen.getByLabelText(/query/i), "cloudflare");
     expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
-    expect(
-      screen.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
-    ).toBeInTheDocument();
+
+    // Full-width callout below the toggle row, not a plain paragraph beside it.
+    const reasonText = screen.getByText(
+      "Live invoke is not offered for federated tools without readOnlyHint.",
+    );
+    const reason = reasonText.closest('[role="status"]');
+    expect(reason).not.toBeNull();
+    expect(reason?.querySelector("svg")).not.toBeNull();
     expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
       "Writes, external requests, and quota use happen immediately. Live invoke is not offered for federated tools without readOnlyHint.",
     );

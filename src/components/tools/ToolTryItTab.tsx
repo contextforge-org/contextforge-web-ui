@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Ref } from "react";
 import { useIntl } from "react-intl";
-import { Info, TriangleAlert, Wrench } from "lucide-react";
+import { Info, Tag, TriangleAlert, Wrench } from "lucide-react";
 
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { CodeBlock } from "@/components/ui/code-block";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Tool } from "@/types/tool";
 import { useToolInvoke } from "@/hooks/useToolInvoke";
@@ -25,13 +24,15 @@ import { ToolArgumentsForm, seedToolArguments } from "./ToolArgumentsForm";
 import { getForwardableHeaders, type ToolHeaderRow, ToolHeadersEditor } from "./ToolHeadersEditor";
 import {
   getToolLiveInvokeAvailabilityMessage,
+  getToolLiveInvokeToggleVisibility,
   resolveToolLiveInvokeAvailability,
   ToolLiveInvokeGate,
 } from "./ToolLiveInvokeGate";
 import { ToolLiveInvokeResult } from "./ToolLiveInvokeResult";
 import { ToolPreviewButton } from "./ToolPreviewButton";
 import { ToolPreviewResult } from "./ToolPreviewResult";
-import { getToolAnnotationHints } from "./toolAnnotations";
+import { LiveInvokeInfoPopover } from "./LiveInvokeInfoPopover";
+import { TruncatedDescription } from "./TruncatedDescription";
 
 const DEFAULT_SNIPPET_LANGUAGE: ToolSnippetLanguage = "curl";
 
@@ -59,7 +60,8 @@ export function ToolTryItTab({
   const intl = useIntl();
   const liveModeDescriptionId = useId();
   const liveModeReasonId = useId();
-  const { hasPermission, permissionsLoading } = useAuth();
+  const toolDescriptionId = useId();
+  const { hasPermission, permissionsLoading, permissionsError } = useAuth();
   const [args, setArgs] = useState<Record<string, unknown>>(() =>
     seedToolArguments(selectedTool.inputSchema),
   );
@@ -72,22 +74,22 @@ export function ToolTryItTab({
   const [liveMode, setLiveMode] = useState(false);
   const scopedMode = Boolean(serverScope);
   const forwardableHeaders = useMemo(() => getForwardableHeaders(headers), [headers]);
-  const annotationHints = getToolAnnotationHints(selectedTool.annotations);
   const liveAvailability = useMemo(
     () =>
       resolveToolLiveInvokeAvailability({
         canExecute: hasPermission("tools.execute"),
         canUseServers: hasPermission("servers.use"),
         permissionsLoading,
+        permissionsError,
         invalidGatewayId,
         tool: selectedTool,
       }),
-    [hasPermission, permissionsLoading, invalidGatewayId, selectedTool],
+    [hasPermission, permissionsLoading, permissionsError, invalidGatewayId, selectedTool],
   );
-  const liveModeAvailable =
-    liveAvailability.state === "available" || liveAvailability.state === "requiresConfirmation";
+  const liveModeToggleVisibility = getToolLiveInvokeToggleVisibility(liveAvailability);
+  const liveModeAvailable = liveModeToggleVisibility === "enabled";
   const preview = useToolPreview(selectedTool.name, args, forwardableHeaders, {
-    enabled: !scopedMode || !liveMode,
+    enabled: !liveMode,
     serverId: serverScope?.serverId,
   });
   const invoke = useToolInvoke(selectedTool.name, args, forwardableHeaders, {
@@ -102,7 +104,7 @@ export function ToolTryItTab({
     selectedTool.title ||
     selectedTool.originalName ||
     selectedTool.name;
-  const snippetSpecs = scopedMode && !liveMode ? TOOL_PREVIEW_SNIPPETS : TOOL_SNIPPETS;
+  const snippetSpecs = !liveMode ? TOOL_PREVIEW_SNIPPETS : TOOL_SNIPPETS;
   const snippets = useMemo(
     () =>
       snippetSpecs.map((spec) => ({
@@ -127,13 +129,22 @@ export function ToolTryItTab({
   }, [resetInvoke, resetPreview, selectedTool]);
 
   useEffect(() => {
-    if (!scopedMode || liveModeAvailable) return;
+    if (liveModeAvailable) return;
     setLiveMode(false);
-  }, [liveModeAvailable, scopedMode]);
+  }, [liveModeAvailable]);
+
+  // Only curl, Python and TypeScript are offered by both snippet lists (the
+  // preview list has JSON, the live list has JSON-RPC); fall back to the
+  // default tab whenever the active one isn't in the current list, whether
+  // that's from the toggle below or from live mode being turned off
+  // automatically (e.g. once permissions resolve).
+  useEffect(() => {
+    if (snippetSpecs.some((spec) => spec.value === snippetLanguage)) return;
+    setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
+  }, [snippetSpecs, snippetLanguage]);
 
   const handleLiveModeChange = (checked: boolean) => {
     setLiveMode(checked);
-    setSnippetLanguage(DEFAULT_SNIPPET_LANGUAGE);
     resetPreview();
     resetInvoke();
   };
@@ -175,21 +186,9 @@ export function ToolTryItTab({
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 ref={headingRef} className="text-sm font-semibold text-foreground">
-              {intl.formatMessage({ id: "tools.details.preview.title" })}
-            </h3>
-            {annotationHints.readOnlyHint && (
-              <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px]">
-                {intl.formatMessage({ id: "tools.details.preview.annotation.readOnly" })}
-              </Badge>
-            )}
-            {annotationHints.destructiveHint && (
-              <Badge variant="destructive" className="rounded-full px-2 py-0 text-[11px]">
-                {intl.formatMessage({ id: "tools.details.preview.annotation.destructive" })}
-              </Badge>
-            )}
-          </div>
+          <h3 ref={headingRef} className="text-sm font-semibold text-foreground">
+            {intl.formatMessage({ id: "tools.details.picker.title" })}
+          </h3>
 
           {availableTools.length > 1 && onSelectTool && (
             <div
@@ -221,16 +220,27 @@ export function ToolTryItTab({
             </div>
           )}
 
-          {selectedTool.description && (
-            <p className="max-w-4xl whitespace-normal break-words text-[13px] leading-5 text-muted-foreground">
-              {selectedTool.description}
-            </p>
-          )}
+          <div className="flex max-w-4xl flex-wrap items-baseline gap-x-2 gap-y-1 whitespace-normal break-words text-[13px] leading-4 text-muted-foreground">
+            <span className="inline-flex shrink-0 items-center gap-1.5 font-medium">
+              <Tag className="size-3" aria-hidden="true" />
+              {intl.formatMessage(
+                { id: "tools.details.code.mcpVersionLabel" },
+                { version: TOOL_SNIPPET_MCP_VERSION },
+              )}
+            </span>
+            {selectedTool.description && (
+              <TruncatedDescription
+                text={selectedTool.description}
+                id={toolDescriptionId}
+                className="min-w-0 flex-1"
+              />
+            )}
+          </div>
         </div>
       )}
 
-      {scopedMode && (
-        <div className="space-y-3">
+      <div className="space-y-3">
+        {liveModeToggleVisibility !== "hidden" && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5">
               <Label
@@ -239,22 +249,7 @@ export function ToolTryItTab({
               >
                 {intl.formatMessage({ id: "tools.details.test.liveMode" })}
               </Label>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-                    aria-label={intl.formatMessage({
-                      id: "tools.details.test.liveModeDescription",
-                    })}
-                  >
-                    <Info className="size-3.5" aria-hidden="true" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
-                </TooltipContent>
-              </Tooltip>
+              <LiveInvokeInfoPopover mode={liveMode ? "live" : "preview"} />
             </div>
             <div className="flex items-start gap-3">
               <Switch
@@ -262,38 +257,43 @@ export function ToolTryItTab({
                 className="shrink-0"
                 aria-describedby={`${liveModeDescriptionId}${liveModeAvailable ? "" : ` ${liveModeReasonId}`}`}
                 checked={liveMode}
-                disabled={!liveModeAvailable}
+                disabled={liveModeToggleVisibility === "disabled"}
                 onCheckedChange={handleLiveModeChange}
               />
-              <div className="min-w-0 space-y-1">
-                <p
-                  id={liveModeDescriptionId}
-                  className="max-w-md text-[12px] leading-4 text-muted-foreground"
-                >
-                  {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
-                </p>
-                {!liveModeAvailable && (
-                  <p
-                    id={liveModeReasonId}
-                    className="max-w-md text-[12px] leading-4 text-muted-foreground"
-                  >
-                    {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
-                  </p>
+              <p
+                id={liveModeDescriptionId}
+                className={cn(
+                  "max-w-md text-[12px] leading-4",
+                  liveMode ? "text-foreground" : "text-muted-foreground",
                 )}
+              >
+                {intl.formatMessage({ id: "tools.details.test.liveModeDescription" })}
+              </p>
+            </div>
+            {liveModeToggleVisibility === "disabled" && (
+              <div
+                id={liveModeReasonId}
+                role="status"
+                className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
+              >
+                <Info className="size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {getToolLiveInvokeAvailabilityMessage(liveAvailability, intl.formatMessage)}
+                </span>
               </div>
-            </div>
+            )}
           </div>
-          {liveMode && (
-            <div
-              role="status"
-              className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
-            >
-              <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
-              <span>{intl.formatMessage({ id: "tools.details.test.liveModeWarning" })}</span>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+        {liveMode && (
+          <div
+            role="status"
+            className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
+          >
+            <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
+            <span>{intl.formatMessage({ id: "tools.details.test.liveModeWarning" })}</span>
+          </div>
+        )}
+      </div>
 
       <ToolArgumentsForm
         key={`args-${selectedTool.id}`}
@@ -320,30 +320,31 @@ export function ToolTryItTab({
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px]">
-                {intl.formatMessage(
-                  { id: "tools.details.code.mcpVersionBadge" },
-                  { version: TOOL_SNIPPET_MCP_VERSION },
-                )}
-              </Badge>
+              {scopedMode && (
+                <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px]">
+                  {intl.formatMessage(
+                    { id: "tools.details.code.mcpVersionBadge" },
+                    { version: TOOL_SNIPPET_MCP_VERSION },
+                  )}
+                </Badge>
+              )}
             </div>
 
             <div className="flex flex-wrap items-start justify-end gap-2">
-              {(!scopedMode || !liveMode) && (
+              {!liveMode ? (
                 <ToolPreviewButton
                   preview={preview}
                   disabled={!headersValid}
                   onBeforeRun={validateArgumentsForRun}
                 />
-              )}
-              {(!scopedMode || liveMode) && (
+              ) : (
                 <ToolLiveInvokeGate
                   tool={selectedTool}
                   invalidGatewayId={invalidGatewayId}
                   invoke={invoke}
                   disabled={!headersValid}
                   onBeforeRun={validateArgumentsForRun}
-                  presentation={scopedMode ? "tool" : "live"}
+                  presentation="tool"
                 />
               )}
             </div>
@@ -364,8 +365,9 @@ export function ToolTryItTab({
         </Tabs>
       </div>
 
-      {(!scopedMode || !liveMode) && <ToolPreviewResult preview={preview} />}
-      {(!scopedMode || liveMode) && (
+      {!liveMode ? (
+        <ToolPreviewResult preview={preview} />
+      ) : (
         <ToolLiveInvokeResult invoke={invoke} context={resultContext} />
       )}
     </div>
