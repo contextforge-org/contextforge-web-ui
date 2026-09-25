@@ -76,6 +76,13 @@ interface RegistrationResult {
   gatewayId?: string;
 }
 
+interface RegistrationReporting {
+  // Destination for failures. Defaults to the page notification stack.
+  reportNotification?: (notification: RegistrationNotification, shouldFocus?: boolean) => void;
+  // Diverts add failures away from reportNotification, onto the card that failed.
+  onAddFailure?: (server: CatalogServer, message: string) => void;
+}
+
 type ImpactPreviewStatus = "idle" | "loading" | "loaded" | "error";
 
 const DISCONNECT_POLL_TIMEOUT_MS = 30_000;
@@ -596,11 +603,10 @@ export function ServerCatalog() {
     async (
       server: CatalogServer,
       body?: CatalogServerRegisterBody,
-      reportNotification: (
-        notification: RegistrationNotification,
-        shouldFocus?: boolean,
-      ) => void = showRegistrationNotification,
-      onAddFailure?: (server: CatalogServer, message: string) => void,
+      {
+        reportNotification = showRegistrationNotification,
+        onAddFailure,
+      }: RegistrationReporting = {},
     ): Promise<RegistrationResult> => {
       if (!beginAdding(server.id)) return { success: false };
       dismissRegistrationNotification(`add:${server.id}`);
@@ -690,7 +696,7 @@ export function ServerCatalog() {
         return;
       }
       if (server.auth_type === OPEN_AUTH_TYPE) {
-        void registerServer(server, undefined, undefined, showAddError);
+        void registerServer(server, undefined, { onAddFailure: showAddError });
       }
     },
     [registerServer, showAddError],
@@ -703,9 +709,9 @@ export function ServerCatalog() {
       // The dialog notification has no focus-ref registry like the grid's does, and doesn't
       // need one: InlineNotification already uses role="alert"/"status" for a11y announcement,
       // so shouldFocus is intentionally dropped here rather than passed to a state setter.
-      const { success } = await registerServer(apiKeyServer, body, (notification) =>
-        setApiKeyDialogNotification(notification),
-      );
+      const { success } = await registerServer(apiKeyServer, body, {
+        reportNotification: (notification) => setApiKeyDialogNotification(notification),
+      });
       if (success) setFocusActionsForServerId(apiKeyServer.id);
       return success;
     },
@@ -735,9 +741,9 @@ export function ServerCatalog() {
 
       let gatewayId = pendingOAuthGatewayId;
       if (!gatewayId) {
-        const registration = await registerServer(oauthServer, body, (notification) =>
-          setOAuthDialogNotification(notification),
-        );
+        const registration = await registerServer(oauthServer, body, {
+          reportNotification: (notification) => setOAuthDialogNotification(notification),
+        });
         if (!registration.success) {
           authWindow.close();
           return false;
