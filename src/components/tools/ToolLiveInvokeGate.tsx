@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Play, Square, Zap } from "lucide-react";
 import { useIntl } from "react-intl";
 
@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/useAuth";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
 import { getToolAnnotationHints } from "./toolAnnotations";
@@ -76,20 +77,13 @@ export function ToolLiveInvokeGate({
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [showCancelRequest, setShowCancelRequest] = useState(false);
+  const loadingTransition = useMemo(() => ({ isLoading: invoke.isLoading }), [invoke.isLoading]);
+  const debouncedLoadingTransition = useDebouncedValue(
+    loadingTransition,
+    TOOL_CANCEL_REVEAL_DELAY_MS,
+  );
 
-  useEffect(() => {
-    if (!invoke.isLoading) {
-      setShowCancelRequest(false);
-      return;
-    }
-
-    const revealTimer = window.setTimeout(() => {
-      setShowCancelRequest(true);
-    }, TOOL_CANCEL_REVEAL_DELAY_MS);
-
-    return () => window.clearTimeout(revealTimer);
-  }, [invoke.isLoading]);
+  const showCancelRequest = invoke.isLoading && debouncedLoadingTransition === loadingTransition;
 
   const run = () => {
     if (onBeforeRun?.() === false) return;

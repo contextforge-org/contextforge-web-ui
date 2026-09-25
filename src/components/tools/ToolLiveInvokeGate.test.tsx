@@ -307,7 +307,7 @@ describe("ToolLiveInvokeGate", () => {
 
   it("reveals cancellation only after an invoke has been running for a few seconds", () => {
     vi.useFakeTimers();
-    const invoke = makeInvoke({ isLoading: true });
+    const invoke = makeInvoke();
     const { rerender } = render(
       <ToolLiveInvokeGate
         tool={makeTool({ annotations: { readOnlyHint: true } })}
@@ -315,6 +315,12 @@ describe("ToolLiveInvokeGate", () => {
       />,
     );
 
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={{ ...invoke, isLoading: true }}
+      />,
+    );
     expect(screen.getByRole("button", { name: "Invoking..." })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
 
