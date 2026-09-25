@@ -36,7 +36,7 @@ export function ServerStatusDetail({
         <p className="text-xs text-muted-foreground">
           {intl.formatMessage(
             { id: "mcpServer.status.detail.lastSeen" },
-            { timestamp: formatLocalDateTime(lastSeen, lastSeen) },
+            { timestamp: formatLocalDateTime(lastSeen, "") },
           )}
         </p>
       )}

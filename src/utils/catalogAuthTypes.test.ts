@@ -4,6 +4,7 @@ import {
   getAuthTypeGroupId,
   getAuthTypeGroupLabelId,
   getOrderedAuthTypeGroups,
+  isCatalogOAuthServer,
   normalizeAuthTypeFilterValue,
   OAUTH_AUTH_TYPES,
   OPEN_AUTH_TYPE,
@@ -37,6 +38,22 @@ describe("getAuthTypeGroupLabelId", () => {
 
   it("returns null for an unknown raw value", () => {
     expect(getAuthTypeGroupLabelId("mTLS")).toBeNull();
+  });
+});
+
+describe("isCatalogOAuthServer", () => {
+  it("recognizes every OAuth spelling and explicit OAuth configuration", () => {
+    for (const authType of OAUTH_AUTH_TYPES) {
+      expect(isCatalogOAuthServer({ auth_type: authType })).toBe(true);
+    }
+    expect(isCatalogOAuthServer({ auth_type: OPEN_AUTH_TYPE, requires_oauth_config: true })).toBe(
+      true,
+    );
+  });
+
+  it("rejects catalog servers without OAuth requirements", () => {
+    expect(isCatalogOAuthServer({ auth_type: OPEN_AUTH_TYPE })).toBe(false);
+    expect(isCatalogOAuthServer({ auth_type: "API Key" })).toBe(false);
   });
 });
 

@@ -48,6 +48,20 @@ describe("ServerStatusIndicator", () => {
     expect(screen.queryByText(/Last response:/)).not.toBeInTheDocument();
   });
 
+  it("does not expose an invalid raw last-response timestamp", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ServerStatusIndicator
+        server={{ ...server, reachable: false, lastSeen: "invalid-backend-timestamp" }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Offline/i }));
+
+    expect(await screen.findByText(/Last response:/)).toBeInTheDocument();
+    expect(screen.queryByText(/invalid-backend-timestamp/)).not.toBeInTheDocument();
+  });
+
   it("withholds the stale last error an inactive server kept from its last outage", async () => {
     const user = userEvent.setup();
     renderWithProviders(

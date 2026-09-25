@@ -23,7 +23,11 @@ import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
 import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
-import { getServerAvailability, isOAuthServer } from "@/lib/serverStatus";
+import {
+  getServerAvailability,
+  isAuthorizationAvailability,
+  isOAuthServer,
+} from "@/lib/serverStatus";
 import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server";
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
@@ -378,7 +382,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   );
 
   const availability = getServerAvailability(server, oauthStatus);
-  const showOAuthDetail = availability.startsWith("authorization_");
+  const showOAuthDetail = isAuthorizationAvailability(availability);
   const tools = useMemo(
     () =>
       getResponseItems(toolsData, "tools").map((tool): SelectableComponent => ({

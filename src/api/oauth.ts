@@ -32,7 +32,7 @@ export interface OAuthStatusBatchResult {
 
 const OAUTH_STATUS_MAX_IDS = 100;
 
-function uniqueGatewayIds(gatewayIds: string[]): string[] {
+export function normalizeGatewayIds(gatewayIds: string[]): string[] {
   return [...new Set(gatewayIds.map((id) => id.trim()).filter(Boolean))];
 }
 
@@ -41,7 +41,7 @@ export async function getOAuthStatuses(
   gatewayIds: string[],
   signal?: AbortSignal,
 ): Promise<OAuthStatusBatchResult> {
-  const ids = uniqueGatewayIds(gatewayIds);
+  const ids = normalizeGatewayIds(gatewayIds);
   if (ids.length === 0) return { statuses: {}, failures: {} };
 
   const batches: string[][] = [];
