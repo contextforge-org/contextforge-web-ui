@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -123,7 +124,9 @@ describe("MCPServerForm", () => {
     return render(
       <AuthProvider>
         <I18nProvider>
-          <RouterProvider>{ui}</RouterProvider>
+          <TeamsProvider>
+            <RouterProvider>{ui}</RouterProvider>
+          </TeamsProvider>
         </I18nProvider>
       </AuthProvider>,
     );

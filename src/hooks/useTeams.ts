@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuthContext } from "@/auth/AuthContext";
-import { useQuery } from "@/hooks/useQuery";
-import type { Team, TeamsResponse } from "@/types/team";
+import { useTeamsContext } from "@/hooks/TeamsProvider";
+import type { Team } from "@/types/team";
 import type { Visibility } from "@/types/server";
 
 export interface UseTeamsResult {
@@ -11,8 +11,7 @@ export interface UseTeamsResult {
 
 /** The teams the caller belongs to, for scoping `team`-visibility records. */
 export function useTeams(): UseTeamsResult {
-  const { data, isLoading } = useQuery<TeamsResponse>("/teams");
-  const teams = useMemo(() => data?.teams ?? [], [data?.teams]);
+  const { teams, isLoading } = useTeamsContext();
 
   return { teams, isLoading };
 }

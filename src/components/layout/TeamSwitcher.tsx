@@ -7,24 +7,13 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { SidebarMenuButton } from "../ui/sidebar";
-import { useQuery } from "../../hooks/useQuery";
+import { useTeamsContext } from "../../hooks/TeamsProvider";
 import { useAuthContext } from "../../auth/AuthContext";
-
-interface Team {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-interface TeamsResponse {
-  teams: Team[];
-}
 
 export function TeamSwitcher() {
   const { selectedTeamId, setSelectedTeamId } = useAuthContext();
-  const { data, isLoading, error } = useQuery<TeamsResponse>("/teams");
+  const { teams, isLoading, error } = useTeamsContext();
 
-  const teams = useMemo(() => data?.teams ?? [], [data?.teams]);
   const currentTeam = useMemo(
     () => (selectedTeamId ? teams.find((t) => t.id === selectedTeamId) : null),
     [selectedTeamId, teams],

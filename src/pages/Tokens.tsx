@@ -13,7 +13,7 @@ import { TokenIcon } from "@/components/tokens/TokenIcon";
 import { useQuery } from "@/hooks/useQuery";
 import { tokensApi } from "@/api/tokens";
 import { parseApiError } from "@/lib/errorUtils";
-import type { TeamsResponse } from "@/types/team";
+import { useTeams } from "@/hooks/useTeams";
 import type { TokenListResponse, TokenResponse } from "@/types/token";
 
 export function Tokens() {
@@ -29,11 +29,8 @@ export function Tokens() {
   const { data, isLoading, error, setData, refetch } = useQuery<TokenListResponse>("/tokens");
   const tokens = useMemo(() => data?.tokens ?? [], [data?.tokens]);
 
-  const { data: teamsData } = useQuery<TeamsResponse>("/teams");
-  const teamNames = useMemo(
-    () => new Map((teamsData?.teams ?? []).map((team) => [team.id, team.name])),
-    [teamsData?.teams],
-  );
+  const { teams } = useTeams();
+  const teamNames = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams]);
 
   const handleCreated = useCallback(
     (accessToken: string, token: TokenResponse) => {

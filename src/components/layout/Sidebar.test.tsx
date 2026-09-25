@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { SidebarProvider } from "../ui/sidebar";
 import { I18nProvider } from "@/i18n";
 import { AppSidebar } from "./Sidebar";
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 
 const mockNavigate = vi.fn();
 const mockUseRouter = vi.fn();
@@ -29,9 +30,11 @@ vi.mock("@/auth/AuthContext", () => ({
 function renderSidebar() {
   return render(
     <I18nProvider>
-      <SidebarProvider>
-        <AppSidebar />
-      </SidebarProvider>
+      <TeamsProvider>
+        <SidebarProvider>
+          <AppSidebar />
+        </SidebarProvider>
+      </TeamsProvider>
     </I18nProvider>,
   );
 }
