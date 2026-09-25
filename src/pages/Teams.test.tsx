@@ -37,13 +37,14 @@ vi.mock("sonner", () => ({
 }));
 
 import { api } from "@/api/client";
-import { deleteTeam, createTeam, updateTeam, listTeamMembers } from "@/api/teams";
+import { deleteTeam, createTeam, updateTeam, listTeamMembers, addTeamMember } from "@/api/teams";
 
 const mockToastSuccess = vi.mocked(toast.success);
 const mockToastError = vi.mocked(toast.error);
 const mockDeleteTeam = vi.mocked(deleteTeam);
 const mockCreateTeam = vi.mocked(createTeam);
 const mockUpdateTeam = vi.mocked(updateTeam);
+const mockAddTeamMember = vi.mocked(addTeamMember);
 
 function createMockTeams(startIndex: number, count: number) {
   return Array.from({ length: count }, (_, i) => ({
@@ -353,6 +354,100 @@ describe("Teams", () => {
     await user.click(await screen.findByRole("button", { name: /delete/i }));
 
     await waitFor(() => {
+      expect(sharedFetches()).toBe(before + 1);
+    });
+  });
+
+  it("refreshes the shared team list after creating a team", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/auth/email/admin/users")) {
+        return Promise.resolve({ users: [] });
+      }
+      return Promise.resolve({ teams: createMockTeams(0, 1), nextCursor: null, path });
+    });
+    mockCreateTeam.mockResolvedValue({ id: "team-new", name: "New Team" } as Awaited<
+      ReturnType<typeof createTeam>
+    >);
+
+    renderWithRouter(<Teams />);
+    await waitFor(() => expect(screen.getByText("Team 0")).toBeInTheDocument());
+
+    const sharedFetches = () =>
+      vi.mocked(api.get).mock.calls.filter(([path]) => path === "/teams").length;
+    const before = sharedFetches();
+
+    await user.click(screen.getAllByRole("button", { name: /Create team/i })[0]);
+    await user.type(await screen.findByPlaceholderText(/add team name/i), "New Team");
+    await user.click(screen.getByRole("button", { name: /^create team$/i }));
+
+    await waitFor(() => {
+      expect(sharedFetches()).toBe(before + 1);
+    });
+  });
+
+  it("refreshes the shared team list after editing a team", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/auth/email/admin/users")) {
+        return Promise.resolve({ users: [] });
+      }
+      return Promise.resolve({ teams: createMockTeams(0, 1), nextCursor: null, path });
+    });
+    mockUpdateTeam.mockResolvedValue({ id: "team-0", name: "Team 0" } as Awaited<
+      ReturnType<typeof updateTeam>
+    >);
+
+    renderWithRouter(<Teams />);
+    await waitFor(() => expect(screen.getByText("Team 0")).toBeInTheDocument());
+
+    const sharedFetches = () =>
+      vi.mocked(api.get).mock.calls.filter(([path]) => path === "/teams").length;
+    const before = sharedFetches();
+
+    await user.click(screen.getByRole("button", { name: "Actions for Team 0" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^edit$/i }));
+    await screen.findByRole("heading", { name: /edit team/i });
+    await user.click(screen.getByRole("button", { name: /^save changes$/i }));
+
+    await waitFor(() => {
+      expect(sharedFetches()).toBe(before + 1);
+    });
+  });
+
+  it("refreshes the shared team list after a member change", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/auth/email/admin/users")) {
+        return Promise.resolve({
+          users: [{ email: "new@example.com", full_name: "New Member" }],
+        });
+      }
+      return Promise.resolve({ teams: createMockTeams(0, 1), nextCursor: null, path });
+    });
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    mockAddTeamMember.mockResolvedValue(undefined);
+
+    renderWithRouter(<Teams />);
+    await waitFor(() => expect(screen.getByText("Team 0")).toBeInTheDocument());
+
+    const sharedFetches = () =>
+      vi.mocked(api.get).mock.calls.filter(([path]) => path === "/teams").length;
+    const before = sharedFetches();
+
+    await user.click(screen.getByRole("button", { name: "Actions for Team 0" }));
+    await user.click(await screen.findByRole("menuitem", { name: /manage members/i }));
+    await screen.findByRole("dialog");
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: /new@example.com/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(mockAddTeamMember).toHaveBeenCalledWith(
+        "team-0",
+        expect.objectContaining({ email: "new@example.com" }),
+      );
       expect(sharedFetches()).toBe(before + 1);
     });
   });
