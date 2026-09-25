@@ -836,6 +836,45 @@ describe("ServerCatalog", () => {
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
   });
 
+  it("shows the reason a rejected registration gives on the card that failed", async () => {
+    const user = userEvent.setup();
+    // server_id is empty rather than absent on every backend rejection.
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: false,
+      server_id: "",
+      message: "Remote server error - the MCP server is experiencing issues",
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(indicator);
+
+    expect(
+      await screen.findByText("Remote server error - the MCP server is experiencing issues"),
+    ).toBeVisible();
+  });
+
+  it("falls back to generic copy where a rejected registration carries no message", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockResolvedValue({ success: false, server_id: "", message: "" });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    );
+
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+  });
+
   it("announces an add failure the card indicator only shows silently", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network"));
