@@ -14,7 +14,7 @@ interface StatusIndicatorProps {
   fullLabel?: string;
   /** Accessible name for the trigger. Required wherever `children` are given. */
   triggerAriaLabel?: string;
-  /** Accessible name for the popover, which Radix leaves unnamed. */
+  /** Accessible name for the popover, which Radix leaves unnamed. Falls back to the label. */
   contentAriaLabel?: string;
   size?: "xs" | "sm";
   /** Render as plain text rather than a button. Required inside another button. */
@@ -82,7 +82,11 @@ export function StatusIndicator({
       >
         {content}
       </PopoverTrigger>
-      <PopoverContent align="end" aria-label={contentAriaLabel} className="w-auto max-w-xs p-3">
+      <PopoverContent
+        align="end"
+        aria-label={contentAriaLabel ?? fullLabel ?? label}
+        className="w-auto max-w-xs p-3"
+      >
         {children}
       </PopoverContent>
     </Popover>
