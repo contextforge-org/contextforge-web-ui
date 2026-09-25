@@ -12,11 +12,13 @@ interface StatusIndicatorProps {
   label: string;
   /** The unabbreviated label, announced in place of `label` when the two differ. */
   fullLabel?: string;
-  /** Accessible name for the trigger. Required wherever `children` are given. */
+  /**
+   * Overrides the name the visible label gives the trigger. Pass it where the
+   * label alone does not say what the status is about.
+   */
   triggerAriaLabel?: string;
   /** Accessible name for the popover, which Radix leaves unnamed. Falls back to the label. */
   contentAriaLabel?: string;
-  size?: "xs" | "sm";
   /** Render as plain text rather than a button. Required inside another button. */
   interactive?: boolean;
   /** Popover contents. Without them the indicator has nothing to open and stays plain text. */
@@ -24,24 +26,25 @@ interface StatusIndicatorProps {
   className?: string;
 }
 
-const SIZE_CLASS = {
-  xs: "text-xs",
-  sm: "text-sm",
-} as const;
-
-const LAYOUT_CLASS = "inline-flex items-center gap-1.5";
+const LAYOUT_CLASS = "inline-flex items-center gap-1.5 text-xs";
 const TRIGGER_CLASS =
   "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** The interactive shell, for a caller whose trigger holds something this cannot render. */
-export const STATUS_INDICATOR_TRIGGER_CLASS = cn(LAYOUT_CLASS, SIZE_CLASS.xs, TRIGGER_CLASS);
+export const STATUS_INDICATOR_TRIGGER_CLASS = cn(LAYOUT_CLASS, TRIGGER_CLASS);
+
+/** The status icon, shared with a caller that builds its own trigger. */
+export function StatusIndicatorIcon({ Icon, className }: { Icon: LucideIcon; className?: string }) {
+  return (
+    <Icon className={cn("h-3.5 w-3.5 shrink-0", className)} aria-hidden="true" focusable="false" />
+  );
+}
 
 /**
  * Status icon and label, optionally opening a popover that explains the state.
  *
  * Presentation only: callers classify their own subject and pass the icon, tone
- * and copy. Consumers are the MCP server status indicator, the catalog card and
- * the source picker, which share this shape but not their state models.
+ * and copy, so that subjects with unrelated state models still read alike.
  */
 export function StatusIndicator({
   Icon,
@@ -50,21 +53,15 @@ export function StatusIndicator({
   fullLabel,
   triggerAriaLabel,
   contentAriaLabel,
-  size = "xs",
   interactive = true,
   children,
   className,
 }: StatusIndicatorProps) {
   const isAbbreviated = Boolean(fullLabel && fullLabel !== label);
-  const layout = cn(LAYOUT_CLASS, SIZE_CLASS[size]);
 
   const content = (
     <>
-      <Icon
-        className={cn("h-3.5 w-3.5 shrink-0", iconClassName)}
-        aria-hidden="true"
-        focusable="false"
-      />
+      <StatusIndicatorIcon Icon={Icon} className={iconClassName} />
       <span className="text-muted-foreground" aria-hidden={isAbbreviated || undefined}>
         {label}
       </span>
@@ -73,7 +70,7 @@ export function StatusIndicator({
   );
 
   if (!interactive || !children) {
-    return <span className={cn(layout, className)}>{content}</span>;
+    return <span className={cn(LAYOUT_CLASS, className)}>{content}</span>;
   }
 
   return (
@@ -81,13 +78,14 @@ export function StatusIndicator({
       <PopoverTrigger
         type="button"
         aria-label={triggerAriaLabel}
-        className={cn(layout, TRIGGER_CLASS, className)}
+        className={cn(LAYOUT_CLASS, TRIGGER_CLASS, className)}
       >
         {content}
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        aria-label={contentAriaLabel ?? fullLabel ?? label}
+        // `||` not `??`: a blank label must fall through rather than leave the dialog unnamed.
+        aria-label={contentAriaLabel || fullLabel || label}
         className="w-auto max-w-xs p-3"
       >
         {children}

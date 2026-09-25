@@ -55,6 +55,19 @@ describe("StatusIndicator", () => {
     expect(await screen.findByRole("dialog", { name: "Error adding server" })).toBeVisible();
   });
 
+  it("falls through a blank name rather than leaving the popover unnamed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <StatusIndicator {...props} contentAriaLabel="" triggerAriaLabel="Show details">
+        <p>Unable to add this server.</p>
+      </StatusIndicator>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+
+    expect(await screen.findByRole("dialog", { name: "Error" })).toBeVisible();
+  });
+
   // A button is named by its content, so the trigger needs no aria-label fallback.
   it("names the trigger from the visible label where the caller gives no name", () => {
     renderWithProviders(
