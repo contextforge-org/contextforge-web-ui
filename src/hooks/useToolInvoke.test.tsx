@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { ApiError } from "@/api/client";
+import { TOOL_INVOKE_TIMEOUT_MS } from "@/config/toolInvocation";
 import { I18nProvider } from "@/i18n";
 import { ToolInvokeJsonRpcError, toolsApi, type ToolResultContentBlock } from "@/api/tools";
-import { TOOL_INVOKE_TIMEOUT_MS, useToolInvoke } from "./useToolInvoke";
+import { useToolInvoke } from "./useToolInvoke";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },

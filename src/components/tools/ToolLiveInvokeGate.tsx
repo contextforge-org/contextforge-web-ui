@@ -5,6 +5,8 @@ import { useIntl } from "react-intl";
 import { useAuth } from "@/auth/useAuth";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
 import { getToolAnnotationHints } from "./toolAnnotations";
@@ -75,6 +77,14 @@ export function ToolLiveInvokeGate({
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const loadingTransition = useMemo(() => ({ isLoading: invoke.isLoading }), [invoke.isLoading]);
+  const debouncedLoadingTransition = useDebouncedValue(
+    loadingTransition,
+    TOOL_CANCEL_REVEAL_DELAY_MS,
+  );
+
+  const showCancelRequest = invoke.isLoading && debouncedLoadingTransition === loadingTransition;
+
   const run = () => {
     if (onBeforeRun?.() === false) return;
     void invoke.run();
@@ -94,14 +104,21 @@ export function ToolLiveInvokeGate({
   if (invoke.isLoading) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {showCancelRequest
+            ? intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })
+            : null}
+        </p>
         <Button type="button" variant="default" size="sm" disabled aria-busy="true">
           <Loader2 className="size-3.5 animate-spin" />
           {intl.formatMessage({ id: "tools.details.invoke.running" })}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
-          <Square className="size-3.5" />
-          {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
-        </Button>
+        {showCancelRequest && (
+          <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
+            <Square className="size-3.5" />
+            {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
+          </Button>
+        )}
       </div>
     );
   }

@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
 import { renderWithProviders as render } from "@/test/test-utils";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
@@ -178,6 +179,10 @@ describe("ToolLiveInvokeGate", () => {
     mockPermissionsLoading = false;
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("runs immediately for read-only tools", async () => {
     const user = userEvent.setup();
     const invoke = makeInvoke();
@@ -300,18 +305,55 @@ describe("ToolLiveInvokeGate", () => {
     mockPermissionsLoading = false;
   });
 
-  it("cancels active live invokes", async () => {
-    const user = userEvent.setup();
-    const invoke = makeInvoke({ isLoading: true });
-    render(
+  it("reveals cancellation only after an invoke has been running for a few seconds", () => {
+    vi.useFakeTimers();
+    const invoke = makeInvoke();
+    const { rerender } = render(
       <ToolLiveInvokeGate
         tool={makeTool({ annotations: { readOnlyHint: true } })}
         invoke={invoke}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Cancel request" }));
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={{ ...invoke, isLoading: true }}
+      />,
+    );
+    const cancelAnnouncement = screen.getByRole("status");
+    expect(cancelAnnouncement).toHaveAttribute("aria-live", "polite");
+    expect(cancelAnnouncement).toHaveAttribute("aria-atomic", "true");
+    expect(cancelAnnouncement).toBeEmptyDOMElement();
+    expect(screen.getByRole("button", { name: "Invoking..." })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
 
+    act(() => {
+      vi.advanceTimersByTime(TOOL_CANCEL_REVEAL_DELAY_MS - 1);
+    });
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(cancelAnnouncement).toHaveTextContent("Cancel request");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel request" }));
     expect(invoke.stopWaiting).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ isLoading: false, hasRun: true })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ isLoading: true, hasRun: true })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
   });
 });
