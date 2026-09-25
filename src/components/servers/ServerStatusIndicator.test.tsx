@@ -142,11 +142,4 @@ describe("ServerStatusIndicator", () => {
       screen.getByRole("button", { name: "github-notify status: Authorization. Show details" }),
     ).toBeInTheDocument();
   });
-
-  it("renders as plain text where a button cannot nest", () => {
-    renderWithProviders(<ServerStatusIndicator server={server} interactive={false} />);
-
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-  });
 });

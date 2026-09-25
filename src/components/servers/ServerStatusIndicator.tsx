@@ -23,8 +23,6 @@ interface ServerStatusIndicatorProps {
   oauthTokenStatus?: OAuthTokenStatus;
   /** Use the short label, for narrow columns. Screen readers still get the full one. */
   compact?: boolean;
-  /** Render as plain text rather than a button. Required inside another button. */
-  interactive?: boolean;
   /**
    * Starts the OAuth authorization flow. Given only where the caller can run
    * it; without it the `auth` state explains itself like every other state.
@@ -47,7 +45,6 @@ export function ServerStatusIndicator({
   server,
   oauthTokenStatus,
   compact = false,
-  interactive = true,
   onAuthorize,
   className,
 }: ServerStatusIndicatorProps) {
@@ -65,7 +62,7 @@ export function ServerStatusIndicator({
   const fullLabel = intl.formatMessage({ id: presentation.labelId });
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
-  if (interactive && authorize) {
+  if (authorize) {
     const runAuthorize = async () => {
       setIsAuthorizing(true);
       try {
@@ -111,7 +108,6 @@ export function ServerStatusIndicator({
         { id: "mcpServer.status.detail.label" },
         { name: server.name },
       )}
-      interactive={interactive}
       className={className}
     >
       <ServerStatusDetail

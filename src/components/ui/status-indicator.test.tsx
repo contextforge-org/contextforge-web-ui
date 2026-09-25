@@ -110,17 +110,6 @@ describe("StatusIndicator", () => {
     expect(screen.getByText("Error")).not.toHaveAttribute("aria-hidden");
   });
 
-  it("renders as plain text where a button cannot nest", () => {
-    renderWithProviders(
-      <StatusIndicator {...props} interactive={false}>
-        <p>Detail</p>
-      </StatusIndicator>,
-    );
-
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("Error")).toBeInTheDocument();
-  });
-
   it("renders as plain text with nothing to explain", () => {
     renderWithProviders(<StatusIndicator {...props} />);
 

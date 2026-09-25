@@ -19,8 +19,6 @@ interface StatusIndicatorProps {
   triggerAriaLabel?: string;
   /** Accessible name for the popover, which Radix leaves unnamed. Falls back to the label. */
   contentAriaLabel?: string;
-  /** Render as plain text rather than a button. Required inside another button. */
-  interactive?: boolean;
   /** Popover contents. Without them the indicator has nothing to open and stays plain text. */
   children?: ReactNode;
   className?: string;
@@ -53,7 +51,6 @@ export function StatusIndicator({
   fullLabel,
   triggerAriaLabel,
   contentAriaLabel,
-  interactive = true,
   children,
   className,
 }: StatusIndicatorProps) {
@@ -69,7 +66,7 @@ export function StatusIndicator({
     </>
   );
 
-  if (!interactive || !children) {
+  if (!children) {
     return <span className={cn(LAYOUT_CLASS, className)}>{content}</span>;
   }
 
