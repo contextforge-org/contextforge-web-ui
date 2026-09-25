@@ -76,6 +76,13 @@ interface RegistrationResult {
   gatewayId?: string;
 }
 
+interface RegistrationReporting {
+  // Destination for failures. Defaults to the page notification stack.
+  reportNotification?: (notification: RegistrationNotification, shouldFocus?: boolean) => void;
+  // Diverts add failures away from reportNotification, onto the card that failed.
+  onAddFailure?: (server: CatalogServer, message: string) => void;
+}
+
 type ImpactPreviewStatus = "idle" | "loading" | "loaded" | "error";
 
 const DISCONNECT_POLL_TIMEOUT_MS = 30_000;
@@ -403,6 +410,9 @@ export function ServerCatalog() {
   const [registrationNotifications, setRegistrationNotifications] = useState<
     RegistrationNotification[]
   >([]);
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const addErrorsRef = useRef<Record<string, string>>({});
+  const [addErrorAnnouncement, setAddErrorAnnouncement] = useState("");
   const [apiKeyDialogNotification, setApiKeyDialogNotification] = useState<
     RegistrationNotification | undefined
   >();
@@ -482,6 +492,34 @@ export function ServerCatalog() {
     },
     [],
   );
+
+  const showAddError = useCallback(
+    (server: CatalogServer, message: string) => {
+      addErrorsRef.current = { ...addErrorsRef.current, [server.id]: message };
+      setAddErrors(addErrorsRef.current);
+      setAddErrorAnnouncement(
+        intl.formatMessage(
+          { id: "mcpServer.catalog.addFailed.announcement" },
+          {
+            name: server.name,
+            message,
+          },
+        ),
+      );
+    },
+    [intl],
+  );
+
+  // Returns early for any other server, whose failure is still on its card.
+  const clearAddError = useCallback((serverId: string) => {
+    if (!(serverId in addErrorsRef.current)) return;
+    const next = { ...addErrorsRef.current };
+    delete next[serverId];
+    addErrorsRef.current = next;
+    setAddErrors(next);
+    // Emptied on retry, so a repeat failure is still a change to announce.
+    setAddErrorAnnouncement("");
+  }, []);
 
   const dismissRegistrationNotification = useCallback((notificationId: string) => {
     setRegistrationNotifications((current) =>
@@ -568,23 +606,26 @@ export function ServerCatalog() {
     async (
       server: CatalogServer,
       body?: CatalogServerRegisterBody,
-      reportNotification: (
-        notification: RegistrationNotification,
-        shouldFocus?: boolean,
-      ) => void = showRegistrationNotification,
+      {
+        reportNotification = showRegistrationNotification,
+        onAddFailure,
+      }: RegistrationReporting = {},
     ): Promise<RegistrationResult> => {
       if (!beginAdding(server.id)) return { success: false };
       dismissRegistrationNotification(`add:${server.id}`);
+      clearAddError(server.id);
+      const reportAddFailure = (message: string) => {
+        if (onAddFailure) onAddFailure(server, message);
+        else reportNotification({ id: `add:${server.id}`, type: "error", message });
+      };
       try {
         const result = body
           ? await registerCatalogServer(server.id, body)
           : await registerCatalogServer(server.id);
         if (!result.success) {
-          reportNotification({
-            id: `add:${server.id}`,
-            type: "error",
-            message: result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
-          });
+          reportAddFailure(
+            result.message || intl.formatMessage({ id: "mcpServer.catalog.addError" }),
+          );
           return { success: false };
         }
 
@@ -627,11 +668,7 @@ export function ServerCatalog() {
           return { success: false };
         }
 
-        reportNotification({
-          id: `add:${server.id}`,
-          type: "error",
-          message: intl.formatMessage({ id: "mcpServer.catalog.addError" }),
-        });
+        reportAddFailure(intl.formatMessage({ id: "mcpServer.catalog.addError" }));
         return { success: false };
       } finally {
         endAdding(server.id);
@@ -639,6 +676,7 @@ export function ServerCatalog() {
     },
     [
       beginAdding,
+      clearAddError,
       dismissRegistrationNotification,
       endAdding,
       intl,
@@ -660,9 +698,11 @@ export function ServerCatalog() {
         setOAuthServer(server);
         return;
       }
-      if (server.auth_type === OPEN_AUTH_TYPE) void registerServer(server);
+      if (server.auth_type === OPEN_AUTH_TYPE) {
+        void registerServer(server, undefined, { onAddFailure: showAddError });
+      }
     },
-    [registerServer],
+    [registerServer, showAddError],
   );
 
   const handleApiKeySubmit = useCallback(
@@ -672,9 +712,9 @@ export function ServerCatalog() {
       // The dialog notification has no focus-ref registry like the grid's does, and doesn't
       // need one: InlineNotification already uses role="alert"/"status" for a11y announcement,
       // so shouldFocus is intentionally dropped here rather than passed to a state setter.
-      const { success } = await registerServer(apiKeyServer, body, (notification) =>
-        setApiKeyDialogNotification(notification),
-      );
+      const { success } = await registerServer(apiKeyServer, body, {
+        reportNotification: (notification) => setApiKeyDialogNotification(notification),
+      });
       if (success) setFocusActionsForServerId(apiKeyServer.id);
       return success;
     },
@@ -704,9 +744,9 @@ export function ServerCatalog() {
 
       let gatewayId = pendingOAuthGatewayId;
       if (!gatewayId) {
-        const registration = await registerServer(oauthServer, body, (notification) =>
-          setOAuthDialogNotification(notification),
-        );
+        const registration = await registerServer(oauthServer, body, {
+          reportNotification: (notification) => setOAuthDialogNotification(notification),
+        });
         if (!registration.success) {
           authWindow.close();
           return false;
@@ -1252,7 +1292,13 @@ export function ServerCatalog() {
         canTest={canTest}
         canDisconnect={canDisconnect}
         oauthStatuses={oauthStatuses}
+        addErrors={addErrors}
+        onAddErrorRead={clearAddError}
       />
+
+      <p aria-live="polite" aria-atomic="true" className="sr-only">
+        {addErrorAnnouncement}
+      </p>
 
       <CatalogServerDetailsDialog server={selectedServer} onOpenChange={handleDetailsOpenChange} />
       <ConfirmDialog

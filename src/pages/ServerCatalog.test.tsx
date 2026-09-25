@@ -544,7 +544,11 @@ describe("ServerCatalog", () => {
     await screen.findByText("Globalping connection failed with status 503 in 12 ms.");
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
-    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+    expect(
+      await screen.findByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    ).toBeVisible();
     expect(
       screen.getByText("Globalping connection failed with status 503 in 12 ms."),
     ).toBeVisible();
@@ -813,17 +817,186 @@ describe("ServerCatalog", () => {
     expect(screen.getAllByText("Connected")).toHaveLength(2);
   });
 
-  it("reports catalog registration failures", async () => {
+  it("reports catalog registration failures on the card that failed", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network detail must not leak"));
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Unable to add this server. Try again.",
-    );
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Public Notes" })).toBeEnabled();
+
+    await user.click(indicator);
+
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
     expect(screen.queryByText(/network detail/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the reason a rejected registration gives on the card that failed", async () => {
+    const user = userEvent.setup();
+    // server_id is empty rather than absent on every backend rejection.
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: false,
+      server_id: "",
+      message: "Remote server error - the MCP server is experiencing issues",
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(indicator);
+
+    expect(
+      await screen.findByText("Remote server error - the MCP server is experiencing issues"),
+    ).toBeVisible();
+  });
+
+  it("falls back to generic copy where a rejected registration carries no message", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockResolvedValue({ success: false, server_id: "", message: "" });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    );
+
+    expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
+  });
+
+  it("announces an add failure with the reason the card indicator only shows silently", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValue(new Error("network"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    const announcement = await screen.findByText(
+      "Error adding Public Notes. Unable to add this server. Try again.",
+    );
+    expect(announcement).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("reannounces a repeat failure and drops the announcement once the add succeeds", async () => {
+    const user = userEvent.setup();
+    let failSecondAttempt: (error: Error) => void = () => {};
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("network")).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failSecondAttempt = reject;
+        }),
+    );
+    renderWithRouter(<ServerCatalog />);
+    const liveRegion = () => document.querySelector("p[aria-live='polite']:not([role])");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    // The second failure repeats the first message, so the region has to empty
+    // while the attempt is in flight for there to be a change to announce.
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    expect(liveRegion()).toBeEmptyDOMElement();
+
+    failSecondAttempt(new Error("network"));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      message: "Registered",
+      server_id: "gw-public-notes",
+    });
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    await waitFor(() => expect(liveRegion()).toBeEmptyDOMElement());
+  });
+
+  it("keeps a failure announced while an unrelated server is added", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [...response.servers, { ...openAvailable, id: "open-other", name: "Team Wiki" }],
+          total: 5,
+        },
+      }),
+    );
+    mockRegisterCatalogServer
+      .mockRejectedValueOnce(new Error("network"))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    renderWithRouter(<ServerCatalog />);
+    const liveRegion = () => document.querySelector("p[aria-live='polite']:not([role])");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    // Every add flow clears, but the announcement belongs to the server that failed.
+    await user.click(screen.getByRole("button", { name: "Add Team Wiki" }));
+
+    expect(liveRegion()).toHaveTextContent("Error adding Public Notes");
+  });
+
+  it("retires the card error once the reason has been read", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("network"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+
+    await user.click(indicator);
+    expect(await screen.findByRole("dialog")).toBeVisible();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      screen.queryByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Add Public Notes" })).toHaveFocus(),
+    );
+  });
+
+  it("clears the card error when the add is retried", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("first attempt failed"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      message: "Registered",
+      server_id: "gw-public-notes",
+    });
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", {
+          name: "Public Notes status: error adding server. Show details",
+        }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("registers an available server then refetches authoritative gateway state", async () => {
