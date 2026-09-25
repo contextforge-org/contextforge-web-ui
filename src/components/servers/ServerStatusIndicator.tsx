@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { StatusIndicator } from "@/components/ui/status-indicator";
 import { cn } from "@/lib/utils";
 import {
   getAvailabilityPresentation,
@@ -61,32 +61,18 @@ export function ServerStatusIndicator({
   const fullLabel = intl.formatMessage({ id: presentation.labelId });
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
-  const icon = (
-    <StatusIcon
-      className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
-      aria-hidden="true"
-      focusable="false"
-    />
-  );
+  if (interactive && authorize) {
+    const layout = "inline-flex items-center gap-1.5 text-xs";
+    const trigger =
+      "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    const icon = (
+      <StatusIcon
+        className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
+        aria-hidden="true"
+        focusable="false"
+      />
+    );
 
-  const content = (
-    <>
-      {icon}
-      <span className="text-muted-foreground" aria-hidden={isAbbreviated || undefined}>
-        {label}
-      </span>
-      {isAbbreviated && <span className="sr-only">{fullLabel}</span>}
-    </>
-  );
-  const layout = "inline-flex items-center gap-1.5 text-xs";
-  const trigger =
-    "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-
-  if (!interactive) {
-    return <span className={cn(layout, className)}>{content}</span>;
-  }
-
-  if (authorize) {
     const runAuthorize = async () => {
       setIsAuthorizing(true);
       try {
@@ -119,25 +105,28 @@ export function ServerStatusIndicator({
   }
 
   return (
-    <Popover>
-      <PopoverTrigger
-        type="button"
-        aria-label={intl.formatMessage(
-          { id: "mcpServer.status.trigger" },
-          { name: server.name, status: fullLabel },
-        )}
-        className={cn(layout, trigger, className)}
-      >
-        {content}
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto max-w-xs p-3">
-        <ServerStatusDetail
-          availability={availability}
-          enabled={server.enabled}
-          lastSeen={server.lastSeen}
-          lastError={server.lastError}
-        />
-      </PopoverContent>
-    </Popover>
+    <StatusIndicator
+      Icon={StatusIcon}
+      iconClassName={presentation.iconClassName}
+      label={label}
+      fullLabel={isAbbreviated ? fullLabel : undefined}
+      triggerAriaLabel={intl.formatMessage(
+        { id: "mcpServer.status.trigger" },
+        { name: server.name, status: fullLabel },
+      )}
+      contentAriaLabel={intl.formatMessage(
+        { id: "mcpServer.status.detail.label" },
+        { name: server.name },
+      )}
+      interactive={interactive}
+      className={className}
+    >
+      <ServerStatusDetail
+        availability={availability}
+        enabled={server.enabled}
+        lastSeen={server.lastSeen}
+        lastError={server.lastError}
+      />
+    </StatusIndicator>
   );
 }

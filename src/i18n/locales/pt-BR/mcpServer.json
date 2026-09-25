@@ -83,6 +83,7 @@
   "mcpServer.status.checking": "Conectando",
   "mcpServer.status.inactive": "Inativo",
   "mcpServer.status.trigger": "Status de {name}: {status}. Ver detalhes",
+  "mcpServer.status.detail.label": "Detalhes do status de {name}",
   "mcpServer.status.authorizeTrigger": "Autorizar {name}",
   "mcpServer.status.detail.active": "Este servidor está respondendo e suas ferramentas, recursos e prompts estão atualizados.",
   "mcpServer.status.detail.auth": "Você ainda não autorizou este servidor. As ferramentas, recursos e prompts ficam ocultos até que autorize. A autorização é individual, então outra pessoa autorizar não autoriza você.",
