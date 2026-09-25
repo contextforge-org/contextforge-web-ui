@@ -1428,6 +1428,9 @@ test.describe("Virtual Servers page", () => {
 
       await panel.getByRole("switch", { name: "Live invocation" }).click();
       await expect(panel.getByText(/Live invocation is enabled/)).toBeVisible();
+      await expect(
+        panel.getByRole("status").filter({ hasText: /Live invocation is enabled/ }),
+      ).toBeVisible();
       await expect(panel.getByRole("button", { name: "Invoke tool" })).toBeVisible();
       await panel.getByRole("button", { name: "Invoke tool" }).click();
 

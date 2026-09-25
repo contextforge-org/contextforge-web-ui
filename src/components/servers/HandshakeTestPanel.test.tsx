@@ -346,6 +346,11 @@ describe("HandshakeTestPanel", () => {
     expect(
       screen.getByText(/counts don.t match the virtual server.s aggregate/i),
     ).toBeInTheDocument();
+    const banner = screen
+      .getByText(/counts don.t match the virtual server.s aggregate/i)
+      .closest('[role="status"]');
+    expect(banner).toHaveClass("bg-muted");
+    expect(banner?.querySelector("svg")).toHaveClass("text-warning");
     expect(
       screen.getByTitle("Handshake reported 1; the virtual server aggregates 3."),
     ).toBeInTheDocument();

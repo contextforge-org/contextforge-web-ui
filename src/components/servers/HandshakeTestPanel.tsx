@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
+import { Callout } from "../ui/callout";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { JsonHighlighter } from "../ui/json-highlighter";
@@ -228,7 +229,7 @@ function ComponentRow({
             "flex min-w-0 items-start justify-start gap-1.5 text-left",
             "max-[599px]:min-w-44 max-[599px]:flex-1",
             "min-[1024px]:max-[1200px]:min-w-44 min-[1024px]:max-[1200px]:flex-1",
-            mismatch ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+            mismatch ? "text-warning-foreground" : "text-muted-foreground",
           )}
           title={
             mismatch
@@ -457,14 +458,11 @@ function HandshakeResultPanel({
         </div>
       )}
       {mismatchKeys.length > 0 && (
-        <p className="flex items-start gap-1.5 text-[13px] text-amber-700 dark:text-amber-400">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            {intl.formatMessage({
-              id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
-            })}
-          </span>
-        </p>
+        <Callout severity="warning">
+          {intl.formatMessage({
+            id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
+          })}
+        </Callout>
       )}
 
       {/* Failure class + actionable copy */}

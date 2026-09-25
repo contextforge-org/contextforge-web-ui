@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Ref } from "react";
 import { useIntl } from "react-intl";
-import { Info, TriangleAlert, Wrench } from "lucide-react";
+import { Info, Wrench } from "lucide-react";
 
 import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
 import { Label } from "@/components/ui/label";
 import { CodeBlock } from "@/components/ui/code-block";
 import { Switch } from "@/components/ui/switch";
@@ -284,13 +285,9 @@ export function ToolTryItTab({
             </div>
           </div>
           {liveMode && (
-            <div
-              role="status"
-              className="flex min-h-12 items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
-            >
-              <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden="true" />
-              <span>{intl.formatMessage({ id: "tools.details.test.liveModeWarning" })}</span>
-            </div>
+            <Callout severity="warning">
+              {intl.formatMessage({ id: "tools.details.test.liveModeWarning" })}
+            </Callout>
           )}
         </div>
       )}
