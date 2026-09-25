@@ -165,6 +165,26 @@ describe("Textarea", () => {
     const ta = screen.getByRole("textbox");
     expect(ta.className).toContain("rounded-md");
   });
+
+  it("auto-sizes to content with a single shared minimum height", () => {
+    render(<Textarea />);
+    const ta = screen.getByRole("textbox");
+    expect(ta.className).toContain("[field-sizing:content]");
+    expect(ta.className).toContain("min-h-[80px]");
+  });
+
+  it("resizes vertically only by default", () => {
+    render(<Textarea />);
+    const ta = screen.getByRole("textbox");
+    expect(ta.className).toContain("resize-y");
+  });
+
+  it("lets call sites opt out of resizing", () => {
+    render(<Textarea className="resize-none" />);
+    const ta = screen.getByRole("textbox");
+    expect(ta.className).toContain("resize-none");
+    expect(ta.className).not.toContain("resize-y");
+  });
 });
 
 // ─────────────────────────────────────────────

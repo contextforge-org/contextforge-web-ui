@@ -503,7 +503,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
             }}
             onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
             placeholder="Add request headers as JSON..."
-            className="min-h-[96px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+            className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
             disabled={isTesting}
             aria-invalid={!!errors.headers}
             aria-describedby={
@@ -547,7 +547,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
                 }))
               }
               placeholder="Add request body as JSON..."
-              className="min-h-[116px] bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+              className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
               disabled={isTesting}
               aria-invalid={!!errors.body}
               aria-describedby={errors.body ? "body-error" : undefined}
