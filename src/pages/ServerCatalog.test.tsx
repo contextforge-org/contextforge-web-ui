@@ -968,6 +968,9 @@ describe("ServerCatalog", () => {
         name: "Public Notes status: error adding server. Show details",
       }),
     ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Add Public Notes" })).toHaveFocus(),
+    );
   });
 
   it("clears the card error when the add is retried", async () => {

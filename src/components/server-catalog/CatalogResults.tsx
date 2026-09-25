@@ -105,6 +105,7 @@ function CatalogCard({
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const pendingDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const shouldTransferAddFocusRef = useRef(false);
+  const shouldRestoreErrorFocusRef = useRef(false);
   const oauthState = getOAuthCardState(
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
@@ -124,6 +125,21 @@ function CatalogCard({
       shouldTransferAddFocusRef.current = false;
     }
   }, [isAdding, server.is_registered]);
+
+  // Retiring the error unmounts the trigger the popover returns focus to.
+  useEffect(() => {
+    if (addError || !shouldRestoreErrorFocusRef.current) return;
+    shouldRestoreErrorFocusRef.current = false;
+
+    const timeoutId = window.setTimeout(() => {
+      const trigger = addTriggerRef.current;
+      if (!trigger) return;
+      const { activeElement, body } = trigger.ownerDocument;
+      if (activeElement === null || activeElement === body) trigger.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [addError]);
 
   return (
     <li className="min-w-0">
@@ -304,7 +320,9 @@ function CatalogCard({
                     { name: server.name },
                   )}
                   onOpenChange={(open) => {
-                    if (!open) onAddErrorRead?.();
+                    if (open) return;
+                    shouldRestoreErrorFocusRef.current = true;
+                    onAddErrorRead?.();
                   }}
                 >
                   <p className="break-words text-sm text-foreground">{addError}</p>
