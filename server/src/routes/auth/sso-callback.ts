@@ -14,9 +14,15 @@ import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
 import { consumeSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 import { exchangeSsoCode } from "../../lib/sso-token-exchange.js";
-import { resolveSsoUser, verifySsoIdToken } from "../../lib/sso-user-resolution.js";
+import {
+  resolveSsoUser,
+  SsoIdTokenError,
+  verifySsoIdToken,
+} from "../../lib/sso-user-resolution.js";
 
-const LOGIN_PATH = "/app/login";
+const APP_PREFIX = "/app";
+const DEFAULT_RETURN_TO = `${APP_PREFIX}/`;
+const LOGIN_PATH = `${APP_PREFIX}/login`;
 
 interface SsoCallbackQuerystring {
   code?: string | string[];
@@ -29,10 +35,14 @@ function firstString(value: string | string[] | undefined): string | undefined {
 }
 
 // Keycloak's own error codes (access_denied, ...) are short RFC 6749 tokens;
-// URLSearchParams encodes whatever we're given either way.
-function loginErrorRedirect(code: string): string {
+// URLSearchParams encodes whatever we're given either way. Carries the
+// caller's original destination back through the error redirect (when
+// known) so a retry from the login page doesn't lose it -- same pattern as
+// sso-login.ts's own loginErrorRedirect.
+function loginErrorRedirect(code: string, returnTo?: string): string {
   const url = new URL(LOGIN_PATH, "http://placeholder");
   url.searchParams.set("error", `sso_${code}`);
+  if (returnTo && returnTo !== DEFAULT_RETURN_TO) url.searchParams.set("next", returnTo);
   return url.pathname + url.search;
 }
 
@@ -52,18 +62,24 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         return reply.redirect(loginErrorRedirect("disabled"));
       }
 
+      const state = firstString(request.query.state);
+      // Keycloak echoes `state` on both success and error redirects (RFC
+      // 6749) -- consume it unconditionally, before branching on `error`, so
+      // an error response still burns the single-use login-state record
+      // instead of leaving it (and its bound codeVerifier/nonce/returnTo)
+      // live in Redis for the full SSO_LOGIN_STATE_TTL_SECONDS window.
+      const loginState = state ? await consumeSsoLoginState(fastify.redis, state, binding) : null;
+
       const errorParam = firstString(request.query.error);
       if (errorParam) {
-        return reply.redirect(loginErrorRedirect(errorParam));
+        return reply.redirect(loginErrorRedirect(errorParam, loginState?.returnTo));
       }
 
       const code = firstString(request.query.code);
-      const state = firstString(request.query.state);
       if (!code || !state) {
-        return reply.redirect(loginErrorRedirect("callback_invalid"));
+        return reply.redirect(loginErrorRedirect("callback_invalid", loginState?.returnTo));
       }
 
-      const loginState = await consumeSsoLoginState(fastify.redis, state, binding);
       if (!loginState) {
         return reply.redirect(loginErrorRedirect("state_invalid"));
       }
@@ -73,7 +89,7 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         tokenEndpoint = (await getDiscoveryDocument()).tokenEndpoint;
       } catch (err) {
         request.log.error({ err }, "SSO discovery failed");
-        return reply.redirect(loginErrorRedirect("discovery_failed"));
+        return reply.redirect(loginErrorRedirect("discovery_failed", loginState.returnTo));
       }
 
       let tokens;
@@ -86,12 +102,12 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         });
       } catch (err) {
         request.log.error({ err }, "SSO token exchange failed");
-        return reply.redirect(loginErrorRedirect("token_exchange_failed"));
+        return reply.redirect(loginErrorRedirect("token_exchange_failed", loginState.returnTo));
       }
 
       if (!tokens.idToken) {
         request.log.error("SSO token response missing id_token");
-        return reply.redirect(loginErrorRedirect("id_token_missing"));
+        return reply.redirect(loginErrorRedirect("id_token_missing", loginState.returnTo));
       }
 
       let claims;
@@ -99,22 +115,34 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         claims = await verifySsoIdToken(tokens.idToken);
       } catch (err) {
         request.log.error({ err }, "SSO ID token verification failed");
-        return reply.redirect(loginErrorRedirect("id_token_invalid"));
+        return reply.redirect(loginErrorRedirect("id_token_invalid", loginState.returnTo));
       }
 
       // Confirms this ID token was issued for the authorization request this
       // browser started, not replayed from an unrelated flow.
       if (claims.nonce !== loginState.nonce) {
         request.log.error("SSO ID token nonce mismatch");
-        return reply.redirect(loginErrorRedirect("nonce_mismatch"));
+        return reply.redirect(loginErrorRedirect("nonce_mismatch", loginState.returnTo));
       }
 
       let user;
       try {
         user = resolveSsoUser(claims);
       } catch (err) {
-        request.log.error({ err }, "SSO ID token missing required claims");
-        return reply.redirect(loginErrorRedirect("email_missing"));
+        // Distinguished so logs/error codes can tell a genuinely absent
+        // email claim apart from the account-takeover-prevention case
+        // (email present but unverified) -- see resolveSsoUser.
+        const isUnverified = err instanceof SsoIdTokenError && err.code === "email_unverified";
+        request.log.error(
+          { err },
+          isUnverified ? "SSO ID token email not verified" : "SSO ID token missing email claim",
+        );
+        return reply.redirect(
+          loginErrorRedirect(
+            isUnverified ? "email_unverified" : "email_missing",
+            loginState.returnTo,
+          ),
+        );
       }
 
       try {
@@ -129,7 +157,9 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         // Can't happen -- resolveSsoUser always sets password_change_required
         // false -- but establishSession's own backstop exists for this path.
         if (err instanceof PasswordChangeStillRequiredError) {
-          return reply.redirect(loginErrorRedirect("password_change_required"));
+          return reply.redirect(
+            loginErrorRedirect("password_change_required", loginState.returnTo),
+          );
         }
         throw err;
       }

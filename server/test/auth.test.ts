@@ -762,4 +762,122 @@ describe("POST /auth/logout", () => {
     });
     expect(followUp.json()).toEqual({ authenticated: false, ssoEnabled: false });
   });
+
+  it("does not attempt a Keycloak back-channel logout for a password-login session", async () => {
+    const app = await buildTestApp();
+    const { cookies, csrfToken } = await login(app);
+
+    const fetchCalls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        fetchCalls.push(String(url));
+        return { ok: true, status: 200, json: async () => ({}), text: async () => "" };
+      }),
+    );
+
+    await app.fastify.inject({
+      method: "POST",
+      url: "/auth/logout",
+      headers: { cookie: cookies.join("; "), "x-csrf-token": csrfToken },
+    });
+
+    // Only the upstream revoke call -- a password-login session never has an
+    // idToken, so there's nothing for a Keycloak back-channel logout to do.
+    expect(fetchCalls).toEqual([`${config.contextforgeUrl}/auth/logout`]);
+  });
+
+  it("revokes the Keycloak SSO session via back-channel logout when the session carries an idToken", async () => {
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const { getSession, sessionRedisKey } = await import("../src/lib/session-store.js");
+      const app = await freshBuildTestApp();
+      const { cookies, csrfToken } = await login(app);
+      const sessionId = cookies.find((c) => c.startsWith("bff_sid="))!.slice("bff_sid=".length);
+
+      // Reshape the just-created password-login session into an SSO-shaped
+      // one in place -- this test is about logout's own behavior given an
+      // idToken, not about re-running the whole SSO login round trip.
+      const record = await getSession(app.redis, sessionId);
+      await app.redis.setex(
+        sessionRedisKey(sessionId),
+        900,
+        JSON.stringify({ ...record, idToken: "keycloak-id-token" }), // pragma: allowlist secret
+      );
+
+      const fetchCalls: string[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const href = String(url);
+          fetchCalls.push(href);
+          if (href.startsWith("http://keycloak-internal:8080/realms/mcp-gateway/.well-known")) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                issuer: "http://keycloak-internal:8080/realms/mcp-gateway",
+                authorization_endpoint:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/auth",
+                token_endpoint:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
+                jwks_uri:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/certs",
+                end_session_endpoint:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/logout",
+              }),
+            };
+          }
+          return { ok: true, status: 200, json: async () => ({}), text: async () => "" };
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "POST",
+        url: "/auth/logout",
+        headers: { cookie: cookies.join("; "), "x-csrf-token": csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const endSessionCall = fetchCalls.find((url) =>
+        url.includes("/protocol/openid-connect/logout"),
+      );
+      expect(endSessionCall).toBeTruthy();
+      expect(new URL(endSessionCall!).searchParams.get("id_token_hint")).toBe("keycloak-id-token");
+    });
+  });
+
+  it("still responds and clears the BFF session when the Keycloak back-channel logout call fails", async () => {
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const { getSession, sessionRedisKey } = await import("../src/lib/session-store.js");
+      const app = await freshBuildTestApp();
+      const { cookies, csrfToken } = await login(app);
+      const sessionId = cookies.find((c) => c.startsWith("bff_sid="))!.slice("bff_sid=".length);
+
+      const record = await getSession(app.redis, sessionId);
+      await app.redis.setex(
+        sessionRedisKey(sessionId),
+        900,
+        JSON.stringify({ ...record, idToken: "keycloak-id-token" }), // pragma: allowlist secret
+      );
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new Error("keycloak unreachable");
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "POST",
+        url: "/auth/logout",
+        headers: { cookie: cookies.join("; "), "x-csrf-token": csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const cleared = response.cookies.find((c) => c.name === "bff_sid");
+      expect(cleared?.value).toBe("");
+    });
+  });
 });

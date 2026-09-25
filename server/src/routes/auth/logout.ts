@@ -15,6 +15,12 @@
 // the JWT stays cryptographically valid until its natural TOKEN_EXPIRY.
 // Best-effort: an upstream failure (network blip, already-revoked token)
 // must not block the BFF-side logout the user is waiting on.
+//
+// SSO sessions also get a best-effort back-channel RP-Initiated Logout
+// against Keycloak (see lib/sso-back-channel-logout.ts) -- otherwise the
+// Keycloak refresh_token/IdP session stays live and a later
+// /auth/sso/login silently re-authenticates the user. No-op for
+// password-login sessions, which never carry an idToken.
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
@@ -26,6 +32,7 @@ import {
   SESSION_COOKIE_NAME,
 } from "../../lib/session-store.js";
 import { CSRF_COOKIE_NAME } from "../../plugins/csrf.js";
+import { backChannelLogoutSso } from "../../lib/sso-back-channel-logout.js";
 import { revokeUpstreamToken } from "../../lib/revoke-upstream-token.js";
 import { setNoStore } from "../../lib/no-store.js";
 
@@ -43,7 +50,10 @@ export default async function logoutRoute(fastify: FastifyInstance): Promise<voi
         // must not leave a live session behind if it stalls or throws.
         await deleteSession(fastify.redis, sessionId);
         if (record) {
-          await revokeUpstreamToken(request, record.bearerToken);
+          await Promise.all([
+            revokeUpstreamToken(request, record.bearerToken),
+            ...(record.idToken ? [backChannelLogoutSso(request, record.idToken)] : []),
+          ]);
         }
       }
 
