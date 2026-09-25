@@ -183,7 +183,7 @@ export function ToolArgumentsForm({
           value={rawJson}
           aria-invalid={rawError !== null}
           aria-label={intl.formatMessage({ id: "tools.details.preview.arguments.rawJson" })}
-          className="min-h-[180px] font-mono text-[12px]"
+          className="font-mono text-[12px]"
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
             const next = event.target.value;
             setRawJson(next);

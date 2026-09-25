@@ -260,7 +260,7 @@ export function CreateServerForm({
                     id: "gateways.createServer.descriptionPlaceholder",
                   })}
                   maxLength={500}
-                  className="min-h-[4.5rem] resize-y rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
+                  className="rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
                 />
               )}
             </Field>
