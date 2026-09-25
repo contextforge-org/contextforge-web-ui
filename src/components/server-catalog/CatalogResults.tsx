@@ -80,6 +80,7 @@ function CatalogCard({
   canDisconnect,
   oauthStatuses,
   addError,
+  onAddErrorRead,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
@@ -95,6 +96,8 @@ function CatalogCard({
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
   /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
   addError?: string;
+  /** Called once the reason has been read, which is what retires the error. */
+  onAddErrorRead?: () => void;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -300,6 +303,9 @@ function CatalogCard({
                     { id: "mcpServer.catalog.addFailed.detail" },
                     { name: server.name },
                   )}
+                  onOpenChange={(open) => {
+                    if (!open) onAddErrorRead?.();
+                  }}
                 >
                   <p className="break-words text-sm text-foreground">{addError}</p>
                 </StatusIndicator>
@@ -402,6 +408,7 @@ export function CatalogResults({
   canDisconnect,
   oauthStatuses = EMPTY_OAUTH_STATUSES,
   addErrors = EMPTY_ADD_ERRORS,
+  onAddErrorRead,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -417,6 +424,7 @@ export function CatalogResults({
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
   addErrors?: Readonly<Record<string, string>>;
+  onAddErrorRead?: (serverId: string) => void;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -447,6 +455,7 @@ export function CatalogResults({
               canDisconnect={canDisconnect}
               oauthStatuses={oauthStatuses}
               addError={addErrors[server.id]}
+              onAddErrorRead={onAddErrorRead && (() => onAddErrorRead(server.id))}
             />
           ))}
         </ul>

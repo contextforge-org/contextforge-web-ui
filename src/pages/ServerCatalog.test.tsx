@@ -947,6 +947,29 @@ describe("ServerCatalog", () => {
     expect(liveRegion()).toHaveTextContent("Error adding Public Notes");
   });
 
+  it("retires the card error once the reason has been read", async () => {
+    const user = userEvent.setup();
+    mockRegisterCatalogServer.mockRejectedValueOnce(new Error("network"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    const indicator = await screen.findByRole("button", {
+      name: "Public Notes status: error adding server. Show details",
+    });
+
+    await user.click(indicator);
+    expect(await screen.findByRole("dialog")).toBeVisible();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      screen.queryByRole("button", {
+        name: "Public Notes status: error adding server. Show details",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("clears the card error when the add is retried", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValueOnce(new Error("first attempt failed"));

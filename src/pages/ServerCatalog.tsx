@@ -1293,6 +1293,7 @@ export function ServerCatalog() {
         canDisconnect={canDisconnect}
         oauthStatuses={oauthStatuses}
         addErrors={addErrors}
+        onAddErrorRead={clearAddError}
       />
 
       <p aria-live="polite" aria-atomic="true" className="sr-only">

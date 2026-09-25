@@ -23,6 +23,8 @@ interface StatusIndicatorProps {
   interactive?: boolean;
   /** Popover contents. Without them the indicator has nothing to open and stays plain text. */
   children?: ReactNode;
+  /** Fires on open and on close, for a caller that treats reading the popover as an action. */
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
@@ -49,6 +51,7 @@ export function StatusIndicator({
   size = "xs",
   interactive = true,
   children,
+  onOpenChange,
   className,
 }: StatusIndicatorProps) {
   const isAbbreviated = Boolean(fullLabel && fullLabel !== label);
@@ -73,7 +76,7 @@ export function StatusIndicator({
   }
 
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger
         type="button"
         aria-label={triggerAriaLabel}
