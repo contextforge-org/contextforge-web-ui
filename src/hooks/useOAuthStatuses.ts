@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getOAuthStatuses,
+  normalizeGatewayIds,
   type OAuthGatewayStatus,
   type OAuthStatusFailure,
   type OAuthTokenStatus,
@@ -30,17 +31,13 @@ function toEntry(status: OAuthGatewayStatus | undefined): OAuthStatusEntry {
   return { state: "ready", status, tokenStatus: status.user_token_status.status };
 }
 
-function normalizedIds(gatewayIds: string[]): string[] {
-  return [...new Set(gatewayIds.map((id) => id.trim()).filter(Boolean))].sort();
-}
-
 /** Caller-scoped OAuth state with strict no-stale refresh semantics. */
 export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) {
-  const ids = useMemo(() => normalizedIds(gatewayIds), [gatewayIds]);
+  const ids = useMemo(() => normalizeGatewayIds(gatewayIds).sort(), [gatewayIds]);
   const idsKey = ids.join(",");
   const [entries, setEntries] = useState<Record<string, OAuthStatusEntry>>({});
   const requestIdRef = useRef(0);
-  const processedScopeRef = useRef("");
+  const previousIdsRef = useRef<string[]>([]);
   const versionsRef = useRef(new Map<string, number>());
   const activeRequestsRef = useRef(
     new Map<number, { controller: AbortController; ids: string[] }>(),
@@ -54,7 +51,7 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
     async (requestedIds?: string[]) => {
       const currentIds = idsKey ? idsKey.split(",") : [];
       const currentIdSet = new Set(currentIds);
-      const requested = normalizedIds(requestedIds ?? currentIds);
+      const requested = normalizeGatewayIds(requestedIds ?? currentIds).sort();
       const targetIdSet = new Set(requested);
       if (!enabled || requested.length === 0) return;
 
@@ -120,26 +117,36 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
   useEffect(() => {
     const currentIds = idsKey ? idsKey.split(",") : [];
     const idSet = new Set(currentIds);
-    processedScopeRef.current = `${enabled}:${idsKey}`;
+    const previousIds = previousIdsRef.current;
+    const previousIdSet = new Set(previousIds);
+    previousIdsRef.current = enabled ? currentIds : [];
+
     setEntries((current) =>
-      Object.fromEntries(Object.entries(current).filter(([id]) => idSet.has(id))),
+      Object.fromEntries(
+        currentIds.map((id) => [id, current[id] ?? ({ state: "loading" } as const)]),
+      ),
     );
     versionsRef.current.forEach((_, id) => {
       if (!idSet.has(id)) versionsRef.current.delete(id);
     });
 
-    abortAll();
-
     if (!enabled || currentIds.length === 0) {
+      abortAll();
       setEntries({});
       return;
     }
 
-    void load(currentIds);
-    return () => {
-      abortAll();
-    };
+    const addedIds = currentIds.filter((id) => !previousIdSet.has(id));
+    void load(addedIds);
   }, [abortAll, enabled, idsKey, load]);
+
+  useEffect(
+    () => () => {
+      previousIdsRef.current = [];
+      abortAll();
+    },
+    [abortAll],
+  );
 
   const retry = useCallback(
     (gatewayId?: string) => {
@@ -152,17 +159,14 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
     [entries, load],
   );
 
-  // Derive the public map from the current ID list. This removes dropped IDs
-  // and exposes new IDs as loading during render, before the effect starts I/O.
+  // Derive the public map from the current ID list. Unchanged IDs keep their
+  // resolved state while newly added IDs render as loading before I/O starts.
   const visibleEntries = useMemo(() => {
     if (!enabled) return {};
-    if (processedScopeRef.current !== `${enabled}:${idsKey}`) {
-      return Object.fromEntries(ids.map((id) => [id, { state: "loading" } as const]));
-    }
     return Object.fromEntries(
       ids.map((id) => [id, entries[id] ?? ({ state: "loading" } as const)]),
     );
-  }, [enabled, entries, ids, idsKey]);
+  }, [enabled, entries, ids]);
 
   return { entries: visibleEntries, reload: load, retry };
 }

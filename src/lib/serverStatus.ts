@@ -14,6 +14,14 @@ export type ServerAvailability =
   | "checking"
   | "inactive";
 
+const AUTHORIZATION_AVAILABILITIES: ReadonlySet<ServerAvailability> = new Set([
+  "authorization_required",
+  "authorization_expired",
+  "authorization_expiring",
+  "authorization_checking",
+  "authorization_unavailable",
+]);
+
 export interface ServerAvailabilityInput {
   enabled: boolean;
   reachable: boolean;
@@ -105,6 +113,8 @@ export function getServerAvailability(
   server: ServerAvailabilityInput,
   oauthStatus?: OAuthStatusEntry,
 ): ServerAvailability {
+  // Caller-scoped authorization state intentionally outranks server lifecycle,
+  // including for disabled servers, so failures never imply usable authorization.
   if (oauthStatus?.state === "loading") return "authorization_checking";
   if (oauthStatus?.state === "unavailable") return "authorization_unavailable";
   if (oauthStatus?.state === "ready") {
@@ -123,4 +133,8 @@ export function getAvailabilityPresentation(availability: ServerAvailability) {
 
 export function needsOAuthAuthorization(availability: ServerAvailability): boolean {
   return availability === "authorization_required" || availability === "authorization_expired";
+}
+
+export function isAuthorizationAvailability(availability: ServerAvailability): boolean {
+  return AUTHORIZATION_AVAILABILITIES.has(availability);
 }

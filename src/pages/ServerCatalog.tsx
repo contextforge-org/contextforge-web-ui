@@ -40,6 +40,7 @@ import {
   API_KEY_AUTH_TYPES,
   getAuthTypeGroupId,
   getOrderedAuthTypeGroups,
+  isCatalogOAuthServer,
   normalizeAuthTypeFilterValue,
   OAUTH_AUTH_TYPES,
   OPEN_AUTH_TYPE,
@@ -204,10 +205,6 @@ function filterSupportedServers(
 
 function sortedUnique(values: Array<string | undefined>): string[] {
   return [...new Set(values.filter((value): value is string => Boolean(value)))].sort();
-}
-
-function isOAuthServer(server: CatalogServer): boolean {
-  return OAUTH_AUTH_TYPES.has(server.auth_type) || server.requires_oauth_config === true;
 }
 
 function getSupportedServers(servers: CatalogServer[]): CatalogServer[] {
@@ -400,7 +397,9 @@ export function ServerCatalog() {
   const oauthGatewayIds = useMemo(
     () =>
       (data?.servers ?? [])
-        .filter((server) => server.is_registered && server.gateway_id && isOAuthServer(server))
+        .filter(
+          (server) => server.is_registered && server.gateway_id && isCatalogOAuthServer(server),
+        )
         .map((server) => server.gateway_id!),
     [data?.servers],
   );
@@ -463,6 +462,26 @@ export function ServerCatalog() {
   const refreshOAuthStatus = useCallback(
     (gatewayId: string) => reloadOAuthStatuses([gatewayId]),
     [reloadOAuthStatuses],
+  );
+
+  const refreshGatewayData = useCallback(
+    async (gatewayId: string, server: Pick<CatalogServer, "id" | "name">) => {
+      const [, componentRefresh] = await Promise.allSettled([
+        refreshOAuthStatus(gatewayId),
+        serversApi.fetchToolsAfterOAuth(gatewayId),
+      ]);
+      if (componentRefresh.status === "rejected") {
+        showRegistrationNotification({
+          id: `oauth:${server.id}`,
+          type: "info",
+          message: intl.formatMessage(
+            { id: "mcpServer.catalog.oauth.authorizedToolsPending" },
+            { name: server.name },
+          ),
+        });
+      }
+    },
+    [intl, refreshOAuthStatus, showRegistrationNotification],
   );
 
   useEffect(() => {
@@ -692,19 +711,7 @@ export function ServerCatalog() {
       try {
         await serversApi.triggerOAuthAuthorization(gatewayId, authWindow);
         await serversApi.toggleEnabled(gatewayId, true);
-        await refreshOAuthStatus(gatewayId);
-        try {
-          await serversApi.fetchToolsAfterOAuth(gatewayId);
-        } catch {
-          showRegistrationNotification({
-            id: `oauth:${oauthServer.id}`,
-            type: "info",
-            message: intl.formatMessage(
-              { id: "mcpServer.catalog.oauth.authorizedToolsPending" },
-              { name: oauthServer.name },
-            ),
-          });
-        }
+        await refreshGatewayData(gatewayId, oauthServer);
         setData((current) => setCatalogServerOAuthPending(current, oauthServer.id, false));
         void refreshCatalogSilently();
         setPendingOAuthGatewayId(null);
@@ -729,11 +736,10 @@ export function ServerCatalog() {
       intl,
       oauthServer,
       pendingOAuthGatewayId,
-      refreshOAuthStatus,
+      refreshGatewayData,
       refreshCatalogSilently,
       registerServer,
       setData,
-      showRegistrationNotification,
     ],
   );
 
@@ -744,19 +750,7 @@ export function ServerCatalog() {
       try {
         await serversApi.triggerOAuthAuthorization(server.gateway_id);
         await serversApi.toggleEnabled(server.gateway_id, true);
-        await refreshOAuthStatus(server.gateway_id);
-        try {
-          await serversApi.fetchToolsAfterOAuth(server.gateway_id);
-        } catch {
-          showRegistrationNotification({
-            id: `oauth:${server.id}`,
-            type: "info",
-            message: intl.formatMessage(
-              { id: "mcpServer.catalog.oauth.authorizedToolsPending" },
-              { name: server.name },
-            ),
-          });
-        }
+        await refreshGatewayData(server.gateway_id, server);
         setData((current) => setCatalogServerOAuthPending(current, server.id, false));
         void refreshCatalogSilently();
       } catch (error) {
@@ -777,7 +771,7 @@ export function ServerCatalog() {
       dismissRegistrationNotification,
       endAdding,
       intl,
-      refreshOAuthStatus,
+      refreshGatewayData,
       refreshCatalogSilently,
       setData,
       showRegistrationNotification,

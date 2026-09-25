@@ -1,10 +1,12 @@
+import { createElement, StrictMode, type ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getOAuthStatuses, type OAuthStatusBatchResult } from "@/api/oauth";
 import { useOAuthStatuses } from "./useOAuthStatuses";
 
-vi.mock("@/api/oauth", () => ({
+vi.mock("@/api/oauth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/oauth")>()),
   getOAuthStatuses: vi.fn(),
 }));
 
@@ -16,6 +18,10 @@ function deferred<T>() {
     resolve = promiseResolve;
   });
   return { promise, resolve };
+}
+
+function StrictModeWrapper({ children }: { children: ReactNode }) {
+  return createElement(StrictMode, null, children);
 }
 
 function statusResult(
@@ -45,6 +51,16 @@ describe("useOAuthStatuses", () => {
     const { result } = renderHook(() => useOAuthStatuses(["gateway-1"]));
 
     expect(result.current.entries["gateway-1"]).toEqual({ state: "loading" });
+  });
+
+  it("restarts an initial request after Strict Mode effect cleanup", async () => {
+    mockGetOAuthStatuses.mockResolvedValue(statusResult("gateway-1", "valid"));
+
+    const { result } = renderHook(() => useOAuthStatuses(["gateway-1"]), {
+      wrapper: StrictModeWrapper,
+    });
+
+    await waitFor(() => expect(result.current.entries["gateway-1"]?.state).toBe("ready"));
   });
 
   it.each(["valid", "near_expiry", "expired", "missing"] as const)(
@@ -103,6 +119,48 @@ describe("useOAuthStatuses", () => {
     rerender({ ids: [] });
 
     await waitFor(() => expect(result.current.entries).toEqual({}));
+  });
+
+  it("loads only added IDs without clearing resolved entries", async () => {
+    mockGetOAuthStatuses
+      .mockResolvedValueOnce(statusResult("one", "valid"))
+      .mockResolvedValueOnce(statusResult("two", "missing"));
+    const { result, rerender } = renderHook(({ ids }) => useOAuthStatuses(ids), {
+      initialProps: { ids: ["one"] },
+    });
+    await waitFor(() => expect(result.current.entries.one?.state).toBe("ready"));
+
+    rerender({ ids: ["one", "two"] });
+
+    expect(result.current.entries.one).toMatchObject({ state: "ready", tokenStatus: "valid" });
+    expect(result.current.entries.two).toEqual({ state: "loading" });
+    await waitFor(() =>
+      expect(result.current.entries.two).toMatchObject({
+        state: "ready",
+        tokenStatus: "missing",
+      }),
+    );
+    expect(mockGetOAuthStatuses).toHaveBeenLastCalledWith(["two"], expect.any(AbortSignal));
+  });
+
+  it("removes dropped IDs without refetching IDs that remain", async () => {
+    mockGetOAuthStatuses.mockResolvedValue({
+      statuses: {
+        one: statusResult("one", "valid").statuses.one,
+        two: statusResult("two", "missing").statuses.two,
+      },
+      failures: {},
+    });
+    const { result, rerender } = renderHook(({ ids }) => useOAuthStatuses(ids), {
+      initialProps: { ids: ["one", "two"] },
+    });
+    await waitFor(() => expect(result.current.entries.two?.state).toBe("ready"));
+
+    rerender({ ids: ["one"] });
+
+    expect(result.current.entries.one).toMatchObject({ state: "ready", tokenStatus: "valid" });
+    expect(result.current.entries.two).toBeUndefined();
+    expect(mockGetOAuthStatuses).toHaveBeenCalledOnce();
   });
 
   it("clears a cached value to loading while reloading", async () => {

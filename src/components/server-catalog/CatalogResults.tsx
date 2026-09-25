@@ -25,16 +25,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { getAuthTypeGroupId, getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
+import {
+  getAuthTypeGroupId,
+  getAuthTypeGroupLabelId,
+  isCatalogOAuthServer,
+} from "@/utils/catalogAuthTypes";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
 const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthStatusEntry>> = {};
 
 function getOAuthCardState(server: CatalogServer, entry?: OAuthStatusEntry) {
-  const isOAuth =
-    getAuthTypeGroupId(server.auth_type) === "oauth" || server.requires_oauth_config === true;
-  if (!isOAuth)
+  if (!isCatalogOAuthServer(server))
     return {
       messageId: "mcpServer.catalog.connected",
       severity: "success" as const,
@@ -101,9 +103,7 @@ function getOAuthCardState(server: CatalogServer, entry?: OAuthStatusEntry) {
 }
 
 function isOAuthCardUsable(server: CatalogServer, entry?: OAuthStatusEntry): boolean {
-  if (getAuthTypeGroupId(server.auth_type) !== "oauth" && server.requires_oauth_config !== true) {
-    return true;
-  }
+  if (!isCatalogOAuthServer(server)) return true;
   if (entry?.state === "not_applicable") return true;
   return (
     entry?.state === "ready" &&

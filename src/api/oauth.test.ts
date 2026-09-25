@@ -2,7 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 
 import { server } from "@/test/mocks/server";
-import { getOAuthStatuses } from "./oauth";
+import { getOAuthStatuses, normalizeGatewayIds } from "./oauth";
+
+describe("normalizeGatewayIds", () => {
+  it("trims, removes empty values, deduplicates, and preserves order", () => {
+    expect(normalizeGatewayIds([" second ", "", "first", "second", " "])).toEqual([
+      "second",
+      "first",
+    ]);
+  });
+});
 
 describe("getOAuthStatuses", () => {
   it("returns immediately for empty input", async () => {
