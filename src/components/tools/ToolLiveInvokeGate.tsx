@@ -104,6 +104,11 @@ export function ToolLiveInvokeGate({
   if (invoke.isLoading) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {showCancelRequest
+            ? intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })
+            : null}
+        </p>
         <Button type="button" variant="default" size="sm" disabled aria-busy="true">
           <Loader2 className="size-3.5 animate-spin" />
           {intl.formatMessage({ id: "tools.details.invoke.running" })}

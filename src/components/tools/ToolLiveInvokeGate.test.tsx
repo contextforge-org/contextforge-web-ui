@@ -321,6 +321,10 @@ describe("ToolLiveInvokeGate", () => {
         invoke={{ ...invoke, isLoading: true }}
       />,
     );
+    const cancelAnnouncement = screen.getByRole("status");
+    expect(cancelAnnouncement).toHaveAttribute("aria-live", "polite");
+    expect(cancelAnnouncement).toHaveAttribute("aria-atomic", "true");
+    expect(cancelAnnouncement).toBeEmptyDOMElement();
     expect(screen.getByRole("button", { name: "Invoking..." })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
 
@@ -332,6 +336,7 @@ describe("ToolLiveInvokeGate", () => {
     act(() => {
       vi.advanceTimersByTime(1);
     });
+    expect(cancelAnnouncement).toHaveTextContent("Cancel request");
     fireEvent.click(screen.getByRole("button", { name: "Cancel request" }));
     expect(invoke.stopWaiting).toHaveBeenCalledTimes(1);
 
