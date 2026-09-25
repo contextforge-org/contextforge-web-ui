@@ -411,6 +411,7 @@ export function ServerCatalog() {
     RegistrationNotification[]
   >([]);
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const addErrorsRef = useRef<Record<string, string>>({});
   const [addErrorAnnouncement, setAddErrorAnnouncement] = useState("");
   const [apiKeyDialogNotification, setApiKeyDialogNotification] = useState<
     RegistrationNotification | undefined
@@ -494,12 +495,14 @@ export function ServerCatalog() {
 
   const showAddError = useCallback(
     (server: CatalogServer, message: string) => {
-      setAddErrors((current) => ({ ...current, [server.id]: message }));
+      addErrorsRef.current = { ...addErrorsRef.current, [server.id]: message };
+      setAddErrors(addErrorsRef.current);
       setAddErrorAnnouncement(
         intl.formatMessage(
           { id: "mcpServer.catalog.addFailed.announcement" },
           {
             name: server.name,
+            message,
           },
         ),
       );
@@ -507,14 +510,14 @@ export function ServerCatalog() {
     [intl],
   );
 
+  // Returns early for any other server, whose failure is still on its card.
   const clearAddError = useCallback((serverId: string) => {
-    setAddErrors((current) => {
-      if (!(serverId in current)) return current;
-      const next = { ...current };
-      delete next[serverId];
-      return next;
-    });
-    // Emptied on every retry, so a repeat failure is still a change to announce.
+    if (!(serverId in addErrorsRef.current)) return;
+    const next = { ...addErrorsRef.current };
+    delete next[serverId];
+    addErrorsRef.current = next;
+    setAddErrors(next);
+    // Emptied on retry, so a repeat failure is still a change to announce.
     setAddErrorAnnouncement("");
   }, []);
 

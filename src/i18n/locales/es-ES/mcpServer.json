@@ -162,7 +162,7 @@
   "mcpServer.catalog.addFailed.label": "Error al añadir el servidor",
   "mcpServer.catalog.addFailed.trigger": "Estado de {name}: error al añadir el servidor. Ver detalles",
   "mcpServer.catalog.addFailed.detail": "Detalles del error al añadir {name}",
-  "mcpServer.catalog.addFailed.announcement": "Error al añadir {name}",
+  "mcpServer.catalog.addFailed.announcement": "Error al añadir {name}. {message}",
   "mcpServer.catalog.addNotFound": "{name} ya no está disponible en el catálogo.",
   "mcpServer.catalog.alreadyConnected": "{name} ya está conectado.",
   "mcpServer.catalog.actionsFor": "Acciones para {name}",

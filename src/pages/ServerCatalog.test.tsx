@@ -875,14 +875,16 @@ describe("ServerCatalog", () => {
     expect(await screen.findByText("Unable to add this server. Try again.")).toBeVisible();
   });
 
-  it("announces an add failure the card indicator only shows silently", async () => {
+  it("announces an add failure with the reason the card indicator only shows silently", async () => {
     const user = userEvent.setup();
     mockRegisterCatalogServer.mockRejectedValue(new Error("network"));
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
-    const announcement = await screen.findByText("Error adding Public Notes");
+    const announcement = await screen.findByText(
+      "Error adding Public Notes. Unable to add this server. Try again.",
+    );
     expect(announcement).toHaveAttribute("aria-live", "polite");
   });
 
@@ -917,6 +919,32 @@ describe("ServerCatalog", () => {
     await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
 
     await waitFor(() => expect(liveRegion()).toBeEmptyDOMElement());
+  });
+
+  it("keeps a failure announced while an unrelated server is added", async () => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: {
+          ...response,
+          servers: [...response.servers, { ...openAvailable, id: "open-other", name: "Team Wiki" }],
+          total: 5,
+        },
+      }),
+    );
+    mockRegisterCatalogServer
+      .mockRejectedValueOnce(new Error("network"))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    renderWithRouter(<ServerCatalog />);
+    const liveRegion = () => document.querySelector("p[aria-live='polite']:not([role])");
+
+    await user.click(screen.getByRole("button", { name: "Add Public Notes" }));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("Error adding Public Notes"));
+
+    // Every add flow clears, but the announcement belongs to the server that failed.
+    await user.click(screen.getByRole("button", { name: "Add Team Wiki" }));
+
+    expect(liveRegion()).toHaveTextContent("Error adding Public Notes");
   });
 
   it("clears the card error when the add is retried", async () => {
