@@ -458,7 +458,10 @@ function HandshakeResultPanel({
         </div>
       )}
       {mismatchKeys.length > 0 && (
-        <Callout severity="warning">
+        // Nested inside this panel's own role="status"/"alert" live region above,
+        // so this stays a plain note rather than a second live region that could
+        // trigger duplicate screen-reader announcements.
+        <Callout severity="warning" role="note">
           {intl.formatMessage({
             id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
           })}
