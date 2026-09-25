@@ -246,6 +246,51 @@ describe("GET /auth/sso/callback", () => {
     expect(response.cookies.find((c) => c.name === "bff_sid")).toBeUndefined();
   });
 
+  it("consumes the state on Keycloak's own error redirect too, not just on success", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+    const { state, binding } = await performLogin(app);
+    const headers = { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` };
+
+    const errorResponse = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ error: "access_denied", state }),
+      headers,
+    });
+    expect(errorResponse.headers.location).toBe("/app/login?error=sso_access_denied");
+
+    // RFC 6749 has Keycloak echo `state` on the error redirect too -- it must
+    // be burned there, not left live for the full SSO_LOGIN_STATE_TTL_SECONDS
+    // window. Replaying it afterwards must fail.
+    const replay = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ code: "auth-code", state }),
+      headers,
+    });
+    expect(replay.headers.location).toBe("/app/login?error=sso_state_invalid");
+  });
+
+  it("preserves the caller's next destination on a mid-flow failure redirect", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+    const { state, binding } = await performLogin(app, "/app/tools");
+
+    mockTokenExchange({}, false);
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ code: "auth-code", state }),
+      headers: { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` },
+    });
+
+    expect(response.headers.location).toBe(
+      "/app/login?error=sso_token_exchange_failed&next=%2Fapp%2Ftools",
+    );
+  });
+
   it("redirects with an error when code or state is missing", async () => {
     enableSso();
     const buildTestApp = await freshBuildTestApp();
@@ -377,6 +422,25 @@ describe("GET /auth/sso/callback", () => {
     });
 
     expect(response.headers.location).toBe("/app/login?error=sso_email_missing");
+  });
+
+  it("redirects with a distinct error when the email claim is present but unverified", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+    const { state, nonce, binding } = await performLogin(app);
+
+    // Distinct from a missing email claim -- this is the account-takeover-
+    // prevention case (see resolveSsoUser), and should be triageable as such.
+    mockTokenExchange({ email: "user@example.com", email_verified: false, nonce });
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ code: "auth-code", state }),
+      headers: { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` },
+    });
+
+    expect(response.headers.location).toBe("/app/login?error=sso_email_unverified");
   });
 
   it("redirects with an error when SSO is disabled", async () => {
