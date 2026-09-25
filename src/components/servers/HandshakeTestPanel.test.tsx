@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
@@ -346,6 +346,20 @@ describe("HandshakeTestPanel", () => {
     expect(
       screen.getByText(/counts don.t match the virtual server.s aggregate/i),
     ).toBeInTheDocument();
+    // The mismatch banner is a note, not its own live region — the panel
+    // itself is already role="status", and a nested live region risks
+    // duplicate screen-reader announcements.
+    const banner = screen
+      .getByText(/counts don.t match the virtual server.s aggregate/i)
+      .closest('[role="note"]');
+    expect(banner).toHaveClass("bg-muted");
+    expect(banner?.querySelector("svg")).toHaveClass("text-warning");
+    expect(banner).toHaveAttribute("role", "note");
+    const panel = banner?.closest('[role="status"], [role="alert"]');
+    expect(panel).not.toBeNull();
+    // The panel itself is the only live region; the banner nested inside it
+    // must not introduce a second one.
+    expect(within(panel as HTMLElement).queryAllByRole("status")).toHaveLength(0);
     expect(
       screen.getByTitle("Handshake reported 1; the virtual server aggregates 3."),
     ).toBeInTheDocument();

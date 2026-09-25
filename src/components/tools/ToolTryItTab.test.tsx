@@ -178,6 +178,9 @@ describe("ToolTryItTab", () => {
         "Live invocation is enabled. Review your arguments carefully or switch back to preview mode.",
       ),
     ).toBeVisible();
+    const liveWarning = screen.getByText(/Live invocation is enabled/).closest('[role="status"]');
+    expect(liveWarning).toHaveClass("bg-muted");
+    expect(liveWarning?.querySelector("svg")).toHaveClass("text-warning");
     expect(screen.getByRole("button", { name: "Invoke tool" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "JSON-RPC" })).toBeInTheDocument();
