@@ -29,6 +29,13 @@ const SIZE_CLASS = {
   sm: "text-sm",
 } as const;
 
+const LAYOUT_CLASS = "inline-flex items-center gap-1.5";
+const TRIGGER_CLASS =
+  "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** The interactive shell, for a caller whose trigger holds something this cannot render. */
+export const STATUS_INDICATOR_TRIGGER_CLASS = cn(LAYOUT_CLASS, SIZE_CLASS.xs, TRIGGER_CLASS);
+
 /**
  * Status icon and label, optionally opening a popover that explains the state.
  *
@@ -49,7 +56,7 @@ export function StatusIndicator({
   className,
 }: StatusIndicatorProps) {
   const isAbbreviated = Boolean(fullLabel && fullLabel !== label);
-  const layout = cn("inline-flex items-center gap-1.5", SIZE_CLASS[size]);
+  const layout = cn(LAYOUT_CLASS, SIZE_CLASS[size]);
 
   const content = (
     <>
@@ -74,11 +81,7 @@ export function StatusIndicator({
       <PopoverTrigger
         type="button"
         aria-label={triggerAriaLabel}
-        className={cn(
-          layout,
-          "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          className,
-        )}
+        className={cn(layout, TRIGGER_CLASS, className)}
       >
         {content}
       </PopoverTrigger>

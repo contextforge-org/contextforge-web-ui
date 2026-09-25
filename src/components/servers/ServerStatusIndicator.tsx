@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
 
-import { StatusIndicator } from "@/components/ui/status-indicator";
+import { StatusIndicator, STATUS_INDICATOR_TRIGGER_CLASS } from "@/components/ui/status-indicator";
 import { cn } from "@/lib/utils";
 import {
   getAvailabilityPresentation,
@@ -62,9 +62,6 @@ export function ServerStatusIndicator({
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
   if (interactive && authorize) {
-    const layout = "inline-flex items-center gap-1.5 text-xs";
-    const trigger =
-      "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
     const icon = (
       <StatusIcon
         className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
@@ -91,7 +88,7 @@ export function ServerStatusIndicator({
           { id: "mcpServer.status.authorizeTrigger" },
           { name: server.name },
         )}
-        className={cn(layout, trigger, "disabled:opacity-70", className)}
+        className={cn(STATUS_INDICATOR_TRIGGER_CLASS, "disabled:opacity-70", className)}
       >
         {icon}
         <span className="grid justify-items-start text-muted-foreground">

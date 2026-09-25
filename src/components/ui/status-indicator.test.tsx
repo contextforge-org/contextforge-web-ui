@@ -55,6 +55,27 @@ describe("StatusIndicator", () => {
     expect(await screen.findByRole("dialog", { name: "Error adding server" })).toBeVisible();
   });
 
+  // A button is named by its content, so the trigger needs no aria-label fallback.
+  it("names the trigger from the visible label where the caller gives no name", () => {
+    renderWithProviders(
+      <StatusIndicator {...props}>
+        <p>Unable to add this server.</p>
+      </StatusIndicator>,
+    );
+
+    expect(screen.getByRole("button", { name: "Error" })).toBeInTheDocument();
+  });
+
+  it("names the trigger from the full label where the visible one is abbreviated", () => {
+    renderWithProviders(
+      <StatusIndicator {...props} fullLabel="Error adding server">
+        <p>Unable to add this server.</p>
+      </StatusIndicator>,
+    );
+
+    expect(screen.getByRole("button", { name: "Error adding server" })).toBeInTheDocument();
+  });
+
   it("announces the full label where the visible one is abbreviated", () => {
     renderWithProviders(
       <StatusIndicator {...props} fullLabel="Error adding server" triggerAriaLabel="Show details">
