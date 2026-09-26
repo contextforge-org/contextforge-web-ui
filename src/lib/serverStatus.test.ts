@@ -1,56 +1,82 @@
 import { describe, expect, it } from "vitest";
 
-import { getAvailabilityPresentation, getServerAvailability } from "./serverStatus";
+import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import {
+  getServerAvailability,
+  isAuthorizationAvailability,
+  needsOAuthAuthorization,
+} from "./serverStatus";
 
-const up = { enabled: true, reachable: true };
+const connected = { enabled: true, reachable: true };
 
-describe("getServerAvailability", () => {
-  it("is active when enabled and reachable", () => {
-    expect(getServerAvailability(up)).toBe("active");
+function ready(tokenStatus: "valid" | "near_expiry" | "expired" | "missing"): OAuthStatusEntry {
+  return {
+    state: "ready",
+    tokenStatus,
+    status: {
+      oauth_enabled: true,
+      grant_type: "authorization_code",
+      user_token_status: { status: tokenStatus, authorized: tokenStatus === "valid" },
+    },
+  };
+}
+
+describe("server OAuth status precedence", () => {
+  it.each([
+    [ready("missing"), "authorization_required"],
+    [ready("expired"), "authorization_expired"],
+    [ready("near_expiry"), "authorization_expiring"],
+    [{ state: "loading" } satisfies OAuthStatusEntry, "authorization_checking"],
+    [
+      { state: "unavailable", retryable: true } satisfies OAuthStatusEntry,
+      "authorization_unavailable",
+    ],
+  ])("uses OAuth state before connectivity", (oauthStatus, expected) => {
+    expect(getServerAvailability(connected, oauthStatus)).toBe(expected);
   });
 
-  it("is inactive when disabled, even though reachable stays frozen at true", () => {
-    expect(getServerAvailability({ enabled: false, reachable: true })).toBe("inactive");
-  });
-
-  it("separates a server that went down from one never reached", () => {
-    const down = { enabled: true, reachable: false };
-    expect(getServerAvailability({ ...down, lastSeen: "2026-01-01T00:00:00Z" })).toBe(
-      "unreachable",
+  it("keeps valid and non-applicable OAuth on existing lifecycle status", () => {
+    expect(getServerAvailability({ enabled: true, reachable: false }, ready("valid"))).toBe(
+      "checking",
     );
-    expect(getServerAvailability(down)).toBe("checking");
+    expect(
+      getServerAvailability(
+        { enabled: false, reachable: true },
+        {
+          state: "not_applicable",
+          status: { oauth_enabled: true, grant_type: "client_credentials" },
+        },
+      ),
+    ).toBe("inactive");
   });
 
-  it.each(["missing", "expired"] as const)("is auth when the token is %s", (status) => {
-    expect(getServerAvailability(up, status)).toBe("auth");
+  it.each([
+    [{ state: "loading" } satisfies OAuthStatusEntry, "authorization_checking"],
+    [
+      { state: "unavailable", retryable: true } satisfies OAuthStatusEntry,
+      "authorization_unavailable",
+    ],
+  ])("keeps caller authorization state visible for a disabled server", (oauthStatus, expected) => {
+    expect(getServerAvailability({ enabled: false, reachable: false }, oauthStatus)).toBe(expected);
   });
 
-  it.each(["valid", "near_expiry"] as const)("ignores a usable %s token", (status) => {
-    expect(getServerAvailability(up, status)).toBe("active");
+  it("offers authorization only for missing and expired tokens", () => {
+    expect(needsOAuthAuthorization(getServerAvailability(connected, ready("missing")))).toBe(true);
+    expect(needsOAuthAuthorization(getServerAvailability(connected, ready("expired")))).toBe(true);
+    expect(needsOAuthAuthorization(getServerAvailability(connected, ready("near_expiry")))).toBe(
+      false,
+    );
   });
 
-  it("does not claim auth when the token backend could not be read", () => {
-    expect(getServerAvailability(up, "unknown")).toBe("active");
-    expect(getServerAvailability({ enabled: true, reachable: false }, "unknown")).toBe("checking");
-  });
-
-  it("outranks inactive, so a disabled server awaiting authorization says so", () => {
-    expect(getServerAvailability({ enabled: false, reachable: true }, "missing")).toBe("auth");
-  });
-});
-
-describe("getAvailabilityPresentation", () => {
-  it("gives auth the only non-muted warning tone", () => {
-    expect(getAvailabilityPresentation("auth").iconClassName).toBe("text-warning");
-    expect(getAvailabilityPresentation("active").iconClassName).toBe("text-success");
-    expect(getAvailabilityPresentation("unreachable").iconClassName).toBe("text-muted-foreground");
-  });
-
-  it("shortens only the auth label", () => {
-    const auth = getAvailabilityPresentation("auth");
-    expect(auth.shortLabelId).not.toBe(auth.labelId);
-
-    const active = getAvailabilityPresentation("active");
-    expect(active.shortLabelId).toBe(active.labelId);
+  it("identifies only authorization availability states", () => {
+    expect(isAuthorizationAvailability("authorization_required")).toBe(true);
+    expect(isAuthorizationAvailability("authorization_expired")).toBe(true);
+    expect(isAuthorizationAvailability("authorization_expiring")).toBe(true);
+    expect(isAuthorizationAvailability("authorization_checking")).toBe(true);
+    expect(isAuthorizationAvailability("authorization_unavailable")).toBe(true);
+    expect(isAuthorizationAvailability("active")).toBe(false);
+    expect(isAuthorizationAvailability("unreachable")).toBe(false);
+    expect(isAuthorizationAvailability("checking")).toBe(false);
+    expect(isAuthorizationAvailability("inactive")).toBe(false);
   });
 });

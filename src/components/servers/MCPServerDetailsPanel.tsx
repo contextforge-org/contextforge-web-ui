@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
 import {
-  Activity,
   Box,
   Globe,
   Loader2,
@@ -28,7 +27,9 @@ import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
+import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
 import { TestConnectionPanel } from "./TestConnectionPanel";
+import { ServerStatusIndicator } from "./ServerStatusIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MCPServer extends BaseMCPServer {
@@ -135,6 +136,9 @@ export function MCPServerDetailsPanel({
   onClose,
   initialTab = "tryit",
   onAddTag,
+  oauthStatus,
+  onAuthorize,
+  onRetryOAuthStatus,
 }: {
   server: MCPServer | null;
   error: { message: string } | null;
@@ -148,6 +152,9 @@ export function MCPServerDetailsPanel({
    * row shows a non-interactive "add" affordance.
    */
   onAddTag?: (serverId: string, tags: string[]) => Promise<void>;
+  oauthStatus?: OAuthStatusEntry;
+  onAuthorize?: () => Promise<void>;
+  onRetryOAuthStatus?: () => void;
 }) {
   const [topTab, setTopTab] = useState<TopTab>(initialTab);
   const [activeTab, setActiveTab] = useState<ComponentTab>("all");
@@ -559,16 +566,12 @@ export function MCPServerDetailsPanel({
 
                 <dl className="space-y-4">
                   <DetailRow label="Status">
-                    <span className="flex items-center gap-2">
-                      <Activity
-                        className={`size-3.5 ${
-                          server.enabled && server.reachable
-                            ? "text-tool-status-active"
-                            : "text-tool-status-inactive"
-                        }`}
-                      />
-                      {server.enabled ? (server.reachable ? "Active" : "Unreachable") : "Inactive"}
-                    </span>
+                    <ServerStatusIndicator
+                      server={server}
+                      oauthStatus={oauthStatus}
+                      onAuthorize={onAuthorize}
+                      onRetry={onRetryOAuthStatus}
+                    />
                   </DetailRow>
                   <DetailRow label="Visibility">
                     <span className="flex items-center gap-2">

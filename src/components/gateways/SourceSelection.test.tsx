@@ -196,6 +196,86 @@ describe("SourceSelection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("HTTP 500");
   });
 
+  it("keeps OAuth sources selectable and retries unavailable caller status", async () => {
+    const user = userEvent.setup();
+    let statusRequests = 0;
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            {
+              id: "oauth-source",
+              name: "OAuth source",
+              url: "https://source.example/mcp",
+              transport: "SSE",
+              enabled: true,
+              reachable: true,
+              visibility: "public",
+              authType: "oauth",
+              tool_count: 1,
+              resource_count: 0,
+              prompt_count: 0,
+            },
+          ],
+        }),
+      ),
+      http.get("*/api/oauth/status", () => {
+        statusRequests += 1;
+        if (statusRequests === 1) {
+          return HttpResponse.json({ detail: "temporary failure" }, { status: 500 });
+        }
+        return HttpResponse.json({
+          "oauth-source": {
+            oauth_enabled: true,
+            grant_type: "authorization_code",
+            user_token_status: { status: "missing", authorized: false },
+          },
+        });
+      }),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+
+    const checkbox = await screen.findByRole("checkbox", { name: "Select OAuth source" });
+    expect(checkbox).toBeEnabled();
+    expect(
+      await screen.findByRole("button", {
+        name: "OAuth source status: Authorization status unavailable. Show details",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+    await user.click(
+      screen.getByRole("button", {
+        name: "OAuth source status: Authorization status unavailable. Show details",
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Retry status" }));
+
+    expect(
+      await screen.findByRole("button", {
+        name: "OAuth source status: Authorization required. Show details",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Authorize from Server catalog or MCP Servers. Your wizard selections will be preserved.",
+      ),
+    ).toBeInTheDocument();
+    expect(checkbox).toBeChecked();
+  });
+
   it("shows the connect button only on the initially selected card", () => {
     const { cards } = buildFourActionCards();
 
