@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -9,6 +9,7 @@ import { TeamForm } from "@/components/teams/TeamForm";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { ManageTeamMembersDialog } from "@/components/teams/ManageTeamMembersDialog";
 import { SettingsToolbar, useHideSettingsTabs } from "@/components/settings/settings-toolbar";
+import { usePendingInvitations } from "@/components/invitations/PendingInvitationsProvider";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { api } from "@/api/client";
@@ -54,6 +55,18 @@ export function Teams() {
       setNextCursor(response.nextCursor ?? null);
     }
   }, [response]);
+
+  // An accepted invitation adds a team, so the list needs refetching. Seeded on
+  // mount, so remounting after an earlier acceptance does not refetch again.
+  const { acceptedCount } = usePendingInvitations();
+  const refreshedForAccepted = useRef(acceptedCount);
+  useEffect(() => {
+    if (acceptedCount === refreshedForAccepted.current) return;
+    refreshedForAccepted.current = acceptedCount;
+    refetch().catch((refreshErr) => {
+      console.error("Failed to refresh teams after accepting:", sanitizeError(refreshErr));
+    });
+  }, [acceptedCount, refetch]);
 
   const getTeamText = useCallback(
     (team: Team) => `${team.name} ${team.description ?? ""} ${team.id}`,

@@ -35,6 +35,19 @@ vi.mock("sonner", () => ({
   },
 }));
 
+let mockAcceptedCount = 0;
+
+vi.mock("@/components/invitations/PendingInvitationsProvider", () => ({
+  usePendingInvitations: () => ({
+    count: 0,
+    isLoading: false,
+    error: null,
+    open: vi.fn(),
+    acceptedCount: mockAcceptedCount,
+    register: () => () => {},
+  }),
+}));
+
 import { api } from "@/api/client";
 import { deleteTeam, createTeam, updateTeam, listTeamMembers } from "@/api/teams";
 
@@ -761,5 +774,43 @@ describe("Teams", () => {
     await user.click(await screen.findByRole("menuitem", { name: /manage members/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("Teams pending invitations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockAcceptedCount = 0;
+  });
+
+  it("refetches the teams list when an invitation is accepted", async () => {
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+
+    const { rerender } = renderWithRouter(<Teams />);
+    await screen.findByText("Team 1");
+    const callsBefore = vi.mocked(api.get).mock.calls.length;
+
+    mockAcceptedCount = 1;
+    rerender(
+      <RouterProvider>
+        <I18nProvider>
+          <Teams />
+        </I18nProvider>
+      </RouterProvider>,
+    );
+
+    await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore));
+  });
+
+  it("does not refetch on remount after an earlier acceptance", async () => {
+    vi.mocked(api.get).mockResolvedValue({ teams: createMockTeams(1, 1) });
+    mockAcceptedCount = 1;
+
+    renderWithRouter(<Teams />);
+    await screen.findByText("Team 1");
+
+    // The mount fetch and nothing on top of it.
+    expect(vi.mocked(api.get).mock.calls.length).toBe(1);
   });
 });
