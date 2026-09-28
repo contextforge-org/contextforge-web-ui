@@ -120,6 +120,39 @@ describe("establishSession", () => {
     expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before + 300 + 5);
   });
 
+  it("treats tokenExpiresAt as already-expired, not BFF-default-valid, when expires_in is missing/invalid", async () => {
+    const app = await buildEstablishSessionTestApp();
+    const before = Math.floor(Date.now() / 1000);
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/test/establish-session",
+      payload: {
+        auth: {
+          access_token: "keycloak-access-token", // pragma: allowlist secret
+          expires_in: -5, // invalid -- session TTL falls back to the BFF default
+          user: { email: "user@example.com", auth_provider: "sso" },
+        },
+        ssoTokens: {
+          refreshToken: "keycloak-refresh-token", // pragma: allowlist secret
+          idToken: "keycloak-id-token", // pragma: allowlist secret
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // The session/cookie itself is fine living out the BFF default (that's
+    // ttlSeconds' own fallback) -- but tokenExpiresAt must never borrow that
+    // same fallback and claim a Keycloak access token is valid for hours
+    // when its real lifetime is unknown. A refresh-aware consumer reading
+    // tokenExpiresAt needs it to read as already-expired, not BFF-default-valid.
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    expect(sessionCookie?.maxAge).toBe(config.sessionTtlSeconds);
+    const sessionId = sessionCookie?.value;
+    const stored = await getSession(app.redis, sessionId!);
+    expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before);
+  });
+
   it("uses the upstream token's own expires_in as the session TTL, not the BFF default", async () => {
     const app = await buildEstablishSessionTestApp();
     const response = await app.fastify.inject({

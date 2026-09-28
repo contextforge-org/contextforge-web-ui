@@ -30,7 +30,16 @@ export async function backChannelLogoutSso(
   // Not every realm/provider advertises one (see oidc-discovery.ts) -- nothing to call.
   if (!endSessionEndpoint) return;
 
-  const url = new URL(endSessionEndpoint);
+  // oidc-discovery.ts only checks this is a non-empty string, not a
+  // well-formed URL -- a malformed value from a misconfigured provider must
+  // not throw out of this function (see the file header).
+  let url: URL;
+  try {
+    url = new URL(endSessionEndpoint);
+  } catch (err) {
+    request.log.warn({ err }, "SSO back-channel logout: malformed end_session_endpoint");
+    return;
+  }
   url.searchParams.set("id_token_hint", idToken);
 
   try {

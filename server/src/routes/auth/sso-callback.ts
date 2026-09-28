@@ -12,6 +12,7 @@ import { config } from "../../config.js";
 import { establishSession, PasswordChangeStillRequiredError } from "../../lib/establish-session.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
+import { loginErrorRedirect } from "../../lib/sso-login-error-redirect.js";
 import { consumeSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 import { exchangeSsoCode } from "../../lib/sso-token-exchange.js";
 import {
@@ -19,10 +20,6 @@ import {
   SsoIdTokenError,
   verifySsoIdToken,
 } from "../../lib/sso-user-resolution.js";
-
-const APP_PREFIX = "/app";
-const DEFAULT_RETURN_TO = `${APP_PREFIX}/`;
-const LOGIN_PATH = `${APP_PREFIX}/login`;
 
 interface SsoCallbackQuerystring {
   code?: string | string[];
@@ -32,18 +29,6 @@ interface SsoCallbackQuerystring {
 
 function firstString(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" && value ? value : undefined;
-}
-
-// Keycloak's own error codes (access_denied, ...) are short RFC 6749 tokens;
-// URLSearchParams encodes whatever we're given either way. Carries the
-// caller's original destination back through the error redirect (when
-// known) so a retry from the login page doesn't lose it -- same pattern as
-// sso-login.ts's own loginErrorRedirect.
-function loginErrorRedirect(code: string, returnTo?: string): string {
-  const url = new URL(LOGIN_PATH, "http://placeholder");
-  url.searchParams.set("error", `sso_${code}`);
-  if (returnTo && returnTo !== DEFAULT_RETURN_TO) url.searchParams.set("next", returnTo);
-  return url.pathname + url.search;
 }
 
 export default async function ssoCallbackRoute(fastify: FastifyInstance): Promise<void> {
@@ -70,9 +55,13 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
       // live in Redis for the full SSO_LOGIN_STATE_TTL_SECONDS window.
       const loginState = state ? await consumeSsoLoginState(fastify.redis, state, binding) : null;
 
-      const errorParam = firstString(request.query.error);
-      if (errorParam) {
-        return reply.redirect(loginErrorRedirect(errorParam, loginState?.returnTo));
+      // Presence of the key at all is treated as an error, not just a clean
+      // single value -- a repeated ?error=a&error=b parses as an array, and
+      // firstString() would otherwise silently drop it, falling through as
+      // if Keycloak hadn't reported an error at all.
+      if (request.query.error !== undefined) {
+        const errorCode = firstString(request.query.error) ?? "callback_invalid";
+        return reply.redirect(loginErrorRedirect(errorCode, loginState?.returnTo));
       }
 
       const code = firstString(request.query.code);

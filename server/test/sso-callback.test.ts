@@ -291,6 +291,23 @@ describe("GET /auth/sso/callback", () => {
     );
   });
 
+  it("treats a repeated ?error= param as an error, not as absent", async () => {
+    enableSso();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      // Fastify parses a repeated query key as an array -- firstString()
+      // alone would silently drop it, falling through as if Keycloak hadn't
+      // reported an error.
+      url: "/auth/sso/callback?error=access_denied&error=consent_required",
+    });
+
+    expect(response.headers.location).toBe("/app/login?error=sso_callback_invalid");
+    expect(response.cookies.find((c) => c.name === "bff_sid")).toBeUndefined();
+  });
+
   it("redirects with an error when code or state is missing", async () => {
     enableSso();
     const buildTestApp = await freshBuildTestApp();

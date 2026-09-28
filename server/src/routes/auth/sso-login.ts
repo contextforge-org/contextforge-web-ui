@@ -12,11 +12,14 @@ import { config } from "../../config.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
 import { isForbiddenCrossOrigin, resolvePublicOrigin } from "../../lib/origin-guard.js";
+import {
+  loginErrorRedirect,
+  SSO_DEFAULT_RETURN_TO,
+  SSO_LOGIN_PATH,
+} from "../../lib/sso-login-error-redirect.js";
 import { mintSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 
 const APP_PREFIX = "/app";
-const DEFAULT_RETURN_TO = `${APP_PREFIX}/`;
-const LOGIN_ERROR_REDIRECT = `${APP_PREFIX}/login`;
 
 interface SsoLoginQuerystring {
   next?: string | string[];
@@ -26,30 +29,20 @@ interface SsoLoginQuerystring {
 // across the package boundary, so reimplemented (vectors shared in tests).
 export function safeReturnTo(next: string | string[] | undefined): string {
   // Fastify turns a repeated ?next=a&next=b into an array; treat non-string as absent.
-  if (typeof next !== "string" || !next) return DEFAULT_RETURN_TO;
-  if (/[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(next)) return DEFAULT_RETURN_TO;
-  if (next.startsWith("//")) return DEFAULT_RETURN_TO;
+  if (typeof next !== "string" || !next) return SSO_DEFAULT_RETURN_TO;
+  if (/[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(next)) return SSO_DEFAULT_RETURN_TO;
+  if (next.startsWith("//")) return SSO_DEFAULT_RETURN_TO;
 
   const [pathname = "", queryString] = next.split("?");
-  if (pathname.includes("..")) return DEFAULT_RETURN_TO;
+  if (pathname.includes("..")) return SSO_DEFAULT_RETURN_TO;
 
   const isAppPath = pathname === APP_PREFIX || pathname.startsWith(`${APP_PREFIX}/`);
-  if (!isAppPath) return DEFAULT_RETURN_TO;
+  if (!isAppPath) return SSO_DEFAULT_RETURN_TO;
   // Mirrors resolveNextParam: never bounce the post-login redirect back to
   // the login page itself.
-  if (pathname === LOGIN_ERROR_REDIRECT) return DEFAULT_RETURN_TO;
+  if (pathname === SSO_LOGIN_PATH) return SSO_DEFAULT_RETURN_TO;
 
   return queryString ? `${pathname}?${queryString}` : pathname;
-}
-
-// Preserves the caller's destination across a failure redirect so a retry
-// doesn't lose it (resolveNextParam re-validates on read, so round-tripping
-// it through the login page's own `next` param is safe).
-function loginErrorRedirect(returnTo: string, code: string): string {
-  const url = new URL(LOGIN_ERROR_REDIRECT, "http://placeholder");
-  url.searchParams.set("error", `sso_${code}`);
-  if (returnTo !== DEFAULT_RETURN_TO) url.searchParams.set("next", returnTo);
-  return url.pathname + url.search;
 }
 
 export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<void> {
@@ -64,14 +57,14 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
       // window.location.href), so every failure redirects back to the login
       // page with a `sso_`-prefixed error code instead of rendering raw JSON.
       if (!config.ssoEnabled) {
-        return reply.redirect(loginErrorRedirect(returnTo, "disabled"));
+        return reply.redirect(loginErrorRedirect("disabled", returnTo));
       }
 
       // Login-CSRF guard only -- no session exists yet to hijack here, and
       // nothing mutates until the callback validates `state`. Same guard
       // login.ts uses for its own unauthenticated entrypoint.
       if (isForbiddenCrossOrigin(request)) {
-        return reply.redirect(loginErrorRedirect(returnTo, "cross_site_forbidden"));
+        return reply.redirect(loginErrorRedirect("cross_site_forbidden", returnTo));
       }
 
       let authorizationEndpoint: string;
@@ -80,7 +73,7 @@ export default async function ssoLoginRoute(fastify: FastifyInstance): Promise<v
       } catch (err) {
         // err.message can leak the internal Keycloak URL -- log only, never return it.
         request.log.error({ err }, "SSO discovery failed");
-        return reply.redirect(loginErrorRedirect(returnTo, "discovery_failed"));
+        return reply.redirect(loginErrorRedirect("discovery_failed", returnTo));
       }
 
       const redirectUri = `${resolvePublicOrigin(request)}/auth/sso/callback`;

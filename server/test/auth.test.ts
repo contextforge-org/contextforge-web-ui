@@ -880,4 +880,57 @@ describe("POST /auth/logout", () => {
       expect(cleared?.value).toBe("");
     });
   });
+
+  it("still responds and clears the BFF session when discovery returns a malformed end_session_endpoint", async () => {
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const { getSession, sessionRedisKey } = await import("../src/lib/session-store.js");
+      const app = await freshBuildTestApp();
+      const { cookies, csrfToken } = await login(app);
+      const sessionId = cookies.find((c) => c.startsWith("bff_sid="))!.slice("bff_sid=".length);
+
+      const record = await getSession(app.redis, sessionId);
+      await app.redis.setex(
+        sessionRedisKey(sessionId),
+        900,
+        JSON.stringify({ ...record, idToken: "keycloak-id-token" }), // pragma: allowlist secret
+      );
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const href = String(url);
+          if (href.startsWith("http://keycloak-internal:8080/realms/mcp-gateway/.well-known")) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                issuer: "http://keycloak-internal:8080/realms/mcp-gateway",
+                authorization_endpoint:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/auth",
+                token_endpoint:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
+                jwks_uri:
+                  "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/certs",
+                // oidc-discovery.ts only checks this is a non-empty string, not
+                // that it's a well-formed URL -- exercises that gap directly.
+                end_session_endpoint: "not a valid url",
+              }),
+            };
+          }
+          return { ok: true, status: 200, json: async () => ({}), text: async () => "" };
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "POST",
+        url: "/auth/logout",
+        headers: { cookie: cookies.join("; "), "x-csrf-token": csrfToken },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const cleared = response.cookies.find((c) => c.name === "bff_sid");
+      expect(cleared?.value).toBe("");
+    });
+  });
 });
