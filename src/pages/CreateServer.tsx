@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Blocks, Bot, Box, Code, MessageSquareCode, Wrench } from "lucide-react";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
+import { useAuth } from "@/auth/useAuth";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CreateServerForm } from "@/components/gateways/CreateServerForm";
 import { SourceSelection } from "@/components/gateways/SourceSelection";
@@ -19,8 +20,11 @@ import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { ServerStatusDetail } from "@/components/servers/ServerStatusDetail";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { api, ApiError } from "@/api/client";
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
-import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
+import {
+  isRetryableOAuthStatus,
+  type OAuthStatusEntry,
+  useOAuthStatuses,
+} from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import {
@@ -460,11 +464,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
               enabled={server.enabled}
               lastSeen={server.lastSeen}
               lastError={server.lastError}
-              onRetry={
-                oauthStatus?.state === "unavailable" && oauthStatus.retryable
-                  ? onRetryOAuthStatus
-                  : undefined
-              }
+              onRetry={isRetryableOAuthStatus(oauthStatus) ? onRetryOAuthStatus : undefined}
               authorizationManagementHint
             />
           </div>
@@ -554,19 +554,25 @@ function EditMCPServersSection({
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
 }) {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canReadMCPServers = !permissionsLoading && hasPermission("gateways.read");
   const headingId = useId();
   const [openServerIds, setOpenServerIds] = useState<string[]>([]);
   const {
     data: mcpServersData,
     error: mcpServersError,
     isLoading: mcpServersLoading,
-  } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH);
+  } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH, {
+    enabled: canReadMCPServers,
+  });
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
   const oauthServerIds = useMemo(
     () => mcpServers.filter(isOAuthServer).map((server) => server.id),
     [mcpServers],
   );
-  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds);
+  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds, {
+    enabled: canReadMCPServers,
+  });
   const openServerIdSet = useMemo(() => new Set(openServerIds), [openServerIds]);
   const selectedToolIdSet = useMemo(() => new Set(selectedToolIds), [selectedToolIds]);
   const selectedResourceIdSet = useMemo(() => new Set(selectedResourceIds), [selectedResourceIds]);

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { EllipsisVertical, FileText, KeyRound, Lock, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
@@ -50,7 +50,7 @@ function getOAuthCardState(server: CatalogServer, entry?: OAuthStatusEntry) {
       messageId: "mcpServer.catalog.oauth.statusUnavailable",
       severity: "warning" as const,
       canAuthorize: false,
-      canRetry: entry?.state === "unavailable" && entry.retryable,
+      canRetry: isRetryableOAuthStatus(entry),
     };
   if (entry.state === "loading")
     return {

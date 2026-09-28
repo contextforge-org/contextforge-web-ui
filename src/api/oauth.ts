@@ -1,4 +1,5 @@
 import { api, ApiError } from "./client";
+import { validateServerId } from "@/utils/serverId";
 
 export type OAuthTokenStatus = "valid" | "near_expiry" | "expired" | "missing" | "unknown";
 
@@ -33,7 +34,14 @@ export interface OAuthStatusBatchResult {
 const OAUTH_STATUS_MAX_IDS = 100;
 
 export function normalizeGatewayIds(gatewayIds: string[]): string[] {
-  return [...new Set(gatewayIds.map((id) => id.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      gatewayIds
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .map(validateServerId),
+    ),
+  ];
 }
 
 /** Fetch caller-scoped OAuth state, respecting the backend's 100-id batch cap. */

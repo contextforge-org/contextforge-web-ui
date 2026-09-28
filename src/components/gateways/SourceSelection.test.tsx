@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Bot, Code2, Grid3x3, Wrench } from "lucide-react";
@@ -7,6 +7,15 @@ import { SourceSelection } from "@/components/gateways/SourceSelection";
 import type { ActionCard } from "@/components/gateways/types";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders } from "@/test/test-utils";
+
+const authState = vi.hoisted(() => ({
+  hasPermission: vi.fn<(permission: string) => boolean>(() => true),
+  permissionsLoading: false,
+}));
+
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => authState,
+}));
 
 const actionCards: ActionCard[] = [
   {
@@ -61,6 +70,11 @@ function buildFourActionCards() {
 }
 
 describe("SourceSelection", () => {
+  beforeEach(() => {
+    authState.hasPermission.mockReturnValue(true);
+    authState.permissionsLoading = false;
+  });
+
   it("lazy-loads selectable MCP servers and hides sources already in the virtual server", async () => {
     const user = userEvent.setup();
     let gatewaysRequestCount = 0;
@@ -194,6 +208,39 @@ describe("SourceSelection", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("HTTP 500");
+  });
+
+  it("does not load MCP servers without gateways.read", async () => {
+    const user = userEvent.setup();
+    const gatewaysRequest = vi.fn();
+    const oauthStatusRequest = vi.fn();
+    authState.hasPermission.mockReturnValue(false);
+    server.use(
+      http.get("*/v1/mcp-servers", () => {
+        gatewaysRequest();
+        return HttpResponse.json({ gateways: [] });
+      }),
+      http.get("*/api/oauth/status", () => {
+        oauthStatusRequest();
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, and prompts from connected sources",
+      }),
+    );
+
+    expect(await screen.findByText("No MCP servers found.")).toBeInTheDocument();
+    expect(gatewaysRequest).not.toHaveBeenCalled();
+    expect(oauthStatusRequest).not.toHaveBeenCalled();
   });
 
   it("keeps OAuth sources selectable and retries unavailable caller status", async () => {

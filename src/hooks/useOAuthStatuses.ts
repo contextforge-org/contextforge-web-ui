@@ -14,6 +14,12 @@ export type OAuthStatusEntry =
   | { state: "not_applicable"; status: OAuthGatewayStatus }
   | { state: "unavailable"; retryable: boolean; statusCode?: number };
 
+export function isRetryableOAuthStatus(
+  entry: OAuthStatusEntry | undefined,
+): entry is Extract<OAuthStatusEntry, { state: "unavailable" }> {
+  return entry?.state === "unavailable" && entry.retryable;
+}
+
 function unavailable(failure?: OAuthStatusFailure): OAuthStatusEntry {
   return {
     state: "unavailable",
@@ -152,7 +158,7 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
     (gatewayId?: string) => {
       if (gatewayId) return load([gatewayId]);
       const retryableIds = Object.entries(entries)
-        .filter(([, entry]) => entry.state === "unavailable" && entry.retryable)
+        .filter(([, entry]) => isRetryableOAuthStatus(entry))
         .map(([id]) => id);
       return load(retryableIds);
     },

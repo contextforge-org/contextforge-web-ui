@@ -481,6 +481,48 @@ describe("ServerCatalog", () => {
     expect(mockGetOAuthStatuses).toHaveBeenCalledTimes(2);
   });
 
+  it("refreshes caller OAuth status without gateway mutations when update is forbidden", async () => {
+    const user = userEvent.setup();
+    const registeredOAuthServer = {
+      ...oauthServer,
+      is_registered: true,
+      gateway_id: "gateway-github",
+    };
+    authState.hasPermission.mockImplementation((permission) => permission === "gateways.read");
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [registeredOAuthServer], total: 1 },
+      }),
+    );
+    mockGetOAuthStatuses.mockResolvedValue({
+      statuses: {
+        "gateway-github": {
+          oauth_enabled: true,
+          grant_type: "authorization_code",
+          user_token_status: { status: "missing", authorized: false },
+        },
+      },
+      failures: {},
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    expect(await screen.findByText("Needs authorization")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions for GitHub" }));
+    await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
+
+    await waitFor(() =>
+      expect(mockTriggerOAuthAuthorization).toHaveBeenCalledWith("gateway-github"),
+    );
+    await waitFor(() => expect(mockGetOAuthStatuses).toHaveBeenCalledTimes(2));
+    expect(mockToggleEnabled).not.toHaveBeenCalled();
+    expect(mockFetchToolsAfterOAuth).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(
+        "GitHub is authorized, but tools could not be fetched. Try again from the server actions.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps the OAuth dialog open after a cancelled authorization so it can retry", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(new Error("OAuth authorization was cancelled"));

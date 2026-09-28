@@ -404,6 +404,7 @@ export function ServerCatalog() {
   const shouldRedirectDisconnectCloseFocusRef = useRef(false);
   const { data, error, isLoading, refetch, setData } = useQuery<CatalogListResponse>(CATALOG_PATH);
   const canReadOAuthStatuses = !permissionsLoading && hasPermission("gateways.read");
+  const canUpdateServer = !permissionsLoading && hasPermission("gateways.update");
   const oauthGatewayIds = useMemo(
     () =>
       (data?.servers ?? [])
@@ -504,9 +505,12 @@ export function ServerCatalog() {
 
   const refreshGatewayData = useCallback(
     async (gatewayId: string, server: Pick<CatalogServer, "id" | "name">) => {
+      const componentRefreshPromise = canUpdateServer
+        ? serversApi.fetchToolsAfterOAuth(gatewayId)
+        : Promise.resolve(undefined);
       const [, componentRefresh] = await Promise.allSettled([
         refreshOAuthStatus(gatewayId),
-        serversApi.fetchToolsAfterOAuth(gatewayId),
+        componentRefreshPromise,
       ]);
       if (componentRefresh.status === "rejected") {
         showRegistrationNotification({
@@ -519,7 +523,7 @@ export function ServerCatalog() {
         });
       }
     },
-    [intl, refreshOAuthStatus, showRegistrationNotification],
+    [canUpdateServer, intl, refreshOAuthStatus, showRegistrationNotification],
   );
 
   useEffect(() => {
@@ -750,7 +754,7 @@ export function ServerCatalog() {
       setOAuthDialogNotification(undefined);
       try {
         await serversApi.triggerOAuthAuthorization(gatewayId, authWindow);
-        await serversApi.toggleEnabled(gatewayId, true);
+        if (canUpdateServer) await serversApi.toggleEnabled(gatewayId, true);
         await refreshGatewayData(gatewayId, oauthServer);
         setData((current) => setCatalogServerOAuthPending(current, oauthServer.id, false));
         void refreshCatalogSilently();
@@ -774,6 +778,7 @@ export function ServerCatalog() {
     },
     [
       intl,
+      canUpdateServer,
       oauthServer,
       pendingOAuthGatewayId,
       refreshGatewayData,
@@ -789,7 +794,7 @@ export function ServerCatalog() {
       dismissRegistrationNotification(`oauth:${server.id}`);
       try {
         await serversApi.triggerOAuthAuthorization(server.gateway_id);
-        await serversApi.toggleEnabled(server.gateway_id, true);
+        if (canUpdateServer) await serversApi.toggleEnabled(server.gateway_id, true);
         await refreshGatewayData(server.gateway_id, server);
         setData((current) => setCatalogServerOAuthPending(current, server.id, false));
         void refreshCatalogSilently();
@@ -808,6 +813,7 @@ export function ServerCatalog() {
     },
     [
       beginAdding,
+      canUpdateServer,
       dismissRegistrationNotification,
       endAdding,
       intl,

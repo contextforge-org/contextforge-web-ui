@@ -70,19 +70,6 @@ export interface ServersResponse {
 
 export type ServerStatus = "draft" | "active" | "offline" | "warning";
 
-/** `GET /oauth/status` payload. Hand-built server-side, so the keys stay snake_case. */
-export interface GatewayOAuthStatus {
-  oauth_enabled: boolean;
-  grant_type?: string;
-  authorization_url?: string;
-  message?: string;
-  user_token_status?: {
-    status: string;
-    authorized: boolean;
-    expires_at?: string | null;
-  };
-}
-
 export interface VirtualServerTag {
   id?: string;
   label?: string;

@@ -27,10 +27,9 @@ describe("getOAuthStatuses", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("deduplicates IDs, URL-encodes them, and keeps 100 IDs in one request", async () => {
+  it("deduplicates IDs and keeps 100 IDs in one request", async () => {
     const seen: string[][] = [];
-    const ids = Array.from({ length: 99 }, (_, index) => `gateway-${index}`);
-    ids.push("gateway with spaces");
+    const ids = Array.from({ length: 100 }, (_, index) => `gateway-${index}`);
 
     server.use(
       http.get("*/api/oauth/status", ({ request }) => {
@@ -39,11 +38,26 @@ describe("getOAuthStatuses", () => {
       }),
     );
 
-    await getOAuthStatuses([...ids, "gateway with spaces", " "]);
+    await getOAuthStatuses([...ids, "gateway-99", " "]);
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toHaveLength(100);
-    expect(seen[0]).toContain("gateway with spaces");
+    expect(seen[0]).toContain("gateway-99");
+  });
+
+  it("rejects invalid gateway IDs before making a request", async () => {
+    const request = vi.fn();
+    server.use(
+      http.get("*/api/oauth/status", () => {
+        request();
+        return HttpResponse.json({});
+      }),
+    );
+
+    await expect(getOAuthStatuses(["gateway/../secret"])).rejects.toThrow(
+      "Invalid server ID format",
+    );
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("chunks 201 IDs and preserves successful batches when one batch fails", async () => {

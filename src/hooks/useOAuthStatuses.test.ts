@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getOAuthStatuses, type OAuthStatusBatchResult } from "@/api/oauth";
-import { useOAuthStatuses } from "./useOAuthStatuses";
+import { isRetryableOAuthStatus, useOAuthStatuses } from "./useOAuthStatuses";
 
 vi.mock("@/api/oauth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/oauth")>()),
@@ -11,6 +11,15 @@ vi.mock("@/api/oauth", async (importOriginal) => ({
 }));
 
 const mockGetOAuthStatuses = vi.mocked(getOAuthStatuses);
+
+describe("isRetryableOAuthStatus", () => {
+  it("only accepts retryable unavailable entries", () => {
+    expect(isRetryableOAuthStatus({ state: "unavailable", retryable: true })).toBe(true);
+    expect(isRetryableOAuthStatus({ state: "unavailable", retryable: false })).toBe(false);
+    expect(isRetryableOAuthStatus({ state: "loading" })).toBe(false);
+    expect(isRetryableOAuthStatus(undefined)).toBe(false);
+  });
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

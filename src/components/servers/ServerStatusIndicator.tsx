@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useIntl } from "react-intl";
 
 import { StatusIndicator } from "@/components/ui/status-indicator";
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
 import {
   getAvailabilityPresentation,
   getServerAvailability,
@@ -40,9 +40,7 @@ export function ServerStatusIndicator({
   const StatusIcon = presentation.Icon;
   const authorize = needsOAuthAuthorization(availability) ? onAuthorize : undefined;
   const canRetry =
-    availability === "authorization_unavailable" &&
-    oauthStatus?.state === "unavailable" &&
-    oauthStatus.retryable;
+    availability === "authorization_unavailable" && isRetryableOAuthStatus(oauthStatus);
   const statusLabel = intl.formatMessage({
     id: compact ? presentation.shortLabelId : presentation.labelId,
   });

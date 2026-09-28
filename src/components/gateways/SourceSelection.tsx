@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { MainNavIcon } from "@/components/icons/MainNavIcon";
 import { MCPIcon } from "@/components/icons/MCPIcon";
+import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
@@ -88,6 +89,8 @@ export function SourceSelection({
   };
 }) {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canReadMCPServers = !permissionsLoading && hasPermission("gateways.read");
   const firstEnabledIndex = actionCards.findIndex((card) => !card.disabled);
   const initialSelectedIndex = firstEnabledIndex === -1 ? 0 : firstEnabledIndex;
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -100,14 +103,16 @@ export function SourceSelection({
     error: mcpServersError,
     isLoading: mcpServersLoading,
   } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH, {
-    enabled: Boolean(createServerActions) && hasRequestedMCPServers,
+    enabled: Boolean(createServerActions) && hasRequestedMCPServers && canReadMCPServers,
   });
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
   const oauthServerIds = useMemo(
     () => mcpServers.filter(isOAuthServer).map((server) => server.id),
     [mcpServers],
   );
-  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds);
+  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds, {
+    enabled: canReadMCPServers,
+  });
   const associatedMCPServerIdSet = useMemo(
     () => new Set(associatedMCPServerIds),
     [associatedMCPServerIds],
