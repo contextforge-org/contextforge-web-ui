@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { renderWithProviders } from "@/test/test-utils";
+import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { Gateways } from "./Gateways";
 import { useQuery } from "@/hooks/useQuery";
 import {
@@ -145,7 +145,9 @@ describe("Gateways", () => {
     expect(mockUseQuery).toHaveBeenCalledWith(
       "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true",
     );
-    expect(mockUseQuery).toHaveBeenCalledTimes(1);
+    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query.
+    const listCalls = mockUseQuery.mock.calls.filter(([path]) => path !== "/teams");
+    expect(listCalls).toHaveLength(1);
   });
 
   it("hides the connect-source card when the caller lacks servers.create", () => {
@@ -822,7 +824,9 @@ describe("Gateways", () => {
     await user.click(screen.getByRole("tab", { name: "Components" }));
     expect(screen.getByText("Get Repo Issues")).toBeInTheDocument();
     expect(screen.getByText("GITHUB_GET_REPO_ISSUES")).toBeInTheDocument();
-    expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(byTextContent("github://repo/{owner}/{repo}")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("summarize_pull_request").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: "Tools" }));
@@ -838,7 +842,9 @@ describe("Gateways", () => {
     await user.click(await screen.findByRole("menuitem", { name: "View details" }));
 
     await user.click(await screen.findByRole("tab", { name: "Components" }));
-    expect(screen.getAllByText("github://repo/{owner}/{repo}").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(byTextContent("github://repo/{owner}/{repo}")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("summarize_pull_request").length).toBeGreaterThan(0);
   });
 

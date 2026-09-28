@@ -247,7 +247,7 @@ describe("ServersTable", () => {
 
   // ── Status cell ─────────────────────────────────────────────────────────────
 
-  it("shows 'Draft' when server is disabled", () => {
+  it("shows 'Inactive' when server is disabled", () => {
     renderTable(
       <ServersTable
         servers={[makeServer({ enabled: false })]}
@@ -256,10 +256,10 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByText("Inactive")).toBeInTheDocument();
   });
 
-  it("shows 'Offline' when enabled, not reachable, and never seen", () => {
+  it("shows 'Connecting' when enabled, not reachable, and never seen", () => {
     renderTable(
       <ServersTable
         servers={[
@@ -274,10 +274,10 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("Connecting")).toBeInTheDocument();
   });
 
-  it("shows 'Warning' when enabled, not reachable, but was seen before", () => {
+  it("shows 'Offline' when enabled, not reachable, but was seen before", () => {
     renderTable(
       <ServersTable
         servers={[
@@ -288,7 +288,58 @@ describe("ServersTable", () => {
         onDelete={noop}
       />,
     );
-    expect(screen.getByText("Warning")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
+  it("shows 'Auth' when the caller has no OAuth token", () => {
+    renderTable(
+      <ServersTable
+        servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+        oauthTokenStatuses={{ "server-uuid-1": "missing" }}
+      />,
+    );
+    expect(screen.getByText("Auth")).toBeInTheDocument();
+  });
+
+  it("starts authorization from the status rather than explaining it", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn().mockResolvedValue(undefined);
+    renderTable(
+      <ServersTable
+        servers={[makeServer({ enabled: true, reachable: true, authType: "oauth" })]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+        oauthTokenStatuses={{ "server-uuid-1": "missing" }}
+        onAuthorize={onAuthorize}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Authorize / }));
+
+    expect(onAuthorize).toHaveBeenCalledWith("server-uuid-1");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("explains a status the caller cannot act on", async () => {
+    const user = userEvent.setup();
+    renderTable(
+      <ServersTable
+        servers={[
+          makeServer({ enabled: true, reachable: false, lastSeen: "2026-04-16T13:23:12Z" }),
+        ]}
+        isLoading={false}
+        onEdit={noop}
+        onDelete={noop}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /status: Offline/i }));
+
+    expect(await screen.findByText(/This server is offline/)).toBeInTheDocument();
   });
 
   it("shows 'Active' when enabled and reachable", () => {

@@ -5,6 +5,7 @@ import {
   getAuthTypeGroupLabelId,
   getOrderedAuthTypeGroups,
   normalizeAuthTypeFilterValue,
+  OAUTH_AUTH_TYPES,
   OPEN_AUTH_TYPE,
 } from "./catalogAuthTypes";
 
@@ -18,8 +19,14 @@ describe("getAuthTypeGroupId", () => {
     expect(getAuthTypeGroupId(OPEN_AUTH_TYPE)).toBe("open");
   });
 
+  it("groups every OAuth spelling together", () => {
+    for (const authType of OAUTH_AUTH_TYPES) {
+      expect(getAuthTypeGroupId(authType)).toBe("oauth");
+    }
+  });
+
   it("returns null for a value outside the known set", () => {
-    expect(getAuthTypeGroupId("OAuth2.1")).toBeNull();
+    expect(getAuthTypeGroupId("mTLS")).toBeNull();
   });
 });
 
@@ -29,7 +36,7 @@ describe("getAuthTypeGroupLabelId", () => {
   });
 
   it("returns null for an unknown raw value", () => {
-    expect(getAuthTypeGroupLabelId("OAuth2.1")).toBeNull();
+    expect(getAuthTypeGroupLabelId("mTLS")).toBeNull();
   });
 });
 
@@ -37,12 +44,14 @@ describe("normalizeAuthTypeFilterValue", () => {
   it("passes an already-normalized group id through unchanged", () => {
     expect(normalizeAuthTypeFilterValue("apiKey")).toBe("apiKey");
     expect(normalizeAuthTypeFilterValue("open")).toBe("open");
+    expect(normalizeAuthTypeFilterValue("oauth")).toBe("oauth");
   });
 
   it("maps a legacy raw catalog value from an old shared link onto its group", () => {
     expect(normalizeAuthTypeFilterValue("API Key")).toBe("apiKey");
     expect(normalizeAuthTypeFilterValue("API")).toBe("apiKey");
     expect(normalizeAuthTypeFilterValue("Open")).toBe("open");
+    expect(normalizeAuthTypeFilterValue("OAuth2.1")).toBe("oauth");
   });
 
   it("returns null for a value that matches no group", () => {
@@ -51,8 +60,12 @@ describe("normalizeAuthTypeFilterValue", () => {
 });
 
 describe("getOrderedAuthTypeGroups", () => {
-  it("lists Open before API Key", () => {
-    expect(getOrderedAuthTypeGroups().map((group) => group.id)).toEqual(["open", "apiKey"]);
+  it("lists Open, API Key, then OAuth", () => {
+    expect(getOrderedAuthTypeGroups().map((group) => group.id)).toEqual([
+      "open",
+      "apiKey",
+      "oauth",
+    ]);
   });
 });
 

@@ -4,6 +4,7 @@ import { useAuthContext } from "@/auth/AuthContext";
 import { Redirect, useRouter } from "@/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsTabsProvider } from "@/components/settings/settings-toolbar";
+import { SsoSettings } from "@/components/settings/SsoSettings";
 import { Tokens } from "@/pages/Tokens";
 import { Users } from "@/pages/Users";
 import { Teams } from "@/pages/Teams";
@@ -19,9 +20,10 @@ interface SettingsProps {
 
 export function Settings({ tab }: SettingsProps) {
   const intl = useIntl();
-  const { user } = useAuthContext();
+  const { user, ssoEnabled } = useAuthContext();
   const { navigate } = useRouter();
   const isAdmin = Boolean(user?.is_admin);
+  const showSsoTab = isAdmin && !!ssoEnabled;
   // Toolbar slot rendered on the tab row; the active tab portals its actions
   // (search, create, …) here so they sit inline with the tab triggers.
   const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
@@ -29,7 +31,10 @@ export function Settings({ tab }: SettingsProps) {
   const [tabsHidden, setTabsHidden] = useState(false);
   const tabsContext = useMemo(() => ({ toolbar: toolbarEl, setTabsHidden }), [toolbarEl]);
 
-  const availableTabs = isAdmin ? ["tokens", "users", "teams"] : ["tokens"];
+  const availableTabs = useMemo(
+    () => ["tokens", ...(isAdmin ? ["users", "teams"] : []), ...(showSsoTab ? ["sso"] : [])],
+    [isAdmin, showSsoTab],
+  );
 
   if (tab !== undefined && !availableTabs.includes(tab)) {
     return <Redirect to="/app/settings" />;
@@ -57,6 +62,11 @@ export function Settings({ tab }: SettingsProps) {
                   {intl.formatMessage({ id: "settings.tabs.teams" })}
                 </TabsTrigger>
               )}
+              {showSsoTab && (
+                <TabsTrigger variant="line" value="sso">
+                  {intl.formatMessage({ id: "settings.tabs.sso" })}
+                </TabsTrigger>
+              )}
             </TabsList>
             {/* min-h-10 reserves the toolbar's populated height so the tab row
                 keeps a constant height whether or not the active tab has filled
@@ -76,6 +86,11 @@ export function Settings({ tab }: SettingsProps) {
           {isAdmin && (
             <TabsContent value="teams">
               <Teams />
+            </TabsContent>
+          )}
+          {showSsoTab && (
+            <TabsContent value="sso">
+              <SsoSettings />
             </TabsContent>
           )}
         </SettingsTabsProvider>

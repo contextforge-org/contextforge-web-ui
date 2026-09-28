@@ -122,6 +122,15 @@ describe("Auth Components", () => {
       expect(screen.getByText(/proxy logs/i)).toBeTruthy();
     });
 
+    it("renders the security warning as a warning callout", () => {
+      render(<QueryParameterAuth {...defaultProps} />);
+      const callout = screen.getByRole("status");
+      expect(callout).toHaveClass("bg-muted");
+      expect(callout).toHaveTextContent(/proxy logs/i);
+      expect(callout.querySelector("svg")).toHaveClass("text-warning");
+      expect(screen.getByText(/Security Warning/i)).toHaveClass("font-semibold");
+    });
+
     it("renders query parameter name and API key fields", () => {
       render(<QueryParameterAuth {...defaultProps} />);
       expect(screen.getByLabelText(/Query parameter name/i)).toBeTruthy();

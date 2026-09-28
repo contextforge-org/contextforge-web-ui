@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("sonner", () => ({
@@ -10,6 +11,7 @@ vi.mock("sonner", () => ({
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@testing-library/react";
+import { byTextContent } from "@/test/test-utils";
 import { http, HttpResponse } from "msw";
 import { toast } from "sonner";
 import { server } from "@/test/mocks/server";
@@ -66,7 +68,9 @@ function renderWithRouter(ui: ReactElement, path = "/app/tools") {
     <AuthProvider>
       <RouterProvider>
         <I18nProvider>
-          <TooltipProvider>{ui}</TooltipProvider>
+          <TooltipProvider>
+            <TeamsProvider>{ui}</TeamsProvider>
+          </TooltipProvider>
         </I18nProvider>
       </RouterProvider>
     </AuthProvider>,
@@ -1439,7 +1443,7 @@ describe("Tools", () => {
       await user.click(viewDetailsItem);
 
       await waitFor(() => {
-        expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
+        expect(screen.getByText(byTextContent("https://api.example.com"))).toBeInTheDocument();
       });
     });
 

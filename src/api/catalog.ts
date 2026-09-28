@@ -7,6 +7,22 @@ import type {
   GatewayTestResponse,
 } from "@/generated/types";
 
+export interface OAuthUserTokenStatus {
+  status: "valid" | "near_expiry" | "expired" | "missing";
+  authorized: boolean;
+  scopes?: string[];
+  expires_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface OAuthGatewayStatus {
+  oauth_enabled: boolean;
+  grant_type?: string;
+  user_token_status?: OAuthUserTokenStatus;
+}
+
+export type OAuthGatewayStatusMap = Record<string, OAuthGatewayStatus>;
+
 export interface GatewayImpactPreview {
   gatewayId: string;
   servers: Array<{ id: string; name: string }>;

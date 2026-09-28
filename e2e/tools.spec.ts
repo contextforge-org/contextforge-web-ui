@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { test, expect } from "./fixtures/api-mock";
+import { test, expect, MOCK_CSRF_TOKEN } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { Tool } from "../src/types/tool";
 
@@ -324,28 +324,26 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewBody = route.request().postDataJSON();
       previewHeaders = route.request().headers();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          validated: true,
           target: { kind: "local" },
-          resolved_arguments: { query: "cloudflare", limit: 5 },
-          content: [
-            { type: "text", text: "Found 2 matching issues", mimeType: "text/plain" },
-            { type: "text", text: '{"total":2}', mimeType: "application/json" },
+          resolvedArguments: { query: "cloudflare", limit: 5 },
+          annotations: { readOnlyHint: true },
+          preHooksRun: [],
+          warnings: [
             {
-              type: "image",
-              text: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"></svg>',
-              mimeType: "image/svg+xml",
+              code: "elicitation_skipped",
+              hook: "approval_hook",
+              message:
+                "Approval hook skipped during preview; live invocation may prompt for input.",
             },
           ],
-          structured_output: { total: 2, query: "cloudflare" },
-          annotations: { readOnlyHint: true },
-          pre_hooks_run: [],
-          warnings: [{ code: "elicitation_skipped", hooks: ["approval_hook"] }],
         }),
       });
     });
@@ -357,11 +355,17 @@ test.describe("Tools page", () => {
     await page.getByRole("menuitem", { name: "View details" }).click();
 
     const panel = page.getByRole("region", { name: /Tools for github-server/i });
-    await expect(panel.getByText("Tool preview")).toBeVisible();
-    await expect(panel.getByText("Read-only")).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
+    // Read-only/destructive annotation badges aren't part of the design here
+    // (they stay in use to gate live invocation, just not shown as badges).
+    await expect(panel.getByText("Read-only")).not.toBeVisible();
 
     const previewButton = panel.getByRole("button", { name: "Preview" });
-    await expect(previewButton).toBeDisabled();
+    await expect(previewButton).toBeEnabled();
+    await previewButton.click();
+    await expect(panel.getByLabel("query")).toHaveAttribute("aria-invalid", "true");
+    await expect(panel.getByText("Required")).toBeVisible();
+    expect(previewBody).toBeNull();
 
     await panel.getByLabel("query").fill("cloudflare");
     await panel.getByLabel("limit").fill("5");
@@ -374,12 +378,10 @@ test.describe("Tools page", () => {
     await expect(panel.getByText("Preview 200")).toBeVisible();
     await expect(panel.getByText("Warnings", { exact: true }).first()).toBeVisible();
     await expect(
-      panel.getByText("Live invocation may request user input; preview skipped approval_hook."),
+      panel
+        .getByText("Approval hook skipped during preview; live invocation may prompt for input.")
+        .first(),
     ).toBeVisible();
-    await expect(panel.getByText("Tool result")).toBeVisible();
-    await expect(panel.getByText("Found 2 matching issues").first()).toBeVisible();
-    await expect(panel.getByRole("img", { name: "Tool result image 3" })).toBeVisible();
-    await expect(panel.getByText("Structured output")).toBeVisible();
     await expect(panel.getByText("Resolved arguments")).toBeVisible();
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
     expect(previewHeaders["x-tenant-id"]).toBe("team-a");
@@ -387,6 +389,7 @@ test.describe("Tools page", () => {
 
   test("live invokes a read-only tool with JSON-RPC args and passthrough headers", async ({
     page,
+    apiMock,
   }) => {
     const liveTool = makeTool("search_issues", "github-server", {
       description: "Search repository issues",
@@ -425,8 +428,14 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("MCP 2025-11-25")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByText("MCP version 2025-11-25")).toBeVisible();
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
+    const invokeButton = panel.getByRole("button", { name: "Invoke tool" });
+    await expect(invokeButton).toBeEnabled();
+    await invokeButton.click();
+    await expect(panel.getByLabel("query")).toHaveAttribute("aria-invalid", "true");
+    await expect(panel.getByText("Required")).toBeVisible();
+    expect(rpcBody).toBeNull();
 
     await panel.getByLabel("query").fill("cloudflare");
     await panel.getByLabel("limit").fill("5");
@@ -434,7 +443,7 @@ test.describe("Tools page", () => {
     await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
     await panel.getByLabel("Header 1 value").fill("team-a");
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await invokeButton.click();
 
     await expect(panel.getByText("Live invoke 200")).toBeVisible();
     await expect(panel.getByText("Live result from gateway").first()).toBeVisible();
@@ -449,7 +458,8 @@ test.describe("Tools page", () => {
     });
     expect(rpcBody?.params).not.toHaveProperty("server_id");
     expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
-    expect(rpcHeaders["x-csrf-token"]).toBe("mock-csrf-token");
+    // Real mode gets a real, randomly-generated token from the real login.
+    expect(rpcHeaders["x-csrf-token"]).toBe((await apiMock.getRealCsrfToken()) ?? MOCK_CSRF_TOKEN);
   });
 
   test("confirms destructive local live invoke before calling /rpc", async ({ page }) => {
@@ -478,15 +488,16 @@ test.describe("Tools page", () => {
     await page.goto(APP.TOOLS);
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "local-gateway");
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
     const dialog = page.getByRole("alertdialog", { name: "Invoke destructive tool" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).not.toBeVisible();
     expect(rpcRequestCount).toBe(0);
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
     await page
       .getByRole("alertdialog", { name: "Invoke destructive tool" })
       .getByRole("button", { name: "Invoke tool" })
@@ -542,8 +553,10 @@ test.describe("Tools page", () => {
     await page.goto(APP.TOOLS);
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
+    await panel.getByRole("switch", { name: "Live invocation" }).click();
 
-    await panel.getByRole("button", { name: "Live invoke" }).click();
+    await panel.getByRole("button", { name: "Invoke tool" }).click();
+    await expect(panel.getByRole("button", { name: "Cancel request" })).not.toBeVisible();
     await expect(panel.getByRole("button", { name: "Cancel request" })).toBeVisible();
     await panel.getByRole("button", { name: "Cancel request" }).click();
 
@@ -576,8 +589,9 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+    await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
   });
 
   test("hides live invoke when servers.use is missing", async ({ page, apiMock }) => {
@@ -592,8 +606,9 @@ test.describe("Tools page", () => {
     await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
-    await expect(panel.getByText("Live invoke requires servers.use.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+    await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
   });
 
   test("does not offer live invoke for federated tools without readOnlyHint", async ({ page }) => {
@@ -610,7 +625,8 @@ test.describe("Tools page", () => {
     await expect(
       panel.getByText("Live invoke is not offered for federated tools without readOnlyHint."),
     ).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Live invoke" })).toBeDisabled();
+    await expect(panel.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
   });
 
   test("warns for denied passthrough headers and excludes them from preview", async ({ page }) => {
@@ -624,12 +640,17 @@ test.describe("Tools page", () => {
     let previewHeaders: Record<string, string> = {};
 
     await routeToolsList(page, [previewTool]);
-    await page.route("**/tools/preview/search_issues", async (route) => {
+    await page.route("**/v1/tools/preview/search_issues", async (route) => {
       previewHeaders = route.request().headers();
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ target: "local", resolved_arguments: { query: "cloudflare" } }),
+        body: JSON.stringify({
+          validated: true,
+          target: { kind: "local" },
+          resolvedArguments: { query: "cloudflare" },
+          annotations: {},
+        }),
       });
     });
 
@@ -646,10 +667,10 @@ test.describe("Tools page", () => {
     await panel.getByLabel("Header 1 value").fill("Bearer typed-token");
 
     await expect(panel.getByText("This header is not forwardable from the web UI.")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeDisabled();
 
     await panel.getByLabel("Header 1 name").fill("X-Api-Key");
-    await panel.getByRole("button", { name: "Preview" }).click();
+    await panel.getByRole("button", { name: "Preview", exact: true }).click();
 
     await expect(panel.getByText("Preview 200")).toBeVisible();
     expect(previewHeaders.authorization).toBeUndefined();

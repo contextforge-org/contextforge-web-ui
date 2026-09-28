@@ -123,8 +123,8 @@ export function createApiMock(page: Page): ApiMock {
           contentType: "application/json",
           body: JSON.stringify(
             authenticated
-              ? { authenticated: true, user, csrfToken: MOCK_CSRF_TOKEN }
-              : { authenticated: false },
+              ? { authenticated: true, user, csrfToken: MOCK_CSRF_TOKEN, ssoEnabled: false }
+              : { authenticated: false, ssoEnabled: false },
           ),
         });
       });

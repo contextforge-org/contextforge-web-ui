@@ -7,15 +7,14 @@ import {
   ToolInvokeJsonRpcError,
   toolsApi,
   type ToolInvokeRequestId,
-  type ToolPreviewResponse,
+  type ToolInvokeResultPayload,
 } from "@/api/tools";
+import { TOOL_INVOKE_TIMEOUT_MS } from "@/config/toolInvocation";
 import { parseApiError } from "@/lib/errorUtils";
-
-export const TOOL_INVOKE_TIMEOUT_MS = 120_000;
 
 export interface ToolInvokeSuccess {
   id: ToolInvokeRequestId | null;
-  result: ToolPreviewResponse;
+  result: ToolInvokeResultPayload;
   renderTimeMs: number;
   status: number;
 }
@@ -38,13 +37,23 @@ export interface ToolInvokeState {
   hasRun: boolean;
 }
 
+export interface UseToolInvokeOptions {
+  serverId?: string;
+  timeoutMs?: number;
+}
+
 export function useToolInvoke(
   toolName: string,
   args: Record<string, unknown>,
   passthroughHeaders: Record<string, string>,
-  timeoutMs: number = TOOL_INVOKE_TIMEOUT_MS,
+  optionsOrTimeoutMs: UseToolInvokeOptions | number = {},
 ): ToolInvokeState {
   const intl = useIntl();
+  const serverId = typeof optionsOrTimeoutMs === "number" ? undefined : optionsOrTimeoutMs.serverId;
+  const timeoutMs =
+    typeof optionsOrTimeoutMs === "number"
+      ? optionsOrTimeoutMs
+      : (optionsOrTimeoutMs.timeoutMs ?? TOOL_INVOKE_TIMEOUT_MS);
   const [isLoading, setLoading] = useState(false);
   const [result, setResult] = useState<ToolInvokeSuccess | null>(null);
   const [error, setError] = useState<ToolInvokeFailure | null>(null);
@@ -127,6 +136,7 @@ export function useToolInvoke(
         id,
       } = await toolsApi.invoke(toolName, args, passthroughHeaders, {
         requestId,
+        serverId,
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -179,6 +189,7 @@ export function useToolInvoke(
     clearRunTimer,
     intl,
     passthroughHeaders,
+    serverId,
     timeoutMs,
     toolName,
   ]);

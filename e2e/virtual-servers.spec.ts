@@ -1,6 +1,20 @@
 import { test, expect } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { VirtualServer } from "../src/types/server";
+import type { Tool } from "../src/types/tool";
+import type { Page } from "@playwright/test";
+
+interface JsonRpcRequest {
+  jsonrpc?: string;
+  id?: string | number | null;
+  method?: string;
+  params?: Record<string, unknown>;
+}
+
+interface PreviewRequest {
+  arguments?: Record<string, unknown>;
+  server_id?: string;
+}
 
 const MOCK_VIRTUAL_SERVER: VirtualServer = {
   id: "76c7b637dafc4d7197f14817ddffeda9", // pragma: allowlist secret
@@ -71,6 +85,108 @@ const MOCK_MCP_SERVER_2 = {
   resource_count: 1,
   prompt_count: 1,
 };
+
+function makeTryItTool(overrides: Partial<Tool> = {}): Tool {
+  return {
+    id: "tool-search",
+    name: "github.search_issues",
+    originalName: "search_issues",
+    description: "Search repository issues",
+    originalDescription: "Search repository issues",
+    title: "Search issues",
+    displayName: "Search issues",
+    gatewayId: "mcp-gateway-1",
+    gatewaySlug: "github-mcp",
+    customName: "",
+    customNameSlug: "search_issues",
+    enabled: true,
+    reachable: true,
+    deprecated: false,
+    executionCount: 0,
+    tags: [],
+    integrationType: "MCP",
+    requestType: "http",
+    url: "https://example.com/mcp",
+    headers: {},
+    annotations: { readOnlyHint: true },
+    jsonpathFilter: null,
+    auth: null,
+    version: 1,
+    visibility: "team",
+    createdAt: "2026-04-10T10:00:00Z",
+    updatedAt: "2026-04-10T10:00:00Z",
+    inputSchema: {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query: { type: "string" },
+        limit: { type: "integer" },
+      },
+    },
+    outputSchema: { type: "object" },
+    ...overrides,
+  };
+}
+
+async function routeVirtualServerTryIt(page: Page, tools: Tool[]) {
+  await page.route("**/v1/virtual-servers?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+    });
+  });
+  await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+    });
+  });
+  await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}/tools?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tools }),
+    });
+  });
+  await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}/resources?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ resources: [] }),
+    });
+  });
+  await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}/prompts?*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ prompts: [] }),
+    });
+  });
+  await page.route("**/v1/mcp-servers?*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ gateways: [MOCK_MCP_SERVER] }),
+    });
+  });
+}
+
+async function openVirtualServerToolTest(page: Page) {
+  await page.getByRole("button", { name: "Actions for testVS" }).click();
+  await page.getByRole("menuitem", { name: "View details" }).click();
+
+  const panel = page.getByRole("region", { name: "testVS details" });
+  await expect(panel.getByRole("tab", { name: "Try it" })).toHaveAttribute("aria-selected", "true");
+  await panel.getByRole("tab", { name: "Components" }).click();
+  await panel.getByRole("button", { name: "Actions for Search issues" }).click();
+  const testAction = page.getByRole("menuitem", { name: "Test" });
+  await expect(testAction.locator("svg")).toHaveCount(0);
+  await testAction.click();
+  await expect(panel.getByRole("heading", { name: "Test tool" })).toBeFocused();
+  return panel;
+}
 
 test.describe("Virtual Servers page", () => {
   test.beforeEach(async ({ page, apiMock }) => {
@@ -1105,10 +1221,6 @@ test.describe("Virtual Servers page", () => {
       });
     });
 
-    // Narrow enough that the full endpoint URL can't fit on one line, forcing
-    // TruncatedText's CSS ellipsis to actually clip it.
-    await page.setViewportSize({ width: 480, height: 800 });
-
     await page.goto(APP.GATEWAYS);
     await page.waitForLoadState("networkidle");
 
@@ -1122,18 +1234,17 @@ test.describe("Virtual Servers page", () => {
     // Scope to the tabpanel — the sidebar's own "URL" field renders the same
     // endpoint value (via a different component), which would otherwise be an
     // ambiguous second match.
-    const endpoint = detailsPanel
+    // The endpoint is middle-truncated before render; the full value only lives
+    // in a screen-reader-only span inside the hover trigger.
+    const fullEndpoint = detailsPanel
       .getByRole("tabpanel")
       .getByText(new RegExp(`/servers/${MOCK_VIRTUAL_SERVER.id}/mcp$`));
-    await expect(endpoint).toBeVisible();
-    const fullEndpointText = (await endpoint.textContent())?.trim();
+    const fullEndpointText = (await fullEndpoint.textContent())?.trim();
     expect(fullEndpointText).toBeTruthy();
 
-    // The full value stays in the DOM regardless of visual clipping — confirm
-    // it's actually clipped at its current rendered width before relying on
-    // the tooltip to reveal it.
-    const isTruncated = await endpoint.evaluate((el) => el.scrollWidth > el.clientWidth);
-    expect(isTruncated).toBe(true);
+    const endpoint = fullEndpoint.locator("..");
+    await expect(endpoint).toBeVisible();
+    await expect(endpoint.locator('[aria-hidden="true"]')).toContainText("...");
 
     await expect(page.getByRole("tooltip")).toHaveCount(0);
     await endpoint.hover();
@@ -1141,6 +1252,52 @@ test.describe("Virtual Servers page", () => {
     const tooltip = page.getByRole("tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toHaveText(fullEndpointText!);
+  });
+
+  test("copy buttons in the details panel copy the full untruncated value", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.route("**/v1/virtual-servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ servers: [MOCK_VIRTUAL_SERVER] }),
+      });
+    });
+    await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_VIRTUAL_SERVER_DETAILS),
+      });
+    });
+
+    await page.goto(APP.GATEWAYS);
+    await page.waitForLoadState("networkidle");
+
+    await page.getByRole("button", { name: "Actions for testVS" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const detailsPanel = page.getByRole("region", { name: "testVS details" });
+    await expect(detailsPanel).toBeVisible();
+
+    // Each button must copy the full value, not its middle-truncated display text.
+    const expectCopied = async (name: string, value: string) => {
+      await detailsPanel.getByRole("button", { name, exact: true }).click();
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(value);
+    };
+
+    const endpoint = `http://localhost:5173/servers/${MOCK_VIRTUAL_SERVER.id}/mcp`;
+    await expectCopied("Copy Endpoint", endpoint);
+    await expectCopied("Copy server ID", MOCK_VIRTUAL_SERVER.id);
+    await expectCopied("Copy URL", endpoint);
+
+    await detailsPanel.getByRole("tab", { name: "Components" }).click();
+    await expectCopied("Copy tool name for Get Repo Issues", "GITHUB_GET_REPO_ISSUES");
+    await expectCopied("Copy resource", "github://repo/{owner}/{repo}");
+    await expectCopied("Copy prompt", "summarize_pull_request");
   });
 
   test("details panel add source button navigates to edit the virtual server", async ({ page }) => {
@@ -1174,6 +1331,181 @@ test.describe("Virtual Servers page", () => {
     await expect(page).toHaveURL(
       new RegExp(`/app/gateways/create-server\\?editServerId=${MOCK_VIRTUAL_SERVER.id}`),
     );
+  });
+
+  test.describe("virtual server tool testing", () => {
+    test.skip(
+      process.env.VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT !== "true",
+      "requires VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT=true before Vite starts",
+    );
+
+    test("previews then live invokes an attached tool through the virtual server", async ({
+      page,
+    }) => {
+      const tool = makeTryItTool();
+      let previewBody: PreviewRequest | null = null;
+      let previewHeaders: Record<string, string> = {};
+      let rpcBody: JsonRpcRequest | null = null;
+      let rpcHeaders: Record<string, string> = {};
+
+      await routeVirtualServerTryIt(page, [tool]);
+      await page.route("**/api/v1/tools/preview/github.search_issues", async (route) => {
+        previewBody = route.request().postDataJSON() as PreviewRequest;
+        previewHeaders = route.request().headers();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            validated: true,
+            target: { kind: "federated", gatewayName: "github-mcp" },
+            resolvedArguments: previewBody.arguments ?? {},
+            annotations: { readOnlyHint: true },
+            preHooksRun: [],
+            warnings: [],
+          }),
+        });
+      });
+      await page.route("**/api/rpc", async (route) => {
+        rpcBody = route.request().postDataJSON() as JsonRpcRequest;
+        rpcHeaders = route.request().headers();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: rpcBody.id ?? "invoke-1",
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: "Scoped result from virtual server",
+                  mimeType: "text/plain",
+                },
+              ],
+            },
+          }),
+        });
+      });
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+
+      const panel = await openVirtualServerToolTest(page);
+      await expect(panel.getByRole("button", { name: "Preview" })).toBeVisible();
+      await expect(panel.getByRole("switch", { name: "Live invocation" })).not.toBeChecked();
+      await expect(
+        panel.getByText("Writes, external requests, and quota use happen immediately."),
+      ).toBeVisible();
+      await expect(panel.getByText(/Live invocation is enabled/)).toHaveCount(0);
+      const liveLabelBounds = await panel
+        .getByText("Live invocation", { exact: true })
+        .boundingBox();
+      const liveSwitchBounds = await panel
+        .getByRole("switch", { name: "Live invocation" })
+        .boundingBox();
+      const liveCopyBounds = await panel
+        .getByText("Writes, external requests, and quota use happen immediately.")
+        .boundingBox();
+      expect(liveLabelBounds).not.toBeNull();
+      expect(liveSwitchBounds).not.toBeNull();
+      expect(liveCopyBounds).not.toBeNull();
+      expect(liveSwitchBounds!.y).toBeGreaterThan(liveLabelBounds!.y + liveLabelBounds!.height);
+      expect(liveCopyBounds!.x).toBeGreaterThan(liveSwitchBounds!.x + liveSwitchBounds!.width);
+
+      await panel.getByLabel("query").fill("cloudflare");
+      await panel.getByLabel("limit").fill("5");
+      await panel.getByRole("button", { name: "Add header" }).click();
+      await panel.getByLabel("Header 1 name").fill("X-Tenant-Id");
+      await panel.getByLabel("Header 1 value").fill("team-a");
+      await panel.getByRole("button", { name: "Preview" }).click();
+
+      await expect(panel.getByText("Preview 200")).toBeVisible();
+      expect(previewBody).toEqual({
+        arguments: { query: "cloudflare", limit: 5 },
+        server_id: MOCK_VIRTUAL_SERVER.id,
+      });
+      expect(previewHeaders["x-tenant-id"]).toBe("team-a");
+
+      await panel.getByRole("switch", { name: "Live invocation" }).click();
+      await expect(panel.getByText(/Live invocation is enabled/)).toBeVisible();
+      await expect(
+        panel.getByRole("status").filter({ hasText: /Live invocation is enabled/ }),
+      ).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Invoke tool" })).toBeVisible();
+      await panel.getByRole("button", { name: "Invoke tool" }).click();
+
+      await expect(panel.getByText("Live invoke 200")).toBeVisible();
+      await expect(panel.getByText("Requested through testVS")).toBeVisible();
+      await expect(panel.getByText(/Answered by/)).toHaveCount(0);
+      await expect(panel.getByText("Scoped result from virtual server").first()).toBeVisible();
+      expect(rpcBody).toMatchObject({
+        jsonrpc: "2.0",
+        method: "tools/call",
+        params: {
+          name: "github.search_issues",
+          server_id: MOCK_VIRTUAL_SERVER.id,
+          arguments: { query: "cloudflare", limit: 5 },
+        },
+      });
+      expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
+
+      await panel
+        .getByRole("button", { name: "Clear selected tool and return to components" })
+        .click();
+      await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
+    });
+
+    test("blocks live invoke without tools.execute", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["servers.read", "servers.use"] });
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+      const panel = await openVirtualServerToolTest(page);
+
+      await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+      await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
+      await panel.getByLabel("query").fill("cloudflare");
+      await expect(panel.getByRole("button", { name: "Preview" })).toBeEnabled();
+    });
+
+    test("restores focus after keyboard navigation through tool testing", async ({ page }) => {
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for testVS" }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "View details" }).press("Enter");
+
+      const panel = page.getByRole("region", { name: "testVS details" });
+      await panel.getByRole("tab", { name: "Components" }).focus();
+      await page.keyboard.press("Enter");
+      await panel.getByRole("button", { name: "Actions for Search issues" }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "Test" }).press("Enter");
+      await expect(panel.getByRole("heading", { name: "Test tool" })).toBeFocused();
+
+      await panel
+        .getByRole("button", { name: "Clear selected tool and return to components" })
+        .focus();
+      await page.keyboard.press("Enter");
+      await expect(panel.getByRole("button", { name: "Actions for Search issues" })).toBeFocused();
+    });
+
+    test("blocks live invoke without servers.use", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["servers.read", "tools.execute"] });
+      await routeVirtualServerTryIt(page, [makeTryItTool()]);
+
+      await page.goto(APP.GATEWAYS);
+      await page.waitForLoadState("networkidle");
+      const panel = await openVirtualServerToolTest(page);
+
+      await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+      await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
+      await panel.getByLabel("query").fill("cloudflare");
+      await expect(panel.getByRole("button", { name: "Preview" })).toBeEnabled();
+    });
   });
 
   test("shows only the actions menu in the virtual server card header", async ({ page }) => {

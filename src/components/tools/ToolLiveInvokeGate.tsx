@@ -1,19 +1,23 @@
 import { useMemo, useState } from "react";
-import { Loader2, Play, Square } from "lucide-react";
+import { Loader2, Play, Square, Zap } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { useAuth } from "@/auth/useAuth";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { Button } from "@/components/ui/button";
+import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
 import { getToolAnnotationHints } from "./toolAnnotations";
 
 export type ToolLiveInvokeAvailability =
   | { state: "checkingAccess" }
+  | { state: "permissionsError" }
   | { state: "missingPermission"; permission: "tools.execute" | "servers.use" }
   | { state: "available" }
   | { state: "requiresConfirmation" }
+  | { state: "unavailableInvalidGateway" }
   | { state: "unavailableFederated" }
   | { state: "unavailableUntagged" };
 
@@ -21,18 +25,47 @@ export interface ResolveToolLiveInvokeAvailabilityInput {
   canExecute: boolean;
   canUseServers: boolean;
   permissionsLoading: boolean;
+  permissionsError?: boolean;
+  invalidGatewayId?: boolean;
   tool: Pick<Tool, "annotations" | "gatewayId">;
+}
+
+/**
+ * A toggle-based presentation (Tools drawer, virtual server "Test tool" tab)
+ * needs to know not just *why* live invocation is unavailable, but whether to
+ * show the toggle at all: it's hidden entirely when the caller lacks the
+ * permission to ever use it, and shown disabled with a reason for every other
+ * unavailable state.
+ */
+export function getToolLiveInvokeToggleVisibility(
+  availability: ToolLiveInvokeAvailability,
+): "hidden" | "disabled" | "enabled" {
+  switch (availability.state) {
+    case "missingPermission":
+      return "hidden";
+    case "available":
+    case "requiresConfirmation":
+      return "enabled";
+    default:
+      return "disabled";
+  }
 }
 
 export function resolveToolLiveInvokeAvailability({
   canExecute,
   canUseServers,
   permissionsLoading,
+  permissionsError = false,
+  invalidGatewayId = false,
   tool,
 }: ResolveToolLiveInvokeAvailabilityInput): ToolLiveInvokeAvailability {
   if (permissionsLoading) return { state: "checkingAccess" };
+  if (permissionsError) return { state: "permissionsError" };
   if (!canExecute) return { state: "missingPermission", permission: "tools.execute" };
   if (!canUseServers) return { state: "missingPermission", permission: "servers.use" };
+  if (invalidGatewayId || (typeof tool.gatewayId === "string" && !tool.gatewayId.trim())) {
+    return { state: "unavailableInvalidGateway" };
+  }
 
   const hints = getToolAnnotationHints(tool.annotations);
   const isFederated = Boolean(tool.gatewayId);
@@ -51,64 +84,114 @@ export function resolveToolLiveInvokeAvailability({
 
 export interface ToolLiveInvokeGateProps {
   disabled?: boolean;
+  invalidGatewayId?: boolean;
   invoke: Pick<ToolInvokeState, "run" | "stopWaiting" | "isLoading" | "hasRun">;
+  onBeforeRun?: () => boolean;
+  presentation?: "live" | "tool";
   tool: Tool;
 }
 
-export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveInvokeGateProps) {
+export function ToolLiveInvokeGate({
+  disabled = false,
+  invalidGatewayId = false,
+  invoke,
+  onBeforeRun,
+  presentation = "live",
+  tool,
+}: ToolLiveInvokeGateProps) {
   const intl = useIntl();
-  const { hasPermission, permissionsLoading } = useAuth();
+  const { hasPermission, permissionsLoading, permissionsError } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const loadingTransition = useMemo(() => ({ isLoading: invoke.isLoading }), [invoke.isLoading]);
+  const debouncedLoadingTransition = useDebouncedValue(
+    loadingTransition,
+    TOOL_CANCEL_REVEAL_DELAY_MS,
+  );
+
+  const showCancelRequest = invoke.isLoading && debouncedLoadingTransition === loadingTransition;
+
+  const run = () => {
+    if (onBeforeRun?.() === false) return;
+    void invoke.run();
+  };
   const availability = useMemo(
     () =>
       resolveToolLiveInvokeAvailability({
         canExecute: hasPermission("tools.execute"),
         canUseServers: hasPermission("servers.use"),
         permissionsLoading,
+        permissionsError,
+        invalidGatewayId,
         tool,
       }),
-    [hasPermission, permissionsLoading, tool],
+    [hasPermission, permissionsLoading, permissionsError, invalidGatewayId, tool],
   );
 
   if (invoke.isLoading) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {showCancelRequest
+            ? intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })
+            : null}
+        </p>
         <Button type="button" variant="default" size="sm" disabled aria-busy="true">
           <Loader2 className="size-3.5 animate-spin" />
           {intl.formatMessage({ id: "tools.details.invoke.running" })}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
-          <Square className="size-3.5" />
-          {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
-        </Button>
+        {showCancelRequest && (
+          <Button type="button" variant="outline" size="sm" onClick={invoke.stopWaiting}>
+            <Square className="size-3.5" />
+            {intl.formatMessage({ id: "tools.details.invoke.stopWaiting" })}
+          </Button>
+        )}
       </div>
     );
   }
 
   if (availability.state === "available") {
+    const ActionIcon = presentation === "tool" ? Zap : Play;
     return (
-      <Button type="button" variant="default" size="sm" onClick={invoke.run} disabled={disabled}>
-        <Play className="size-3.5" />
+      <Button type="button" variant="default" size="sm" onClick={run} disabled={disabled}>
+        <ActionIcon className="size-3.5" />
         {intl.formatMessage({
-          id: invoke.hasRun ? "tools.details.invoke.rerun" : "tools.details.invoke.run",
+          id:
+            presentation === "tool"
+              ? invoke.hasRun
+                ? "tools.details.invoke.rerunTool"
+                : "tools.details.invoke.runTool"
+              : invoke.hasRun
+                ? "tools.details.invoke.rerun"
+                : "tools.details.invoke.run",
         })}
       </Button>
     );
   }
 
   if (availability.state === "requiresConfirmation") {
+    const ActionIcon = presentation === "tool" ? Zap : Play;
     return (
       <>
         <Button
           type="button"
           variant="destructive"
           size="sm"
-          onClick={() => setConfirmOpen(true)}
+          onClick={() => {
+            if (onBeforeRun?.() === false) return;
+            setConfirmOpen(true);
+          }}
           disabled={disabled}
         >
-          <Play className="size-3.5" />
+          <ActionIcon className="size-3.5" />
           {intl.formatMessage({
-            id: invoke.hasRun ? "tools.details.invoke.rerun" : "tools.details.invoke.run",
+            id:
+              presentation === "tool"
+                ? invoke.hasRun
+                  ? "tools.details.invoke.rerunTool"
+                  : "tools.details.invoke.runTool"
+                : invoke.hasRun
+                  ? "tools.details.invoke.rerun"
+                  : "tools.details.invoke.run",
           })}
         </Button>
         <ConfirmDialog
@@ -137,19 +220,21 @@ export function ToolLiveInvokeGate({ disabled = false, invoke, tool }: ToolLiveI
           : intl.formatMessage({ id: "tools.details.invoke.run" })}
       </Button>
       <p className="max-w-xs text-right text-[12px] leading-4 text-muted-foreground">
-        {availabilityMessage(availability, intl.formatMessage)}
+        {getToolLiveInvokeAvailabilityMessage(availability, intl.formatMessage)}
       </p>
     </div>
   );
 }
 
-function availabilityMessage(
+export function getToolLiveInvokeAvailabilityMessage(
   availability: ToolLiveInvokeAvailability,
   formatMessage: (descriptor: { id: string }) => string,
 ) {
   switch (availability.state) {
     case "checkingAccess":
       return formatMessage({ id: "tools.details.invoke.unavailable.checkingAccess" });
+    case "permissionsError":
+      return formatMessage({ id: "tools.details.invoke.unavailable.permissionsError" });
     case "missingPermission":
       return formatMessage({
         id:
@@ -159,6 +244,8 @@ function availabilityMessage(
       });
     case "unavailableFederated":
       return formatMessage({ id: "tools.details.invoke.unavailable.federated" });
+    case "unavailableInvalidGateway":
+      return formatMessage({ id: "tools.details.invoke.unavailable.invalidGateway" });
     case "unavailableUntagged":
       return formatMessage({ id: "tools.details.invoke.unavailable.untagged" });
     case "available":

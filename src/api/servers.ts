@@ -6,7 +6,7 @@
  */
 
 import { api } from "./client";
-import type { ServersResponse, MCPServer } from "../types/server";
+import type { ServersResponse, MCPServer, GatewayOAuthStatus } from "../types/server";
 import type {
   GatewayHandshakeRequest,
   GatewayHandshakeResponse,
@@ -16,6 +16,17 @@ import type {
 } from "@/generated/types";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
+
+/** Mirrors OAUTH_STATUS_BATCH_MAX_IDS on the backend's /oauth/status route. */
+const OAUTH_STATUS_MAX_IDS = 100;
+
+/** The user closed the OAuth popup. Typed so callers can stay quiet about it. */
+export class OAuthCancelledError extends Error {
+  constructor() {
+    super("OAuth authorization was cancelled");
+    this.name = "OAuthCancelledError";
+  }
+}
 
 /**
  * Validates server ID to prevent path traversal and injection attacks
@@ -34,6 +45,26 @@ function validateServerId(id: string): string {
   }
 
   return id;
+}
+
+function openOAuthAuthorizationPopup(): Window {
+  const width = 600;
+  const height = 700;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2;
+  const authWindow = window.open(
+    "",
+    "oauth_authorization",
+    `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`,
+  );
+
+  if (!authWindow) {
+    throw new Error(
+      "Failed to open OAuth authorization window. Please check your popup blocker settings.",
+    );
+  }
+
+  return authWindow;
 }
 
 export const serversApi = {
@@ -184,6 +215,41 @@ export const serversApi = {
   },
 
   /**
+   * The caller's own OAuth state for each gateway, batched.
+   *
+   * Keys stay snake_case, unlike the gateway endpoints. Ids that are missing or
+   * not visible to the caller are omitted. A paged-through list can exceed the
+   * backend's id cap, so requests are split and the responses merged.
+   */
+  getOAuthStatus: async (ids: string[]): Promise<Record<string, GatewayOAuthStatus>> => {
+    const validIds = ids.map(validateServerId);
+    const batches: string[][] = [];
+    for (let start = 0; start < validIds.length; start += OAUTH_STATUS_MAX_IDS) {
+      batches.push(validIds.slice(start, start + OAUTH_STATUS_MAX_IDS));
+    }
+
+    const responses = await Promise.all(
+      batches.map((batch) => {
+        const params = new URLSearchParams();
+        batch.forEach((id) => params.append("gateway_ids", id));
+        return api.get<Record<string, GatewayOAuthStatus>>(`/oauth/status?${params.toString()}`);
+      }),
+    );
+
+    return Object.assign({}, ...responses) as Record<string, GatewayOAuthStatus>;
+  },
+
+  /**
+   * Open blank OAuth popup during an active user gesture.
+   *
+   * Catalog setup must register credentials before it knows the gateway ID. It
+   * opens this blank window first, then passes it to triggerOAuthAuthorization
+   * once registration returns. Keeping window.open synchronous prevents popup
+   * blockers from rejecting first-time setup.
+   */
+  openOAuthAuthorizationPopup,
+
+  /**
    * Trigger OAuth authorization flow for a gateway via a popup window.
    *
    * Opens /oauth/authorize/{id}?popup=true&nonce=... in a centered popup. The
@@ -201,27 +267,16 @@ export const serversApi = {
    *
    * Returns a Promise that resolves on success or rejects on error / cancellation.
    */
-  triggerOAuthAuthorization: (id: string): Promise<OAuthCallbackResult> => {
+  triggerOAuthAuthorization: (
+    id: string,
+    existingAuthWindow?: Window,
+  ): Promise<OAuthCallbackResult> => {
     const validId = validateServerId(id);
 
     return new Promise((resolve, reject) => {
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-
-      const authWindow = window.open(
-        "",
-        "oauth_authorization",
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`,
-      );
-
-      if (!authWindow) {
-        reject(
-          new Error(
-            "Failed to open OAuth authorization window. Please check your popup blocker settings.",
-          ),
-        );
+      const authWindow = existingAuthWindow ?? openOAuthAuthorizationPopup();
+      if (authWindow.closed) {
+        reject(new Error("OAuth authorization window was closed"));
         return;
       }
 
@@ -259,7 +314,7 @@ export const serversApi = {
           if (!settled) {
             settled = true;
             cleanup();
-            reject(new Error("OAuth authorization was cancelled"));
+            reject(new OAuthCancelledError());
           }
         }
       }, 1000);

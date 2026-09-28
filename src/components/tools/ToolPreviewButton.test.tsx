@@ -28,6 +28,23 @@ describe("ToolPreviewButton", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("does not run when the pre-run check fails", async () => {
+    const user = userEvent.setup();
+    const run = vi.fn();
+    const onBeforeRun = vi.fn(() => false);
+
+    render(
+      <ToolPreviewButton
+        preview={{ run, isLoading: false, hasRun: false }}
+        onBeforeRun={onBeforeRun}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(onBeforeRun).toHaveBeenCalledOnce();
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("renders the re-run state and respects external disablement", () => {
     render(
       <ToolPreviewButton preview={{ run: vi.fn(), isLoading: false, hasRun: true }} disabled />,

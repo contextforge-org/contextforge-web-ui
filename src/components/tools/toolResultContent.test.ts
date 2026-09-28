@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { ToolPreviewResponse } from "@/api/tools";
 import {
   codeLanguageForMime,
   estimateJsonByteSize,
@@ -61,7 +60,7 @@ describe("toolResultContent", () => {
         structured_output: { count: 1 },
         isError: true,
       },
-    } as ToolPreviewResponse;
+    };
 
     expect(getToolResultContentBlocks(response)).toHaveLength(1);
     expect(getToolStructuredOutput(response)).toEqual({ count: 1 });
@@ -82,7 +81,7 @@ describe("toolResultContent", () => {
         ],
         is_error: true,
       },
-    } as ToolPreviewResponse;
+    };
 
     const blocks = getToolResultContentBlocks(response);
 
@@ -99,19 +98,15 @@ describe("toolResultContent", () => {
   });
 
   it("handles empty payloads and alternate structured output names", () => {
-    expect(
-      getToolResultContentBlocks({ content: "not an array" } as unknown as ToolPreviewResponse),
-    ).toEqual([]);
-    expect(getToolResultContentBlocks({ output: { content: [] } } as ToolPreviewResponse)).toEqual(
-      [],
-    );
+    expect(getToolResultContentBlocks({ content: "not an array" })).toEqual([]);
+    expect(getToolResultContentBlocks({ output: { content: [] } })).toEqual([]);
     expect(
       getToolStructuredOutput({
         output: { structuredOutput: { status: "ok" } },
-      } as ToolPreviewResponse),
+      }),
     ).toEqual({ status: "ok" });
-    expect(getToolStructuredOutput({} as ToolPreviewResponse)).toBeUndefined();
-    expect(getToolResultIsError({ is_error: false } as ToolPreviewResponse)).toBe(false);
+    expect(getToolStructuredOutput({})).toBeUndefined();
+    expect(getToolResultIsError({ is_error: false })).toBe(false);
   });
 
   it("marks large blocks and formats byte sizes", () => {

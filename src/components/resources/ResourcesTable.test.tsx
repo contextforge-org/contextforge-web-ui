@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { ResourcesTable } from "./ResourcesTable";
 import * as clipboardUtils from "@/lib/clipboard";
 import type { ResourceRead } from "@/generated/types";
@@ -117,7 +117,7 @@ describe("ResourcesTable", () => {
     ];
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
-    expect(screen.getByText("resource://{id}")).toBeInTheDocument();
+    expect(screen.getByText(byTextContent("resource://{id}"))).toBeInTheDocument();
     expect(screen.queryByText("resource://plain")).not.toBeInTheDocument();
   });
 
@@ -130,7 +130,7 @@ describe("ResourcesTable", () => {
     render(<ResourcesTable resources={resources} onSelectResource={mockOnSelectResource} />);
 
     // truncateMiddle("very-long-resource-id-...", 18) → edgeLength=7 → "very-lo...-middle"
-    expect(screen.getByText("very-lo...-middle")).toBeInTheDocument();
+    expect(screen.getByText(byTextContent("very-lo...-middle"))).toBeInTheDocument();
   });
 
   it("calls onSelectResource when the name is clicked", async () => {

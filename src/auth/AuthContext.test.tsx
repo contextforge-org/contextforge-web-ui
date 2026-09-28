@@ -72,6 +72,9 @@ function RaceTestComponent() {
     <div>
       <div data-testid="auth-status">{auth.isAuthenticated ? "authenticated" : "guest"}</div>
       {auth.user && <div data-testid="user-email">{auth.user.email}</div>}
+      <div data-testid="sso-status">
+        {auth.ssoEnabled ? `enabled:${auth.ssoProviderName}` : "disabled"}
+      </div>
       <button
         onClick={() => {
           auth.login("test@example.com", "pass").catch(() => {});
@@ -316,11 +319,15 @@ describe("AuthContext", () => {
       authenticated: boolean;
       user?: typeof staleUser;
       csrfToken?: string;
+      ssoEnabled: boolean;
+      providerName?: string;
     }) => void;
     const sessionPromise = new Promise<{
       authenticated: boolean;
       user?: typeof staleUser;
       csrfToken?: string;
+      ssoEnabled: boolean;
+      providerName?: string;
     }>((resolve) => {
       resolveSession = resolve;
     });
@@ -341,10 +348,17 @@ describe("AuthContext", () => {
     // before letting the still-pending initial session check resolve.
     await waitFor(() => expect(setCsrfToken).toHaveBeenCalledWith(null));
 
-    resolveSession({ authenticated: true, user: staleUser, csrfToken: "stale-csrf-token" });
+    resolveSession({
+      authenticated: true,
+      user: staleUser,
+      csrfToken: "stale-csrf-token",
+      ssoEnabled: true,
+      providerName: "Keycloak",
+    });
 
-    // Give the now-stale resolution a tick to (not) take effect.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await waitFor(() => {
+      expect(screen.getByTestId("sso-status")).toHaveTextContent("enabled:Keycloak");
+    });
 
     expect(screen.getByTestId("auth-status")).toHaveTextContent("guest");
     expect(screen.queryByTestId("user-email")).not.toBeInTheDocument();

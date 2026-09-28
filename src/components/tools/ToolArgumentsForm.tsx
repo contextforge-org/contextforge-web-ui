@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { TruncatedDescription } from "./TruncatedDescription";
 
 export interface ToolArgumentsFormProps {
   schema: Record<string, unknown> | null | undefined;
   value: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
   onValidityChange?: (valid: boolean) => void;
+  validationAttempted?: boolean;
 }
 
 export interface FieldSpec {
@@ -132,12 +134,14 @@ export function ToolArgumentsForm({
   value,
   onChange,
   onValidityChange,
+  validationAttempted = false,
 }: ToolArgumentsFormProps) {
   const intl = useIntl();
   const spec = useMemo(() => buildFormSpec(schema), [schema]);
   const [rawJson, setRawJson] = useState(() => JSON.stringify(value, null, 2));
   const [rawError, setRawError] = useState<string | null>(null);
   const [arrayDrafts, setArrayDrafts] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(() => new Set());
   const errors = useMemo(
     () => (spec.complex ? {} : validateToolArguments(value, spec.fields)),
     [spec, value],
@@ -180,7 +184,7 @@ export function ToolArgumentsForm({
           value={rawJson}
           aria-invalid={rawError !== null}
           aria-label={intl.formatMessage({ id: "tools.details.preview.arguments.rawJson" })}
-          className="min-h-[180px] font-mono text-[12px]"
+          className="font-mono text-[12px]"
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
             const next = event.target.value;
             setRawJson(next);
@@ -222,10 +226,10 @@ export function ToolArgumentsForm({
       </div>
 
       {spec.fields.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={cn("grid gap-4", spec.fields.length > 1 && "md:grid-cols-2")}>
           {spec.fields.map((field) => {
             const key = field.path.join(".");
-            const error = errors[key];
+            const error = validationAttempted || touchedFields.has(key) ? errors[key] : undefined;
             return (
               <div key={key} className={cn("space-y-1.5", field.type === "boolean" && "pt-6")}>
                 <FieldControl
@@ -237,6 +241,14 @@ export function ToolArgumentsForm({
                   }
                   error={error}
                   onChange={(next) => updateField(field, next)}
+                  onTouched={() =>
+                    setTouchedFields((current) => {
+                      if (current.has(key)) return current;
+                      const next = new Set(current);
+                      next.add(key);
+                      return next;
+                    })
+                  }
                   onArrayTextChange={
                     field.type === "array" ? (next) => updateArrayField(field, next) : undefined
                   }
@@ -255,12 +267,14 @@ function FieldControl({
   value,
   error,
   onChange,
+  onTouched,
   onArrayTextChange,
 }: {
   field: FieldSpec;
   value: unknown;
   error?: string;
   onChange: (value: unknown) => void;
+  onTouched: () => void;
   onArrayTextChange?: (value: string) => void;
 }) {
   const intl = useIntl();
@@ -282,6 +296,7 @@ function FieldControl({
             id={id}
             checked={value === true}
             onCheckedChange={(checked) => onChange(checked === true)}
+            onBlur={onTouched}
           />
           {commonLabel}
         </div>
@@ -294,7 +309,16 @@ function FieldControl({
     return (
       <>
         {commonLabel}
-        <Select value={typeof value === "string" ? value : ""} onValueChange={onChange}>
+        <Select
+          value={typeof value === "string" ? value : ""}
+          onValueChange={(next) => {
+            onTouched();
+            onChange(next);
+          }}
+          onOpenChange={(open) => {
+            if (!open) onTouched();
+          }}
+        >
           <SelectTrigger id={id} className="w-full" aria-invalid={Boolean(error)}>
             <SelectValue
               placeholder={intl.formatMessage({
@@ -344,6 +368,7 @@ function FieldControl({
             : undefined
         }
         step={field.type === "integer" ? 1 : undefined}
+        onBlur={onTouched}
         onChange={(event: ChangeEvent<HTMLInputElement>) =>
           field.type === "array"
             ? onArrayTextChange?.(event.target.value)
@@ -367,12 +392,15 @@ function FieldMeta({
   errorId: string;
 }) {
   const intl = useIntl();
+
   return (
     <>
       {field.description && (
-        <p id={id} className="text-[12px] leading-4 text-muted-foreground">
-          {field.description}
-        </p>
+        <TruncatedDescription
+          text={field.description}
+          id={id}
+          className="text-[12px] leading-4 text-muted-foreground"
+        />
       )}
       {error && (
         <p id={errorId} className="text-[12px] leading-4 text-destructive" role="alert">

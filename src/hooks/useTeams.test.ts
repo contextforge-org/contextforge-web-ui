@@ -1,8 +1,10 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook as rtlRenderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import * as AuthContextModule from "@/auth/AuthContext";
 import type { Team } from "@/types/team";
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { resolveTeamId, useTeams, useTeamScope, type UseTeamScopeOptions } from "./useTeams";
 
 vi.mock("@/api/client", () => ({
@@ -12,6 +14,14 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/auth/AuthContext", () => ({
   useAuthContext: vi.fn(),
 }));
+
+const wrapper = ({ children }: { children: ReactNode }) =>
+  createElement(TeamsProvider, null, children);
+
+const renderHook = <Result, Props>(
+  render: (initialProps: Props) => Result,
+  options?: { initialProps?: Props },
+) => rtlRenderHook(render, { wrapper, ...options });
 
 const mockGet = vi.mocked(api.get);
 const mockUseAuthContext = vi.mocked(AuthContextModule.useAuthContext);

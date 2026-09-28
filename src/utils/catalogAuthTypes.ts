@@ -4,8 +4,9 @@ export const OPEN_AUTH_TYPE = "Open";
 // API-key auth as either "API Key" or "API". Both route to the same key-prompt
 // dialog (see ServerCatalog.tsx) and must present as a single filter/badge option.
 export const API_KEY_AUTH_TYPES = new Set(["API Key", "API"]);
+export const OAUTH_AUTH_TYPES = new Set(["OAuth", "OAuth2.1", "OAuth2.1 & API Key"]);
 
-export type AuthTypeGroupId = "open" | "apiKey";
+export type AuthTypeGroupId = "open" | "apiKey" | "oauth";
 
 interface AuthTypeGroup {
   id: AuthTypeGroupId;
@@ -20,6 +21,7 @@ const AUTH_TYPE_GROUPS: readonly AuthTypeGroup[] = [
     rawValues: [...API_KEY_AUTH_TYPES],
     labelId: "mcpServer.catalog.authType.apiKey",
   },
+  { id: "oauth", rawValues: [...OAUTH_AUTH_TYPES], labelId: "mcpServer.catalog.authType.oauth" },
 ];
 
 const RAW_AUTH_TYPE_TO_GROUP_ID = new Map<string, AuthTypeGroupId>(

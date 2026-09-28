@@ -23,6 +23,11 @@ export interface UpstreamAuthenticationResponse {
   user: SessionUser;
 }
 
+export interface SsoTokens {
+  refreshToken?: string;
+  idToken?: string;
+}
+
 /**
  * Thrown when the upstream auth response still reports
  * password_change_required=true. This is the single chokepoint every
@@ -47,6 +52,7 @@ export async function establishSession(
   request: FastifyRequest,
   reply: FastifyReply,
   auth: UpstreamAuthenticationResponse, // pragma: allowlist secret
+  ssoTokens?: SsoTokens,
 ): Promise<{ user: SessionUser; csrfToken: string }> {
   if (auth.user?.password_change_required === true) {
     throw new PasswordChangeStillRequiredError();
@@ -56,8 +62,12 @@ export async function establishSession(
   // the upstream JWT's own lifetime, not a fixed BFF-side default. See
   // createSession's comment in lib/session-store.ts.
   let ttlSeconds = config.sessionTtlSeconds;
+  // Separate from ttlSeconds' BFF-default fallback -- tokenExpiresAt must never
+  // borrow it and claim an unknown-lifetime access token is still valid.
+  let ssoTokenTtlSeconds = 0;
   if (Number.isFinite(auth.expires_in) && auth.expires_in! > 0) {
     ttlSeconds = auth.expires_in!;
+    ssoTokenTtlSeconds = auth.expires_in!;
   } else if (auth.expires_in !== undefined) {
     // Upstream sent expires_in, but it's not a usable positive number — fall
     // back, but log it: this means the BFF session can outlive the JWT it
@@ -72,7 +82,13 @@ export async function establishSession(
 
   const sessionId = await createSession(
     fastify.redis,
-    { bearerToken: auth.access_token, user: auth.user },
+    {
+      bearerToken: auth.access_token,
+      user: auth.user,
+      refreshToken: ssoTokens?.refreshToken,
+      idToken: ssoTokens?.idToken,
+      tokenExpiresAt: ssoTokens ? Math.floor(Date.now() / 1000) + ssoTokenTtlSeconds : undefined,
+    },
     ttlSeconds,
   );
 

@@ -24,6 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
+import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { api, ApiError } from "@/api/client";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
@@ -197,7 +198,12 @@ async function getAllGatewayComponents<T>(
 }
 
 function getComponentName(component: GatewayTool | GatewayResource | GatewayPrompt) {
-  return component.name || ("uri" in component ? component.uri : undefined) || component.id;
+  if (component.name) return { value: component.name, isUrlLike: false };
+
+  const uri = "uri" in component ? component.uri : undefined;
+  if (uri) return { value: uri, isUrlLike: true };
+
+  return { value: component.id, isUrlLike: false };
 }
 
 function getEditServerInitialValues(server: VirtualServer): CreateServerDetails {
@@ -310,7 +316,7 @@ function ComponentCheckboxRow({
   checked: boolean;
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
 }) {
-  const label = getComponentName(component);
+  const { value: label, isUrlLike } = getComponentName(component);
 
   return (
     <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-sm px-2 py-2 hover:bg-muted/40">
@@ -321,7 +327,15 @@ function ComponentCheckboxRow({
         }
         aria-label={`Select ${label}`}
       />
-      <TruncatedText className="min-w-0 flex-1 text-sm text-foreground">{label}</TruncatedText>
+      {isUrlLike ? (
+        <TruncatedMiddleText
+          value={label}
+          maxLength={40}
+          className="min-w-0 flex-1 text-sm text-foreground"
+        />
+      ) : (
+        <TruncatedText className="min-w-0 flex-1 text-sm text-foreground">{label}</TruncatedText>
+      )}
     </label>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Login } from "./Login";
 import { useAuth } from "../auth/useAuth";
@@ -224,5 +224,111 @@ describe("Login", () => {
     renderWithI18n(<Login />);
 
     expect(mockNavigate).toHaveBeenCalledWith("/app/tools?page=2");
+  });
+
+  describe("SSO", () => {
+    const originalPath = window.location.pathname + window.location.search;
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      window.history.replaceState(null, "", originalPath);
+    });
+
+    it("does not render an SSO button when ssoEnabled is false", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+        ssoEnabled: false,
+      } as unknown as ReturnType<typeof useAuth>);
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("button", { name: /Sign in with/i })).not.toBeInTheDocument();
+    });
+
+    it("does not render an SSO button when ssoEnabled/ssoProviderName are absent (session not yet resolved)", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("button", { name: /Sign in with/i })).not.toBeInTheDocument();
+    });
+
+    it("does not render an SSO button when ssoEnabled is true but ssoProviderName is absent", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+        ssoEnabled: true,
+        ssoProviderName: undefined,
+      } as unknown as ReturnType<typeof useAuth>);
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("button", { name: /Sign in with/i })).not.toBeInTheDocument();
+    });
+
+    it("renders and navigates via a full-page redirect when SSO is enabled", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+        ssoEnabled: true,
+        ssoProviderName: "Keycloak",
+      } as unknown as ReturnType<typeof useAuth>);
+      vi.stubGlobal("location", { ...window.location, href: "" });
+
+      renderWithI18n(<Login />);
+
+      const ssoButton = screen.getByRole("button", { name: /Sign in with Keycloak/i });
+      fireEvent.click(ssoButton);
+
+      expect(window.location.href).toBe("/auth/sso/login?next=%2Fapp%2F");
+    });
+
+    it("renders a visible error for an SSO callback failure without navigating further", async () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+      window.history.pushState({}, "", "/app/login?error=sso_access_denied");
+
+      renderWithI18n(<Login />);
+
+      expect(screen.getByRole("alert")).toHaveTextContent(/Single sign-on failed/i);
+      expect(mockNavigate).not.toHaveBeenCalled();
+
+      await waitFor(() => {
+        expect(window.location.search).toBe("");
+      });
+    });
+
+    it("ignores a non-SSO error param", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+      window.history.pushState({}, "", "/app/login?error=auth_failed");
+
+      renderWithI18n(<Login />);
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(window.location.search).toBe("?error=auth_failed");
+    });
+
+    it("strips the error param but keeps other query params (e.g. next) intact", async () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isAuthenticated: false,
+        login: mockLogin,
+      } as unknown as ReturnType<typeof useAuth>);
+      window.history.pushState({}, "", "/app/login?next=%2Fapp%2Ftools&error=sso_access_denied");
+
+      renderWithI18n(<Login />);
+
+      await waitFor(() => {
+        expect(window.location.search).toBe("?next=%2Fapp%2Ftools");
+      });
+    });
   });
 });

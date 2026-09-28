@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildToolCurl,
   buildToolJsonRpc,
+  buildToolPreviewCurl,
+  buildToolPreviewJson,
+  buildToolPreviewPython,
+  buildToolPreviewTypescript,
   buildToolPython,
   buildToolTypescript,
   TOOL_SNIPPET_MCP_VERSION,
@@ -28,6 +32,47 @@ describe("buildToolSnippets", () => {
         arguments: { query: "can't reproduce", limit: 5, dryRun: false },
       },
     });
+  });
+
+  it("includes server_id in scoped tools/call snippets", () => {
+    const scopedInput = { ...input, serverId: "virtual-server-1" };
+
+    expect(JSON.parse(buildToolJsonRpc(scopedInput))).toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "gateway.search_issues",
+        server_id: "virtual-server-1",
+        arguments: { query: "can't reproduce", limit: 5, dryRun: false },
+      },
+    });
+    expect(buildToolCurl(scopedInput)).toContain('"server_id":"virtual-server-1"');
+    expect(buildToolPython(scopedInput)).toContain('\\"server_id\\": \\"virtual-server-1\\"');
+    expect(buildToolTypescript(scopedInput)).toContain('server_id: "virtual-server-1"');
+  });
+
+  it("builds scoped preview snippets for the versioned endpoint", () => {
+    const scopedInput = { ...input, serverId: "virtual-server-1" };
+
+    expect(JSON.parse(buildToolPreviewJson(scopedInput))).toEqual({
+      arguments: { query: "can't reproduce", limit: 5, dryRun: false },
+      server_id: "virtual-server-1",
+    });
+    expect(buildToolPreviewCurl(scopedInput)).toContain(
+      "$MCPGATEWAY_URL/v1/tools/preview/gateway.search_issues",
+    );
+    expect(buildToolPreviewCurl(scopedInput)).toContain('"server_id":"virtual-server-1"');
+    expect(buildToolPreviewPython(scopedInput)).toContain(
+      "/v1/tools/preview/gateway.search_issues",
+    );
+    expect(buildToolPreviewTypescript(scopedInput)).toContain('server_id":"virtual-server-1');
+  });
+
+  it("URL-encodes tool names in preview snippet paths", () => {
+    expect(buildToolPreviewCurl({ ...input, toolName: "gateway.tool name" })).toContain(
+      "/v1/tools/preview/gateway.tool%20name",
+    );
   });
 
   it("targets a real gateway placeholder instead of the browser BFF path", () => {

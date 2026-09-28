@@ -261,7 +261,7 @@ describe("ALL /api/*", () => {
       url: "/auth/session",
       headers: { cookie },
     });
-    expect(followUp.json()).toEqual({ authenticated: false });
+    expect(followUp.json()).toEqual({ authenticated: false, ssoEnabled: false });
   });
 
   it("does not revoke the session on a plain 403 (valid session, insufficient permissions)", async () => {

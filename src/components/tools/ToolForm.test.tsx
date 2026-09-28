@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -44,7 +45,9 @@ function renderForm(props: Partial<React.ComponentProps<typeof ToolForm>> = {}) 
     <AuthProvider>
       <I18nProvider>
         <TooltipProvider>
-          <ToolForm isOpen={true} onToggle={vi.fn()} onSuccess={vi.fn()} {...props} />
+          <TeamsProvider>
+            <ToolForm isOpen={true} onToggle={vi.fn()} onSuccess={vi.fn()} {...props} />
+          </TeamsProvider>
         </TooltipProvider>
       </I18nProvider>
     </AuthProvider>,
@@ -247,7 +250,9 @@ describe("ToolForm", () => {
         <AuthProvider>
           <I18nProvider>
             <TooltipProvider>
-              <ToolForm isOpen={true} onToggle={onToggle} />
+              <TeamsProvider>
+                <ToolForm isOpen={true} onToggle={onToggle} />
+              </TeamsProvider>
             </TooltipProvider>
           </I18nProvider>
         </AuthProvider>,

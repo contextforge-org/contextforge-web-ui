@@ -247,6 +247,36 @@ describe("ServerActionsMenu", () => {
     });
   });
 
+  describe("Edit and Delete gating", () => {
+    it("does not display Edit when onEdit is not provided", async () => {
+      const user = userEvent.setup();
+
+      render(<ServerActionsMenu server={mockServer} onDelete={vi.fn()} onViewDetails={vi.fn()} />);
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /^edit$/i })).not.toBeInTheDocument();
+    });
+
+    it("does not display Delete when onDelete is not provided", async () => {
+      const user = userEvent.setup();
+
+      render(<ServerActionsMenu server={mockServer} onEdit={vi.fn()} onViewDetails={vi.fn()} />);
+
+      const menuButton = screen.getByRole("button", { name: /actions for test server/i });
+      await user.click(menuButton);
+
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: /^edit$/i })).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("menuitem", { name: /delete/i })).not.toBeInTheDocument();
+    });
+  });
+
   describe("Refresh functionality", () => {
     it("renders Refresh item when onRefresh is provided", async () => {
       const user = userEvent.setup();

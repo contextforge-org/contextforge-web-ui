@@ -2,5 +2,11 @@
   "settings.title": "Settings",
   "settings.tabs.apiTokens": "API tokens",
   "settings.tabs.users": "Users",
-  "settings.tabs.teams": "Teams"
+  "settings.tabs.teams": "Teams",
+  "settings.tabs.sso": "SSO",
+  "settings.sso.statusLabel": "Status",
+  "settings.sso.statusEnabled": "Enabled",
+  "settings.sso.statusDisabled": "Disabled",
+  "settings.sso.providerLabel": "Provider",
+  "settings.sso.hint": "SSO is configured via environment variables on the server. This page is read-only."
 }

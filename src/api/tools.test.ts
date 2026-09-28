@@ -44,7 +44,7 @@ describe("toolsApi", () => {
   });
 
   describe("preview", () => {
-    it("POSTs arguments to /tools/preview/:name with passthrough headers", async () => {
+    it("POSTs arguments to /v1/tools/preview/:name with passthrough headers", async () => {
       const body = {
         resolved_arguments: { query: "cloudflare" },
         target: "local",
@@ -66,7 +66,7 @@ describe("toolsApi", () => {
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/tools/preview/search.issues"),
+        expect.stringContaining("/v1/tools/preview/search.issues"),
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify({ arguments: { query: "cloudflare" } }),
@@ -78,6 +78,32 @@ describe("toolsApi", () => {
         }),
       );
       expect(result).toEqual({ preview: body, status: 200 });
+    });
+
+    it("includes server_id only for scoped previews", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ target: "local" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await toolsApi.preview(
+        "github.search_issues",
+        { query: "cloudflare" },
+        {},
+        { serverId: "virtual-server-1" },
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/v1/tools/preview/github.search_issues"),
+        expect.objectContaining({
+          body: JSON.stringify({
+            arguments: { query: "cloudflare" },
+            server_id: "virtual-server-1",
+          }),
+        }),
+      );
     });
 
     it("accepts prompt-style MCP names with spaces, dots, hyphens, and underscores", async () => {
@@ -175,6 +201,46 @@ describe("toolsApi", () => {
         status: 200,
         id: "invoke-denied",
       });
+    });
+
+    it("includes server_id for scoped live invokes", async () => {
+      const body = {
+        jsonrpc: "2.0",
+        id: "invoke-scoped",
+        result: {
+          content: [{ type: "text", text: "scoped", mimeType: "text/plain" }],
+        },
+      };
+      mockFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await toolsApi.invoke(
+        "github.search_issues",
+        { query: "cloudflare" },
+        {},
+        { requestId: "invoke-scoped", serverId: "virtual-server-1" },
+      );
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/rpc"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "invoke-scoped",
+            method: "tools/call",
+            params: {
+              name: "github.search_issues",
+              server_id: "virtual-server-1",
+              arguments: { query: "cloudflare" },
+            },
+          }),
+        }),
+      );
     });
 
     it("throws ToolInvokeJsonRpcError for malformed JSON-RPC success bodies", async () => {

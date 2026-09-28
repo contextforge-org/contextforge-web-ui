@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderWithProviders as render } from "@/test/test-utils";
+import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { ToolDetailsPanel } from "./ToolDetailsPanel";
 import type { Tool } from "@/types/tool";
 
@@ -128,7 +128,7 @@ describe("ToolDetailsPanel", () => {
 
     expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Definition", selected: false })).toBeInTheDocument();
-    expect(screen.getByText("Tool preview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tools" })).toBeInTheDocument();
   });
 
   it.each([undefined, "", "   "])(
@@ -371,7 +371,7 @@ describe("ToolDetailsPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("https://api.example.com")).toBeInTheDocument();
+      expect(screen.getByText(byTextContent("https://api.example.com"))).toBeInTheDocument();
     });
 
     expect(screen.getByLabelText("Copy URL")).toBeInTheDocument();

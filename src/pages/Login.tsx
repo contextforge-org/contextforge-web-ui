@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { useAuth } from "../auth/useAuth";
 import { useRouter, resolveNextParam } from "../router";
@@ -10,19 +10,36 @@ import { Label } from "@/components/ui/label";
 
 export function Login() {
   const intl = useIntl();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, ssoEnabled, ssoProviderName } = useAuth();
   const { navigate } = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const returnTo = resolveNextParam(window.location.search);
+  const ssoErrorParam = useMemo(() => {
+    const param = new URLSearchParams(window.location.search).get("error");
+    return param?.startsWith("sso_") ? param : null;
+  }, []);
+  const [error, setError] = useState<string | null>(() =>
+    ssoErrorParam ? intl.formatMessage({ id: "auth.login.error.ssoFailed" }) : null,
+  );
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate(returnTo);
     }
   }, [isAuthenticated, navigate, returnTo]);
+
+  useEffect(() => {
+    if (!ssoErrorParam) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, [ssoErrorParam]);
+
+  function handleSsoLogin() {
+    window.location.href = `/auth/sso/login?next=${encodeURIComponent(returnTo)}`;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,6 +122,23 @@ export function Login() {
               : intl.formatMessage({ id: "auth.login.submit" })}
           </Button>
         </form>
+        {ssoEnabled && ssoProviderName && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <span className="w-full border-t border-neutral-200 dark:border-neutral-700" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white dark:bg-neutral-800 px-2 text-neutral-500 dark:text-neutral-400">
+                  {intl.formatMessage({ id: "auth.login.sso.divider" })}
+                </span>
+              </div>
+            </div>
+            <Button type="button" variant="outline" onClick={handleSsoLogin} className="w-full">
+              {intl.formatMessage({ id: "auth.login.sso.signIn" }, { provider: ssoProviderName })}
+            </Button>
+          </>
+        )}
         <div className="mt-4 text-center">
           <Button
             type="button"

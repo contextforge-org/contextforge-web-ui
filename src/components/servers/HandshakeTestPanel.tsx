@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
+import { Callout } from "../ui/callout";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { JsonHighlighter } from "../ui/json-highlighter";
 import { CopyButton } from "../ui/copy-button";
-import { TruncatedText } from "../ui/truncated-text";
+import { TruncatedMiddleText } from "../ui/truncated-middle-text";
 import { testVirtualServerHandshake } from "@/api/virtualServers";
 import type { GatewayHandshakeResponse } from "@/generated/types";
 import { parseApiError } from "@/lib/errorUtils";
@@ -228,7 +229,7 @@ function ComponentRow({
             "flex min-w-0 items-start justify-start gap-1.5 text-left",
             "max-[599px]:min-w-44 max-[599px]:flex-1",
             "min-[1024px]:max-[1200px]:min-w-44 min-[1024px]:max-[1200px]:flex-1",
-            mismatch ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+            mismatch ? "text-warning-foreground" : "text-muted-foreground",
           )}
           title={
             mismatch
@@ -457,14 +458,14 @@ function HandshakeResultPanel({
         </div>
       )}
       {mismatchKeys.length > 0 && (
-        <p className="flex items-start gap-1.5 text-[13px] text-amber-700 dark:text-amber-400">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            {intl.formatMessage({
-              id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
-            })}
-          </span>
-        </p>
+        // Nested inside this panel's own role="status"/"alert" live region above,
+        // so this stays a plain note rather than a second live region that could
+        // trigger duplicate screen-reader announcements.
+        <Callout severity="warning" role="note">
+          {intl.formatMessage({
+            id: "mcpServer.testConnection.virtualServer.countMismatchBanner",
+          })}
+        </Callout>
       )}
 
       {/* Failure class + actionable copy */}
@@ -620,9 +621,11 @@ export function HandshakeTestPanel({
         </Label>
         <div className="flex items-center gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <TruncatedText className="min-w-0 font-mono text-sm text-foreground">
-              {serverUrl}
-            </TruncatedText>
+            <TruncatedMiddleText
+              value={serverUrl}
+              maxLength={48}
+              className="min-w-0 font-mono text-sm text-foreground"
+            />
             <CopyButton
               value={serverUrl}
               label={intl.formatMessage(

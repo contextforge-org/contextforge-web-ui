@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -36,7 +37,7 @@ vi.mock("@/hooks/useMCPServerForm", async (importOriginal) => {
 // Mock API responses for ExposeComponentsForm and gateway creation
 const server = setupServer(
   http.get("/auth/session", () => {
-    return HttpResponse.json({ authenticated: false });
+    return HttpResponse.json({ authenticated: false, ssoEnabled: false });
   }),
   // Mock gateway creation
   http.post("/api/v1/mcp-servers", () => {
@@ -123,7 +124,9 @@ describe("MCPServerForm", () => {
     return render(
       <AuthProvider>
         <I18nProvider>
-          <RouterProvider>{ui}</RouterProvider>
+          <TeamsProvider>
+            <RouterProvider>{ui}</RouterProvider>
+          </TeamsProvider>
         </I18nProvider>
       </AuthProvider>,
     );
