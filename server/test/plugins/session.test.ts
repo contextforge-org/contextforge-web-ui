@@ -1,0 +1,552 @@
+// Location: ./client/server/test/plugins/session.test.ts
+// Copyright contributors to the MCP-CONTEXT-FORGE project
+// SPDX-License-Identifier: Apache-2.0
+
+import Fastify, { type FastifyInstance } from "fastify";
+import { type Redis } from "ioredis";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { createSession } from "../../src/lib/session-store.js";
+import cookiePlugin from "../../src/plugins/cookie.js";
+import sessionPlugin from "../../src/plugins/session.js";
+import { FakeRedis } from "../helpers/build-app.js";
+
+const ENV_KEYS = [
+  "SSO_ENABLED",
+  "SSO_KEYCLOAK_BASE_URL",
+  "SSO_KEYCLOAK_REALM",
+  "SSO_KEYCLOAK_CLIENT_ID",
+  "SSO_KEYCLOAK_CLIENT_SECRET",
+] as const;
+
+const ISSUER = "http://keycloak-internal:8080/realms/mcp-gateway";
+const TOKEN_ENDPOINT = `${ISSUER}/protocol/openid-connect/token`;
+
+let savedEnv: Record<string, string | undefined>;
+
+beforeEach(() => {
+  savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    if (savedEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = savedEnv[key];
+  }
+  vi.unstubAllGlobals();
+});
+
+interface TestApp {
+  fastify: FastifyInstance;
+  redis: FakeRedis;
+}
+
+async function buildApp(plugin: typeof sessionPlugin): Promise<TestApp> {
+  const fastify = Fastify();
+  const redis = new FakeRedis();
+  fastify.decorate("redis", redis as unknown as Redis);
+  await fastify.register(cookiePlugin);
+  await fastify.register(plugin);
+  fastify.get("/protected", { preHandler: [fastify.sessionAuth] }, async (request) => ({
+    session: request.session,
+  }));
+  await fastify.ready();
+  return { fastify, redis };
+}
+
+// config.ts reads SSO_* env vars at import time -- same reset-modules
+// pattern as auth.test.ts's withSsoEnabled.
+async function withSsoEnabled<T>(run: () => Promise<T>): Promise<T> {
+  process.env.SSO_ENABLED = "true";
+  process.env.SSO_KEYCLOAK_BASE_URL = "http://keycloak-internal:8080";
+  process.env.SSO_KEYCLOAK_REALM = "mcp-gateway";
+  process.env.SSO_KEYCLOAK_CLIENT_ID = "contextforge-web-ui";
+  process.env.SSO_KEYCLOAK_CLIENT_SECRET = "dev-secret"; // pragma: allowlist secret
+  vi.resetModules();
+  try {
+    return await run();
+  } finally {
+    for (const key of ENV_KEYS) delete process.env[key];
+    vi.resetModules();
+  }
+}
+
+function mockDiscoveryAndRefresh(opts: { refreshOk: boolean; expiresIn?: number }): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      const href = String(url);
+      if (href.startsWith(`${ISSUER}/.well-known`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            issuer: ISSUER,
+            authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
+            token_endpoint: TOKEN_ENDPOINT,
+            jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
+          }),
+        };
+      }
+      if (href === TOKEN_ENDPOINT) {
+        if (!opts.refreshOk) {
+          return { ok: false, status: 400, json: async () => ({ error: "invalid_grant" }) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: "new-access-token", // pragma: allowlist secret
+            refresh_token: "new-refresh-token", // pragma: allowlist secret
+            expires_in: opts.expiresIn ?? 300,
+          }),
+        };
+      }
+      throw new Error(`unexpected fetch url in test: ${href}`);
+    }),
+  );
+}
+
+describe("sessionAuth", () => {
+  it("401s unauthenticated with no session cookie", async () => {
+    const app = await buildApp(sessionPlugin);
+
+    const response = await app.fastify.inject({ method: "GET", url: "/protected" });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: "unauthenticated" });
+  });
+
+  it("401s session_expired for an unknown session id", async () => {
+    const app = await buildApp(sessionPlugin);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/protected",
+      headers: { cookie: "bff_sid=nonexistent" },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: "session_expired" });
+  });
+
+  it("populates request.session for a valid password-login session", async () => {
+    const app = await buildApp(sessionPlugin);
+    const sessionId = await createSession(
+      app.redis,
+      { bearerToken: "upstream-jwt", user: { email: "user@example.com" } }, // pragma: allowlist secret
+      900,
+    );
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/protected",
+      headers: { cookie: `bff_sid=${sessionId}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      session: { sessionId, bearerToken: "upstream-jwt", user: { email: "user@example.com" } },
+    });
+  });
+
+  it("never attempts a refresh for a password-login session (no refreshToken)", async () => {
+    const app = await buildApp(sessionPlugin);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const sessionId = await createSession(
+      app.redis,
+      { bearerToken: "upstream-jwt", user: { email: "user@example.com" } }, // pragma: allowlist secret
+      900,
+    );
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/protected",
+      headers: { cookie: `bff_sid=${sessionId}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("transparently refreshes a near-expiry SSO session and updates the record in place", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession, getSession } =
+        await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "old-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now + 10, // inside the 30s default leeway
+        },
+        900,
+      );
+      mockDiscoveryAndRefresh({ refreshOk: true, expiresIn: 300 });
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        session: { sessionId, bearerToken: "new-access-token" },
+      });
+      const stored = await getSession(app.redis, sessionId);
+      expect(stored?.bearerToken).toBe("new-access-token");
+      expect(stored?.refreshToken).toBe("new-refresh-token");
+      expect(stored?.tokenExpiresAt).toBeGreaterThanOrEqual(now + 300);
+    });
+  });
+
+  it("re-issues the session cookie with the new TTL on a successful refresh", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "old-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900, // original cookie's own maxAge, from a much shorter first login
+      );
+      mockDiscoveryAndRefresh({ refreshOk: true, expiresIn: 300 });
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // Without this, the browser drops bff_sid once the *original* login's
+      // maxAge elapses, even though Redis has been kept fresh by refreshes.
+      const cookie = response.cookies.find((c) => c.name === "bff_sid");
+      expect(cookie?.value).toBe(sessionId);
+      expect(cookie?.maxAge).toBe(300);
+    });
+  });
+
+  it("locks concurrent refresh attempts so only one Keycloak refresh call happens", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "old-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+
+      let tokenEndpointCalls = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const href = String(url);
+          if (href.startsWith(`${ISSUER}/.well-known`)) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                issuer: ISSUER,
+                authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
+                token_endpoint: TOKEN_ENDPOINT,
+                jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
+              }),
+            };
+          }
+          if (href === TOKEN_ENDPOINT) {
+            tokenEndpointCalls += 1;
+            // Simulated latency so the second request genuinely finds the
+            // lock held, not just wins a race by luck.
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                access_token: "new-access-token", // pragma: allowlist secret
+                refresh_token: "new-refresh-token", // pragma: allowlist secret
+                expires_in: 300,
+              }),
+            };
+          }
+          throw new Error(`unexpected fetch url in test: ${href}`);
+        }),
+      );
+
+      const [first, second] = await Promise.all([
+        app.fastify.inject({
+          method: "GET",
+          url: "/protected",
+          headers: { cookie: `bff_sid=${sessionId}` },
+        }),
+        app.fastify.inject({
+          method: "GET",
+          url: "/protected",
+          headers: { cookie: `bff_sid=${sessionId}` },
+        }),
+      ]);
+
+      expect(first.statusCode).toBe(200);
+      expect(second.statusCode).toBe(200);
+      // Not 2 -- a single-use/rotating refresh_token would reject the loser
+      // of an unlocked race with invalid_grant.
+      expect(tokenEndpointCalls).toBe(1);
+    });
+  });
+
+  it("does not attempt a refresh for an SSO session that isn't near expiry", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "refresh-token", // pragma: allowlist secret
+          idToken: "id-token", // pragma: allowlist secret
+          tokenExpiresAt: now + 300,
+        },
+        900,
+      );
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("401s like an unrefreshable session when Keycloak rejects the refresh_token", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "revoked-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+      mockDiscoveryAndRefresh({ refreshOk: false });
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ error: "session_expired" });
+    });
+  });
+
+  it("falls back to the pre-refresh token when the refresh POST itself is unreachable (discovery succeeds)", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const href = String(url);
+          if (href.startsWith(`${ISSUER}/.well-known`)) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                issuer: ISSUER,
+                authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
+                token_endpoint: TOKEN_ENDPOINT,
+                jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
+              }),
+            };
+          }
+          throw new Error("keycloak token endpoint unreachable");
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        session: { sessionId, bearerToken: "old-access-token" },
+      });
+    });
+  });
+
+  it("backs off a short window, not an immediate re-trigger, when a refresh response omits expires_in", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession, getSession } =
+        await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "old-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const href = String(url);
+          if (href.startsWith(`${ISSUER}/.well-known`)) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({
+                issuer: ISSUER,
+                authorization_endpoint: `${ISSUER}/protocol/openid-connect/auth`,
+                token_endpoint: TOKEN_ENDPOINT,
+                jwks_uri: `${ISSUER}/protocol/openid-connect/certs`,
+              }),
+            };
+          }
+          if (href === TOKEN_ENDPOINT) {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => ({ access_token: "new-access-token" }), // pragma: allowlist secret
+            };
+          }
+          throw new Error(`unexpected fetch url in test: ${href}`);
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const stored = await getSession(app.redis, sessionId);
+      // Not "now" (storm on every next request) and not sessionTtlSeconds
+      // (hours) -- a short, fixed backoff.
+      expect(stored?.tokenExpiresAt).toBeGreaterThan(now);
+      expect(stored?.tokenExpiresAt).toBeLessThan(now + 120);
+    });
+  });
+
+  it("falls back to the pre-refresh token (not 401) when discovery is unreachable during a refresh attempt", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new Error("keycloak unreachable");
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      // Unreachable discovery is transient -- says nothing about the
+      // refresh token itself, so this request still succeeds.
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        session: { sessionId, bearerToken: "old-access-token" },
+      });
+    });
+  });
+
+  it("leaves a password-login session unaffected even when SSO is enabled", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        { bearerToken: "upstream-jwt", user: { email: "user@example.com" } }, // pragma: allowlist secret
+        900,
+      );
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+});

@@ -77,12 +77,12 @@ describe("updateSessionTokens", () => {
       },
       900,
     );
-    const before = Math.floor(Date.now() / 1000);
+    const tokenExpiresAt = Math.floor(Date.now() / 1000) + 300;
 
     const wrote = await updateSessionTokens(
       redis,
       sessionId,
-      { bearerToken: "new-at", refreshToken: "new-rt", idToken: "new-idt" }, // pragma: allowlist secret
+      { bearerToken: "new-at", refreshToken: "new-rt", idToken: "new-idt", tokenExpiresAt }, // pragma: allowlist secret
       300,
     );
 
@@ -91,8 +91,7 @@ describe("updateSessionTokens", () => {
     expect(stored?.bearerToken).toBe("new-at");
     expect(stored?.refreshToken).toBe("new-rt");
     expect(stored?.idToken).toBe("new-idt");
-    expect(stored?.tokenExpiresAt).toBeGreaterThanOrEqual(before + 300);
-    expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before + 305);
+    expect(stored?.tokenExpiresAt).toBe(tokenExpiresAt);
     // user (and everything else on the record) is untouched by a token refresh.
     expect(stored?.user).toEqual({ email: "user@example.com", auth_provider: "sso" });
   });
@@ -110,7 +109,8 @@ describe("updateSessionTokens", () => {
       900,
     );
 
-    await updateSessionTokens(redis, sessionId, { bearerToken: "new-at" }, 300); // pragma: allowlist secret
+    const tokenExpiresAt = Math.floor(Date.now() / 1000) + 300;
+    await updateSessionTokens(redis, sessionId, { bearerToken: "new-at", tokenExpiresAt }, 300); // pragma: allowlist secret
 
     const stored = await getSession(redis, sessionId);
     expect(stored?.refreshToken).toBe("stays-the-same-rt");
@@ -123,7 +123,7 @@ describe("updateSessionTokens", () => {
     const wrote = await updateSessionTokens(
       redis,
       "gone-id",
-      { bearerToken: "new-at" }, // pragma: allowlist secret
+      { bearerToken: "new-at", tokenExpiresAt: Math.floor(Date.now() / 1000) + 300 }, // pragma: allowlist secret
       300,
     );
 

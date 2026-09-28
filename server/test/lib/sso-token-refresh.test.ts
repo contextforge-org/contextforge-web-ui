@@ -114,6 +114,7 @@ describe("refreshSsoSession", () => {
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
     expect((err as Error).message).not.toContain("invalid_grant");
   });
 
@@ -123,15 +124,17 @@ describe("refreshSsoSession", () => {
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("rejected");
     expect((err as Error).message).toContain("invalid_grant");
   });
 
-  it("never leaks the token endpoint URL in the error message", async () => {
+  it("never leaks the token endpoint URL in the error message, and treats a 5xx as unreachable (not rejected)", async () => {
     mockTokenFetch({}, false, 500);
     const { refreshSsoSession, SsoTokenRefreshError } = await freshImport();
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
     expect((err as Error).message).not.toContain(PARAMS.tokenEndpoint);
   });
 

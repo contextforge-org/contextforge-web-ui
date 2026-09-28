@@ -24,6 +24,9 @@ export interface RedisLike {
   // second concurrent caller's get() can still observe the value.
   getdel(key: string): Promise<string | null>;
   setex(key: string, ttlSeconds: number, value: string): Promise<unknown>;
+  // Atomic lock acquire (ioredis's own SET key value PX ms NX signature) --
+  // "OK" only if the key was absent; PX auto-releases an abandoned lock.
+  set(key: string, value: string, mode: "PX", ttlMs: number, flag: "NX"): Promise<"OK" | null>;
   del(key: string): Promise<unknown>;
   publish(channel: string, message: string): Promise<unknown>;
 }
@@ -55,6 +58,11 @@ export function sessionRedisKey(sessionId: string): string {
 /** Publish channel for cross-instance revocation (see routes/sse/revocation-subscriber.ts). */
 export function sessionRevokedChannel(sessionId: string): string {
   return `${config.redisKeyPrefix}:session:revoked:${sessionId}`;
+}
+
+/** Cross-instance lock so concurrent requests don't race a token refresh (see plugins/session.ts). */
+export function sessionRefreshLockKey(sessionId: string): string {
+  return `${config.redisKeyPrefix}:session-refresh-lock:${sessionId}`;
 }
 
 // TTL defaults to config.sessionTtlSeconds, but callers should pass the
@@ -95,7 +103,7 @@ export async function getSession(
 export async function updateSessionTokens(
   redis: RedisLike,
   sessionId: string,
-  tokens: { bearerToken: string; refreshToken?: string; idToken?: string },
+  tokens: { bearerToken: string; refreshToken?: string; idToken?: string; tokenExpiresAt: number },
   ttlSeconds: number,
 ): Promise<boolean> {
   const existing = await getSession(redis, sessionId);
@@ -106,7 +114,7 @@ export async function updateSessionTokens(
     bearerToken: tokens.bearerToken,
     refreshToken: tokens.refreshToken ?? existing.refreshToken,
     idToken: tokens.idToken ?? existing.idToken,
-    tokenExpiresAt: Math.floor(Date.now() / 1000) + ttlSeconds,
+    tokenExpiresAt: tokens.tokenExpiresAt,
   };
   await redis.setex(sessionRedisKey(sessionId), ttlSeconds, JSON.stringify(updated));
   return true;

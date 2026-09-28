@@ -45,6 +45,18 @@ export class FakeRedis {
     return "OK";
   }
 
+  async set(
+    key: string,
+    value: string,
+    _mode: "PX",
+    _ttlMs: number,
+    flag: "NX",
+  ): Promise<"OK" | null> {
+    if (flag === "NX" && this.store.has(key)) return null;
+    this.store.set(key, value);
+    return "OK";
+  }
+
   async del(key: string): Promise<number> {
     return this.store.delete(key) ? 1 : 0;
   }
