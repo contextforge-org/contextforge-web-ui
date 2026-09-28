@@ -49,6 +49,15 @@ describe("InlineNotification", () => {
     });
   });
 
+  describe("warning type", () => {
+    it("renders with role='status' and the warning tone", () => {
+      render(<InlineNotification type="warning" message="Careful" />);
+
+      expect(screen.getByRole("status")).toHaveTextContent("Careful");
+      expect(screen.getByText("Careful")).toHaveClass("text-warning");
+    });
+  });
+
   describe("info type", () => {
     it("renders with role='status' and neutral text", () => {
       render(<InlineNotification type="info" message="Disconnect pending" />);

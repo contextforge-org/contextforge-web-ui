@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
 import { renderWithProviders as render } from "@/test/test-utils";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
-import { resolveToolLiveInvokeAvailability, ToolLiveInvokeGate } from "./ToolLiveInvokeGate";
+import {
+  getToolLiveInvokeToggleVisibility,
+  resolveToolLiveInvokeAvailability,
+  ToolLiveInvokeGate,
+} from "./ToolLiveInvokeGate";
 
 const mockHasPermission = vi.fn((_perm: string) => true);
 let mockPermissionsLoading = false;
@@ -169,6 +174,47 @@ describe("resolveToolLiveInvokeAvailability", () => {
       }),
     ).toEqual({ state: "unavailableUntagged" });
   });
+
+  it("reports a permissions load failure ahead of the individual permission checks", () => {
+    expect(
+      resolveToolLiveInvokeAvailability({
+        canExecute: false,
+        canUseServers: false,
+        permissionsLoading: false,
+        permissionsError: true,
+        tool: { annotations: { readOnlyHint: true }, gatewayId: null },
+      }),
+    ).toEqual({ state: "permissionsError" });
+  });
+});
+
+describe("getToolLiveInvokeToggleVisibility", () => {
+  it("hides the toggle only when the caller lacks a required permission", () => {
+    expect(
+      getToolLiveInvokeToggleVisibility({
+        state: "missingPermission",
+        permission: "tools.execute",
+      }),
+    ).toBe("hidden");
+    expect(
+      getToolLiveInvokeToggleVisibility({ state: "missingPermission", permission: "servers.use" }),
+    ).toBe("hidden");
+  });
+
+  it("shows the toggle enabled once invocation is safe", () => {
+    expect(getToolLiveInvokeToggleVisibility({ state: "available" })).toBe("enabled");
+    expect(getToolLiveInvokeToggleVisibility({ state: "requiresConfirmation" })).toBe("enabled");
+  });
+
+  it("shows the toggle disabled with a reason for every other unavailable state", () => {
+    expect(getToolLiveInvokeToggleVisibility({ state: "checkingAccess" })).toBe("disabled");
+    expect(getToolLiveInvokeToggleVisibility({ state: "permissionsError" })).toBe("disabled");
+    expect(getToolLiveInvokeToggleVisibility({ state: "unavailableInvalidGateway" })).toBe(
+      "disabled",
+    );
+    expect(getToolLiveInvokeToggleVisibility({ state: "unavailableFederated" })).toBe("disabled");
+    expect(getToolLiveInvokeToggleVisibility({ state: "unavailableUntagged" })).toBe("disabled");
+  });
 });
 
 describe("ToolLiveInvokeGate", () => {
@@ -176,6 +222,10 @@ describe("ToolLiveInvokeGate", () => {
     mockHasPermission.mockReset();
     mockHasPermission.mockReturnValue(true);
     mockPermissionsLoading = false;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("runs immediately for read-only tools", async () => {
@@ -216,7 +266,7 @@ describe("ToolLiveInvokeGate", () => {
         invoke={makeInvoke({ hasRun: true })}
       />,
     );
-    expect(screen.getByRole("button", { name: "Re-run tool" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Re-invoke tool" })).toBeInTheDocument();
   });
 
   it("does not run or confirm when the pre-run check fails", async () => {
@@ -300,18 +350,55 @@ describe("ToolLiveInvokeGate", () => {
     mockPermissionsLoading = false;
   });
 
-  it("cancels active live invokes", async () => {
-    const user = userEvent.setup();
-    const invoke = makeInvoke({ isLoading: true });
-    render(
+  it("reveals cancellation only after an invoke has been running for a few seconds", () => {
+    vi.useFakeTimers();
+    const invoke = makeInvoke();
+    const { rerender } = render(
       <ToolLiveInvokeGate
         tool={makeTool({ annotations: { readOnlyHint: true } })}
         invoke={invoke}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Cancel request" }));
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={{ ...invoke, isLoading: true }}
+      />,
+    );
+    const cancelAnnouncement = screen.getByRole("status");
+    expect(cancelAnnouncement).toHaveAttribute("aria-live", "polite");
+    expect(cancelAnnouncement).toHaveAttribute("aria-atomic", "true");
+    expect(cancelAnnouncement).toBeEmptyDOMElement();
+    expect(screen.getByRole("button", { name: "Invoking..." })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
 
+    act(() => {
+      vi.advanceTimersByTime(TOOL_CANCEL_REVEAL_DELAY_MS - 1);
+    });
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(cancelAnnouncement).toHaveTextContent("Cancel request");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel request" }));
     expect(invoke.stopWaiting).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ isLoading: false, hasRun: true })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
+
+    rerender(
+      <ToolLiveInvokeGate
+        tool={makeTool({ annotations: { readOnlyHint: true } })}
+        invoke={makeInvoke({ isLoading: true, hasRun: true })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
   });
 });

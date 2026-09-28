@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StatusIndicator } from "@/components/ui/status-indicator";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getAuthTypeGroupId, getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
@@ -30,6 +31,7 @@ import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
 const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthGatewayStatus>> = {};
+const EMPTY_ADD_ERRORS: Readonly<Record<string, string>> = {};
 
 function getOAuthCardState(server: CatalogServer, status?: OAuthGatewayStatus) {
   const tokenState = status?.user_token_status?.status;
@@ -77,6 +79,8 @@ function CatalogCard({
   canTest,
   canDisconnect,
   oauthStatuses,
+  addError,
+  onAddErrorRead,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
@@ -90,6 +94,10 @@ function CatalogCard({
   canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
+  addError?: string;
+  /** Called once the reason has been read, which is what retires the error. */
+  onAddErrorRead?: () => void;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -97,6 +105,7 @@ function CatalogCard({
   const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const pendingDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const shouldTransferAddFocusRef = useRef(false);
+  const shouldRestoreErrorFocusRef = useRef(false);
   const oauthState = getOAuthCardState(
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
@@ -116,6 +125,21 @@ function CatalogCard({
       shouldTransferAddFocusRef.current = false;
     }
   }, [isAdding, server.is_registered]);
+
+  // Retiring the error unmounts the trigger the popover returns focus to.
+  useEffect(() => {
+    if (addError || !shouldRestoreErrorFocusRef.current) return;
+    shouldRestoreErrorFocusRef.current = false;
+
+    const timeoutId = window.setTimeout(() => {
+      const trigger = addTriggerRef.current;
+      if (!trigger) return;
+      const { activeElement, body } = trigger.ownerDocument;
+      if (activeElement === null || activeElement === body) trigger.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [addError]);
 
   return (
     <li className="min-w-0">
@@ -278,6 +302,32 @@ function CatalogCard({
                   <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
                 </Button>
               )}
+
+              {!server.is_registered && addError && !isAdding && (
+                <StatusIndicator
+                  Icon={STATUS_ICON.error}
+                  iconClassName={STATUS_TONE_CLASS.error}
+                  labelClassName="text-foreground"
+                  className="ml-2"
+                  label={intl.formatMessage({ id: "mcpServer.catalog.addFailed.short" })}
+                  fullLabel={intl.formatMessage({ id: "mcpServer.catalog.addFailed.label" })}
+                  triggerAriaLabel={intl.formatMessage(
+                    { id: "mcpServer.catalog.addFailed.trigger" },
+                    { name: server.name },
+                  )}
+                  contentAriaLabel={intl.formatMessage(
+                    { id: "mcpServer.catalog.addFailed.detail" },
+                    { name: server.name },
+                  )}
+                  onOpenChange={(open) => {
+                    if (open) return;
+                    shouldRestoreErrorFocusRef.current = true;
+                    onAddErrorRead?.();
+                  }}
+                >
+                  <p className="break-words text-sm text-foreground">{addError}</p>
+                </StatusIndicator>
+              )}
             </div>
           </CardContent>
         </article>
@@ -375,6 +425,8 @@ export function CatalogResults({
   canTest,
   canDisconnect,
   oauthStatuses = EMPTY_OAUTH_STATUSES,
+  addErrors = EMPTY_ADD_ERRORS,
+  onAddErrorRead,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -389,6 +441,8 @@ export function CatalogResults({
   canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  addErrors?: Readonly<Record<string, string>>;
+  onAddErrorRead?: (serverId: string) => void;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -418,6 +472,8 @@ export function CatalogResults({
               canTest={canTest}
               canDisconnect={canDisconnect}
               oauthStatuses={oauthStatuses}
+              addError={addErrors[server.id]}
+              onAddErrorRead={onAddErrorRead && (() => onAddErrorRead(server.id))}
             />
           ))}
         </ul>

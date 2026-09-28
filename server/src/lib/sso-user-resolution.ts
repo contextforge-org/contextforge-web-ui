@@ -34,9 +34,16 @@ export interface SsoIdTokenClaims {
 }
 
 export class SsoIdTokenError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  // Set only where the callback route needs to react differently by cause
+  // (see resolveSsoUser) -- undefined for the generic parse/verify failures.
+  readonly code?: "email_missing" | "email_unverified";
+  constructor(
+    message: string,
+    options?: { cause?: unknown; code?: "email_missing" | "email_unverified" },
+  ) {
     super(message, options);
     this.name = "SsoIdTokenError";
+    this.code = options?.code;
   }
 }
 
@@ -216,13 +223,13 @@ export async function verifySsoIdToken(idToken: string): Promise<SsoIdTokenClaim
 // AuthContext.tsx's own hasPermission caveat) -- SSO never grants it directly.
 export function resolveSsoUser(claims: SsoIdTokenClaims): SessionUser {
   if (typeof claims.email !== "string" || !claims.email) {
-    throw new SsoIdTokenError("ID token has no email claim");
+    throw new SsoIdTokenError("ID token has no email claim", { code: "email_missing" });
   }
   // An unverified email is federated/self-reported and can collide with an
   // existing account -- trusting it here would let an attacker take over
   // another user's account just by claiming their address at the IdP.
   if (claims.email_verified !== true) {
-    throw new SsoIdTokenError("ID token email is not verified");
+    throw new SsoIdTokenError("ID token email is not verified", { code: "email_unverified" });
   }
 
   const fullName =

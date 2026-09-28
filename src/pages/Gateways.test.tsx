@@ -145,7 +145,9 @@ describe("Gateways", () => {
     expect(mockUseQuery).toHaveBeenCalledWith(
       "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true",
     );
-    expect(mockUseQuery).toHaveBeenCalledTimes(1);
+    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query.
+    const listCalls = mockUseQuery.mock.calls.filter(([path]) => path !== "/teams");
+    expect(listCalls).toHaveLength(1);
   });
 
   it("hides the connect-source card when the caller lacks servers.create", () => {

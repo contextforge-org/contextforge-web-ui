@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { createElement, type FormEvent, type ReactNode } from "react";
 import { IntlProvider } from "react-intl";
 import { act, renderHook as rtlRenderHook, waitFor } from "@testing-library/react";
@@ -38,7 +39,7 @@ const wrapper = ({ children }: { children: ReactNode }) =>
   createElement(
     IntlProvider,
     { locale: "en", defaultLocale: "en", messages: enMessages },
-    children,
+    createElement(TeamsProvider, null, children),
   );
 
 const renderHook = <Result, Props>(render: (initialProps: Props) => Result) =>

@@ -42,6 +42,10 @@ export interface SessionUser {
 export interface SessionRecord {
   bearerToken: string;
   user: SessionUser;
+  // SSO-only; undefined for password-login sessions.
+  refreshToken?: string;
+  idToken?: string;
+  tokenExpiresAt?: number;
 }
 
 export function sessionRedisKey(sessionId: string): string {
@@ -81,6 +85,31 @@ export async function getSession(
   } catch {
     return null;
   }
+}
+
+// Re-persists a session's tokens in place after an SSO token refresh -- same
+// session id, so the browser's cookie never needs to change. Keycloak doesn't
+// always rotate the refresh token on every use, so a field the refresh
+// response omits keeps its previous value rather than being wiped. Returns
+// false (no write) if the session was deleted (logout, expiry) mid-refresh.
+export async function updateSessionTokens(
+  redis: RedisLike,
+  sessionId: string,
+  tokens: { bearerToken: string; refreshToken?: string; idToken?: string },
+  ttlSeconds: number,
+): Promise<boolean> {
+  const existing = await getSession(redis, sessionId);
+  if (!existing) return false;
+
+  const updated: SessionRecord = {
+    ...existing,
+    bearerToken: tokens.bearerToken,
+    refreshToken: tokens.refreshToken ?? existing.refreshToken,
+    idToken: tokens.idToken ?? existing.idToken,
+    tokenExpiresAt: Math.floor(Date.now() / 1000) + ttlSeconds,
+  };
+  await redis.setex(sessionRedisKey(sessionId), ttlSeconds, JSON.stringify(updated));
+  return true;
 }
 
 export async function deleteSession(redis: RedisLike, sessionId: string): Promise<void> {

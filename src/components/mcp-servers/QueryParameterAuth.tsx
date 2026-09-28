@@ -1,8 +1,8 @@
 import { useIntl } from "react-intl";
 import type { ReactNode } from "react";
+import { Callout } from "@/components/ui/callout";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { STATUS_ICON } from "@/lib/status";
 
 interface QueryParameterAuthProps {
   parameterName: string;
@@ -21,18 +21,14 @@ export function QueryParameterAuth({
 
   return (
     <div className="space-y-4">
-      {/* Security Warning */}
-      <div className="flex items-center gap-3 rounded-md bg-neutral-50 px-3 py-5 dark:bg-neutral-800">
-        <STATUS_ICON.warning className="h-5 w-5 shrink-0 text-warning" />
-        <p className="text-sm text-neutral-700 dark:text-neutral-300">
-          {intl.formatMessage(
-            { id: "mcpServer.auth.query.warning" },
-            {
-              strong: (chunks: ReactNode) => <span className="font-semibold">{chunks}</span>,
-            },
-          )}
-        </p>
-      </div>
+      <Callout severity="warning">
+        {intl.formatMessage(
+          { id: "mcpServer.auth.query.warning" },
+          {
+            strong: (chunks: ReactNode) => <span className="font-semibold">{chunks}</span>,
+          },
+        )}
+      </Callout>
 
       <Field
         id="query-param-name"

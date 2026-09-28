@@ -1,3 +1,4 @@
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("sonner", () => ({
@@ -67,7 +68,9 @@ function renderWithRouter(ui: ReactElement, path = "/app/tools") {
     <AuthProvider>
       <RouterProvider>
         <I18nProvider>
-          <TooltipProvider>{ui}</TooltipProvider>
+          <TooltipProvider>
+            <TeamsProvider>{ui}</TeamsProvider>
+          </TooltipProvider>
         </I18nProvider>
       </RouterProvider>
     </AuthProvider>,
