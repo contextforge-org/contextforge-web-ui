@@ -4,15 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "@/i18n";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AuthProvider } from "@/auth/AuthContext";
+import { TeamsProvider } from "@/hooks/TeamsProvider";
 import { TeamSwitcher } from "./TeamSwitcher";
 
 function renderTeamSwitcher() {
   return render(
     <AuthProvider>
       <I18nProvider>
-        <SidebarProvider>
-          <TeamSwitcher />
-        </SidebarProvider>
+        <TeamsProvider>
+          <SidebarProvider>
+            <TeamSwitcher />
+          </SidebarProvider>
+        </TeamsProvider>
       </I18nProvider>
     </AuthProvider>,
   );

@@ -559,37 +559,36 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     expect(screen.queryByRole("menuitem", { name: "Test" })).not.toBeInTheDocument();
   });
 
-  it.each([
-    { permissions: ["servers.use"], message: "Live invoke requires tools.execute." },
-    { permissions: ["tools.execute"], message: "Live invoke requires servers.use." },
-  ])("keeps Preview available when $message", async ({ permissions, message }) => {
-    const user = userEvent.setup();
-    authMock.permissions = permissions;
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
-    mswServer.use(
-      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [makeTool()] })),
-    );
+  it.each([{ permissions: ["servers.use"] }, { permissions: ["tools.execute"] }])(
+    "keeps Preview available and hides the live invocation toggle when missing a permission ($permissions)",
+    async ({ permissions }) => {
+      const user = userEvent.setup();
+      authMock.permissions = permissions;
+      vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
+      mswServer.use(
+        http.get("*/v1/virtual-servers/:id/tools", () =>
+          HttpResponse.json({ tools: [makeTool()] }),
+        ),
+      );
 
-    render(
-      <VirtualServerDetailsPanel
-        server={makeServer({ id: "virtual-server-1" })}
-        error={null}
-        open
-        onClose={vi.fn()}
-        onAddSources={vi.fn()}
-      />,
-    );
+      render(
+        <VirtualServerDetailsPanel
+          server={makeServer({ id: "virtual-server-1" })}
+          error={null}
+          open
+          onClose={vi.fn()}
+          onAddSources={vi.fn()}
+        />,
+      );
 
-    await openToolTest(user, "Search issues");
+      await openToolTest(user, "Search issues");
 
-    await user.type(screen.getByLabelText(/query/i), "cloudflare");
-    expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
-    expect(screen.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "Live invocation" })).toHaveAccessibleDescription(
-      `Writes, external requests, and quota use happen immediately. ${message}`,
-    );
-    expect(screen.getByText(message)).toBeInTheDocument();
-  });
+      await user.type(screen.getByLabelText(/query/i), "cloudflare");
+      expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
+      expect(screen.queryByRole("switch", { name: "Live invocation" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Live invocation")).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe("VirtualServerDetailsPanel render variants", () => {

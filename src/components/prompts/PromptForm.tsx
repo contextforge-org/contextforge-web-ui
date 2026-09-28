@@ -192,7 +192,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                   onChange={(e) => form.setTemplate(e.target.value)}
                   placeholder={intl.formatMessage({ id: "prompts.add.placeholder.template" })}
                   disabled={isFederated}
-                  className="min-h-[96px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                  className="focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
                 />
               )}
             </Field>
@@ -210,7 +210,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                   onBlur={(e) => form.validateField("arguments", e.target.value)}
                   placeholder={intl.formatMessage({ id: "prompts.add.placeholder.arguments" })}
                   disabled={isFederated}
-                  className="min-h-[116px] resize-y font-mono text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                  className="font-mono text-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
                 />
               )}
             </Field>
@@ -226,7 +226,7 @@ export function PromptForm({ isOpen, onToggle, onSuccess, prompt }: PromptFormPr
                   onChange={(e) => form.setDescription(e.target.value)}
                   placeholder={intl.formatMessage({ id: "prompts.add.placeholder.description" })}
                   disabled={isFederated}
-                  className="min-h-[60px] resize-y focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+                  className="focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
                 />
               )}
             </Field>

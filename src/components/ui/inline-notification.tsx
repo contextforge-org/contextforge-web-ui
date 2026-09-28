@@ -1,10 +1,10 @@
 import { forwardRef } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
+import { STATUS_ICON, STATUS_TONE_CLASS, type StatusSeverity } from "@/lib/status";
 
 interface InlineNotificationProps {
-  type: "success" | "error" | "info";
+  type: StatusSeverity;
   message: string;
   action?: {
     label: string;

@@ -1428,6 +1428,9 @@ test.describe("Virtual Servers page", () => {
 
       await panel.getByRole("switch", { name: "Live invocation" }).click();
       await expect(panel.getByText(/Live invocation is enabled/)).toBeVisible();
+      await expect(
+        panel.getByRole("status").filter({ hasText: /Live invocation is enabled/ }),
+      ).toBeVisible();
       await expect(panel.getByRole("button", { name: "Invoke tool" })).toBeVisible();
       await panel.getByRole("button", { name: "Invoke tool" }).click();
 
@@ -1460,8 +1463,8 @@ test.describe("Virtual Servers page", () => {
       await page.waitForLoadState("networkidle");
       const panel = await openVirtualServerToolTest(page);
 
-      await expect(panel.getByText("Live invoke requires tools.execute.")).toBeVisible();
-      await expect(panel.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+      await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+      await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
       await panel.getByLabel("query").fill("cloudflare");
       await expect(panel.getByRole("button", { name: "Preview" })).toBeEnabled();
     });
@@ -1498,8 +1501,8 @@ test.describe("Virtual Servers page", () => {
       await page.waitForLoadState("networkidle");
       const panel = await openVirtualServerToolTest(page);
 
-      await expect(panel.getByText("Live invoke requires servers.use.")).toBeVisible();
-      await expect(panel.getByRole("switch", { name: "Live invocation" })).toBeDisabled();
+      await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
+      await expect(panel.getByText("Live invocation", { exact: true })).toHaveCount(0);
       await panel.getByLabel("query").fill("cloudflare");
       await expect(panel.getByRole("button", { name: "Preview" })).toBeEnabled();
     });
