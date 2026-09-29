@@ -122,11 +122,37 @@ are generated automatically on first boot — no manual step needed:
 docker compose -f docker-compose.yml -f docker-compose.tls.yml run --rm cert_init
 ```
 
-This is the first piece of TLS support for the stack
-([#7031](https://github.com/IBM/mcp-context-forge/issues/7031)). TLS
-termination (`nginx_tls`, `npm run compose:tls`, `https://localhost:8443`)
-lands in a follow-up PR — this section will grow to cover the full HTTPS
-stack once that's in.
+### Running the stack over HTTPS
+
+`npm run compose:tls` brings the stack up at `https://localhost:8443`
+behind a local `nginx_tls` reverse proxy (`nginx:alpine`, config in
+`infra/nginx/tls.conf.template`), which terminates TLS with the cert from
+`cert_init` above and proxies to the app over plain HTTP on the docker
+network. No `.env` edits needed — the override sets `COOKIE_SECURE=true`,
+`TRUST_PROXY=true` and `PUBLIC_ORIGIN=https://localhost:8443` on the `app`
+service itself.
+
+```bash
+npm run compose:tls
+# https://localhost:8443 — accept the self-signed cert warning once
+npm run compose:tls:down
+```
+
+- Plain HTTP still works on `:8080` (proxied, not redirected, by default).
+  Set `NGINX_FORCE_HTTPS=true` before `compose:tls` to make `:8080` return
+  a 301 to `:8443` instead.
+- Only TLS 1.2 and 1.3 are accepted; no `Strict-Transport-Security` header
+  is sent (it would pin `localhost` to HTTPS in your browser).
+- SSE (streamed tool responses) is proxied unbuffered with a long read
+  timeout, so long-lived streams survive past nginx's normal timeouts.
+- The app's `:3000` port stays published alongside `:8443` — see
+  [#7031](https://github.com/IBM/mcp-context-forge/issues/7031)'s "Out of
+  scope" for why that's harmless rather than a leftover to clean up.
+
+This covers certs and TLS termination
+([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories 1–2).
+Follow-up PRs add the BFF trusting the cert for its own outbound calls to
+Keycloak/the gateway, Keycloak served over HTTPS, and TLS coverage in CI.
 
 ## Production checklist
 
