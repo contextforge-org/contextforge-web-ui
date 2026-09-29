@@ -7,10 +7,10 @@
 # top of this file.
 services:
   cert_init:
-    image: alpine:3
+    image: registry.access.redhat.com/ubi9/ubi-minimal@sha256:beeada7dd17903dfb69fd5f6916c054720bf28a52daaa2f7a1910a1394244bd2
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "apk add --no-cache openssl >/dev/null && sh /gen-certs.sh /certs"
+      - "microdnf install -y openssl >/dev/null 2>&1 && sh /gen-certs.sh /certs"
     volumes:
       - ./scripts/gen-certs.sh:/gen-certs.sh:ro
       - ./certs:/certs
