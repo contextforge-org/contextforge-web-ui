@@ -15,6 +15,8 @@
 
 import { EventEmitter } from "node:events";
 
+import type { RedisLike } from "./session-store.js";
+
 export const MEMORY_REDIS_URL_PREFIX = "memory://";
 
 export function isMemoryRedisUrl(url: string): boolean {
@@ -61,8 +63,39 @@ export class MemoryRedis extends EventEmitter {
     return entry.value;
   }
 
+  // Mirrors ioredis's SET key value PX ms NX signature (atomic lock acquire).
+  async set(
+    key: string,
+    value: string,
+    _mode: "PX",
+    ttlMs: number,
+    flag: "NX",
+  ): Promise<"OK" | null> {
+    const existing = store.get(key);
+    if (flag === "NX" && existing && !isExpired(existing)) return null;
+    store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    return "OK";
+  }
+
   async del(key: string): Promise<number> {
     return store.delete(key) ? 1 : 0;
+  }
+
+  // ponytail: only implements the one compare-and-delete script this app
+  // issues (see UNLOCK_SCRIPT in plugins/session.ts), not general Lua --
+  // MemoryRedis is dev-only and that's the sole script ever passed here.
+  // Safe without a real atomic guarantee: no `await` runs between the read
+  // and the delete, so nothing else in this single-threaded process can
+  // interleave.
+  async eval(_script: string, numKeys: number, ...args: Array<string | number>): Promise<unknown> {
+    const key = String(args[0]);
+    const expected = String(args[numKeys]);
+    const entry = store.get(key);
+    if (entry && !isExpired(entry) && entry.value === expected) {
+      store.delete(key);
+      return 1;
+    }
+    return 0;
   }
 
   async publish(channel: string, message: string): Promise<number> {
@@ -97,3 +130,13 @@ export class MemoryRedis extends EventEmitter {
     return "OK";
   }
 }
+
+// plugins/redis.ts decorates fastify.redis with a MemoryRedis instance via
+// `as unknown as FastifyInstance["redis"]`, which bypasses structural
+// checking against the real ioredis type -- MemoryRedis can never fully
+// satisfy that (hundreds of commands). This is the one place a MemoryRedis
+// method actually falling behind RedisLike (session-store.ts's calling
+// contract) would otherwise go unnoticed until it 500s at runtime instead of
+// failing `tsc`.
+const _redisLikeCheck: RedisLike = new MemoryRedis();
+void _redisLikeCheck;

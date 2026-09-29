@@ -28,6 +28,13 @@ export interface RedisLike {
   // "OK" only if the key was absent; PX auto-releases an abandoned lock.
   set(key: string, value: string, mode: "PX", ttlMs: number, flag: "NX"): Promise<"OK" | null>;
   del(key: string): Promise<unknown>;
+  // Atomic Lua eval (ioredis's own `eval(script, numkeys, ...keys, ...args)`)
+  // -- used for compare-and-delete lock release (see UNLOCK_SCRIPT in
+  // plugins/session.ts). An unconditional DEL would let a second lock holder
+  // (whose lock was acquired after this one's PX TTL auto-expired while this
+  // holder's own refresh ran long) have its lock deleted by this holder's
+  // delayed release.
+  eval(script: string, numKeys: number, ...args: Array<string | number>): Promise<unknown>;
   publish(channel: string, message: string): Promise<unknown>;
 }
 

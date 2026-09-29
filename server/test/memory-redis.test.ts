@@ -33,6 +33,26 @@ describe("MemoryRedis", () => {
     }
   });
 
+  it("set(...,'PX',ttl,'NX') only succeeds when the key is absent or expired", async () => {
+    const redis = new MemoryRedis();
+    expect(await redis.set("lock1", "a", "PX", 60_000, "NX")).toBe("OK");
+    expect(await redis.set("lock1", "b", "PX", 60_000, "NX")).toBeNull();
+    expect(await redis.get("lock1")).toBe("a");
+  });
+
+  it("eval only deletes when the stored value matches (compare-and-delete lock release)", async () => {
+    const redis = new MemoryRedis();
+    await redis.set("lock2", "holder-a", "PX", 60_000, "NX");
+
+    // Wrong token -- simulates a second lock holder's value; must survive.
+    expect(await redis.eval("unused", 1, "lock2", "holder-b")).toBe(0);
+    expect(await redis.get("lock2")).toBe("holder-a");
+
+    // Matching token -- this holder's own release.
+    expect(await redis.eval("unused", 1, "lock2", "holder-a")).toBe(1);
+    expect(await redis.get("lock2")).toBeNull();
+  });
+
   it("delivers publish() to a matching psubscribe() pattern across instances", async () => {
     const subscriber = new MemoryRedis();
     const publisher = new MemoryRedis();

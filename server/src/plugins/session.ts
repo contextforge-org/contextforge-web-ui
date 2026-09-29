@@ -7,6 +7,8 @@
 // per-route (proxy/auth/SSE), not globally — SSE routes need different CSRF
 // treatment, and /healthz and /auth/login must stay unauthenticated.
 
+import { randomUUID } from "node:crypto";
+
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 
@@ -31,6 +33,24 @@ const SSO_TOKEN_REFRESH_FALLBACK_SECONDS = 60;
 const REFRESH_LOCK_TTL_MS = 12_000;
 const REFRESH_LOCK_POLL_MS = 100;
 const REFRESH_LOCK_MAX_WAIT_MS = 3_000;
+
+// Compare-and-delete: only release a lock this holder itself acquired. An
+// unconditional DEL would let a second holder's lock (acquired after this
+// one's PX TTL auto-expired while this holder's own refresh ran long) be
+// deleted by this holder's delayed `finally`, opening a window for a third
+// holder to race a concurrent refresh_token grant against the same rotating
+// token.
+const UNLOCK_SCRIPT = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+`;
+
+// Short backoff after a confirmed-unreachable IdP so every request during an
+// outage doesn't each pay a fresh discovery+refresh round trip.
+const UNREACHABLE_COOLDOWN_SECONDS = 5;
 
 function needsRefresh(record: SessionRecord): boolean {
   if (!record.refreshToken || record.tokenExpiresAt === undefined) return false;
@@ -92,7 +112,30 @@ async function refreshRecord(
       err instanceof OidcDiscoveryError;
     if (isTransient) {
       request.log.warn({ err }, "SSO token refresh unreachable -- using pre-refresh token");
-      return record;
+      // Persist a short cooldown so every request during an outage doesn't
+      // each retrigger discovery+refresh; without this, needsRefresh() stays
+      // true on the unchanged tokenExpiresAt and every subsequent request
+      // pays the full timeout again until Keycloak recovers. needsRefresh()
+      // fires whenever tokenExpiresAt is within the leeway window, so the
+      // cooldown has to clear that leeway too, not just add a few seconds
+      // to the (already-passed) real expiry.
+      const cooldownExpiresAt =
+        Math.floor(Date.now() / 1000) +
+        config.ssoTokenRefreshLeewaySeconds +
+        UNREACHABLE_COOLDOWN_SECONDS;
+      const wrote = await updateSessionTokens(
+        request.server.redis,
+        sessionId,
+        {
+          bearerToken: record.bearerToken,
+          refreshToken: record.refreshToken,
+          idToken: record.idToken,
+          tokenExpiresAt: cooldownExpiresAt,
+        },
+        config.sessionTtlSeconds,
+      );
+      if (!wrote) return null;
+      return { ...record, tokenExpiresAt: cooldownExpiresAt };
     }
     request.log.warn({ err }, "SSO token refresh failed");
     return null;
@@ -108,7 +151,14 @@ async function refreshRecordWithLock(
   record: SessionRecord,
 ): Promise<SessionRecord | null> {
   const lockKey = sessionRefreshLockKey(sessionId);
-  const acquired = await request.server.redis.set(lockKey, "1", "PX", REFRESH_LOCK_TTL_MS, "NX");
+  const lockToken = randomUUID();
+  const acquired = await request.server.redis.set(
+    lockKey,
+    lockToken,
+    "PX",
+    REFRESH_LOCK_TTL_MS,
+    "NX",
+  );
 
   if (!acquired) {
     const deadline = Date.now() + REFRESH_LOCK_MAX_WAIT_MS;
@@ -118,16 +168,19 @@ async function refreshRecordWithLock(
       if (!current) return null;
       if (!needsRefresh(current)) return current;
     }
-    // Gave up waiting -- use the pre-refresh record rather than 401 over
-    // lock contention; the next request gets another chance.
+    // Gave up waiting on the lock holder. Re-check rather than trust the
+    // pre-refresh record blindly -- if it's still expired, force re-auth
+    // instead of handing back a token that'll just 401 upstream.
     request.log.warn({ sessionId }, "SSO token refresh lock wait timed out");
-    return record;
+    const latest = await getSession(request.server.redis, sessionId);
+    if (!latest) return null;
+    return needsRefresh(latest) ? null : latest;
   }
 
   try {
     return await refreshRecord(request, reply, sessionId, record);
   } finally {
-    await request.server.redis.del(lockKey);
+    await request.server.redis.eval(UNLOCK_SCRIPT, 1, lockKey, lockToken);
   }
 }
 
