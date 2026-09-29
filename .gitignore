@@ -25,6 +25,9 @@ server/.env
 !.env.example
 !server/.env.example
 
+# Self-signed TLS certs (npm run certs / docker-compose.tls.yml)
+certs/
+
 # Alternative package manager lock files
 pnpm-lock.yaml
 yarn.lock

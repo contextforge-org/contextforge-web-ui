@@ -101,6 +101,33 @@ the compose default). If you see the `memory-redis` warning in
 `docker compose logs app` and didn't ask for it, check `.env` isn't
 setting `REDIS_URL=memory://`.
 
+## Local TLS (self-signed certs)
+
+`npm run certs` generates a self-signed cert/key pair for local HTTPS
+testing, written to `./certs/cert.pem` and `./certs/key.pem` (gitignored,
+never committed). It's idempotent — safe to re-run, and it refuses to
+overwrite a cert you've placed there yourself.
+
+```bash
+npm run certs
+```
+
+The cert covers `localhost`, `127.0.0.1`, and the internal service names
+this stack's TLS setup uses (`app`, `keycloak`, `gateway`, `nginx`), and is
+valid for 365 days. `docker-compose.tls.yml` adds a `cert_init` one-shot
+service that runs the same script inside the TLS compose stack, so certs
+are generated automatically on first boot — no manual step needed:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tls.yml run --rm cert_init
+```
+
+This is the first piece of TLS support for the stack
+([#7031](https://github.com/IBM/mcp-context-forge/issues/7031)). TLS
+termination (`nginx_tls`, `npm run compose:tls`, `https://localhost:8443`)
+lands in a follow-up PR — this section will grow to cover the full HTTPS
+stack once that's in.
+
 ## Production checklist
 
 Before this leaves a laptop:
