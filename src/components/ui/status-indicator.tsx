@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,7 +23,7 @@ interface StatusIndicatorProps {
   contentAriaLabel?: string;
   size?: "xs" | "sm";
   /** Popover contents. Without them the indicator has nothing to open and stays plain text. */
-  children?: ReactNode;
+  children?: ReactElement;
   /** Fires on open and on close, for a caller that treats reading the popover as an action. */
   onOpenChange?: (open: boolean) => void;
   className?: string;
