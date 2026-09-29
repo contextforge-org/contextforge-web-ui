@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     healthcheck:
       # nginx:alpine ships busybox wget, not curl.
-      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://127.0.0.1/healthz"]
       interval: 10s
       timeout: 3s
       retries: 5
