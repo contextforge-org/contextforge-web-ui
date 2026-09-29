@@ -1,0 +1,17 @@
+# TLS override for docker-compose.yml — opt-in via
+# `docker compose -f docker-compose.yml -f docker-compose.tls.yml ...`
+# (a plain `docker compose up` is unaffected by this file).
+#
+# For now this only generates a self-signed cert into ./certs on first
+# boot. A later story adds `nginx_tls` (TLS termination for the BFF) on
+# top of this file.
+services:
+  cert_init:
+    image: alpine:3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "apk add --no-cache openssl >/dev/null && sh /gen-certs.sh /certs"
+    volumes:
+      - ./scripts/gen-certs.sh:/gen-certs.sh:ro
+      - ./certs:/certs
+    restart: "no"
