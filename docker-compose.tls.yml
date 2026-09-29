@@ -21,8 +21,10 @@ services:
   nginx_tls:
     image: nginx:alpine
     ports:
-      - "8443:443"
-      - "8080:80"
+      # Loopback-only: keeps the TLS stack reachable from this machine
+      # without exposing it to the rest of the local network.
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:8080:80"
     environment:
       NGINX_FORCE_HTTPS: ${NGINX_FORCE_HTTPS:-false}
     volumes:
@@ -39,6 +41,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
 
   app:
