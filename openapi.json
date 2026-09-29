@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ContextForge",
-    "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.10+ (ref: af4eeca)"
+    "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
+    "version": "1.0.11+aac1bf"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -5908,7 +5908,7 @@
           "Servers"
         ],
         "summary": "Test Server Mcp Handshake",
-        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL — it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
         "operationId": "test_server_mcp_handshake_v1_servers__server_id__test_handshake_post",
         "security": [
           {
@@ -7756,7 +7756,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "List Tool Plugin Bindings",
-        "description": "List all tool plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings)\n    True",
+        "description": "List all tool plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings)\n    True",
         "operationId": "list_tool_plugin_bindings_v1_tools_plugin_bindings__get",
         "security": [
           {
@@ -7825,7 +7825,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "Delete Tool Plugin Bindings By Reference",
-        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched \u2014 not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_tool_plugin_bindings_by_reference)\n    True",
+        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched — not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_tool_plugin_bindings_by_reference)\n    True",
         "operationId": "delete_tool_plugin_bindings_by_reference_v1_tools_plugin_bindings__delete",
         "security": [
           {
@@ -7892,7 +7892,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "List Tool Plugin Bindings For Team",
-        "description": "List all tool plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings_for_team)\n    True",
+        "description": "List all tool plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings_for_team)\n    True",
         "operationId": "list_tool_plugin_bindings_for_team_v1_tools_plugin_bindings__team_id__get",
         "security": [
           {
@@ -9085,6 +9085,860 @@
                   "additionalProperties": true,
                   "title": "Response Invoke A2A Agent Jsonrpc V1 A2A  Agent Name  Jsonrpc Post"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/traces": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "List Traces",
+        "description": "List traces with optional filtering.\n\nQuery traces with various filters including time range, duration, status, HTTP method,\nHTTP status code, user email, and attribute search. Results are paginated.\n\nNote: For structured attribute filtering (key-value pairs with AND logic),\nuse a JSON request body via POST endpoint or the Python SDK.\n\nArgs:\n    start_time: Filter traces after this time\n    end_time: Filter traces before this time\n    min_duration_ms: Minimum duration in milliseconds\n    max_duration_ms: Maximum duration in milliseconds\n    status: Filter by status (ok, error)\n    http_status_code: Filter by HTTP status code\n    http_method: Filter by HTTP method (GET, POST, etc.)\n    user_email: Filter by user email\n    attribute_search: Free-text search across all trace attributes\n    limit: Maximum results\n    offset: Result offset\n    db: Database session\n\nReturns:\n    List[ObservabilityTraceRead]: List of traces matching filters\n\nExamples:\n    >>> import asyncio\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> class FakeTrace:\n    ...     def __init__(self, trace_id='t1'):\n    ...         self.trace_id = trace_id\n    ...         self.name = 'n'\n    ...         self.start_time = None\n    ...         self.end_time = None\n    ...         self.duration_ms = 100\n    ...         self.status = 'ok'\n    ...         self.http_method = 'GET'\n    ...         self.http_url = '/'\n    ...         self.http_status_code = 200\n    ...         self.user_email = 'u'\n    >>> class FakeService:\n    ...     def query_traces(self, **kwargs):\n    ...         return [FakeTrace('t1')]\n    >>> obs.ObservabilityService = FakeService\n    >>> async def run_list_traces():\n    ...     traces = await obs.list_traces(db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return traces[0].trace_id\n    >>> asyncio.run(run_list_traces())\n    't1'",
+        "operationId": "list_traces_v1_observability_traces_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter traces after this time",
+              "title": "Start Time"
+            },
+            "description": "Filter traces after this time"
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter traces before this time",
+              "title": "End Time"
+            },
+            "description": "Filter traces before this time"
+          },
+          {
+            "name": "min_duration_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minimum duration in milliseconds",
+              "title": "Min Duration Ms"
+            },
+            "description": "Minimum duration in milliseconds"
+          },
+          {
+            "name": "max_duration_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Maximum duration in milliseconds",
+              "title": "Max Duration Ms"
+            },
+            "description": "Maximum duration in milliseconds"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(ok|error)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status (ok, error)",
+              "title": "Status"
+            },
+            "description": "Filter by status (ok, error)"
+          },
+          {
+            "name": "http_status_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by HTTP status code",
+              "title": "Http Status Code"
+            },
+            "description": "Filter by HTTP status code"
+          },
+          {
+            "name": "http_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|TRACE|CONNECT)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by HTTP method",
+              "title": "Http Method"
+            },
+            "description": "Filter by HTTP method"
+          },
+          {
+            "name": "user_email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255,
+                  "pattern": "^[a-zA-Z0-9._%+@-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by user email or service-account identifier",
+              "title": "User Email"
+            },
+            "description": "Filter by user email or service-account identifier"
+          },
+          {
+            "name": "attribute_search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Free-text search within trace attributes",
+              "title": "Attribute Search"
+            },
+            "description": "Free-text search within trace attributes"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum results",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum results"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Result offset",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Result offset"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ObservabilityTraceRead"
+                  },
+                  "title": "Response List Traces V1 Observability Traces Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/traces/query": {
+      "post": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Query Traces Advanced",
+        "description": "Advanced trace querying with attribute filtering.\n\nPOST endpoint that accepts a JSON body with complex filtering criteria,\nincluding structured attribute filters with AND logic.\n\nRequest Body:\n    {\n        \"start_time\": \"2025-01-01T00:00:00Z\",  # Optional datetime\n        \"end_time\": \"2025-01-02T00:00:00Z\",    # Optional datetime\n        \"min_duration_ms\": 100.0,               # Optional float\n        \"max_duration_ms\": 5000.0,              # Optional float\n        \"status\": \"error\",                      # Optional string\n        \"http_status_code\": 500,                # Optional int\n        \"http_method\": \"POST\",                  # Optional string\n        \"user_email\": \"user@example.com\",       # Optional string\n        \"attribute_filters\": {                  # Optional dict (AND logic)\n            \"http.route\": \"/api/tools\",\n            \"service.name\": \"mcp-gateway\"\n        },\n        \"attribute_search\": \"error\",            # Optional string (OR logic)\n        \"limit\": 100,                           # Optional int\n        \"offset\": 0                             # Optional int\n    }\n\nArgs:\n    request_body: JSON request body with filter criteria\n    db: Database session\n\nReturns:\n    List[ObservabilityTraceRead]: List of traces matching filters\n\nRaises:\n    HTTPException: 400 error if request body is invalid\n\nExamples:\n    >>> import asyncio\n    >>> from fastapi import HTTPException\n    >>> from mcpgateway.config import settings\n    >>> async def run_invalid_query():\n    ...     try:\n    ...         await query_traces_advanced({\"start_time\": \"not-a-date\"}, db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     except HTTPException as e:\n    ...         return (e.status_code, \"Invalid request body\" in str(e.detail))\n    >>> asyncio.run(run_invalid_query())\n    (400, True)\n\n    >>> import mcpgateway.routers.observability as obs\n    >>> class FakeTrace:\n    ...     def __init__(self):\n    ...         self.trace_id = 'tx'\n    ...         self.name = 'n'\n\n    >>> class FakeService2:\n    ...     def query_traces(self, **kwargs):\n    ...         return [FakeTrace()]\n    >>> obs.ObservabilityService = FakeService2\n    >>> async def run_query_traces():\n    ...     traces = await obs.query_traces_advanced({}, db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return traces[0].trace_id\n    >>> asyncio.run(run_query_traces())\n    'tx'",
+        "operationId": "query_traces_advanced_v1_observability_traces_query_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Request Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ObservabilityTraceRead"
+                  },
+                  "title": "Response Query Traces Advanced V1 Observability Traces Query Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/traces/{trace_id}": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Get Trace",
+        "description": "Get a trace by ID with all its spans and events.\n\nReturns a complete trace with all nested spans and their events,\nproviding a full view of the request flow.\n\nArgs:\n    trace_id: UUID of the trace to retrieve\n    db: Database session\n\nReturns:\n    ObservabilityTraceWithSpans: Complete trace with all spans and events\n\nRaises:\n    HTTPException: 404 if trace not found\n\nExamples:\n    >>> import asyncio\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> class FakeService:\n    ...     def get_trace_with_spans(self, db, trace_id):\n    ...         return None\n    >>> obs.ObservabilityService = FakeService\n    >>> async def run_missing_trace():\n    ...     try:\n    ...         await obs.get_trace(\"missing\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     except obs.HTTPException as e:\n    ...         return e.status_code\n    >>> asyncio.run(run_missing_trace())\n    404\n    >>> class FakeService2:\n    ...     def get_trace_with_spans(self, db, trace_id):\n    ...         return {'trace_id': trace_id}\n    >>> obs.ObservabilityService = FakeService2\n    >>> async def run_found_trace():\n    ...     trace = await obs.get_trace(\"found\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return trace[\"trace_id\"]\n    >>> asyncio.run(run_found_trace())\n    'found'",
+        "operationId": "get_trace_v1_observability_traces__trace_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trace_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trace Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservabilityTraceWithSpans"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/spans": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "List Spans",
+        "description": "List spans with optional filtering.\n\nQuery spans by trace ID, resource type, resource name, or time range.\nUseful for analyzing specific operations or resource performance.\n\nArgs:\n    trace_id: Filter by trace ID\n    resource_type: Filter by resource type\n    resource_name: Filter by resource name\n    start_time: Filter spans after this time\n    end_time: Filter spans before this time\n    limit: Maximum results\n    offset: Result offset\n    db: Database session\n\nReturns:\n    List[ObservabilitySpanRead]: List of spans matching filters\n\nExamples:\n    >>> import asyncio\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> class FakeSpan:\n    ...     def __init__(self):\n    ...         self.span_id = 's1'\n    ...         self.trace_id = 't1'\n    ...         self.name = 'op'\n    >>> class FakeService:\n    ...     def query_spans(self, **kwargs):\n    ...         return [FakeSpan()]\n    >>> obs.ObservabilityService = FakeService\n    >>> async def run_list_spans():\n    ...     spans = await obs.list_spans(db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return spans[0].span_id\n    >>> asyncio.run(run_list_spans())\n    's1'",
+        "operationId": "list_spans_v1_observability_spans_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "trace_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by trace ID",
+              "title": "Trace Id"
+            },
+            "description": "Filter by trace ID"
+          },
+          {
+            "name": "resource_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_\\-\\.]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by resource type",
+              "title": "Resource Type"
+            },
+            "description": "Filter by resource type"
+          },
+          {
+            "name": "resource_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255,
+                  "pattern": "^[a-zA-Z0-9_. /-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by resource name",
+              "title": "Resource Name"
+            },
+            "description": "Filter by resource name"
+          },
+          {
+            "name": "start_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter spans after this time",
+              "title": "Start Time"
+            },
+            "description": "Filter spans after this time"
+          },
+          {
+            "name": "end_time",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter spans before this time",
+              "title": "End Time"
+            },
+            "description": "Filter spans before this time"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "description": "Maximum results",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum results"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Result offset",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Result offset"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ObservabilitySpanRead"
+                  },
+                  "title": "Response List Spans V1 Observability Spans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/traces/cleanup": {
+      "delete": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Cleanup Old Traces",
+        "description": "Delete traces older than a specified number of days.\n\nCleans up old trace data to manage storage. Cascading deletes will\nalso remove associated spans, events, and metrics.\n\nArgs:\n    days: Delete traces older than this many days\n    db: Database session\n\nReturns:\n    dict: Number of deleted traces and cutoff time\n\nExamples:\n    >>> import asyncio\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> class FakeService:\n    ...     def delete_old_traces(self, cutoff):\n    ...         return 5\n    >>> obs.ObservabilityService = FakeService\n    >>> async def run_cleanup():\n    ...     res = await obs.cleanup_old_traces(days=7, db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return res[\"deleted\"]\n    >>> asyncio.run(run_cleanup())\n    5",
+        "operationId": "cleanup_old_traces_v1_observability_traces_cleanup_delete",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Delete traces older than this many days",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Delete traces older than this many days"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/stats": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Get Stats",
+        "description": "Get observability statistics.\n\nReturns summary statistics including:\n- Total traces in time window\n- Success/error counts\n- Average response time\n- Top slowest endpoints\n\nArgs:\n    hours: Time window in hours\n    db: Database session\n\nReturns:\n    dict: Statistics including counts, error rate, and slowest endpoints",
+        "operationId": "get_stats_v1_observability_stats_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Time window in hours",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Time window in hours"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/traces/export": {
+      "post": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Export Traces",
+        "description": "Export traces in various formats.\n\nPOST endpoint that accepts filter criteria (same as /traces/query) and exports\nmatching traces in the specified format.\n\nSupported formats:\n- json: Standard JSON array\n- csv: Comma-separated values\n- ndjson: Newline-delimited JSON (streaming)\n\nArgs:\n    request_body: JSON request body with filter criteria (same as /traces/query)\n    format: Export format (json, csv, ndjson)\n    db: Database session\n\nReturns:\n    StreamingResponse or JSONResponse with exported data\n\nRaises:\n    HTTPException: 400 error if format is invalid or export fails\n\nExamples:\n    >>> import asyncio\n    >>> from datetime import datetime\n    >>> from fastapi import HTTPException\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> async def run_invalid_export():\n    ...     try:\n    ...         await export_traces({}, format=\"xml\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     except HTTPException as e:\n    ...         return (e.status_code, \"format must be one of\" in str(e.detail))\n    >>> asyncio.run(run_invalid_export())\n    (400, True)\n    >>> class FakeTrace:\n    ...     def __init__(self):\n    ...         self.trace_id = 'tx'\n    ...         self.name = 'name'\n    ...         self.start_time = datetime(2025,1,1)\n    ...         self.end_time = None\n    ...         self.duration_ms = 100\n    ...         self.status = 'ok'\n    ...         self.http_method = 'GET'\n    ...         self.http_url = '/'\n    ...         self.http_status_code = 200\n    ...         self.user_email = 'u'\n    >>> class FakeService:\n    ...     def query_traces(self, **kwargs):\n    ...         return [FakeTrace()]\n    >>> obs.ObservabilityService = FakeService\n    >>> async def run_json_export():\n    ...     out = await obs.export_traces({}, format=\"json\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return out[0][\"trace_id\"]\n    >>> asyncio.run(run_json_export())\n    'tx'\n    >>> async def run_csv_export():\n    ...     resp = await obs.export_traces({}, format=\"csv\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return hasattr(resp, \"media_type\") and \"csv\" in resp.media_type\n    >>> asyncio.run(run_csv_export())\n    True\n    >>> async def run_ndjson_export():\n    ...     resp2 = await obs.export_traces({}, format=\"ndjson\", db=None, _user={\"email\": settings.platform_admin_email, \"db\": None})\n    ...     return type(resp2).__name__\n    >>> asyncio.run(run_ndjson_export())\n    'StreamingResponse'",
+        "operationId": "export_traces_v1_observability_traces_export_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(json|csv|ndjson)$",
+              "description": "Export format (json, csv, ndjson)",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Export format (json, csv, ndjson)"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Request Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/observability/analytics/query-performance": {
+      "get": {
+        "tags": [
+          "Observability"
+        ],
+        "summary": "Get Query Performance",
+        "description": "Get query performance analytics.\n\nReturns performance metrics about trace queries including:\n- Average, min, max, p50, p95, p99 durations\n- Query volume over time\n- Error rate trends\n\nArgs:\n    hours: Time window in hours\n    db: Database session\n\nReturns:\n    dict: Performance analytics\n\nExamples:\n    >>> import asyncio\n    >>> import mcpgateway.routers.observability as obs\n    >>> from mcpgateway.config import settings\n    >>> class MockDialect:\n    ...     name = \"sqlite\"\n    >>> class MockBind:\n    ...     dialect = MockDialect()\n    >>> class EmptyDB:\n    ...     def get_bind(self):\n    ...         return MockBind()\n    ...     def query(self, *a, **k):\n    ...         return self\n    ...     def filter(self, *a, **k):\n    ...         return self\n    ...     def all(self):\n    ...         return []\n    >>> async def run_empty_stats():\n    ...     return (await obs.get_query_performance(hours=1, db=EmptyDB(), _user={\"email\": settings.platform_admin_email, \"db\": None}))[\"total_traces\"]\n    >>> asyncio.run(run_empty_stats())\n    0\n\n    >>> class SmallDB:\n    ...     def get_bind(self):\n    ...         return MockBind()\n    ...     def query(self, *a, **k):\n    ...         return self\n    ...     def filter(self, *a, **k):\n    ...         return self\n    ...     def all(self):\n    ...         return [(10,), (20,), (30,), (40,)]\n    >>> async def run_small_stats():\n    ...     return await obs.get_query_performance(hours=1, db=SmallDB(), _user={\"email\": settings.platform_admin_email, \"db\": None})\n    >>> res = asyncio.run(run_small_stats())\n    >>> res[\"total_traces\"]\n    4",
+        "operationId": "get_query_performance_v1_observability_analytics_query_performance_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "description": "Time window in hours",
+              "default": 24,
+              "title": "Hours"
+            },
+            "description": "Time window in hours"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -11574,6 +12428,70 @@
         }
       }
     },
+    "/v1/teams/invitations/{token}/decline": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Decline Team Invitation",
+        "description": "Decline an active team invitation addressed to the caller.\n\nExpired invitations may still be declined so they can be deactivated.\n\nArgs:\n    token: Invitation token\n    current_user: Authenticated user context\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If the invitation is missing, belongs to another user, or cannot be declined",
+        "operationId": "decline_team_invitation_v1_teams_invitations__token__decline_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/teams/invitations/{invitation_id}": {
       "delete": {
         "tags": [
@@ -11973,6 +12891,65 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/users/me/invitations": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List My Team Invitations",
+        "description": "List active, unexpired team invitations addressed to the caller.\n\nArgs:\n    current_user: Authenticated user context\n    db: Database session\n\nReturns:\n    List[TeamInvitationResponse]: Pending invitations for the caller\n\nRaises:\n    HTTPException: If invitations cannot be loaded",
+        "operationId": "list_my_team_invitations_v1_users_me_invitations_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamInvitationResponse"
+                  },
+                  "title": "Response List My Team Invitations V1 Users Me Invitations Get"
                 }
               }
             }
@@ -13834,7 +14811,7 @@
           "llmchat"
         ],
         "summary": "Chat",
-        "description": "Send a message to the user's active chat session and receive a response.\n\nProcesses user messages through the configured LLM with MCP tool integration.\nSupports both streaming (SSE) and non-streaming response modes. Chat history\nis managed automatically via the unified ChatHistoryManager.\n\nArgs:\n    input_data: ChatInput containing user_id, message, and streaming preference.\n    user: Authenticated user context.\n\nReturns:\n    For streaming=False:\n        dict: Response containing:\n            - user_id: Session identifier\n            - response: Complete LLM response text\n            - tool_used: Boolean indicating if tools were invoked\n            - tools: List of tool names used\n            - tool_invocations: Detailed tool call information\n            - elapsed_ms: Processing time in milliseconds\n    For streaming=True:\n        StreamingResponse: SSE stream of token and event data.\n\nRaises:\n    HTTPException: Raised when an HTTP-related error occurs.\n        400: Missing user_id, empty message, or no active session.\n        503: Session not initialized, chat service error, or connection lost.\n        504: Request timeout.\n        500: Unexpected error.\n\n    Examples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n\n    Example non-streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"What's the weather like?\",\n        \"streaming\": false\n    }\n\n    Example non-streaming response:\n\n    {\n        \"user_id\": \"user123\",\n        \"response\": \"The weather is sunny and 72\u00b0F.\",\n        \"tool_used\": true,\n        \"tools\": [\"weather\"],\n        \"tool_invocations\": 1,\n        \"elapsed_ms\": 450\n    }\n\n    Example streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"Tell me a story\",\n        \"streaming\": true\n    }\n\nNote:\n    Streaming responses use Server-Sent Events (SSE) with 'text/event-stream' MIME type.\n    Client must maintain persistent connection for streaming.",
+        "description": "Send a message to the user's active chat session and receive a response.\n\nProcesses user messages through the configured LLM with MCP tool integration.\nSupports both streaming (SSE) and non-streaming response modes. Chat history\nis managed automatically via the unified ChatHistoryManager.\n\nArgs:\n    input_data: ChatInput containing user_id, message, and streaming preference.\n    user: Authenticated user context.\n\nReturns:\n    For streaming=False:\n        dict: Response containing:\n            - user_id: Session identifier\n            - response: Complete LLM response text\n            - tool_used: Boolean indicating if tools were invoked\n            - tools: List of tool names used\n            - tool_invocations: Detailed tool call information\n            - elapsed_ms: Processing time in milliseconds\n    For streaming=True:\n        StreamingResponse: SSE stream of token and event data.\n\nRaises:\n    HTTPException: Raised when an HTTP-related error occurs.\n        400: Missing user_id, empty message, or no active session.\n        503: Session not initialized, chat service error, or connection lost.\n        504: Request timeout.\n        500: Unexpected error.\n\n    Examples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n\n    Example non-streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"What's the weather like?\",\n        \"streaming\": false\n    }\n\n    Example non-streaming response:\n\n    {\n        \"user_id\": \"user123\",\n        \"response\": \"The weather is sunny and 72°F.\",\n        \"tool_used\": true,\n        \"tools\": [\"weather\"],\n        \"tool_invocations\": 1,\n        \"elapsed_ms\": 450\n    }\n\n    Example streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"Tell me a story\",\n        \"streaming\": true\n    }\n\nNote:\n    Streaming responses use Server-Sent Events (SSE) with 'text/event-stream' MIME type.\n    Client must maintain persistent connection for streaming.",
         "operationId": "chat_v1_llmchat_chat_post",
         "security": [
           {
@@ -34467,7 +35444,7 @@
           "Servers"
         ],
         "summary": "Test Server Mcp Handshake",
-        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL — it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
         "operationId": "test_server_mcp_handshake_v1_virtual_servers__server_id__test_handshake_post",
         "security": [
           {
@@ -36412,7 +37389,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal A2A Authenticate",
-        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler \u2014 the auth flow is\nidentical (validate credentials, return auth context).",
+        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler — the auth flow is\nidentical (validate credentials, return auth context).",
         "operationId": "handle_internal_a2a_authenticate__internal_a2a_authenticate_post",
         "responses": {
           "200": {
@@ -36432,7 +37409,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal A2A Authenticate",
-        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler \u2014 the auth flow is\nidentical (validate credentials, return auth context).",
+        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler — the auth flow is\nidentical (validate credentials, return auth context).",
         "operationId": "handle_internal_a2a_authenticate__internal_a2a_authenticate__post",
         "responses": {
           "200": {
@@ -37211,7 +38188,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools Call",
-        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust\u2194Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
+        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
         "operationId": "handle_internal_mcp_tools_call__internal_mcp_tools_call_post",
         "responses": {
           "200": {
@@ -37231,7 +38208,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools Call",
-        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust\u2194Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
+        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
         "operationId": "handle_internal_mcp_tools_call__internal_mcp_tools_call__post",
         "responses": {
           "200": {
@@ -37251,7 +38228,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools Call Resolve",
-        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust\u2194Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
+        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
         "operationId": "handle_internal_mcp_tools_call_resolve__internal_mcp_tools_call_resolve_post",
         "responses": {
           "200": {
@@ -37271,7 +38248,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools Call Resolve",
-        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust\u2194Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
+        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
         "operationId": "handle_internal_mcp_tools_call_resolve__internal_mcp_tools_call_resolve__post",
         "responses": {
           "200": {
@@ -38441,7 +39418,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "List A2A Agent Plugin Bindings",
-        "description": "List all A2A agent plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Paginated bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings)\n    True",
+        "description": "List all A2A agent plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Paginated bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings)\n    True",
         "operationId": "list_a2a_agent_plugin_bindings_v1_a2a_agents_plugin_bindings__get",
         "security": [
           {
@@ -38549,7 +39526,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "Delete A2A Agent Plugin Bindings By Reference",
-        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched \u2014 not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_a2a_agent_plugin_bindings_by_reference)\n    True",
+        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched — not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_a2a_agent_plugin_bindings_by_reference)\n    True",
         "operationId": "delete_a2a_agent_plugin_bindings_by_reference_v1_a2a_agents_plugin_bindings__delete",
         "security": [
           {
@@ -38616,7 +39593,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "List A2A Agent Plugin Bindings For Team",
-        "description": "List all A2A agent plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings_for_team)\n    True",
+        "description": "List all A2A agent plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings_for_team)\n    True",
         "operationId": "list_a2a_agent_plugin_bindings_for_team_v1_a2a_agents_plugin_bindings__team_id__get",
         "security": [
           {
@@ -41571,7 +42548,7 @@
           "password"
         ],
         "title": "AdminCreateUserRequest",
-        "description": "Admin user creation request \u2014 all fields, password required.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n    is_admin: Whether user should have admin privileges (default: False)\n    is_active: Whether user account is active (default: True)\n    password_change_required: Whether user must change password on next login (default: False)\n\nExamples:\n    >>> request = AdminCreateUserRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'\n    >>> request.is_admin\n    False\n    >>> request.is_active\n    True\n    >>> request.password_change_required\n    False"
+        "description": "Admin user creation request — all fields, password required.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n    is_admin: Whether user should have admin privileges (default: False)\n    is_active: Whether user account is active (default: True)\n    password_change_required: Whether user must change password on next login (default: False)\n\nExamples:\n    >>> request = AdminCreateUserRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'\n    >>> request.is_admin\n    False\n    >>> request.is_active\n    True\n    >>> request.password_change_required\n    False"
       },
       "AdminUserUpdateRequest": {
         "properties": {
@@ -48696,6 +49673,517 @@
         "title": "MetricsStatsResponse",
         "description": "Response model for metrics stats."
       },
+      "ObservabilitySpanRead": {
+        "properties": {
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "description": "Parent trace ID"
+          },
+          "parent_span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Span Id",
+            "description": "Parent span ID (for nested spans)"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Span name (e.g., 'database_query', 'tool_invocation')"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Span kind (internal, server, client, producer, consumer)",
+            "default": "internal"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time",
+            "description": "Span start timestamp"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time",
+            "description": "Span end timestamp"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms",
+            "description": "Span duration in milliseconds"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Span status (unset, ok, error)",
+            "default": "unset"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message",
+            "description": "Status message"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes",
+            "description": "Span attributes"
+          },
+          "resource_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Name",
+            "description": "Resource name"
+          },
+          "resource_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Type",
+            "description": "Resource type (tool, resource, prompt, gateway, a2a_agent)"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id",
+            "description": "Resource ID"
+          },
+          "span_id": {
+            "type": "string",
+            "title": "Span Id",
+            "description": "Span ID"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trace_id",
+          "name",
+          "start_time",
+          "span_id",
+          "created_at"
+        ],
+        "title": "ObservabilitySpanRead",
+        "description": "Schema for reading an observability span."
+      },
+      "ObservabilityTraceRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Trace name (e.g., 'POST /tools/invoke')"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time",
+            "description": "Trace start timestamp"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time",
+            "description": "Trace end timestamp"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms",
+            "description": "Total duration in milliseconds"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Trace status (unset, ok, error)",
+            "default": "unset"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message",
+            "description": "Status message or error description"
+          },
+          "http_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Method",
+            "description": "HTTP method"
+          },
+          "http_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Url",
+            "description": "HTTP URL"
+          },
+          "http_status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status Code",
+            "description": "HTTP status code"
+          },
+          "user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Email",
+            "description": "User email"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent",
+            "description": "User agent string"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Client IP address"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes",
+            "description": "Additional trace attributes"
+          },
+          "resource_attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Attributes",
+            "description": "Resource attributes"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "description": "Trace ID"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "start_time",
+          "trace_id",
+          "created_at"
+        ],
+        "title": "ObservabilityTraceRead",
+        "description": "Schema for reading an observability trace."
+      },
+      "ObservabilityTraceWithSpans": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Trace name (e.g., 'POST /tools/invoke')"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time",
+            "description": "Trace start timestamp"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time",
+            "description": "Trace end timestamp"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms",
+            "description": "Total duration in milliseconds"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Trace status (unset, ok, error)",
+            "default": "unset"
+          },
+          "status_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Message",
+            "description": "Status message or error description"
+          },
+          "http_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Method",
+            "description": "HTTP method"
+          },
+          "http_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Url",
+            "description": "HTTP URL"
+          },
+          "http_status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status Code",
+            "description": "HTTP status code"
+          },
+          "user_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Email",
+            "description": "User email"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent",
+            "description": "User agent string"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "Client IP address"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes",
+            "description": "Additional trace attributes"
+          },
+          "resource_attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Attributes",
+            "description": "Resource attributes"
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "description": "Trace ID"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation timestamp"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/ObservabilitySpanRead"
+            },
+            "type": "array",
+            "title": "Spans",
+            "description": "List of spans in this trace"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "start_time",
+          "trace_id",
+          "created_at"
+        ],
+        "title": "ObservabilityTraceWithSpans",
+        "description": "Schema for reading a trace with its spans."
+      },
       "OverrideMode": {
         "type": "string",
         "enum": [
@@ -49407,7 +50895,7 @@
           "mode"
         ],
         "title": "PluginModeUpdateRequest",
-        "description": "Request body for ``PUT /admin/plugins/{name}`` \u2014 drives the Pydantic enum validation."
+        "description": "Request body for ``PUT /admin/plugins/{name}`` — drives the Pydantic enum validation."
       },
       "PluginModeUpdateResponse": {
         "properties": {
@@ -49511,7 +50999,7 @@
           "config"
         ],
         "title": "PluginPolicyItem",
-        "description": "A single plugin policy entry within a team's binding payload.\n\nAttributes:\n    tool_names: List of tool names this policy applies to. Use ``[\"*\"]`` for all tools.\n    plugin_id: The plugin to bind.\n    mode: Execution mode.\n    priority: Execution order \u2014 lower numbers run first.\n    config: Plugin-specific configuration."
+        "description": "A single plugin policy entry within a team's binding payload.\n\nAttributes:\n    tool_names: List of tool names this policy applies to. Use ``[\"*\"]`` for all tools.\n    plugin_id: The plugin to bind.\n    mode: Execution mode.\n    priority: Execution order — lower numbers run first.\n    config: Plugin-specific configuration."
       },
       "PluginStatsResponse": {
         "properties": {
@@ -49652,7 +51140,7 @@
           "enabled"
         ],
         "title": "PluginToggleRequest",
-        "description": "Request body for ``PUT /admin/plugins`` \u2014 toggles the plugin subsystem globally."
+        "description": "Request body for ``PUT /admin/plugins`` — toggles the plugin subsystem globally."
       },
       "PluginToggleResponse": {
         "properties": {
@@ -50550,7 +52038,7 @@
           "password"
         ],
         "title": "PublicRegistrationRequest",
-        "description": "Public self-registration request \u2014 minimal fields, password required.\n\nExtra fields are rejected (extra=\"forbid\") so clients cannot submit\nadmin-only fields like is_admin or is_active.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n\nExamples:\n    >>> request = PublicRegistrationRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'"
+        "description": "Public self-registration request — minimal fields, password required.\n\nExtra fields are rejected (extra=\"forbid\") so clients cannot submit\nadmin-only fields like is_admin or is_active.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n\nExamples:\n    >>> request = PublicRegistrationRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'"
       },
       "ResetPasswordRequest": {
         "properties": {
@@ -50847,6 +52335,30 @@
           "name": {
             "type": "string",
             "title": "Name"
+          },
+          "originalName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originalname",
+            "description": "Upstream name for federated resources; initial naming history for local resources"
+          },
+          "customNameSlug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customnameslug",
+            "description": "Slugified base used to compose the namespaced name"
           },
           "description": {
             "anyOf": [
@@ -51304,6 +52816,18 @@
             ],
             "title": "Name",
             "description": "Human-readable resource name"
+          },
+          "customName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customname",
+            "description": "Explicit resource base name; required to rename federated resources. Local names remain literal."
           },
           "description": {
             "anyOf": [
@@ -55621,7 +57145,7 @@
           "kind"
         ],
         "title": "ToolPreviewTarget",
-        "description": "Where a live invocation of the previewed tool would be dispatched.\n\nNever carries the remote gateway's URL, transport, or credentials \u2014\nonly the gateway's name, so a caller can tell \"federated\" from \"local\"\nwithout gaining any information useful for reaching the gateway directly.\n\nAttributes:\n    kind (Literal[\"local\", \"federated\"]): \"local\" for a manually registered tool\n        (``gateway_id IS NULL``), \"federated\" for a tool proxied through a gateway.\n    gateway_name (Optional[str]): Name of the owning gateway when kind is \"federated\";\n        None for local tools.",
+        "description": "Where a live invocation of the previewed tool would be dispatched.\n\nNever carries the remote gateway's URL, transport, or credentials —\nonly the gateway's name, so a caller can tell \"federated\" from \"local\"\nwithout gaining any information useful for reaching the gateway directly.\n\nAttributes:\n    kind (Literal[\"local\", \"federated\"]): \"local\" for a manually registered tool\n        (``gateway_id IS NULL``), \"federated\" for a tool proxied through a gateway.\n    gateway_name (Optional[str]): Name of the owning gateway when kind is \"federated\";\n        None for local tools.",
         "nullable": true
       },
       "ToolPreviewWarning": {
