@@ -40,6 +40,8 @@
     "generate": "orval",
     "openapi:refresh": "bash scripts/refresh-openapi.sh",
     "certs": "sh scripts/gen-certs.sh",
+    "compose:tls": "docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d --wait --build",
+    "compose:tls:down": "docker compose -f docker-compose.yml -f docker-compose.tls.yml down",
     "secrets:scan": "uv tool run --from 'git+https://github.com/ibm/detect-secrets.git@076672a9a01abdfc7ecee2e7d14f08cdccb73976' detect-secrets scan --update .secrets.baseline --use-all-plugins --exclude-files '(?x)(package-lock\\.json$)|^\\.secrets\\.baseline$|src/i18n/locales/*|openapi.json'",
     "secrets:audit": "uv tool run --from 'git+https://github.com/ibm/detect-secrets.git@076672a9a01abdfc7ecee2e7d14f08cdccb73976' detect-secrets audit .secrets.baseline",
     "prepare": "husky || true"

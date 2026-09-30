@@ -22,6 +22,8 @@ describe("useMCPServerForm", () => {
       expect(result.current.passthroughHeaders).toBe("");
       expect(result.current.authUsername).toBe("");
       expect(result.current.authPassword).toBe("");
+      expect(result.current.oauthGrantType).toBe("authorization_code");
+      expect(result.current.oauthResource).toBe("");
       expect(result.current.errors).toEqual({});
       expect(result.current.isValid).toBe(false);
     });
@@ -125,6 +127,7 @@ describe("useMCPServerForm", () => {
         result.current.setOAuthRedirectUri("redirect");
         result.current.setOAuthAuthorizationUrl("auth");
         result.current.setOAuthScopes("scope");
+        result.current.setOAuthResource("https://api.example.com");
         result.current.setOAuthStoreTokens(false);
         result.current.setOAuthAutoRefresh(false);
         result.current.setOAuthUsername("o_user");
@@ -150,6 +153,7 @@ describe("useMCPServerForm", () => {
       expect(result.current.oauthRedirectUri).toBe("redirect");
       expect(result.current.oauthAuthorizationUrl).toBe("auth");
       expect(result.current.oauthScopes).toBe("scope");
+      expect(result.current.oauthResource).toBe("https://api.example.com");
       expect(result.current.oauthStoreTokens).toBe(false);
       expect(result.current.oauthAutoRefresh).toBe(false);
       expect(result.current.oauthUsername).toBe("o_user");
@@ -806,6 +810,57 @@ describe("useMCPServerForm", () => {
       expect(config?.auto_refresh).toBe(false);
     });
 
+    it("omits an empty resource so the backend derives it from the MCP URL", () => {
+      const { result } = renderHook(() => useMCPServerForm());
+
+      act(() => {
+        result.current.setAuthType("oauth");
+        result.current.setOAuthResource("");
+      });
+
+      expect(result.current.getFormData().oauth_config?.resource).toBeUndefined();
+    });
+
+    it("sends only an explicit resource override", () => {
+      const { result } = renderHook(() => useMCPServerForm());
+
+      act(() => {
+        result.current.setAuthType("oauth");
+        result.current.setOAuthResource("https://api.example.com");
+      });
+
+      expect(result.current.getFormData().oauth_config?.resource).toBe("https://api.example.com");
+    });
+
+    it("supports multiple explicit resources, one absolute URI per line", () => {
+      const { result } = renderHook(() => useMCPServerForm());
+
+      act(() => {
+        result.current.setAuthType("oauth");
+        result.current.setOAuthResource("https://api.example.com\nurn:example:audience");
+      });
+
+      expect(result.current.getFormData().oauth_config?.resource).toEqual([
+        "https://api.example.com",
+        "urn:example:audience",
+      ]);
+    });
+
+    it("rejects a resource override that is not an absolute URI", () => {
+      const { result } = renderHook(() => useMCPServerForm());
+
+      act(() => {
+        result.current.setName("Test Server");
+        result.current.setUrl("https://mcp.example.com");
+        result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
+        result.current.setOAuthResource("relative/audience");
+      });
+
+      act(() => expect(result.current.validateForm()).toBe(false));
+      expect(result.current.errors.oauthResource).toBe("Resource must be an absolute URI");
+    });
+
     it("sends client_credentials fields without auth/redirect URLs", () => {
       const { result } = renderHook(() => useMCPServerForm());
 
@@ -935,6 +990,7 @@ describe("useMCPServerForm", () => {
               redirect_uri: "https://app.example.com/callback",
               authorization_url: "https://auth.example.com/authorize",
               scopes: ["read", "write"],
+              resource: "https://api.example.com",
               username: "oauth-user",
               password: "oauth-pass", // pragma: allowlist secret
               store_tokens: true,
@@ -953,6 +1009,7 @@ describe("useMCPServerForm", () => {
       expect(result.current.oauthTokenUrl).toBe("https://auth.example.com/token");
       expect(result.current.oauthIssuerUrl).toBe("https://auth.example.com");
       expect(result.current.oauthScopes).toBe("read write");
+      expect(result.current.oauthResource).toBe("https://api.example.com");
       expect(result.current.oauthStoreTokens).toBe(true);
       expect(result.current.oauthUsername).toBe("oauth-user");
     });
@@ -1170,6 +1227,7 @@ describe("useMCPServerForm", () => {
           result.current.setName("Test OAuth Gateway");
           result.current.setUrl("http://localhost:3000");
           result.current.setAuthType("oauth");
+          result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
         });
 
         await act(async () => {
@@ -1324,6 +1382,7 @@ describe("useMCPServerForm", () => {
           result.current.setName("Test Gateway");
           result.current.setUrl("http://localhost:3000");
           result.current.setAuthType("oauth");
+          result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
         });
 
         // First submit: gateway is created, OAuth fails
@@ -1378,6 +1437,7 @@ describe("useMCPServerForm", () => {
           result.current.setName("Delay Test");
           result.current.setUrl("http://localhost:3000");
           result.current.setAuthType("oauth");
+          result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
         });
 
         await act(async () => {
@@ -1438,6 +1498,7 @@ describe("useMCPServerForm", () => {
         result.current.setName("FT Success Gateway");
         result.current.setUrl("http://localhost:3000");
         result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
       });
 
       await act(async () => {
@@ -1480,6 +1541,7 @@ describe("useMCPServerForm", () => {
         result.current.setName("FT Error Gateway");
         result.current.setUrl("http://localhost:3000");
         result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
       });
 
       await act(async () => {
@@ -1523,6 +1585,7 @@ describe("useMCPServerForm", () => {
         result.current.setName("FT String Error");
         result.current.setUrl("http://localhost:3000");
         result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
       });
 
       await act(async () => {
@@ -1559,6 +1622,7 @@ describe("useMCPServerForm", () => {
         result.current.setName("Clear Test");
         result.current.setUrl("http://localhost:3000");
         result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
       });
 
       await act(async () => {
@@ -1648,6 +1712,7 @@ describe("useMCPServerForm", () => {
         result.current.setName("Test OAuth");
         result.current.setUrl("http://example.com");
         result.current.setAuthType("oauth");
+        result.current.setOAuthRedirectUri("https://app.example.com/oauth/callback");
       });
 
       await act(async () => {
