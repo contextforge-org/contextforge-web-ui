@@ -1,10 +1,12 @@
 # TLS override for docker-compose.yml — opt-in via
-# `docker compose -f docker-compose.yml -f docker-compose.tls.yml ...`
-# (a plain `docker compose up` is unaffected by this file).
+# `npm run compose:tls` / `docker compose -f docker-compose.yml -f
+# docker-compose.tls.yml ...` (a plain `docker compose up` is unaffected
+# by this file).
 #
-# For now this only generates a self-signed cert into ./certs on first
-# boot. A later story adds `nginx_tls` (TLS termination for the BFF) on
-# top of this file.
+# Brings the stack up at https://localhost:8443: `cert_init` generates a
+# self-signed cert into ./certs on first boot, and `nginx_tls` terminates
+# TLS in front of the app, switching it to its secure settings
+# (COOKIE_SECURE, TRUST_PROXY, PUBLIC_ORIGIN).
 services:
   cert_init:
     image: registry.access.redhat.com/ubi9/ubi-minimal@sha256:beeada7dd17903dfb69fd5f6916c054720bf28a52daaa2f7a1910a1394244bd2
@@ -15,3 +17,35 @@ services:
       - ./scripts/gen-certs.sh:/gen-certs.sh:ro
       - ./certs:/certs
     restart: "no"
+
+  nginx_tls:
+    image: nginx:alpine
+    ports:
+      # Loopback-only: keeps the TLS stack reachable from this machine
+      # without exposing it to the rest of the local network.
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:8080:80"
+    environment:
+      NGINX_FORCE_HTTPS: ${NGINX_FORCE_HTTPS:-false}
+    volumes:
+      - ./infra/nginx/tls.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./certs:/certs:ro
+    depends_on:
+      cert_init:
+        condition: service_completed_successfully
+      app:
+        condition: service_healthy
+    healthcheck:
+      # nginx:alpine ships busybox wget, not curl.
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  app:
+    environment:
+      COOKIE_SECURE: "true"
+      TRUST_PROXY: "true"
+      PUBLIC_ORIGIN: https://localhost:8443

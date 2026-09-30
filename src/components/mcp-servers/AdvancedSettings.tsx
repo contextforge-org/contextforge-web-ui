@@ -57,6 +57,7 @@ interface AdvancedSettingsProps {
   onRetryOAuthRedirectUri?: () => void;
   oauthAuthorizationUrl: string;
   oauthScopes: string;
+  oauthResource: string;
   oauthStoreTokens: boolean;
   oauthAutoRefresh: boolean;
   oauthUsername: string;
@@ -68,6 +69,7 @@ interface AdvancedSettingsProps {
   onOAuthIssuerUrlChange: (value: string) => void;
   onOAuthAuthorizationUrlChange: (value: string) => void;
   onOAuthScopesChange: (value: string) => void;
+  onOAuthResourceChange: (value: string) => void;
   onOAuthStoreTokensChange: (checked: boolean) => void;
   onOAuthAutoRefreshChange: (checked: boolean) => void;
   onOAuthUsernameChange: (value: string) => void;
@@ -81,7 +83,7 @@ interface AdvancedSettingsProps {
   passthroughHeaders: string;
   onPassthroughHeadersChange: (value: string) => void;
   onCACertificateFilesSelected: (files: File[]) => void;
-  oauthErrors?: { username?: string; password?: string };
+  oauthErrors?: { username?: string; password?: string; resource?: string };
 }
 
 export function AdvancedSettings({
@@ -112,6 +114,7 @@ export function AdvancedSettings({
   onRetryOAuthRedirectUri,
   oauthAuthorizationUrl,
   oauthScopes,
+  oauthResource,
   oauthStoreTokens,
   oauthAutoRefresh,
   oauthUsername,
@@ -123,6 +126,7 @@ export function AdvancedSettings({
   onOAuthIssuerUrlChange,
   onOAuthAuthorizationUrlChange,
   onOAuthScopesChange,
+  onOAuthResourceChange,
   onOAuthStoreTokensChange,
   onOAuthAutoRefreshChange,
   onOAuthUsernameChange,
@@ -179,6 +183,7 @@ export function AdvancedSettings({
             onRetryRedirectUri={onRetryOAuthRedirectUri}
             authorizationUrl={oauthAuthorizationUrl}
             scopes={oauthScopes}
+            resource={oauthResource}
             storeTokens={oauthStoreTokens}
             autoRefresh={oauthAutoRefresh}
             username={oauthUsername}
@@ -190,6 +195,7 @@ export function AdvancedSettings({
             onIssuerUrlChange={onOAuthIssuerUrlChange}
             onAuthorizationUrlChange={onOAuthAuthorizationUrlChange}
             onScopesChange={onOAuthScopesChange}
+            onResourceChange={onOAuthResourceChange}
             onStoreTokensChange={onOAuthStoreTokensChange}
             onAutoRefreshChange={onOAuthAutoRefreshChange}
             onUsernameChange={onOAuthUsernameChange}
