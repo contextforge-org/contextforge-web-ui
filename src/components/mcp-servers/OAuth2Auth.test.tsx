@@ -13,6 +13,7 @@ describe("OAuth2Auth", () => {
     tokenUrl: "",
     authorizationUrl: "",
     scopes: "",
+    resource: "",
     storeTokens: true,
     autoRefresh: true,
     username: "",
@@ -24,6 +25,7 @@ describe("OAuth2Auth", () => {
     onTokenUrlChange: vi.fn(),
     onAuthorizationUrlChange: vi.fn(),
     onScopesChange: vi.fn(),
+    onResourceChange: vi.fn(),
     onStoreTokensChange: vi.fn(),
     onAutoRefreshChange: vi.fn(),
     onUsernameChange: vi.fn(),
@@ -259,6 +261,32 @@ describe("OAuth2Auth", () => {
 
     fireEvent.click(screen.getByLabelText(/Automatically refresh expired tokens/i));
     expect(onAutoRefreshChange).toHaveBeenCalled();
+  });
+
+  describe("advanced resource override", () => {
+    it("is hidden until Advanced OAuth options is expanded", () => {
+      render(<OAuth2Auth {...defaultProps} />);
+
+      expect(screen.queryByLabelText(/Resource override/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /Advanced OAuth options/i }));
+      expect(screen.getByLabelText(/Resource override/i)).toBeInTheDocument();
+    });
+
+    it("opens automatically for a stored override and reports changes", () => {
+      const onResourceChange = vi.fn();
+      render(
+        <OAuth2Auth
+          {...defaultProps}
+          resource="https://api.example.com"
+          onResourceChange={onResourceChange}
+        />,
+      );
+
+      const input = screen.getByLabelText(/Resource override/i);
+      expect(input).toHaveValue("https://api.example.com");
+      fireEvent.change(input, { target: { value: "https://other.example.com" } });
+      expect(onResourceChange).toHaveBeenCalledWith("https://other.example.com");
+    });
   });
 
   describe("copy button interaction", () => {

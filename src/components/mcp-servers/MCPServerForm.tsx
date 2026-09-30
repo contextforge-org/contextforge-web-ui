@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { AdvancedSettings } from "@/components/mcp-servers/AdvancedSettings";
 import { QuickAddServerDialog } from "@/components/mcp-servers/QuickAddServerDialog";
+import { MCPServerMetadataProbe } from "@/components/mcp-servers/MCPServerMetadataProbe";
 import { ExposeComponentsForm } from "@/components/gateways/ExposeComponentsForm";
 import { useRouter } from "@/router";
 import {
@@ -101,6 +102,8 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
     setOAuthAuthorizationUrl,
     oauthScopes,
     setOAuthScopes,
+    oauthResource,
+    setOAuthResource,
     oauthStoreTokens,
     setOAuthStoreTokens,
     oauthAutoRefresh,
@@ -311,6 +314,14 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
               )}
             </Field>
 
+            <MCPServerMetadataProbe
+              serverUrl={url}
+              name={name}
+              description={description}
+              onNameChange={setName}
+              onDescriptionChange={setDescription}
+            />
+
             <div className="space-y-1">
               <label htmlFor="server-description" className="sr-only">
                 {intl.formatMessage({ id: "mcpServer.form.descriptionLabel" })}
@@ -379,6 +390,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   }}
                   oauthAuthorizationUrl={oauthAuthorizationUrl}
                   oauthScopes={oauthScopes}
+                  oauthResource={oauthResource}
                   oauthStoreTokens={oauthStoreTokens}
                   oauthAutoRefresh={oauthAutoRefresh}
                   oauthUsername={oauthUsername}
@@ -390,6 +402,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   onOAuthIssuerUrlChange={setOAuthIssuerUrl}
                   onOAuthAuthorizationUrlChange={setOAuthAuthorizationUrl}
                   onOAuthScopesChange={setOAuthScopes}
+                  onOAuthResourceChange={setOAuthResource}
                   onOAuthStoreTokensChange={setOAuthStoreTokens}
                   onOAuthAutoRefreshChange={setOAuthAutoRefresh}
                   onOAuthUsernameChange={setOAuthUsername}
@@ -408,6 +421,7 @@ export function MCPServerForm({ isOpen, onToggle, serverId, onSuccess }: MCPServ
                   oauthErrors={{
                     username: errors.oauthUsername,
                     password: errors.oauthPassword, // pragma: allowlist secret
+                    resource: errors.oauthResource,
                   }}
                 />
               )}

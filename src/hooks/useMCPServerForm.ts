@@ -60,6 +60,12 @@ const oauthConfigSchema = z.object({
   authorization_url: z.string().optional(),
   redirect_uri: z.string().optional(),
   scopes: z.array(z.string()).optional(),
+  resource: z
+    .union([
+      z.string().url("Resource must be an absolute URI"),
+      z.array(z.string().url("Each resource must be an absolute URI")).min(1),
+    ])
+    .optional(),
   store_tokens: z.boolean().optional(),
   auto_refresh: z.boolean().optional(),
   username: z.string().optional(),
@@ -178,6 +184,7 @@ export interface FormErrors {
   caCertificate?: string;
   oauthUsername?: string;
   oauthPassword?: string;
+  oauthResource?: string;
   submit?: string;
 }
 
@@ -217,6 +224,7 @@ export interface UseMCPServerFormReturn {
   retryOAuthRedirectUri: () => Promise<unknown>;
   oauthAuthorizationUrl: string;
   oauthScopes: string;
+  oauthResource: string;
   oauthStoreTokens: boolean;
   oauthAutoRefresh: boolean;
   oauthUsername: string;
@@ -258,6 +266,7 @@ export interface UseMCPServerFormReturn {
   setOAuthRedirectUri: (value: string) => void;
   setOAuthAuthorizationUrl: (value: string) => void;
   setOAuthScopes: (value: string) => void;
+  setOAuthResource: (value: string) => void;
   setOAuthStoreTokens: (checked: boolean) => void;
   setOAuthAutoRefresh: (checked: boolean) => void;
   setOAuthUsername: (value: string) => void;
@@ -298,11 +307,12 @@ const initialState = {
   oauthClientId: "",
   oauthClientSecret: "", // pragma: allowlist secret
   oauthTokenUrl: "",
-  oauthGrantType: "client_credentials",
+  oauthGrantType: "authorization_code",
   oauthIssuerUrl: "",
   oauthRedirectUri: "",
   oauthAuthorizationUrl: "",
   oauthScopes: "",
+  oauthResource: "",
   oauthStoreTokens: true,
   oauthAutoRefresh: true,
   oauthUsername: "",
@@ -341,6 +351,7 @@ export function useMCPServerForm(
     initialState.oauthAuthorizationUrl,
   );
   const [oauthScopes, setOAuthScopes] = useState(initialState.oauthScopes);
+  const [oauthResource, setOAuthResource] = useState(initialState.oauthResource);
   const [oauthStoreTokens, setOAuthStoreTokens] = useState(initialState.oauthStoreTokens);
   const [oauthAutoRefresh, setOAuthAutoRefresh] = useState(initialState.oauthAutoRefresh);
   const [oauthUsername, setOAuthUsername] = useState(initialState.oauthUsername);
@@ -433,6 +444,7 @@ export function useMCPServerForm(
       redirect_uri?: string;
       authorization_url?: string;
       scopes?: string | string[];
+      resource?: string | string[];
       username?: string;
       password?: string;
       store_tokens?: boolean;
@@ -500,6 +512,13 @@ export function useMCPServerForm(
             Array.isArray(oauthConfig.scopes) ? oauthConfig.scopes.join(" ") : oauthConfig.scopes,
           );
         }
+        if (oauthConfig.resource) {
+          setOAuthResource(
+            Array.isArray(oauthConfig.resource)
+              ? oauthConfig.resource.join("\n")
+              : oauthConfig.resource,
+          );
+        }
         if (oauthConfig.username) setOAuthUsername(oauthConfig.username);
         if (oauthConfig.password) setOAuthPassword(oauthConfig.password);
         setOAuthStoreTokens(Boolean(oauthConfig.store_tokens));
@@ -554,9 +573,19 @@ export function useMCPServerForm(
     let oauthConfig: z.infer<typeof oauthConfigSchema> | undefined;
     if (authType === "oauth") {
       const scopesArray = oauthScopes ? oauthScopes.split(/\s+/).filter(Boolean) : undefined;
+      const resourceValues = oauthResource
+        .split(/\r?\n/)
+        .map((value) => sanitizeUrl(value, 2000))
+        .filter(Boolean);
       const base = {
         issuer: oauthIssuerUrl || undefined,
         scopes: scopesArray,
+        resource:
+          resourceValues.length === 0
+            ? undefined
+            : resourceValues.length === 1
+              ? resourceValues[0]
+              : resourceValues,
         store_tokens: oauthStoreTokens,
         auto_refresh: oauthAutoRefresh,
       };
@@ -642,6 +671,7 @@ export function useMCPServerForm(
     oauthRedirectUri,
     oauthAuthorizationUrl,
     oauthScopes,
+    oauthResource,
     oauthStoreTokens,
     oauthAutoRefresh,
     oauthUsername,
@@ -695,7 +725,9 @@ export function useMCPServerForm(
       if (error instanceof z.ZodError) {
         const newErrors: FormErrors = {};
         error.issues.forEach((issue) => {
-          const path = issue.path[0] as keyof FormErrors;
+          const path = issue.path.includes("resource")
+            ? "oauthResource"
+            : (issue.path[0] as keyof FormErrors);
           newErrors[path] = issue.message;
         });
         setErrors(newErrors);
@@ -729,6 +761,7 @@ export function useMCPServerForm(
     setOAuthRedirectUri(initialState.oauthRedirectUri);
     setOAuthAuthorizationUrl(initialState.oauthAuthorizationUrl);
     setOAuthScopes(initialState.oauthScopes);
+    setOAuthResource(initialState.oauthResource);
     setOAuthStoreTokens(initialState.oauthStoreTokens);
     setOAuthAutoRefresh(initialState.oauthAutoRefresh);
     setOAuthUsername(initialState.oauthUsername);
@@ -928,6 +961,7 @@ export function useMCPServerForm(
     oauthRedirectUri,
     oauthAuthorizationUrl,
     oauthScopes,
+    oauthResource,
     oauthStoreTokens,
     oauthAutoRefresh,
     oauthUsername,
@@ -971,6 +1005,7 @@ export function useMCPServerForm(
     setOAuthRedirectUri,
     setOAuthAuthorizationUrl,
     setOAuthScopes,
+    setOAuthResource,
     setOAuthStoreTokens,
     setOAuthAutoRefresh,
     setOAuthUsername,
