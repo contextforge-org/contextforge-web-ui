@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
 
-import { StatusIndicator } from "@/components/ui/status-indicator";
+import {
+  StatusIndicator,
+  StatusIndicatorIcon,
+  STATUS_INDICATOR_TRIGGER_CLASS,
+} from "@/components/ui/status-indicator";
 import { cn } from "@/lib/utils";
 import {
   getAvailabilityPresentation,
@@ -19,8 +23,6 @@ interface ServerStatusIndicatorProps {
   oauthTokenStatus?: OAuthTokenStatus;
   /** Use the short label, for narrow columns. Screen readers still get the full one. */
   compact?: boolean;
-  /** Render as plain text rather than a button. Required inside another button. */
-  interactive?: boolean;
   /**
    * Starts the OAuth authorization flow. Given only where the caller can run
    * it; without it the `auth` state explains itself like every other state.
@@ -43,7 +45,6 @@ export function ServerStatusIndicator({
   server,
   oauthTokenStatus,
   compact = false,
-  interactive = true,
   onAuthorize,
   className,
 }: ServerStatusIndicatorProps) {
@@ -61,18 +62,7 @@ export function ServerStatusIndicator({
   const fullLabel = intl.formatMessage({ id: presentation.labelId });
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
-  if (interactive && authorize) {
-    const layout = "inline-flex items-center gap-1.5 text-xs";
-    const trigger =
-      "rounded hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-    const icon = (
-      <StatusIcon
-        className={cn("h-3.5 w-3.5 shrink-0", presentation.iconClassName)}
-        aria-hidden="true"
-        focusable="false"
-      />
-    );
-
+  if (authorize) {
     const runAuthorize = async () => {
       setIsAuthorizing(true);
       try {
@@ -91,9 +81,9 @@ export function ServerStatusIndicator({
           { id: "mcpServer.status.authorizeTrigger" },
           { name: server.name },
         )}
-        className={cn(layout, trigger, "disabled:opacity-70", className)}
+        className={cn(STATUS_INDICATOR_TRIGGER_CLASS, "disabled:opacity-70", className)}
       >
-        {icon}
+        <StatusIndicatorIcon Icon={StatusIcon} className={presentation.iconClassName} />
         <span className="grid justify-items-start text-muted-foreground">
           <span className="col-start-1 row-start-1">{label}</span>
           <span className="invisible col-start-1 row-start-1" aria-hidden="true">
@@ -118,7 +108,6 @@ export function ServerStatusIndicator({
         { id: "mcpServer.status.detail.label" },
         { name: server.name },
       )}
-      interactive={interactive}
       className={className}
     >
       <ServerStatusDetail
