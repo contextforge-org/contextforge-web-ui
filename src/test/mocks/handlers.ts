@@ -60,6 +60,11 @@ export const handlers = [
     return HttpResponse.json({ authenticated: false, ssoEnabled: false });
   }),
 
+  // BFF-owned effective OAuth callback URL used by authorization-code forms.
+  http.get("*/oauth/callback-url", () => {
+    return HttpResponse.json({ redirectUri: "https://app.example.com/oauth/callback" });
+  }),
+
   // Mock gateways endpoint with cursor pagination
   http.get("*/api/v1/mcp-servers", ({ request }) => {
     const url = new URL(request.url);

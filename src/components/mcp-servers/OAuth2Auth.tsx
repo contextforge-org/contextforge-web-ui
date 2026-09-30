@@ -4,8 +4,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,6 +27,7 @@ interface OAuth2AuthProps {
   tokenUrl: string;
   authorizationUrl: string;
   scopes: string;
+  resource: string;
   storeTokens: boolean;
   autoRefresh: boolean;
   username: string;
@@ -38,11 +39,12 @@ interface OAuth2AuthProps {
   onTokenUrlChange: (value: string) => void;
   onAuthorizationUrlChange: (value: string) => void;
   onScopesChange: (value: string) => void;
+  onResourceChange: (value: string) => void;
   onStoreTokensChange: (checked: boolean) => void;
   onAutoRefreshChange: (checked: boolean) => void;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  errors?: { username?: string; password?: string };
+  errors?: { username?: string; password?: string; resource?: string };
 }
 
 export function OAuth2Auth({
@@ -57,6 +59,7 @@ export function OAuth2Auth({
   tokenUrl,
   authorizationUrl,
   scopes,
+  resource,
   storeTokens,
   autoRefresh,
   username,
@@ -68,6 +71,7 @@ export function OAuth2Auth({
   onTokenUrlChange,
   onAuthorizationUrlChange,
   onScopesChange,
+  onResourceChange,
   onStoreTokensChange,
   onAutoRefreshChange,
   onUsernameChange,
@@ -90,6 +94,11 @@ export function OAuth2Auth({
     hasStoredRedirectUri &&
     /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(redirectUri);
   const [copied, setCopied] = useState(false);
+  const [advancedOAuthOpen, setAdvancedOAuthOpen] = useState(Boolean(resource));
+
+  useEffect(() => {
+    if (resource) setAdvancedOAuthOpen(true);
+  }, [resource]);
 
   const handleCopyRedirect = () => {
     void navigator.clipboard?.writeText(redirectUri);
@@ -375,6 +384,44 @@ export function OAuth2Auth({
           />
         )}
       </Field>
+
+      <div className="space-y-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setAdvancedOAuthOpen((open) => !open)}
+          className="flex h-auto w-full items-center justify-between p-0 text-sm font-medium text-neutral-700 hover:bg-transparent dark:text-neutral-300"
+          aria-expanded={advancedOAuthOpen}
+          aria-controls="advanced-oauth-options"
+        >
+          {intl.formatMessage({ id: "mcpServer.auth.oauth.advancedOptions" })}
+          <ChevronDown className={`h-4 w-4 transition ${advancedOAuthOpen ? "rotate-180" : ""}`} />
+        </Button>
+
+        {advancedOAuthOpen && (
+          <div id="advanced-oauth-options" className="pt-1">
+            <Field
+              id="oauth-resource"
+              error={errors?.resource}
+              labelProps={{ className: "text-neutral-900 dark:text-neutral-100" }}
+              label={intl.formatMessage({ id: "mcpServer.auth.oauth.resourceLabel" })}
+              hint={intl.formatMessage({ id: "mcpServer.auth.oauth.resourceHelp" })}
+            >
+              {(controlProps) => (
+                <Textarea
+                  {...controlProps}
+                  value={resource}
+                  onChange={(event) => onResourceChange(event.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: "mcpServer.auth.oauth.resourcePlaceholder",
+                  })}
+                  className="min-h-16 font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+                />
+              )}
+            </Field>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-2">
         <Label className="text-neutral-900 dark:text-neutral-100">

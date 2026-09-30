@@ -660,8 +660,8 @@ describe("MCPServerForm", () => {
     it("should have required indicators on required fields", () => {
       renderWithRouter(<MCPServerForm {...defaultProps} />);
 
-      const nameLabel = screen.getByText(/Name/i).closest("label");
-      const urlLabel = screen.getByText(/URL/i).closest("label");
+      const nameLabel = document.querySelector("label[for='server-name']");
+      const urlLabel = document.querySelector("label[for='server-url']");
 
       expect(nameLabel).toHaveTextContent("*");
       expect(urlLabel).toHaveTextContent("*");
