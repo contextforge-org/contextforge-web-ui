@@ -118,7 +118,7 @@
   "mcpServer.status.empty.authRequired": "Autoriza este servidor para ver sus herramientas, recursos y prompts.",
   "mcpServer.status.empty.authExpired": "Tu autorización ha caducado. Autoriza este servidor de nuevo para ver sus herramientas, recursos y prompts.",
   "mcpServer.status.empty.authChecking": "Comprobando tu autorización, así que todavía no hay nada que mostrar.",
-  "mcpServer.status.empty.authUnavailable": "No se pudo comprobar tu estado de autorización, así que esta lista puede estar incompleta.",
+  "mcpServer.status.empty.authUnavailable": "Este servidor no tiene nada que mostrar. La autorización puede ser la causa, ya que la comprobación de tu estado de autorización no se completó.",
   "mcpServer.status.empty.unreachable": "Este servidor está sin conexión, así que no tiene nada que mostrar hasta que vuelva a responder.",
   "mcpServer.status.empty.checking": "Este servidor aún no está activo, así que no tiene nada que mostrar.",
   "mcpServer.status.empty.inactive": "Este servidor está inactivo, así que no tiene nada que mostrar.",

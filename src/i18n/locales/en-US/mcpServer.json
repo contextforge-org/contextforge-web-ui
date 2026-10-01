@@ -118,7 +118,7 @@
   "mcpServer.status.empty.authRequired": "Authorize this server to see its tools, resources, and prompts.",
   "mcpServer.status.empty.authExpired": "Your authorization has expired. Authorize this server again to see its tools, resources, and prompts.",
   "mcpServer.status.empty.authChecking": "Checking your authorization, so there is nothing to show yet.",
-  "mcpServer.status.empty.authUnavailable": "Your authorization status could not be checked, so this list may be incomplete.",
+  "mcpServer.status.empty.authUnavailable": "This server has nothing to show. Authorization may be the cause, since the check on your authorization status did not complete.",
   "mcpServer.status.empty.unreachable": "This server is offline, so it has nothing to show until it responds again.",
   "mcpServer.status.empty.checking": "This server is not active yet, so it has nothing to show.",
   "mcpServer.status.empty.inactive": "This server is inactive, so it has nothing to show.",
