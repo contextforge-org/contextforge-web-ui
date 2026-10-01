@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Blocks, Bot, Box, Code, MessageSquareCode, Wrench } from "lucide-react";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/api/oauth";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
+import { useAuth } from "@/auth/useAuth";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { CreateServerForm } from "@/components/gateways/CreateServerForm";
 import { SourceSelection } from "@/components/gateways/SourceSelection";
@@ -17,15 +19,17 @@ import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
+import { ServerStatusDetail } from "@/components/servers/ServerStatusDetail";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { api, ApiError } from "@/api/client";
+import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
-import { useOAuthTokenStatuses } from "@/hooks/useOAuthTokenStatuses";
 import { useRouter } from "@/router";
 import {
   getAvailabilityPresentation,
   getServerAvailability,
-  type OAuthTokenStatus,
+  isAuthorizationAvailability,
+  isOAuthServer,
 } from "@/lib/serverStatus";
 import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server";
 
@@ -371,19 +375,21 @@ function ComponentGroup({
 const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   server,
   isOpen,
-  oauthTokenStatus,
   selectedToolIds,
   selectedResourceIds,
   selectedPromptIds,
   onComponentSelectionChange,
+  oauthStatus,
+  onRetryOAuthStatus,
 }: {
   server: ListedMCPServer;
   isOpen: boolean;
-  oauthTokenStatus?: OAuthTokenStatus;
   selectedToolIds: Set<string>;
   selectedResourceIds: Set<string>;
   selectedPromptIds: Set<string>;
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
+  oauthStatus?: OAuthStatusEntry;
+  onRetryOAuthStatus: () => void;
 }) {
   const intl = useIntl();
   const {
@@ -414,6 +420,8 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     { enabled: isOpen },
   );
 
+  const availability = getServerAvailability(server, oauthStatus);
+  const showOAuthDetail = isAuthorizationAvailability(availability);
   const tools = useMemo(
     () =>
       getResponseItems(toolsData, "tools").map((tool): SelectableComponent => ({
@@ -440,7 +448,6 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
   );
   const isLoadingComponents = toolsLoading || resourcesLoading || promptsLoading;
   const hasComponents = tools.length + resources.length + prompts.length > 0;
-  const availability = getServerAvailability(server, oauthTokenStatus);
   const failedLists = [
     { kind: "tools", error: toolsError, retry: refetchTools },
     { kind: "resources", error: resourcesError, retry: refetchResources },
@@ -484,15 +491,24 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
             />
           </span>
           <span className="hidden shrink-0 md:flex">
-            <ServerStatusIndicator
-              server={server}
-              oauthTokenStatus={oauthTokenStatus}
-              interactive={false}
-            />
+            <ServerStatusIndicator server={server} oauthStatus={oauthStatus} interactive={false} />
           </span>
         </span>
       </AccordionTrigger>
       <AccordionContent className="space-y-4">
+        {showOAuthDetail && (
+          <div className="rounded-md border border-border/60 px-3 py-2">
+            <ServerStatusDetail
+              availability={availability}
+              enabled={server.enabled}
+              serverName={server.name}
+              lastSeen={server.lastSeen}
+              lastError={server.lastError}
+              onRetry={isRetryableOAuthStatus(oauthStatus) ? onRetryOAuthStatus : undefined}
+              authorizationManagementHint
+            />
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 text-xs sm:hidden">
           <ComponentCount
             icon={Wrench}
@@ -590,15 +606,25 @@ function EditMCPServersSection({
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
 }) {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canReadMCPServers = !permissionsLoading && hasPermission("gateways.read");
   const headingId = useId();
   const [openServerIds, setOpenServerIds] = useState<string[]>([]);
   const {
     data: mcpServersData,
     error: mcpServersError,
     isLoading: mcpServersLoading,
-  } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH);
+  } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH, {
+    enabled: canReadMCPServers,
+  });
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
-  const { oauthTokenStatuses } = useOAuthTokenStatuses(mcpServers);
+  const oauthServerIds = useMemo(
+    () => mcpServers.filter(isOAuthServer).map((server) => server.id),
+    [mcpServers],
+  );
+  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds, {
+    enabled: canReadMCPServers,
+  });
   const openServerIdSet = useMemo(() => new Set(openServerIds), [openServerIds]);
   const selectedToolIdSet = useMemo(() => new Set(selectedToolIds), [selectedToolIds]);
   const selectedResourceIdSet = useMemo(() => new Set(selectedResourceIds), [selectedResourceIds]);
@@ -649,11 +675,12 @@ function EditMCPServersSection({
               key={server.id}
               server={server}
               isOpen={openServerIdSet.has(server.id)}
-              oauthTokenStatus={oauthTokenStatuses[server.id]}
               selectedToolIds={selectedToolIdSet}
               selectedResourceIds={selectedResourceIdSet}
               selectedPromptIds={selectedPromptIdSet}
               onComponentSelectionChange={onComponentSelectionChange}
+              oauthStatus={oauthStatuses[server.id]}
+              onRetryOAuthStatus={() => void retryOAuthStatus(server.id)}
             />
           ))}
         </Accordion>

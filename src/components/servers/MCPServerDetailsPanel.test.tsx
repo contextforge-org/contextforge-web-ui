@@ -444,8 +444,36 @@ describe("MCPServerDetailsPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Unreachable")).toBeInTheDocument();
+      expect(screen.getByText("Offline")).toBeInTheDocument();
     });
+  });
+
+  it("shows OAuth authorization action from shared status", async () => {
+    const user = userEvent.setup();
+    const onAuthorize = vi.fn().mockResolvedValue(undefined);
+
+    renderWithProviders(
+      <MCPServerDetailsPanel
+        server={{ ...mockServer, authType: "oauth" }}
+        error={null}
+        open={true}
+        onClose={() => {}}
+        oauthStatus={{
+          state: "ready",
+          tokenStatus: "missing",
+          status: {
+            oauth_enabled: true,
+            grant_type: "authorization_code",
+            user_token_status: { status: "missing", authorized: false },
+          },
+        }}
+        onAuthorize={onAuthorize}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Authorize Test MCP Server" }));
+
+    expect(onAuthorize).toHaveBeenCalledOnce();
   });
 
   it("closes panel when close button is clicked", async () => {

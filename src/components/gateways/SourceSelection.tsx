@@ -14,14 +14,16 @@ import {
 } from "lucide-react";
 import { MainNavIcon } from "@/components/icons/MainNavIcon";
 import { MCPIcon } from "@/components/icons/MCPIcon";
+import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
+import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
-import { useOAuthTokenStatuses } from "@/hooks/useOAuthTokenStatuses";
+import { isOAuthServer } from "@/lib/serverStatus";
 import { cn } from "@/lib/utils";
 import type { MCPServer } from "@/types/server";
 
@@ -91,6 +93,8 @@ export function SourceSelection({
   };
 }) {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canReadMCPServers = !permissionsLoading && hasPermission("gateways.read");
   const firstEnabledIndex = actionCards.findIndex((card) => !card.disabled);
   const initialSelectedIndex = firstEnabledIndex === -1 ? 0 : firstEnabledIndex;
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -104,9 +108,16 @@ export function SourceSelection({
     error: mcpServersError,
     isLoading: mcpServersLoading,
   } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH, {
-    enabled: Boolean(createServerActions) && hasRequestedMCPServers,
+    enabled: Boolean(createServerActions) && hasRequestedMCPServers && canReadMCPServers,
   });
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
+  const oauthServerIds = useMemo(
+    () => mcpServers.filter(isOAuthServer).map((server) => server.id),
+    [mcpServers],
+  );
+  const { entries: oauthStatuses, retry: retryOAuthStatus } = useOAuthStatuses(oauthServerIds, {
+    enabled: canReadMCPServers,
+  });
   const associatedMCPServerIdSet = useMemo(
     () => new Set(associatedMCPServerIds),
     [associatedMCPServerIds],
@@ -120,7 +131,6 @@ export function SourceSelection({
   );
   const hasSelectedMCPServers = selectedMCPServerIds.size > 0;
   const panelId = "connected-sources-panel";
-  const { oauthTokenStatuses } = useOAuthTokenStatuses(mcpServers);
 
   // Selecting an offline source still works: its components stay in the catalog.
   // Only a source with nothing to contribute leaves the virtual server empty.
@@ -418,7 +428,9 @@ export function SourceSelection({
                             </span>
                             <ServerStatusIndicator
                               server={server}
-                              oauthTokenStatus={oauthTokenStatuses[server.id]}
+                              oauthStatus={oauthStatuses[server.id]}
+                              onRetry={() => void retryOAuthStatus(server.id)}
+                              authorizationManagementHint
                               compact
                               className="justify-self-start"
                             />

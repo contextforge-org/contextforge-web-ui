@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { EllipsisVertical, FileText, KeyRound, Lock, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
-import type { OAuthGatewayStatus } from "@/api/catalog";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/api/oauth";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";
@@ -26,44 +26,91 @@ import {
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import type { CatalogServer } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { getAuthTypeGroupId, getAuthTypeGroupLabelId } from "@/utils/catalogAuthTypes";
+import {
+  getAuthTypeGroupId,
+  getAuthTypeGroupLabelId,
+  isCatalogOAuthServer,
+} from "@/utils/catalogAuthTypes";
 import { getTagLabels } from "@/utils/tags";
 
 const EMPTY_PENDING_IDS: ReadonlySet<string> = new Set();
-const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthGatewayStatus>> = {};
+const EMPTY_OAUTH_STATUSES: Readonly<Record<string, OAuthStatusEntry>> = {};
 const EMPTY_ADD_ERRORS: Readonly<Record<string, string>> = {};
 
-function getOAuthCardState(server: CatalogServer, status?: OAuthGatewayStatus) {
-  const tokenState = status?.user_token_status?.status;
+function getOAuthCardState(server: CatalogServer, entry?: OAuthStatusEntry) {
+  if (!isCatalogOAuthServer(server))
+    return {
+      messageId: "mcpServer.catalog.connected",
+      severity: "success" as const,
+      canAuthorize: false,
+      canRetry: false,
+    };
+  if (!entry || entry.state === "unavailable")
+    return {
+      messageId: "mcpServer.catalog.oauth.statusUnavailable",
+      severity: "warning" as const,
+      canAuthorize: false,
+      canRetry: isRetryableOAuthStatus(entry),
+    };
+  if (entry.state === "loading")
+    return {
+      messageId: "mcpServer.catalog.oauth.statusChecking",
+      severity: "info" as const,
+      canAuthorize: false,
+      canRetry: false,
+    };
+  if (entry.state === "not_applicable")
+    return {
+      messageId: "mcpServer.catalog.connected",
+      severity: "success" as const,
+      canAuthorize: false,
+      canRetry: false,
+    };
+
+  const tokenState = entry.tokenStatus;
   if (tokenState === "valid")
     return {
       messageId: "mcpServer.catalog.connected",
       severity: "success" as const,
       canAuthorize: false,
+      canRetry: false,
     };
   if (tokenState === "near_expiry")
     return {
       messageId: "mcpServer.catalog.oauth.nearExpiry",
       severity: "warning" as const,
       canAuthorize: false,
+      canRetry: false,
     };
   if (tokenState === "expired")
     return {
       messageId: "mcpServer.catalog.oauth.expired",
       severity: "error" as const,
       canAuthorize: true,
+      canRetry: false,
     };
-  if (server.requires_oauth_config || tokenState === "missing")
+  if (tokenState === "missing")
     return {
       messageId: "mcpServer.catalog.oauth.needsAuthorization",
       severity: "info" as const,
       canAuthorize: true,
+      canRetry: false,
     };
   return {
-    messageId: "mcpServer.catalog.connected",
-    severity: "success" as const,
+    messageId: "mcpServer.catalog.oauth.statusUnavailable",
+    severity: "warning" as const,
     canAuthorize: false,
+    canRetry: true,
   };
+}
+
+function isOAuthCardUsable(server: CatalogServer, entry?: OAuthStatusEntry): boolean {
+  if (!isCatalogOAuthServer(server)) return true;
+  if (entry?.state === "not_applicable") return true;
+  return (
+    entry?.state === "ready" &&
+    (entry.tokenStatus === "valid" || entry.tokenStatus === "near_expiry")
+  );
 }
 
 function CatalogCard({
@@ -81,6 +128,7 @@ function CatalogCard({
   oauthStatuses,
   addError,
   onAddErrorRead,
+  onRetryOAuthStatus,
 }: {
   server: CatalogServer;
   onView: (trigger: HTMLElement) => void;
@@ -93,11 +141,12 @@ function CatalogCard({
   isDisconnecting: boolean;
   canTest: boolean;
   canDisconnect: boolean;
-  oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
   addError?: string;
   /** Called once the reason has been read, which is what retires the error. */
   onAddErrorRead?: () => void;
+  onRetryOAuthStatus: (gatewayId: string) => void;
 }) {
   const intl = useIntl();
   const headingId = useId();
@@ -107,6 +156,10 @@ function CatalogCard({
   const shouldTransferAddFocusRef = useRef(false);
   const shouldRestoreErrorFocusRef = useRef(false);
   const oauthState = getOAuthCardState(
+    server,
+    server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
+  );
+  const oauthUsable = isOAuthCardUsable(
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
   );
@@ -228,12 +281,10 @@ function CatalogCard({
                       </DropdownMenuItem>
                       {canTest && (
                         <DropdownMenuItem
-                          disabled={
-                            server.requires_oauth_config || isAdding || isTesting || isDisconnecting
-                          }
+                          disabled={!oauthUsable || isAdding || isTesting || isDisconnecting}
                           onSelect={onTest}
                           title={
-                            server.requires_oauth_config
+                            !oauthUsable
                               ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
                               : undefined
                           }
@@ -247,6 +298,14 @@ function CatalogCard({
                           onSelect={onAuthorize}
                         >
                           {intl.formatMessage({ id: "mcpServer.catalog.oauth.authorize" })}
+                        </DropdownMenuItem>
+                      )}
+                      {oauthState.canRetry && server.gateway_id && (
+                        <DropdownMenuItem
+                          disabled={isAdding || isDisconnecting}
+                          onSelect={() => onRetryOAuthStatus(server.gateway_id!)}
+                        >
+                          {intl.formatMessage({ id: "mcpServer.catalog.oauth.retryStatus" })}
                         </DropdownMenuItem>
                       )}
                       {canDisconnect && server.gateway_id && (
@@ -347,15 +406,18 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 
 export function CatalogServerDetailsDialog({
   server,
+  oauthStatus,
   onOpenChange,
 }: {
   server: CatalogServer | null;
+  oauthStatus?: OAuthStatusEntry;
   onOpenChange: (open: boolean) => void;
 }) {
   const intl = useIntl();
   const tagsHeadingId = useId();
   const tagLabels = getTagLabels(server?.tags ?? []);
   const authTypeLabelId = server ? getAuthTypeGroupLabelId(server.auth_type) : null;
+  const registeredStatus = server ? getOAuthCardState(server, oauthStatus) : null;
 
   return (
     <Dialog open={server !== null} onOpenChange={onOpenChange}>
@@ -386,7 +448,7 @@ export function CatalogServerDetailsDialog({
             )}
             <DetailRow label={intl.formatMessage({ id: "mcpServer.catalog.status" })}>
               {server.is_registered
-                ? intl.formatMessage({ id: "mcpServer.catalog.connected" })
+                ? intl.formatMessage({ id: registeredStatus!.messageId })
                 : intl.formatMessage({ id: "mcpServer.catalog.notConnected" })}
             </DetailRow>
           </dl>
@@ -427,6 +489,7 @@ export function CatalogResults({
   oauthStatuses = EMPTY_OAUTH_STATUSES,
   addErrors = EMPTY_ADD_ERRORS,
   onAddErrorRead,
+  onRetryOAuthStatus = () => undefined,
 }: {
   servers: CatalogServer[];
   emptyStateMessageId: string;
@@ -440,9 +503,10 @@ export function CatalogResults({
   disconnectingServerIds?: ReadonlySet<string>;
   canTest: boolean;
   canDisconnect: boolean;
-  oauthStatuses?: Readonly<Record<string, OAuthGatewayStatus>>;
+  oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   addErrors?: Readonly<Record<string, string>>;
   onAddErrorRead?: (serverId: string) => void;
+  onRetryOAuthStatus?: (gatewayId: string) => void;
 }) {
   const intl = useIntl();
   const announcedCount = useDebouncedValue(servers.length, 300);
@@ -474,6 +538,7 @@ export function CatalogResults({
               oauthStatuses={oauthStatuses}
               addError={addErrors[server.id]}
               onAddErrorRead={onAddErrorRead && (() => onAddErrorRead(server.id))}
+              onRetryOAuthStatus={onRetryOAuthStatus}
             />
           ))}
         </ul>

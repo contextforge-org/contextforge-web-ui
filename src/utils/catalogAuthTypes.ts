@@ -34,6 +34,13 @@ export function getAuthTypeGroupId(rawAuthType: string): AuthTypeGroupId | null 
   return RAW_AUTH_TYPE_TO_GROUP_ID.get(rawAuthType) ?? null;
 }
 
+export function isCatalogOAuthServer(server: {
+  auth_type: string;
+  requires_oauth_config?: boolean | null;
+}): boolean {
+  return getAuthTypeGroupId(server.auth_type) === "oauth" || server.requires_oauth_config === true;
+}
+
 export function getAuthTypeGroupLabelId(rawAuthType: string): string | null {
   const groupId = getAuthTypeGroupId(rawAuthType);
   return groupId ? AUTH_TYPE_GROUPS.find((group) => group.id === groupId)!.labelId : null;

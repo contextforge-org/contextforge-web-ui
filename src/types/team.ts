@@ -1,3 +1,6 @@
+/** Re-exported, not restated, so backend drift surfaces as a compile error. */
+export type { TeamInvitationResponse as TeamInvitation } from "@/generated/types";
+
 export interface Team {
   id: string;
   name: string;

@@ -6,7 +6,7 @@
  */
 
 import { api } from "./client";
-import type { ServersResponse, MCPServer, GatewayOAuthStatus } from "../types/server";
+import type { ServersResponse, MCPServer } from "../types/server";
 import type {
   GatewayHandshakeRequest,
   GatewayHandshakeResponse,
@@ -14,11 +14,9 @@ import type {
   GatewayTestRequest,
   GatewayTestResponse,
 } from "@/generated/types";
+import { validateServerId } from "@/utils/serverId";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
-
-/** Mirrors OAUTH_STATUS_BATCH_MAX_IDS on the backend's /oauth/status route. */
-const OAUTH_STATUS_MAX_IDS = 100;
 
 /** The user closed the OAuth popup. Typed so callers can stay quiet about it. */
 export class OAuthCancelledError extends Error {
@@ -26,25 +24,6 @@ export class OAuthCancelledError extends Error {
     super("OAuth authorization was cancelled");
     this.name = "OAuthCancelledError";
   }
-}
-
-/**
- * Validates server ID to prevent path traversal and injection attacks
- * @param id - The server ID to validate
- * @returns The validated ID
- * @throws Error if ID is invalid
- */
-function validateServerId(id: string): string {
-  if (!id || typeof id !== "string") {
-    throw new Error("Invalid server ID");
-  }
-
-  // Ensure ID is alphanumeric with hyphens/underscores only
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-    throw new Error("Invalid server ID format");
-  }
-
-  return id;
 }
 
 function openOAuthAuthorizationPopup(): Window {
@@ -212,31 +191,6 @@ export const serversApi = {
   ): Promise<{ success: boolean; message: string }> => {
     const validId = validateServerId(id);
     return api.post(`/oauth/fetch-tools/${validId}`);
-  },
-
-  /**
-   * The caller's own OAuth state for each gateway, batched.
-   *
-   * Keys stay snake_case, unlike the gateway endpoints. Ids that are missing or
-   * not visible to the caller are omitted. A paged-through list can exceed the
-   * backend's id cap, so requests are split and the responses merged.
-   */
-  getOAuthStatus: async (ids: string[]): Promise<Record<string, GatewayOAuthStatus>> => {
-    const validIds = ids.map(validateServerId);
-    const batches: string[][] = [];
-    for (let start = 0; start < validIds.length; start += OAUTH_STATUS_MAX_IDS) {
-      batches.push(validIds.slice(start, start + OAUTH_STATUS_MAX_IDS));
-    }
-
-    const responses = await Promise.all(
-      batches.map((batch) => {
-        const params = new URLSearchParams();
-        batch.forEach((id) => params.append("gateway_ids", id));
-        return api.get<Record<string, GatewayOAuthStatus>>(`/oauth/status?${params.toString()}`);
-      }),
-    );
-
-    return Object.assign({}, ...responses) as Record<string, GatewayOAuthStatus>;
   },
 
   /**

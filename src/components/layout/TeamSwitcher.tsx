@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChevronsUpDown, Globe } from "lucide-react";
 import {
   DropdownMenu,
@@ -7,12 +7,22 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { SidebarMenuButton } from "../ui/sidebar";
+import { usePendingInvitations } from "../invitations/PendingInvitationsProvider";
 import { useTeamsContext } from "../../hooks/TeamsProvider";
 import { useAuthContext } from "../../auth/AuthContext";
 
 export function TeamSwitcher() {
   const { selectedTeamId, setSelectedTeamId } = useAuthContext();
-  const { teams, isLoading, error } = useTeamsContext();
+  const { teams, isLoading, error, refetch } = useTeamsContext();
+
+  // An accepted invitation adds a team, so this list needs refetching too.
+  const { acceptedCount } = usePendingInvitations();
+  const refreshedForAccepted = useRef(acceptedCount);
+  useEffect(() => {
+    if (acceptedCount === refreshedForAccepted.current) return;
+    refreshedForAccepted.current = acceptedCount;
+    void refetch();
+  }, [acceptedCount, refetch]);
 
   const currentTeam = useMemo(
     () => (selectedTeamId ? teams.find((t) => t.id === selectedTeamId) : null),

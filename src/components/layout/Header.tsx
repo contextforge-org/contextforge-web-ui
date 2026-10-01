@@ -6,6 +6,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "../ui/hover-card"
 import { Typography } from "../ui/typography";
 import { HeaderProfileMenu } from "./HeaderProfileMenu";
 import { HeaderQuickNav } from "./HeaderQuickNav";
+import { PendingInvitationsChip } from "../invitations/PendingInvitationsChip";
 
 const GITHUB_URL = "https://github.com/IBM/mcp-context-forge";
 const DOCS_URL = "https://ibm.github.io/mcp-context-forge/latest/";
@@ -24,6 +25,7 @@ export function Header() {
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       <SidebarTrigger />
       <div className="flex items-center gap-2">
+        <PendingInvitationsChip />
         <HeaderQuickNav />
         <HoverCard openDelay={100}>
           <HoverCardTrigger asChild>

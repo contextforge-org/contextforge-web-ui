@@ -58,7 +58,7 @@ export function ManageTeamMembersDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-yellow-500">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-team-icon-bg">
               <Users className="h-4 w-4 text-black" />
             </div>
             {intl.formatMessage({ id: "teams.members.dialog.title" })}
