@@ -55,7 +55,16 @@ const UNREACHABLE_COOLDOWN_SECONDS = 5;
 function needsRefresh(record: SessionRecord): boolean {
   if (!record.refreshToken || record.tokenExpiresAt === undefined) return false;
   const now = Math.floor(Date.now() / 1000);
+  if (record.refreshRetryAfter !== undefined && now < record.refreshRetryAfter) return false;
   return record.tokenExpiresAt - config.ssoTokenRefreshLeewaySeconds <= now;
+}
+
+// True once the access token's real deadline has passed -- never fudged by
+// a retry cooldown. Used to refuse forwarding a dead bearer token upstream.
+function isActuallyExpired(record: SessionRecord): boolean {
+  return (
+    record.tokenExpiresAt !== undefined && record.tokenExpiresAt <= Math.floor(Date.now() / 1000)
+  );
 }
 
 function delay(ms: number): Promise<void> {
@@ -78,7 +87,9 @@ async function refreshRecord(
     });
 
     const validExpiresIn = tokens.expiresIn && tokens.expiresIn > 0 ? tokens.expiresIn : undefined;
-    const ttlSeconds = validExpiresIn ?? config.sessionTtlSeconds;
+    // Always the session TTL, never the refreshed access token's own
+    // expires_in -- otherwise this bug recurs on every refresh cycle.
+    const ttlSeconds = config.sessionTtlSeconds;
     const tokenExpiresAt =
       Math.floor(Date.now() / 1000) + (validExpiresIn ?? SSO_TOKEN_REFRESH_FALLBACK_SECONDS);
 
@@ -112,17 +123,10 @@ async function refreshRecord(
       err instanceof OidcDiscoveryError;
     if (isTransient) {
       request.log.warn({ err }, "SSO token refresh unreachable -- using pre-refresh token");
-      // Persist a short cooldown so every request during an outage doesn't
-      // each retrigger discovery+refresh; without this, needsRefresh() stays
-      // true on the unchanged tokenExpiresAt and every subsequent request
-      // pays the full timeout again until Keycloak recovers. needsRefresh()
-      // fires whenever tokenExpiresAt is within the leeway window, so the
-      // cooldown has to clear that leeway too, not just add a few seconds
-      // to the (already-passed) real expiry.
-      const cooldownExpiresAt =
-        Math.floor(Date.now() / 1000) +
-        config.ssoTokenRefreshLeewaySeconds +
-        UNREACHABLE_COOLDOWN_SECONDS;
+      // Don't touch tokenExpiresAt -- it's the real deadline. refreshRetryAfter
+      // just stops every request from re-paying a discovery+refresh timeout
+      // during an outage; it never claims an expired token is still valid.
+      const retryAfter = Math.floor(Date.now() / 1000) + UNREACHABLE_COOLDOWN_SECONDS;
       const wrote = await updateSessionTokens(
         request.server.redis,
         sessionId,
@@ -130,12 +134,14 @@ async function refreshRecord(
           bearerToken: record.bearerToken,
           refreshToken: record.refreshToken,
           idToken: record.idToken,
-          tokenExpiresAt: cooldownExpiresAt,
+          tokenExpiresAt: record.tokenExpiresAt!,
+          refreshRetryAfter: retryAfter,
         },
         config.sessionTtlSeconds,
       );
       if (!wrote) return null;
-      return { ...record, tokenExpiresAt: cooldownExpiresAt };
+      const updated = { ...record, refreshRetryAfter: retryAfter };
+      return isActuallyExpired(updated) ? null : updated;
     }
     request.log.warn({ err }, "SSO token refresh failed");
     return null;
@@ -148,7 +154,6 @@ async function refreshRecordWithLock(
   request: FastifyRequest,
   reply: FastifyReply,
   sessionId: string,
-  record: SessionRecord,
 ): Promise<SessionRecord | null> {
   const lockKey = sessionRefreshLockKey(sessionId);
   const lockToken = randomUUID();
@@ -174,11 +179,28 @@ async function refreshRecordWithLock(
     request.log.warn({ sessionId }, "SSO token refresh lock wait timed out");
     const latest = await getSession(request.server.redis, sessionId);
     if (!latest) return null;
-    return needsRefresh(latest) ? null : latest;
+    if (!needsRefresh(latest)) return latest;
+
+    // Still expired, but a refresh can legitimately take up to
+    // REFRESH_LOCK_TTL_MS -- longer than our own wait budget. If the lock
+    // is still held, someone's actively working; use the pre-refresh token
+    // for this request rather than force-logout a session on track to
+    // succeed. Only a vanished lock (holder crashed/released without
+    // writing fresh tokens) means the attempt genuinely failed.
+    const stillLocked = await request.server.redis.get(lockKey);
+    return stillLocked ? latest : null;
   }
 
   try {
-    return await refreshRecord(request, reply, sessionId, record);
+    // Re-read now that the lock is held, rather than reusing the `record`
+    // passed in from before the acquire. Without this, a holder who wins
+    // the lock right after a prior holder rotated the refresh token would
+    // refresh with that now-superseded token and get invalid_grant'd, even
+    // though the session is actually fine.
+    const fresh = await getSession(request.server.redis, sessionId);
+    if (!fresh) return null;
+    if (!needsRefresh(fresh)) return fresh;
+    return await refreshRecord(request, reply, sessionId, fresh);
   } finally {
     await request.server.redis.eval(UNLOCK_SCRIPT, 1, lockKey, lockToken);
   }
@@ -198,11 +220,18 @@ async function sessionAuth(request: FastifyRequest, reply: FastifyReply): Promis
   }
 
   if (needsRefresh(record)) {
-    record = await refreshRecordWithLock(request, reply, sessionId, record);
+    record = await refreshRecordWithLock(request, reply, sessionId);
     if (!record) {
       reply.code(401).send({ error: "session_expired" });
       return;
     }
+  }
+
+  // Never forward a bearer past its real deadline, even if a retry backoff
+  // or a still-held lock skipped refreshing it this request.
+  if (isActuallyExpired(record)) {
+    reply.code(401).send({ error: "session_expired" });
+    return;
   }
 
   request.session = { sessionId, bearerToken: record.bearerToken, user: record.user };

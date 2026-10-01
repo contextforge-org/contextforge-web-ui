@@ -58,27 +58,24 @@ export async function establishSession(
     throw new PasswordChangeStillRequiredError();
   }
 
-  // The BFF session/cookie must not outlive the bearer token it wraps — use
-  // the upstream JWT's own lifetime, not a fixed BFF-side default. See
-  // createSession's comment in lib/session-store.ts.
-  let ttlSeconds = config.sessionTtlSeconds;
-  // Separate from ttlSeconds' BFF-default fallback -- tokenExpiresAt must never
-  // borrow it and claim an unknown-lifetime access token is still valid.
-  let ssoTokenTtlSeconds = 0;
-  if (Number.isFinite(auth.expires_in) && auth.expires_in! > 0) {
-    ttlSeconds = auth.expires_in!;
-    ssoTokenTtlSeconds = auth.expires_in!;
-  } else if (auth.expires_in !== undefined) {
-    // Upstream sent expires_in, but it's not a usable positive number — fall
-    // back, but log it: this means the BFF session can outlive the JWT it
-    // wraps until the proxy's revoke-on-401 catches up (see session-store.ts).
-    // A simply *absent* expires_in is not logged here — some upstream
-    // login-shaped endpoints don't send it by design (see upstream-login.ts).
+  const validExpiresIn =
+    Number.isFinite(auth.expires_in) && auth.expires_in! > 0 ? auth.expires_in! : undefined;
+  if (validExpiresIn === undefined && auth.expires_in !== undefined) {
     request.log.warn(
       { expires_in: auth.expires_in },
       "upstream login returned invalid expires_in, using BFF default session TTL",
     );
   }
+
+  // Password-login sessions have no refresh path, so the cookie/Redis TTL
+  // must match the JWT's own lifetime (session dies when the JWT does). SSO
+  // sessions can outlive the access token via refreshToken -- tying them to
+  // the same short expires_in would make sessionAuth's refresh unreachable
+  // for any idle gap longer than one access-token lifetime.
+  const ttlSeconds = ssoTokens
+    ? config.sessionTtlSeconds
+    : (validExpiresIn ?? config.sessionTtlSeconds);
+  const ssoTokenTtlSeconds = validExpiresIn ?? 0;
 
   const sessionId = await createSession(
     fastify.redis,

@@ -87,12 +87,14 @@ export async function refreshSsoSession(params: {
   const responseBody = json as Record<string, unknown>;
 
   if (!response.ok) {
-    // Keycloak's own RFC 6749 error code -- invalid_grant means the refresh
-    // token is dead, distinct from "unreachable" above.
+    // Keycloak's own RFC 6749 error code is the actual verdict on the
+    // token, not the HTTP status class -- a 4xx can be rate-limiting
+    // (429), a desynced client_secret (invalid_client), or a momentary
+    // temporarily_unavailable, none of which say the refresh token itself
+    // is dead. Only invalid_grant does. Treating every 4xx as "rejected"
+    // would log a user out over conditions that clear on their own.
     const errorCode = typeof responseBody.error === "string" ? responseBody.error : "unknown_error";
-    // 5xx is Keycloak's own server error (transient); 4xx is Keycloak
-    // explicitly rejecting this specific grant/token (not transient).
-    const code = response.status >= 500 ? "unreachable" : "rejected";
+    const code = errorCode === "invalid_grant" ? "rejected" : "unreachable";
     throw new SsoTokenRefreshError(
       `Keycloak token endpoint returned ${response.status} (${errorCode})`,
       code,

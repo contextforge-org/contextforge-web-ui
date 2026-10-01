@@ -233,11 +233,12 @@ describe("sessionAuth", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      // Without this, the browser drops bff_sid once the *original* login's
-      // maxAge elapses, even though Redis has been kept fresh by refreshes.
+      // The session TTL (default 86400s), not the refreshed access token's
+      // own 300s expires_in -- otherwise the cookie dies at the next access
+      // token's expiry again, same bug for a different reason.
       const cookie = response.cookies.find((c) => c.name === "bff_sid");
       expect(cookie?.value).toBe(sessionId);
-      expect(cookie?.maxAge).toBe(300);
+      expect(cookie?.maxAge).toBe(86400);
     });
   });
 
@@ -316,7 +317,150 @@ describe("sessionAuth", () => {
     });
   });
 
-  it("forces re-auth, not a stale token, when the lock wait times out and the session is still expired", async () => {
+  it("re-reads the session after acquiring the lock instead of reusing the stale pre-lock record", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession, updateSessionTokens } =
+        await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "old-refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10,
+        },
+        900,
+      );
+      // Simulate a concurrent request winning the race: by the time this
+      // one acquires the (now-free) lock, Redis already holds rotated
+      // tokens -- the `record` sessionAuth read before the acquire is
+      // stale. Refreshing with its old, already-superseded refreshToken
+      // would get invalid_grant'd even though the session is fine.
+      await updateSessionTokens(
+        app.redis,
+        sessionId,
+        {
+          bearerToken: "new-access-token", // pragma: allowlist secret
+          refreshToken: "new-refresh-token", // pragma: allowlist secret
+          idToken: "new-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now + 300,
+        },
+        900,
+      );
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        session: { sessionId, bearerToken: "new-access-token" },
+      });
+      // Already fresh once re-read under the lock -- no refresh attempted.
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("uses the pre-refresh token when the lock wait times out but the holder is still working", async () => {
+    await withSsoEnabled(async () => {
+      vi.useFakeTimers();
+      try {
+        const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+        const { createSession: freshCreateSession, sessionRefreshLockKey } =
+          await import("../../src/lib/session-store.js");
+        const app = await buildApp(freshSessionPlugin);
+        const now = Math.floor(Date.now() / 1000);
+        const sessionId = await freshCreateSession(
+          app.redis,
+          {
+            bearerToken: "old-access-token", // pragma: allowlist secret
+            user: { email: "user@example.com", auth_provider: "sso" },
+            refreshToken: "refresh-token", // pragma: allowlist secret
+            idToken: "old-id-token", // pragma: allowlist secret
+            tokenExpiresAt: now + 10, // within leeway, not yet actually expired
+          },
+          900,
+        );
+        // Simulate another instance holding the refresh lock for the whole
+        // wait window -- this request's own SET NX fails immediately, so it
+        // polls and times out without ever seeing a completed refresh. The
+        // lock itself is still held the whole time (a refresh can
+        // legitimately take up to REFRESH_LOCK_TTL_MS, longer than our own
+        // REFRESH_LOCK_MAX_WAIT_MS wait budget).
+        await app.redis.set(sessionRefreshLockKey(sessionId), "other-holder", "PX", 60_000, "NX");
+        vi.stubGlobal("fetch", vi.fn());
+
+        const injectPromise = app.fastify.inject({
+          method: "GET",
+          url: "/protected",
+          headers: { cookie: `bff_sid=${sessionId}` },
+        });
+        await vi.advanceTimersByTimeAsync(4_000);
+        const response = await injectPromise;
+
+        // Someone's still actively refreshing (lock held) -- don't
+        // force-logout a session that's on track to succeed just because
+        // our own wait budget ran out.
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toMatchObject({
+          session: { sessionId, bearerToken: "old-access-token" },
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it("401s when the lock wait times out and the token is already actually expired, even with the lock still held", async () => {
+    await withSsoEnabled(async () => {
+      vi.useFakeTimers();
+      try {
+        const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+        const { createSession: freshCreateSession, sessionRefreshLockKey } =
+          await import("../../src/lib/session-store.js");
+        const app = await buildApp(freshSessionPlugin);
+        const now = Math.floor(Date.now() / 1000);
+        const sessionId = await freshCreateSession(
+          app.redis,
+          {
+            bearerToken: "old-access-token", // pragma: allowlist secret
+            user: { email: "user@example.com", auth_provider: "sso" },
+            refreshToken: "refresh-token", // pragma: allowlist secret
+            idToken: "old-id-token", // pragma: allowlist secret
+            tokenExpiresAt: now - 10, // already past, not just near expiry
+          },
+          900,
+        );
+        await app.redis.set(sessionRefreshLockKey(sessionId), "other-holder", "PX", 60_000, "NX");
+        vi.stubGlobal("fetch", vi.fn());
+
+        const injectPromise = app.fastify.inject({
+          method: "GET",
+          url: "/protected",
+          headers: { cookie: `bff_sid=${sessionId}` },
+        });
+        await vi.advanceTimersByTimeAsync(4_000);
+        const response = await injectPromise;
+
+        // A held lock means someone's refreshing, not that this bearer is
+        // still valid -- never forward a token past its real deadline.
+        expect(response.statusCode).toBe(401);
+        expect(response.json()).toEqual({ error: "session_expired" });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it("forces re-auth when the lock wait times out and the holder is gone without refreshing", async () => {
     await withSsoEnabled(async () => {
       vi.useFakeTimers();
       try {
@@ -336,10 +480,8 @@ describe("sessionAuth", () => {
           },
           900,
         );
-        // Simulate another instance holding the refresh lock for the whole
-        // wait window -- this request's own SET NX fails immediately, so it
-        // polls and times out without ever seeing a completed refresh.
-        await app.redis.set(sessionRefreshLockKey(sessionId), "other-holder", "PX", 60_000, "NX");
+        const lockKey = sessionRefreshLockKey(sessionId);
+        await app.redis.set(lockKey, "other-holder", "PX", 60_000, "NX");
         vi.stubGlobal("fetch", vi.fn());
 
         const injectPromise = app.fastify.inject({
@@ -347,12 +489,17 @@ describe("sessionAuth", () => {
           url: "/protected",
           headers: { cookie: `bff_sid=${sessionId}` },
         });
+        // Let a couple of polls happen, then simulate the holder
+        // crashing/releasing without ever writing fresh tokens -- the lock
+        // vanishes but the session record is still expired.
+        await vi.advanceTimersByTimeAsync(500);
+        await app.redis.del(lockKey);
         await vi.advanceTimersByTimeAsync(4_000);
         const response = await injectPromise;
 
-        // Not the stale pre-refresh record -- the session is still expired
-        // after giving up on the lock, so this must 401 like any other dead
-        // session rather than hand back a token that'll just fail upstream.
+        // The lock is gone and nothing refreshed the session -- the attempt
+        // genuinely failed, so this must 401 rather than hand back a token
+        // that'll just fail upstream.
         expect(response.statusCode).toBe(401);
         expect(response.json()).toEqual({ error: "session_expired" });
       } finally {
@@ -435,7 +582,7 @@ describe("sessionAuth", () => {
           user: { email: "user@example.com", auth_provider: "sso" },
           refreshToken: "refresh-token", // pragma: allowlist secret
           idToken: "old-id-token", // pragma: allowlist secret
-          tokenExpiresAt: now - 10,
+          tokenExpiresAt: now + 10, // within leeway, not yet actually expired
         },
         900,
       );
@@ -545,7 +692,7 @@ describe("sessionAuth", () => {
           user: { email: "user@example.com", auth_provider: "sso" },
           refreshToken: "refresh-token", // pragma: allowlist secret
           idToken: "old-id-token", // pragma: allowlist secret
-          tokenExpiresAt: now - 10,
+          tokenExpiresAt: now + 10, // within leeway, not yet actually expired
         },
         900,
       );
@@ -571,6 +718,44 @@ describe("sessionAuth", () => {
     });
   });
 
+  it("401s (not silently served) when an unreachable IdP hits a session that's already actually expired", async () => {
+    await withSsoEnabled(async () => {
+      const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
+      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const app = await buildApp(freshSessionPlugin);
+      const now = Math.floor(Date.now() / 1000);
+      const sessionId = await freshCreateSession(
+        app.redis,
+        {
+          bearerToken: "old-access-token", // pragma: allowlist secret
+          user: { email: "user@example.com", auth_provider: "sso" },
+          refreshToken: "refresh-token", // pragma: allowlist secret
+          idToken: "old-id-token", // pragma: allowlist secret
+          tokenExpiresAt: now - 10, // already past, not just near expiry
+        },
+        900,
+      );
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new Error("keycloak unreachable");
+        }),
+      );
+
+      const response = await app.fastify.inject({
+        method: "GET",
+        url: "/protected",
+        headers: { cookie: `bff_sid=${sessionId}` },
+      });
+
+      // A transient failure's grace period only covers a token that's still
+      // technically valid -- once the real deadline has passed, this must
+      // 401 rather than keep forwarding a dead bearer upstream.
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ error: "session_expired" });
+    });
+  });
+
   it("backs off after an unreachable IdP so a second request doesn't re-attempt discovery", async () => {
     await withSsoEnabled(async () => {
       const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
@@ -585,7 +770,7 @@ describe("sessionAuth", () => {
           user: { email: "user@example.com", auth_provider: "sso" },
           refreshToken: "refresh-token", // pragma: allowlist secret
           idToken: "old-id-token", // pragma: allowlist secret
-          tokenExpiresAt: now - 10,
+          tokenExpiresAt: now + 10, // within leeway, not yet actually expired
         },
         900,
       );
@@ -603,11 +788,9 @@ describe("sessionAuth", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
       const stored = await getSession(app.redis, sessionId);
-      // Moved forward past the refresh leeway window (default 30s), not
-      // left at the old expired value (which would retrigger a refresh
-      // attempt on every request regardless of a small forward bump).
-      expect(stored?.tokenExpiresAt).toBeGreaterThan(now + 30);
-      expect(stored?.tokenExpiresAt).toBeLessThan(now + 45);
+      // Real deadline untouched -- only the retry marker moved.
+      expect(stored?.tokenExpiresAt).toBe(now + 10);
+      expect(stored?.refreshRetryAfter).toBeGreaterThan(now);
 
       const second = await app.fastify.inject({
         method: "GET",

@@ -63,16 +63,19 @@ export class MemoryRedis extends EventEmitter {
     return entry.value;
   }
 
-  // Mirrors ioredis's SET key value PX ms NX signature (atomic lock acquire).
+  // Mirrors ioredis's SET key value [EX secs|PX ms] [NX|XX] signature.
   async set(
     key: string,
     value: string,
-    _mode: "PX",
-    ttlMs: number,
-    flag: "NX",
+    mode: "PX" | "EX",
+    ttl: number,
+    flag: "NX" | "XX",
   ): Promise<"OK" | null> {
     const existing = store.get(key);
-    if (flag === "NX" && existing && !isExpired(existing)) return null;
+    const exists = !!existing && !isExpired(existing);
+    if (flag === "NX" && exists) return null;
+    if (flag === "XX" && !exists) return null;
+    const ttlMs = mode === "EX" ? ttl * 1000 : ttl;
     store.set(key, { value, expiresAt: Date.now() + ttlMs });
     return "OK";
   }

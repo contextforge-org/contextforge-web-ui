@@ -24,9 +24,15 @@ export interface RedisLike {
   // second concurrent caller's get() can still observe the value.
   getdel(key: string): Promise<string | null>;
   setex(key: string, ttlSeconds: number, value: string): Promise<unknown>;
-  // Atomic lock acquire (ioredis's own SET key value PX ms NX signature) --
-  // "OK" only if the key was absent; PX auto-releases an abandoned lock.
-  set(key: string, value: string, mode: "PX", ttlMs: number, flag: "NX"): Promise<"OK" | null>;
+  // PX+NX for lock acquire; EX+XX for a conditional update that no-ops if
+  // the key's gone (see updateSessionTokens).
+  set(
+    key: string,
+    value: string,
+    mode: "PX" | "EX",
+    ttl: number,
+    flag: "NX" | "XX",
+  ): Promise<"OK" | null>;
   del(key: string): Promise<unknown>;
   // Atomic Lua eval (ioredis's own `eval(script, numkeys, ...keys, ...args)`)
   // -- used for compare-and-delete lock release (see UNLOCK_SCRIPT in
@@ -56,6 +62,8 @@ export interface SessionRecord {
   refreshToken?: string;
   idToken?: string;
   tokenExpiresAt?: number;
+  // Skip-refresh-until marker after a transient failure; cleared on success.
+  refreshRetryAfter?: number;
 }
 
 export function sessionRedisKey(sessionId: string): string {
@@ -104,13 +112,18 @@ export async function getSession(
 
 // Re-persists a session's tokens in place after an SSO token refresh -- same
 // session id, so the browser's cookie never needs to change. Keycloak doesn't
-// always rotate the refresh token on every use, so a field the refresh
-// response omits keeps its previous value rather than being wiped. Returns
-// false (no write) if the session was deleted (logout, expiry) mid-refresh.
+// always rotate the refresh token on every use, so an omitted field keeps
+// its previous value instead of being wiped.
 export async function updateSessionTokens(
   redis: RedisLike,
   sessionId: string,
-  tokens: { bearerToken: string; refreshToken?: string; idToken?: string; tokenExpiresAt: number },
+  tokens: {
+    bearerToken: string;
+    refreshToken?: string;
+    idToken?: string;
+    tokenExpiresAt: number;
+    refreshRetryAfter?: number;
+  },
   ttlSeconds: number,
 ): Promise<boolean> {
   const existing = await getSession(redis, sessionId);
@@ -122,9 +135,17 @@ export async function updateSessionTokens(
     refreshToken: tokens.refreshToken ?? existing.refreshToken,
     idToken: tokens.idToken ?? existing.idToken,
     tokenExpiresAt: tokens.tokenExpiresAt,
+    refreshRetryAfter: tokens.refreshRetryAfter,
   };
-  await redis.setex(sessionRedisKey(sessionId), ttlSeconds, JSON.stringify(updated));
-  return true;
+  // XX: no-op instead of recreating a session a concurrent logout just deleted.
+  const result = await redis.set(
+    sessionRedisKey(sessionId),
+    JSON.stringify(updated),
+    "EX",
+    ttlSeconds,
+    "XX",
+  );
+  return result === "OK";
 }
 
 export async function deleteSession(redis: RedisLike, sessionId: string): Promise<void> {

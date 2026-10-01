@@ -108,16 +108,20 @@ describe("establishSession", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const sessionId = response.cookies.find((c) => c.name === "bff_sid")?.value;
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    const sessionId = sessionCookie?.value;
     const stored = await getSession(app.redis, sessionId!);
 
     expect(stored?.refreshToken).toBe("keycloak-refresh-token");
     expect(stored?.idToken).toBe("keycloak-id-token");
-    // tokenExpiresAt is derived from the session TTL (expires_in), computed
-    // at call time -- assert it landed in the expected window rather than an
-    // exact value.
+    // tokenExpiresAt tracks the access token's own short expires_in...
     expect(stored?.tokenExpiresAt).toBeGreaterThanOrEqual(before + 300);
     expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before + 300 + 5);
+    // ...but the session/cookie TTL must not: refreshToken exists so this
+    // session can outlive the access token, and tying its lifetime to the
+    // same 300s would make sessionAuth's refresh unreachable for any idle
+    // gap longer than that.
+    expect(sessionCookie?.maxAge).toBe(config.sessionTtlSeconds);
   });
 
   it("treats tokenExpiresAt as already-expired, not BFF-default-valid, when expires_in is missing/invalid", async () => {
