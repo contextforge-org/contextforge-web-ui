@@ -31,6 +31,18 @@ export interface OAuthStatusBatchResult {
   failures: Record<string, OAuthStatusFailure>;
 }
 
+export type OAuthStatusEntry =
+  | { state: "loading" }
+  | { state: "ready"; status: OAuthGatewayStatus; tokenStatus: OAuthTokenStatus }
+  | { state: "not_applicable"; status: OAuthGatewayStatus }
+  | { state: "unavailable"; retryable: boolean; statusCode?: number };
+
+export function isRetryableOAuthStatus(
+  entry: OAuthStatusEntry | undefined,
+): entry is Extract<OAuthStatusEntry, { state: "unavailable" }> {
+  return entry?.state === "unavailable" && entry.retryable;
+}
+
 const OAUTH_STATUS_MAX_IDS = 100;
 
 export function normalizeGatewayIds(gatewayIds: string[]): string[] {

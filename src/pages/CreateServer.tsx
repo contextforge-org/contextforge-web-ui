@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Blocks, Bot, Box, Code, MessageSquareCode, Wrench } from "lucide-react";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/api/oauth";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { useAuth } from "@/auth/useAuth";
 import { MCPIcon } from "@/components/icons/MCPIcon";
@@ -20,11 +21,7 @@ import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { ServerStatusDetail } from "@/components/servers/ServerStatusDetail";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
 import { api, ApiError } from "@/api/client";
-import {
-  isRetryableOAuthStatus,
-  type OAuthStatusEntry,
-  useOAuthStatuses,
-} from "@/hooks/useOAuthStatuses";
+import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import {
@@ -462,6 +459,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
             <ServerStatusDetail
               availability={availability}
               enabled={server.enabled}
+              serverName={server.name}
               lastSeen={server.lastSeen}
               lastError={server.lastError}
               onRetry={isRetryableOAuthStatus(oauthStatus) ? onRetryOAuthStatus : undefined}

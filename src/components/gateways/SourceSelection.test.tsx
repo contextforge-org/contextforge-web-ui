@@ -308,7 +308,7 @@ describe("SourceSelection", () => {
         name: "OAuth source status: Authorization status unavailable. Show details",
       }),
     );
-    await user.click(await screen.findByRole("button", { name: "Retry status" }));
+    await user.click(await screen.findByRole("button", { name: "Retry status for OAuth source" }));
 
     expect(
       await screen.findByRole("button", {

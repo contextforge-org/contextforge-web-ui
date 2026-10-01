@@ -1,6 +1,6 @@
 import { Activity, CircleDashed, CircleSlash, type LucideIcon } from "lucide-react";
 
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import type { OAuthStatusEntry } from "@/api/oauth";
 import { STATUS_ICON } from "@/lib/status";
 
 export type ServerAvailability =

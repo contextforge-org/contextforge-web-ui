@@ -103,6 +103,7 @@
   "mcpServer.status.authorizeTrigger": "Autorizar {name}",
   "mcpServer.status.authorizing": "Autorizando...",
   "mcpServer.status.retry": "Reintentar estado",
+  "mcpServer.status.retryFor": "Reintentar el estado de {name}",
   "mcpServer.status.authorizationError": "La autorización OAuth falló: {error}",
   "mcpServer.status.componentRefreshError": "La autorización se realizó correctamente, pero no se pudieron actualizar los componentes.",
   "mcpServer.status.detail.active": "Este servidor responde y sus herramientas, recursos y prompts están al día.",

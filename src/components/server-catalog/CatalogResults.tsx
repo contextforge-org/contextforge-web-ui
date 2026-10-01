@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { EllipsisVertical, FileText, KeyRound, Lock, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
-import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import { isRetryableOAuthStatus, type OAuthStatusEntry } from "@/api/oauth";
 
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { CatalogLogo } from "@/components/server-catalog/CatalogLogo";

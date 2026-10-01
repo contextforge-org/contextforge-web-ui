@@ -16,7 +16,7 @@ import { Loading } from "../ui/loading";
 import { formatLocalDateTime } from "../../utils/formatDate";
 import { CopyButton } from "@/components/ui/copy-button";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import type { OAuthStatusEntry } from "@/api/oauth";
 import { ServerStatusIndicator } from "./ServerStatusIndicator";
 
 function getLastSeenValue(server: MCPServer): string | undefined {

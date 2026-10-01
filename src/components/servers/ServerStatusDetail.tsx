@@ -8,6 +8,7 @@ import { formatLocalDateTime } from "@/utils/formatDate";
 export function ServerStatusDetail({
   availability,
   enabled,
+  serverName,
   lastSeen,
   lastError,
   onRetry,
@@ -15,6 +16,7 @@ export function ServerStatusDetail({
 }: {
   availability: ServerAvailability;
   enabled: boolean;
+  serverName: string;
   lastSeen?: string | null;
   lastError?: string | null;
   onRetry?: () => void;
@@ -46,7 +48,13 @@ export function ServerStatusDetail({
         </p>
       )}
       {onRetry && (
-        <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          onClick={onRetry}
+          aria-label={intl.formatMessage({ id: "mcpServer.status.retryFor" }, { name: serverName })}
+        >
           {intl.formatMessage({ id: "mcpServer.status.retry" })}
         </Button>
       )}

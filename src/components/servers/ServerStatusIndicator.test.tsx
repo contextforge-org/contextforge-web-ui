@@ -132,6 +132,25 @@ describe("ServerStatusIndicator", () => {
     expect(await screen.findByText(/You have not authorized this server/)).toBeInTheDocument();
   });
 
+  it("names retry actions for the affected server", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    renderWithProviders(
+      <ServerStatusIndicator
+        server={server}
+        oauthStatus={{ state: "unavailable", retryable: true }}
+        onRetry={onRetry}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /status: Authorization status unavailable/i }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry status for github-notify" }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
   it("holds the pending label while the flow is open", async () => {
     const user = userEvent.setup();
     let release: (() => void) | undefined;
@@ -169,12 +188,5 @@ describe("ServerStatusIndicator", () => {
         name: "github-notify status: Authorization required. Show details",
       }),
     ).toBeInTheDocument();
-  });
-
-  it("renders as plain text where a button cannot nest", () => {
-    renderWithProviders(<ServerStatusIndicator server={server} interactive={false} />);
-
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
   });
 });

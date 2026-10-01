@@ -2,8 +2,8 @@ import { createElement, StrictMode, type ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getOAuthStatuses, type OAuthStatusBatchResult } from "@/api/oauth";
-import { isRetryableOAuthStatus, useOAuthStatuses } from "./useOAuthStatuses";
+import { getOAuthStatuses, isRetryableOAuthStatus, type OAuthStatusBatchResult } from "@/api/oauth";
+import { useOAuthStatuses } from "./useOAuthStatuses";
 
 vi.mock("@/api/oauth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/oauth")>()),
@@ -235,6 +235,25 @@ describe("useOAuthStatuses", () => {
     expect(mockGetOAuthStatuses).toHaveBeenLastCalledWith(["one"], expect.any(AbortSignal));
     expect(result.current.entries.one?.state).toBe("ready");
     expect(result.current.entries.two?.state).toBe("unavailable");
+  });
+
+  it("keeps retry stable while reading the latest retryable entries", async () => {
+    mockGetOAuthStatuses
+      .mockResolvedValueOnce({
+        statuses: {},
+        failures: { gateway: { retryable: true, status: 500 } },
+      })
+      .mockResolvedValueOnce(statusResult("gateway", "valid"));
+    const { result } = renderHook(() => useOAuthStatuses(["gateway"]));
+    const initialRetry = result.current.retry;
+
+    await waitFor(() => expect(result.current.entries.gateway?.state).toBe("unavailable"));
+    expect(result.current.retry).toBe(initialRetry);
+
+    await act(async () => initialRetry());
+
+    expect(mockGetOAuthStatuses).toHaveBeenLastCalledWith(["gateway"], expect.any(AbortSignal));
+    expect(result.current.entries.gateway).toMatchObject({ state: "ready", tokenStatus: "valid" });
   });
 
   it("keeps 403 failures unavailable and non-retryable", async () => {

@@ -2,23 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getOAuthStatuses,
+  isRetryableOAuthStatus,
   normalizeGatewayIds,
   type OAuthGatewayStatus,
   type OAuthStatusFailure,
-  type OAuthTokenStatus,
+  type OAuthStatusEntry,
 } from "@/api/oauth";
-
-export type OAuthStatusEntry =
-  | { state: "loading" }
-  | { state: "ready"; status: OAuthGatewayStatus; tokenStatus: OAuthTokenStatus }
-  | { state: "not_applicable"; status: OAuthGatewayStatus }
-  | { state: "unavailable"; retryable: boolean; statusCode?: number };
-
-export function isRetryableOAuthStatus(
-  entry: OAuthStatusEntry | undefined,
-): entry is Extract<OAuthStatusEntry, { state: "unavailable" }> {
-  return entry?.state === "unavailable" && entry.retryable;
-}
 
 function unavailable(failure?: OAuthStatusFailure): OAuthStatusEntry {
   return {
@@ -42,6 +31,7 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
   const ids = useMemo(() => normalizeGatewayIds(gatewayIds).sort(), [gatewayIds]);
   const idsKey = ids.join(",");
   const [entries, setEntries] = useState<Record<string, OAuthStatusEntry>>({});
+  const entriesRef = useRef(entries);
   const requestIdRef = useRef(0);
   const previousIdsRef = useRef<string[]>([]);
   const versionsRef = useRef(new Map<string, number>());
@@ -127,11 +117,6 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
     const previousIdSet = new Set(previousIds);
     previousIdsRef.current = enabled ? currentIds : [];
 
-    setEntries((current) =>
-      Object.fromEntries(
-        currentIds.map((id) => [id, current[id] ?? ({ state: "loading" } as const)]),
-      ),
-    );
     versionsRef.current.forEach((_, id) => {
       if (!idSet.has(id)) versionsRef.current.delete(id);
     });
@@ -141,6 +126,12 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
       setEntries({});
       return;
     }
+
+    setEntries((current) =>
+      Object.fromEntries(
+        currentIds.map((id) => [id, current[id] ?? ({ state: "loading" } as const)]),
+      ),
+    );
 
     const addedIds = currentIds.filter((id) => !previousIdSet.has(id));
     void load(addedIds);
@@ -154,15 +145,19 @@ export function useOAuthStatuses(gatewayIds: string[], { enabled = true } = {}) 
     [abortAll],
   );
 
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
   const retry = useCallback(
     (gatewayId?: string) => {
       if (gatewayId) return load([gatewayId]);
-      const retryableIds = Object.entries(entries)
+      const retryableIds = Object.entries(entriesRef.current)
         .filter(([, entry]) => isRetryableOAuthStatus(entry))
         .map(([id]) => id);
       return load(retryableIds);
     },
-    [entries, load],
+    [load],
   );
 
   // Derive the public map from the current ID list. Unchanged IDs keep their

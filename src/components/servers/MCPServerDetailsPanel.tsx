@@ -27,7 +27,7 @@ import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import type { OAuthStatusEntry } from "@/api/oauth";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 import { ServerStatusIndicator } from "./ServerStatusIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

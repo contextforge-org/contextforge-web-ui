@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { OAuthStatusEntry } from "@/hooks/useOAuthStatuses";
+import type { OAuthStatusEntry } from "@/api/oauth";
 import {
   getServerAvailability,
   isAuthorizationAvailability,

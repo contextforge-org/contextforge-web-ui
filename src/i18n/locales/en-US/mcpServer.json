@@ -103,6 +103,7 @@
   "mcpServer.status.authorizeTrigger": "Authorize {name}",
   "mcpServer.status.authorizing": "Authorizing...",
   "mcpServer.status.retry": "Retry status",
+  "mcpServer.status.retryFor": "Retry status for {name}",
   "mcpServer.status.authorizationError": "OAuth authorization failed: {error}",
   "mcpServer.status.componentRefreshError": "Authorization succeeded, but components could not be refreshed.",
   "mcpServer.status.detail.active": "This server is responding and its tools, resources, and prompts are up to date.",
