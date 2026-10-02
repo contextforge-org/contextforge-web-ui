@@ -41,6 +41,8 @@ interface AvailabilityPresentation {
   labelId: string;
   shortLabelId: string;
   detailId: string;
+  /** Shown where the server contributes nothing, which `detailId` does not fit. */
+  emptyId: string;
 }
 
 const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
@@ -50,6 +52,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.active",
     shortLabelId: "mcpServer.status.active",
     detailId: "mcpServer.status.detail.active",
+    emptyId: "gateways.details.noComponentsFound",
   },
   authorization_required: {
     Icon: STATUS_ICON.warning,
@@ -57,6 +60,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.authRequired",
     shortLabelId: "mcpServer.status.auth.short",
     detailId: "mcpServer.status.detail.authRequired",
+    emptyId: "mcpServer.status.empty.authRequired",
   },
   authorization_expired: {
     Icon: STATUS_ICON.error,
@@ -64,6 +68,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.authExpired",
     shortLabelId: "mcpServer.status.auth.short",
     detailId: "mcpServer.status.detail.authExpired",
+    emptyId: "mcpServer.status.empty.authExpired",
   },
   authorization_expiring: {
     Icon: STATUS_ICON.warning,
@@ -71,6 +76,8 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.authExpiring",
     shortLabelId: "mcpServer.status.auth.short",
     detailId: "mcpServer.status.detail.authExpiring",
+    // Authorization still holds, so an empty list is not an authorization problem.
+    emptyId: "gateways.details.noComponentsFound",
   },
   authorization_checking: {
     Icon: CircleDashed,
@@ -78,6 +85,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.authChecking",
     shortLabelId: "mcpServer.status.authChecking",
     detailId: "mcpServer.status.detail.authChecking",
+    emptyId: "mcpServer.status.empty.authChecking",
   },
   authorization_unavailable: {
     Icon: STATUS_ICON.warning,
@@ -85,6 +93,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.authUnavailable",
     shortLabelId: "mcpServer.status.unavailable",
     detailId: "mcpServer.status.detail.authUnavailable",
+    emptyId: "mcpServer.status.empty.authUnavailable",
   },
   unreachable: {
     Icon: CircleSlash,
@@ -92,6 +101,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.offline",
     shortLabelId: "mcpServer.status.offline",
     detailId: "mcpServer.status.detail.unreachable",
+    emptyId: "mcpServer.status.empty.unreachable",
   },
   checking: {
     Icon: CircleDashed,
@@ -99,6 +109,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.checking",
     shortLabelId: "mcpServer.status.checking",
     detailId: "mcpServer.status.detail.checking",
+    emptyId: "mcpServer.status.empty.checking",
   },
   inactive: {
     Icon: CircleDashed,
@@ -106,6 +117,7 @@ const PRESENTATION: Record<ServerAvailability, AvailabilityPresentation> = {
     labelId: "mcpServer.status.inactive",
     shortLabelId: "mcpServer.status.inactive",
     detailId: "mcpServer.status.detail.inactive",
+    emptyId: "mcpServer.status.empty.inactive",
   },
 };
 

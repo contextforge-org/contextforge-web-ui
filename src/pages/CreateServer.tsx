@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InlineNotification } from "@/components/ui/inline-notification";
 import { Loading } from "@/components/ui/loading";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
@@ -25,6 +26,7 @@ import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
 import {
+  getAvailabilityPresentation,
   getServerAvailability,
   isAuthorizationAvailability,
   isOAuthServer,
@@ -196,6 +198,13 @@ function readEditServerIdFromPath(path: string): string | null {
 }
 
 function getCreateServerError(error: unknown, fallbackMessage: string): string {
+  if (error instanceof SourceComponentsError) {
+    return error.failures
+      .map(
+        ({ serverName, cause }) => `${serverName}: ${getCreateServerError(cause, fallbackMessage)}`,
+      )
+      .join("; ");
+  }
   if (error instanceof ApiError) {
     const body = error.body as { message?: string; detail?: unknown } | null;
     if (body?.message) return body.message;
@@ -216,10 +225,25 @@ function getCreateServerError(error: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
+interface SourceComponentsFailure {
+  serverName: string;
+  cause: unknown;
+}
+
+/** Names the failing sources, so a bad source does not surface as an unattributed error. */
+class SourceComponentsError extends Error {
+  constructor(readonly failures: SourceComponentsFailure[]) {
+    super(failures.map(({ serverName }) => serverName).join(", "));
+    this.name = "SourceComponentsError";
+  }
+}
+
 async function getComponentsForSelectedMCPServers(
   mcpServerIds: string[],
+  serverNamesById: Record<string, string> = {},
 ): Promise<ComponentSelection> {
-  const componentGroups = await Promise.all(
+  // Settled rather than all: every failing source has to be named, not just the first to reject.
+  const results = await Promise.allSettled(
     mcpServerIds.map(async (serverId) => {
       const [tools, resources, prompts] = await Promise.all([
         getAllGatewayComponents<GatewayTool>("tools", "tools", serverId),
@@ -233,6 +257,17 @@ async function getComponentsForSelectedMCPServers(
         prompts: prompts.map((prompt) => prompt.id),
       };
     }),
+  );
+
+  const failures = results.flatMap((result, index) => {
+    if (result.status !== "rejected") return [];
+    const serverId = mcpServerIds[index];
+    return [{ serverName: serverNamesById[serverId] ?? serverId, cause: result.reason }];
+  });
+  if (failures.length > 0) throw new SourceComponentsError(failures);
+
+  const componentGroups = results.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
   );
 
   return {
@@ -361,6 +396,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: toolsData,
     error: toolsError,
     isLoading: toolsLoading,
+    refetch: refetchTools,
   } = useQuery<GatewayTool[] | { tools: GatewayTool[] }>(
     `/tools?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
@@ -369,6 +405,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: resourcesData,
     error: resourcesError,
     isLoading: resourcesLoading,
+    refetch: refetchResources,
   } = useQuery<GatewayResource[] | { resources: GatewayResource[] }>(
     `/resources?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
@@ -377,6 +414,7 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     data: promptsData,
     error: promptsError,
     isLoading: promptsLoading,
+    refetch: refetchPrompts,
   } = useQuery<GatewayPrompt[] | { prompts: GatewayPrompt[] }>(
     `/prompts?limit=1000&include_inactive=true&gateway_id=${encodeURIComponent(server.id)}`,
     { enabled: isOpen },
@@ -409,8 +447,12 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
     [promptsData],
   );
   const isLoadingComponents = toolsLoading || resourcesLoading || promptsLoading;
-  const componentError = toolsError ?? resourcesError ?? promptsError;
   const hasComponents = tools.length + resources.length + prompts.length > 0;
+  const failedLists = [
+    { kind: "tools", error: toolsError, retry: refetchTools },
+    { kind: "resources", error: resourcesError, retry: refetchResources },
+    { kind: "prompts", error: promptsError, retry: refetchPrompts },
+  ].filter((list) => list.error);
 
   return (
     <AccordionItem value={server.id} className="rounded-md border border-border/60 px-3">
@@ -498,22 +540,34 @@ const MCPServerAccordionItem = memo(function MCPServerAccordionItem({
           <SourcesLoadingStatus message={intl.formatMessage({ id: "common.loading" })} />
         )}
 
-        {!isLoadingComponents && componentError && (
-          <p
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {componentError.message}
-          </p>
-        )}
+        {!isLoadingComponents &&
+          failedLists.map((list) => (
+            <InlineNotification
+              key={list.kind}
+              type="error"
+              message={intl.formatMessage(
+                { id: "gateways.details.componentsLoadFailed" },
+                {
+                  kind: intl.formatMessage({ id: `gateways.details.filter.${list.kind}` }),
+                  detail: list.error?.message ?? "",
+                },
+              )}
+              action={{
+                label: intl.formatMessage({ id: "common.button.retry" }),
+                onClick: () => {
+                  list.retry().catch(() => undefined);
+                },
+              }}
+            />
+          ))}
 
-        {!isLoadingComponents && !componentError && !hasComponents && (
+        {!isLoadingComponents && failedLists.length === 0 && !hasComponents && (
           <p className="rounded-md border border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-            {intl.formatMessage({ id: "gateways.details.noComponentsFound" })}
+            {intl.formatMessage({ id: getAvailabilityPresentation(availability).emptyId })}
           </p>
         )}
 
-        {!isLoadingComponents && !componentError && hasComponents && (
+        {!isLoadingComponents && hasComponents && (
           <div className="grid gap-4">
             <ComponentGroup
               title={intl.formatMessage({ id: "gateways.details.filter.tools" })}
@@ -642,6 +696,7 @@ export function CreateServer() {
   const [step, setStep] = useState<CreateServerStep>("details");
   const [serverDetails, setServerDetails] = useState<CreateServerDetails | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedSourceNames, setSelectedSourceNames] = useState<Record<string, string>>({});
   const [selectedComponents, setSelectedComponents] = useState<ComponentSelection>({
     tools: [],
     resources: [],
@@ -744,7 +799,7 @@ export function CreateServer() {
     try {
       const selectedSourceComponents =
         selectedSourceIds.length > 0
-          ? await getComponentsForSelectedMCPServers(selectedSourceIds)
+          ? await getComponentsForSelectedMCPServers(selectedSourceIds, selectedSourceNames)
           : null;
       const detailsWithSources = {
         ...serverDetails,
@@ -813,7 +868,10 @@ export function CreateServer() {
         <SourceSelection
           actionCards={actionCards}
           associatedMCPServerIds={serverDetails?.associatedMCPServerIds}
-          onSelectSources={setSelectedSourceIds}
+          onSelectSources={(ids, namesById) => {
+            setSelectedSourceIds(ids);
+            setSelectedSourceNames(namesById);
+          }}
           createServerActions={{
             onBack: () => setStep("details"),
             onSkip: handleSkipForNow,

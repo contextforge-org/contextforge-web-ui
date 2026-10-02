@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import {
   ArrowLeft,
@@ -61,6 +61,10 @@ function getPromptCount(server: ListedMCPServer) {
   return server.promptCount ?? server.prompt_count ?? 0;
 }
 
+function getComponentTotal(server: ListedMCPServer) {
+  return getToolCount(server) + getResourceCount(server) + getPromptCount(server);
+}
+
 function getVisibilityConfig(visibility: ListedMCPServer["visibility"]) {
   switch (visibility) {
     case "private":
@@ -80,7 +84,7 @@ export function SourceSelection({
 }: {
   actionCards: ActionCard[];
   associatedMCPServerIds?: string[];
-  onSelectSources?: (selectedIds: string[]) => void;
+  onSelectSources?: (selectedIds: string[], namesById: Record<string, string>) => void;
   createServerActions?: {
     onBack: () => void;
     onSkip: () => void;
@@ -98,6 +102,7 @@ export function SourceSelection({
   const [isComponentsPanelOpen, setIsComponentsPanelOpen] = useState(false);
   const [hasRequestedMCPServers, setHasRequestedMCPServers] = useState(false);
   const [selectedMCPServerIds, setSelectedMCPServerIds] = useState<Set<string>>(new Set());
+  const selectedNamesRef = useRef<Record<string, string>>({});
   const {
     data: mcpServersData,
     error: mcpServersError,
@@ -127,6 +132,16 @@ export function SourceSelection({
   const hasSelectedMCPServers = selectedMCPServerIds.size > 0;
   const panelId = "connected-sources-panel";
 
+  // Selecting an offline source still works: its components stay in the catalog.
+  // Only a source with nothing to contribute leaves the virtual server empty.
+  const emptySelectedSources = useMemo(
+    () =>
+      availableMCPServers.filter(
+        (server) => selectedMCPServerIds.has(server.id) && getComponentTotal(server) === 0,
+      ),
+    [availableMCPServers, selectedMCPServerIds],
+  );
+
   const handleToggleComponentsPanel = () => {
     setIsComponentsPanelOpen((open) => !open);
     setHasRequestedMCPServers(true);
@@ -137,7 +152,16 @@ export function SourceSelection({
     if (checked) next.add(serverId);
     else next.delete(serverId);
     setSelectedMCPServerIds(next);
-    onSelectSources?.(Array.from(next));
+
+    // Kept from when each source was picked, so a refetch that drops one does not lose its name.
+    const names = selectedNamesRef.current;
+    if (checked) {
+      const selected = availableMCPServers.find((server) => server.id === serverId);
+      if (selected) names[serverId] = selected.name;
+    } else {
+      delete names[serverId];
+    }
+    onSelectSources?.(Array.from(next), { ...names });
   };
 
   return (
@@ -417,6 +441,18 @@ export function SourceSelection({
                   </div>
                 )}
               </section>
+            )}
+
+            {emptySelectedSources.length > 0 && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {intl.formatMessage(
+                  { id: "gateways.source.emptySelectionWarning" },
+                  {
+                    count: emptySelectedSources.length,
+                    names: emptySelectedSources.map((server) => server.name).join(", "),
+                  },
+                )}
+              </p>
             )}
 
             <div className="flex justify-end">

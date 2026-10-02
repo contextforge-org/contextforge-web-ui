@@ -1,13 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import type { OAuthStatusEntry } from "@/api/oauth";
+import enMessages from "@/i18n/locales/en-US";
 import {
+  getAvailabilityPresentation,
   getServerAvailability,
   isAuthorizationAvailability,
   needsOAuthAuthorization,
+  type ServerAvailability,
 } from "./serverStatus";
 
 const connected = { enabled: true, reachable: true };
+
+const AVAILABILITIES: ServerAvailability[] = [
+  "active",
+  "authorization_required",
+  "authorization_expired",
+  "authorization_expiring",
+  "authorization_checking",
+  "authorization_unavailable",
+  "unreachable",
+  "checking",
+  "inactive",
+];
 
 function ready(tokenStatus: "valid" | "near_expiry" | "expired" | "missing"): OAuthStatusEntry {
   return {
@@ -78,5 +93,25 @@ describe("server OAuth status precedence", () => {
     expect(isAuthorizationAvailability("unreachable")).toBe(false);
     expect(isAuthorizationAvailability("checking")).toBe(false);
     expect(isAuthorizationAvailability("inactive")).toBe(false);
+  });
+});
+
+describe("getAvailabilityPresentation", () => {
+  it("keeps the empty state off the detail text, which assumes components exist", () => {
+    for (const availability of AVAILABILITIES) {
+      const presentation = getAvailabilityPresentation(availability);
+      expect(presentation.emptyId).not.toBe(presentation.detailId);
+    }
+  });
+
+  it("resolves every message id it hands out", () => {
+    const keys = Object.keys(enMessages);
+    for (const availability of AVAILABILITIES) {
+      const { labelId, shortLabelId, detailId, emptyId } =
+        getAvailabilityPresentation(availability);
+      for (const id of [labelId, shortLabelId, detailId, emptyId]) {
+        expect(keys, `${availability} -> ${id}`).toContain(id);
+      }
+    }
   });
 });

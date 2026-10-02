@@ -439,7 +439,7 @@ test.describe("Virtual Servers page", () => {
     await page.getByRole("checkbox", { name: "Select github-mcp" }).check();
     await page.getByRole("button", { name: "Submit" }).click();
 
-    await expect(page.getByRole("alert")).toHaveText("Unable to load tools");
+    await expect(page.getByRole("alert")).toHaveText("github-mcp: Unable to load tools");
     await expect(page).toHaveURL(/\/app\/gateways\/create-server$/);
   });
 
