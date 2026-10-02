@@ -46,7 +46,12 @@ export interface ApiMock {
    * `authenticated: false` for the logged-out case; a bare call defaults to
    * a logged-in DEFAULT_TEST_USER.
    */
-  mockSession(options?: { user?: MockUser; authenticated?: boolean }): Promise<void>;
+  mockSession(options?: {
+    user?: MockUser;
+    authenticated?: boolean;
+    ssoEnabled?: boolean;
+    providerName?: string;
+  }): Promise<void>;
   /**
    * Mocks GET /rbac/my/permissions, the caller's effective permission set
    * (see client/src/auth/AuthContext.tsx). Defaults to the `*` wildcard
@@ -104,7 +109,12 @@ export function createApiMock(page: Page): ApiMock {
       });
     },
 
-    async mockSession({ user = DEFAULT_TEST_USER, authenticated = true } = {}) {
+    async mockSession({
+      user = DEFAULT_TEST_USER,
+      authenticated = true,
+      ssoEnabled = false,
+      providerName,
+    } = {}) {
       if (IS_REAL_API) {
         // Real login when authenticated, no-op when false, so specs testing
         // the logged-out state stay logged out.
@@ -117,14 +127,15 @@ export function createApiMock(page: Page): ApiMock {
         }
         return;
       }
+      const ssoFields = ssoEnabled ? { ssoEnabled: true, providerName } : { ssoEnabled: false };
       await page.route("**/auth/session", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify(
             authenticated
-              ? { authenticated: true, user, csrfToken: MOCK_CSRF_TOKEN, ssoEnabled: false }
-              : { authenticated: false, ssoEnabled: false },
+              ? { authenticated: true, user, csrfToken: MOCK_CSRF_TOKEN, ...ssoFields }
+              : { authenticated: false, ...ssoFields },
           ),
         });
       });

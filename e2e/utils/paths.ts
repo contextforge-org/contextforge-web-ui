@@ -42,6 +42,7 @@ export const API = {
   LOGIN: "**/auth/login",
   SESSION: "**/auth/session",
   CHANGE_PASSWORD_REQUIRED: "**/auth/change-password-required",
+  SSO_LOGIN: "**/auth/sso/login*",
 } as const;
 
 /**
