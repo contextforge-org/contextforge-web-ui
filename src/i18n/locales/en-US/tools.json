@@ -77,8 +77,6 @@
   "tools.details.preview.warnings.generic": "Preview returned a warning",
   "tools.details.preview.warnings.elicitationSkipped": "Live invocation may request user input; preview skipped {hooks}.",
   "tools.details.preview.warnings.unspecifiedHooks": "one or more hooks",
-  "tools.details.preview.resolvedArguments": "Resolved arguments",
-  "tools.details.preview.copyResolvedArguments": "Copy resolved arguments",
   "tools.details.preview.result.title": "Tool result",
   "tools.details.preview.result.errorBadge": "Error response",
   "tools.details.preview.result.blockTitle": "Content block {number}",

@@ -382,7 +382,11 @@ test.describe("Tools page", () => {
         .getByText("Approval hook skipped during preview; live invocation may prompt for input.")
         .first(),
     ).toBeVisible();
-    await expect(panel.getByText("Resolved arguments")).toBeVisible();
+    await expect(panel.getByText("Resolved arguments")).toHaveCount(0);
+    await expect(panel.getByLabel("Copy raw preview response")).toBeVisible();
+    await expect(panel.locator("pre").filter({ hasText: "resolvedArguments" })).toContainText(
+      "cloudflare",
+    );
     expect(previewBody).toEqual({ arguments: { query: "cloudflare", limit: 5 } });
     expect(previewHeaders["x-tenant-id"]).toBe("team-a");
   });

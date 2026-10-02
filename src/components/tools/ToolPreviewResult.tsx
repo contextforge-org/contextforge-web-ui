@@ -33,7 +33,6 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
 
   const renderTimeMs = result?.renderTimeMs ?? error?.renderTimeMs ?? 0;
   const response = result?.preview;
-  const resolvedArguments = response?.resolvedArguments;
   const succeeded = result !== null;
   // The 200 response body is nullable (a preview can succeed with no data),
   // so `validated` only makes sense once a response body actually exists.
@@ -109,19 +108,6 @@ export function ToolPreviewResult({ preview }: ToolPreviewResultProps) {
             ))}
           </ul>
         </div>
-      )}
-
-      {resolvedArguments && (
-        <section className="space-y-2">
-          <h4 className="text-sm font-semibold text-foreground">
-            {intl.formatMessage({ id: "tools.details.preview.resolvedArguments" })}
-          </h4>
-          <CodeBlock
-            code={JSON.stringify(resolvedArguments, null, 2)}
-            language="json"
-            copyLabel={intl.formatMessage({ id: "tools.details.preview.copyResolvedArguments" })}
-          />
-        </section>
       )}
 
       {response && (

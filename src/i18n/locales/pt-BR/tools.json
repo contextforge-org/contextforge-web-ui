@@ -77,8 +77,6 @@
   "tools.details.preview.warnings.generic": "A prévia retornou um aviso",
   "tools.details.preview.warnings.elicitationSkipped": "A invocação em tempo real pode solicitar entrada do usuário; a prévia ignorou {hooks}.",
   "tools.details.preview.warnings.unspecifiedHooks": "um ou mais hooks",
-  "tools.details.preview.resolvedArguments": "Argumentos resolvidos",
-  "tools.details.preview.copyResolvedArguments": "Copiar argumentos resolvidos",
   "tools.details.preview.result.title": "Resultado da ferramenta",
   "tools.details.preview.result.errorBadge": "Resposta de erro",
   "tools.details.preview.result.blockTitle": "Bloco de conteúdo {number}",

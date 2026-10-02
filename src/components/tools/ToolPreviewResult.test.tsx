@@ -38,7 +38,7 @@ describe("ToolPreviewResult", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders status, warnings, resolved arguments, and raw response for success", () => {
+  it("renders status, warnings, and raw response without duplicate arguments", () => {
     const { container } = render(
       <ToolPreviewResult
         preview={previewProps({
@@ -61,7 +61,8 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("federated: github")).toBeInTheDocument();
     expect(screen.getByText("Warnings")).toBeInTheDocument();
     expect(screen.getByText("approval skipped")).toBeInTheDocument();
-    expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
+    expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Copy resolved arguments")).not.toBeInTheDocument();
     expect(screen.getByText("Raw preview response")).toBeInTheDocument();
     expect(screen.getByLabelText("Copy raw preview response")).toBeVisible();
     expect(container.textContent).toContain('"resolvedArguments"');
@@ -114,7 +115,7 @@ describe("ToolPreviewResult", () => {
     expect(screen.getByText("missing query")).toBeInTheDocument();
   });
 
-  it("renders camelCase resolved arguments from the backend preview response", () => {
+  it("retains camelCase resolved arguments only in the raw preview response", () => {
     const { container } = render(
       <ToolPreviewResult
         preview={previewProps({
@@ -131,7 +132,9 @@ describe("ToolPreviewResult", () => {
       />,
     );
 
-    expect(screen.getByText("Resolved arguments")).toBeInTheDocument();
+    expect(screen.queryByText("Resolved arguments")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Copy raw preview response")).toBeVisible();
+    expect(container.textContent).toContain('"resolvedArguments"');
     expect(container.textContent).toContain('"customer_id"');
     expect(container.textContent).toContain('"acme-001"');
   });
