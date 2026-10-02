@@ -15,6 +15,8 @@ import fp from "fastify-plugin";
 import { config } from "../config.js";
 import { getDiscoveryDocument, OidcDiscoveryError } from "../lib/oidc-discovery.js";
 import {
+  clearSessionCookie,
+  deleteSession,
   getSession,
   sessionRefreshLockKey,
   setSessionCookie,
@@ -69,6 +71,18 @@ function isActuallyExpired(record: SessionRecord): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Matches catch-all.ts's upstream-401 revocation: a dead session must not
+// keep looking "authenticated" to /auth/session for the rest of its TTL.
+async function endSession(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  sessionId: string,
+): Promise<void> {
+  await deleteSession(request.server.redis, sessionId);
+  clearSessionCookie(reply);
+  reply.code(401).send({ error: "session_expired" });
 }
 
 // null only for a definite failure (rejected token, session gone). A
@@ -222,7 +236,7 @@ async function sessionAuth(request: FastifyRequest, reply: FastifyReply): Promis
   if (needsRefresh(record)) {
     record = await refreshRecordWithLock(request, reply, sessionId);
     if (!record) {
-      reply.code(401).send({ error: "session_expired" });
+      await endSession(request, reply, sessionId);
       return;
     }
   }
@@ -230,7 +244,7 @@ async function sessionAuth(request: FastifyRequest, reply: FastifyReply): Promis
   // Never forward a bearer past its real deadline, even if a retry backoff
   // or a still-held lock skipped refreshing it this request.
   if (isActuallyExpired(record)) {
-    reply.code(401).send({ error: "session_expired" });
+    await endSession(request, reply, sessionId);
     return;
   }
 

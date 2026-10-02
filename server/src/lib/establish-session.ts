@@ -67,12 +67,11 @@ export async function establishSession(
     );
   }
 
-  // Password-login sessions have no refresh path, so the cookie/Redis TTL
-  // must match the JWT's own lifetime (session dies when the JWT does). SSO
-  // sessions can outlive the access token via refreshToken -- tying them to
-  // the same short expires_in would make sessionAuth's refresh unreachable
-  // for any idle gap longer than one access-token lifetime.
-  const ttlSeconds = ssoTokens
+  // A session can only outlive the access token if it actually has a
+  // refreshToken to extend it with -- otherwise (password login, or an SSO
+  // response that omitted it) the cookie/Redis TTL must match the access
+  // token's own lifetime, same as sessionAuth's refresh gate requires.
+  const ttlSeconds = ssoTokens?.refreshToken
     ? config.sessionTtlSeconds
     : (validExpiresIn ?? config.sessionTtlSeconds);
   const ssoTokenTtlSeconds = validExpiresIn ?? 0;

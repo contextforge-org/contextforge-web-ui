@@ -465,8 +465,11 @@ describe("sessionAuth", () => {
       vi.useFakeTimers();
       try {
         const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
-        const { createSession: freshCreateSession, sessionRefreshLockKey } =
-          await import("../../src/lib/session-store.js");
+        const {
+          createSession: freshCreateSession,
+          sessionRefreshLockKey,
+          getSession,
+        } = await import("../../src/lib/session-store.js");
         const app = await buildApp(freshSessionPlugin);
         const now = Math.floor(Date.now() / 1000);
         const sessionId = await freshCreateSession(
@@ -502,6 +505,7 @@ describe("sessionAuth", () => {
         // that'll just fail upstream.
         expect(response.statusCode).toBe(401);
         expect(response.json()).toEqual({ error: "session_expired" });
+        expect(await getSession(app.redis, sessionId)).toBeNull();
       } finally {
         vi.useRealTimers();
       }
@@ -542,7 +546,8 @@ describe("sessionAuth", () => {
   it("401s like an unrefreshable session when Keycloak rejects the refresh_token", async () => {
     await withSsoEnabled(async () => {
       const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
-      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const { createSession: freshCreateSession, getSession } =
+        await import("../../src/lib/session-store.js");
       const app = await buildApp(freshSessionPlugin);
       const now = Math.floor(Date.now() / 1000);
       const sessionId = await freshCreateSession(
@@ -566,6 +571,9 @@ describe("sessionAuth", () => {
 
       expect(response.statusCode).toBe(401);
       expect(response.json()).toEqual({ error: "session_expired" });
+      // Not just a 401 response -- the record itself must be gone, or
+      // /auth/session keeps reporting authenticated: true for its full TTL.
+      expect(await getSession(app.redis, sessionId)).toBeNull();
     });
   });
 
@@ -721,7 +729,8 @@ describe("sessionAuth", () => {
   it("401s (not silently served) when an unreachable IdP hits a session that's already actually expired", async () => {
     await withSsoEnabled(async () => {
       const { default: freshSessionPlugin } = await import("../../src/plugins/session.js");
-      const { createSession: freshCreateSession } = await import("../../src/lib/session-store.js");
+      const { createSession: freshCreateSession, getSession } =
+        await import("../../src/lib/session-store.js");
       const app = await buildApp(freshSessionPlugin);
       const now = Math.floor(Date.now() / 1000);
       const sessionId = await freshCreateSession(
@@ -753,6 +762,9 @@ describe("sessionAuth", () => {
       // 401 rather than keep forwarding a dead bearer upstream.
       expect(response.statusCode).toBe(401);
       expect(response.json()).toEqual({ error: "session_expired" });
+      // And the record itself must be gone, or /auth/session keeps
+      // reporting authenticated: true for the rest of an outage.
+      expect(await getSession(app.redis, sessionId)).toBeNull();
     });
   });
 
