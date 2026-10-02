@@ -45,8 +45,33 @@ export class FakeRedis {
     return "OK";
   }
 
+  async set(
+    key: string,
+    value: string,
+    _mode: "PX" | "EX",
+    _ttl: number,
+    flag: "NX" | "XX",
+  ): Promise<"OK" | null> {
+    if (flag === "NX" && this.store.has(key)) return null;
+    if (flag === "XX" && !this.store.has(key)) return null;
+    this.store.set(key, value);
+    return "OK";
+  }
+
   async del(key: string): Promise<number> {
     return this.store.delete(key) ? 1 : 0;
+  }
+
+  // Only implements the compare-and-delete script plugins/session.ts issues
+  // (UNLOCK_SCRIPT), not general Lua -- the sole script this app ever evals.
+  async eval(_script: string, numKeys: number, ...args: Array<string | number>): Promise<unknown> {
+    const key = String(args[0]);
+    const expected = String(args[numKeys]);
+    if (this.store.get(key) === expected) {
+      this.store.delete(key);
+      return 1;
+    }
+    return 0;
   }
 
   async publish(channel: string, message: string): Promise<number> {

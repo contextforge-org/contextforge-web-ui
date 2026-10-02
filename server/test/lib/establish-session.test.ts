@@ -108,16 +108,50 @@ describe("establishSession", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const sessionId = response.cookies.find((c) => c.name === "bff_sid")?.value;
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    const sessionId = sessionCookie?.value;
     const stored = await getSession(app.redis, sessionId!);
 
     expect(stored?.refreshToken).toBe("keycloak-refresh-token");
     expect(stored?.idToken).toBe("keycloak-id-token");
-    // tokenExpiresAt is derived from the session TTL (expires_in), computed
-    // at call time -- assert it landed in the expected window rather than an
-    // exact value.
+    // tokenExpiresAt tracks the access token's own short expires_in...
     expect(stored?.tokenExpiresAt).toBeGreaterThanOrEqual(before + 300);
     expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before + 300 + 5);
+    // ...but the session/cookie TTL must not: refreshToken exists so this
+    // session can outlive the access token, and tying its lifetime to the
+    // same 300s would make sessionAuth's refresh unreachable for any idle
+    // gap longer than that.
+    expect(sessionCookie?.maxAge).toBe(config.sessionTtlSeconds);
+  });
+
+  it("aligns the cookie/Redis TTL with expires_in for an SSO response with an idToken but no refreshToken", async () => {
+    const app = await buildEstablishSessionTestApp();
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/test/establish-session",
+      payload: {
+        auth: {
+          access_token: "keycloak-access-token", // pragma: allowlist secret
+          expires_in: 300,
+          user: { email: "user@example.com", auth_provider: "sso" },
+        },
+        ssoTokens: {
+          idToken: "keycloak-id-token", // pragma: allowlist secret
+          // no refreshToken -- nothing can ever extend this session past
+          // the access token's own lifetime, so it must not get the long
+          // session-TTL treatment (that would leave /auth/session reporting
+          // authenticated for hours after the dead access token 401s).
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    expect(sessionCookie?.maxAge).toBe(300);
+    const stored = await getSession(app.redis, sessionCookie!.value);
+    expect(stored?.refreshToken).toBeUndefined();
+    expect(stored?.idToken).toBe("keycloak-id-token");
   });
 
   it("treats tokenExpiresAt as already-expired, not BFF-default-valid, when expires_in is missing/invalid", async () => {

@@ -18,9 +18,13 @@ export interface SsoTokenRefreshResult {
 }
 
 export class SsoTokenRefreshError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  // "rejected" = Keycloak said no (4xx, dead token). "unreachable" =
+  // network/timeout/5xx/malformed -- the refresh token may still be fine.
+  readonly code: "rejected" | "unreachable";
+  constructor(message: string, code: "rejected" | "unreachable", options?: { cause?: unknown }) {
     super(message, options);
     this.name = "SsoTokenRefreshError";
+    this.code = code;
   }
 }
 
@@ -29,7 +33,7 @@ export async function refreshSsoSession(params: {
   refreshToken: string;
 }): Promise<SsoTokenRefreshResult> {
   if (!config.ssoEnabled || !config.ssoKeycloakClientId || !config.ssoKeycloakClientSecret) {
-    throw new SsoTokenRefreshError("SSO is not configured");
+    throw new SsoTokenRefreshError("SSO is not configured", "unreachable");
   }
 
   const body = new URLSearchParams({
@@ -51,10 +55,9 @@ export async function refreshSsoSession(params: {
       redirect: "error",
     });
   } catch (err) {
-    // Keycloak unreachable (network/timeout) -- not necessarily that the
-    // refresh token itself is bad. Distinguishable in logs/error handling
-    // from the non-2xx branch below, which carries Keycloak's own error code.
-    throw new SsoTokenRefreshError("Keycloak token request failed", { cause: err });
+    // Network/timeout -- not necessarily that the refresh token is bad,
+    // distinct from the non-2xx branch below (Keycloak's own error code).
+    throw new SsoTokenRefreshError("Keycloak token request failed", "unreachable", { cause: err });
   }
 
   let json: unknown;
@@ -62,32 +65,44 @@ export async function refreshSsoSession(params: {
     json = await response.json();
   } catch (err) {
     if (!response.ok) {
-      throw new SsoTokenRefreshError(`Keycloak token endpoint returned ${response.status}`, {
-        cause: err,
-      });
+      throw new SsoTokenRefreshError(
+        `Keycloak token endpoint returned ${response.status}`,
+        "unreachable",
+        { cause: err },
+      );
     }
-    throw new SsoTokenRefreshError("Keycloak token endpoint returned a non-JSON body", {
-      cause: err,
-    });
+    throw new SsoTokenRefreshError(
+      "Keycloak token endpoint returned a non-JSON body",
+      "unreachable",
+      { cause: err },
+    );
   }
 
   if (json === null || typeof json !== "object") {
-    throw new SsoTokenRefreshError("Keycloak token endpoint returned a non-object JSON body");
+    throw new SsoTokenRefreshError(
+      "Keycloak token endpoint returned a non-object JSON body",
+      "unreachable",
+    );
   }
   const responseBody = json as Record<string, unknown>;
 
   if (!response.ok) {
-    // Keycloak's own RFC 6749 error code -- invalid_grant means the refresh
-    // token was revoked/expired (the caller should give up refreshing and
-    // fall back to a full login), distinct from "Keycloak is unreachable" above.
+    // Keycloak's own RFC 6749 error code is the actual verdict on the
+    // token, not the HTTP status class -- a 4xx can be rate-limiting
+    // (429), a desynced client_secret (invalid_client), or a momentary
+    // temporarily_unavailable, none of which say the refresh token itself
+    // is dead. Only invalid_grant does. Treating every 4xx as "rejected"
+    // would log a user out over conditions that clear on their own.
     const errorCode = typeof responseBody.error === "string" ? responseBody.error : "unknown_error";
+    const code = errorCode === "invalid_grant" ? "rejected" : "unreachable";
     throw new SsoTokenRefreshError(
       `Keycloak token endpoint returned ${response.status} (${errorCode})`,
+      code,
     );
   }
 
   if (typeof responseBody.access_token !== "string" || !responseBody.access_token) {
-    throw new SsoTokenRefreshError("Keycloak token response missing access_token");
+    throw new SsoTokenRefreshError("Keycloak token response missing access_token", "unreachable");
   }
 
   return {

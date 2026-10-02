@@ -127,18 +127,79 @@ describe("getDiscoveryDocument", () => {
     expect(doc.authorizationEndpoint).toBe(
       "https://keycloak.example.com:9443/realms/mcp-gateway/protocol/openid-connect/auth",
     );
-    expect(doc.endSessionEndpoint).toBe(
-      "https://keycloak.example.com:9443/realms/mcp-gateway/protocol/openid-connect/logout",
-    );
-    // Server-to-server endpoints stay on the internal host.
+    // Server-to-server endpoints always stay on the internal host, never the public one.
     expect(doc.tokenEndpoint).toBe(
       "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
+    );
+    expect(doc.endSessionEndpoint).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/logout",
+    );
+  });
+
+  it("rewrites token/jwks/end_session endpoints to the internal host even when Keycloak reports everything under one public hostname", async () => {
+    // A real single-hostname Keycloak (just KC_HOSTNAME set, no separate
+    // internal-facing config) reports every endpoint under that one host --
+    // this is the shape a real discovery response actually has.
+    process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "http://localhost:8180";
+    mockDiscoveryFetch(
+      discoveryBody({
+        issuer: "http://localhost:8180/realms/mcp-gateway",
+        authorization_endpoint:
+          "http://localhost:8180/realms/mcp-gateway/protocol/openid-connect/auth",
+        token_endpoint: "http://localhost:8180/realms/mcp-gateway/protocol/openid-connect/token",
+        jwks_uri: "http://localhost:8180/realms/mcp-gateway/protocol/openid-connect/certs",
+        end_session_endpoint:
+          "http://localhost:8180/realms/mcp-gateway/protocol/openid-connect/logout",
+      }),
+    );
+    const { getDiscoveryDocument } = await freshImport();
+
+    const doc = await getDiscoveryDocument();
+
+    expect(doc.authorizationEndpoint).toBe(
+      "http://localhost:8180/realms/mcp-gateway/protocol/openid-connect/auth",
+    );
+    expect(doc.tokenEndpoint).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
+    );
+    expect(doc.jwksUri).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/certs",
+    );
+    expect(doc.endSessionEndpoint).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/logout",
+    );
+  });
+
+  it("rewrites token/jwks endpoints to the internal host even without a public base URL configured", async () => {
+    mockDiscoveryFetch(
+      discoveryBody({
+        token_endpoint:
+          "http://some-other-host:9999/realms/mcp-gateway/protocol/openid-connect/token",
+        jwks_uri: "http://some-other-host:9999/realms/mcp-gateway/protocol/openid-connect/certs",
+      }),
+    );
+    const { getDiscoveryDocument } = await freshImport();
+
+    const doc = await getDiscoveryDocument();
+
+    expect(doc.tokenEndpoint).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/token",
+    );
+    expect(doc.jwksUri).toBe(
+      "http://keycloak-internal:8080/realms/mcp-gateway/protocol/openid-connect/certs",
     );
   });
 
   it("throws OidcDiscoveryError, not a raw TypeError, for a malformed authorization_endpoint when a public base URL is set", async () => {
     process.env.SSO_KEYCLOAK_PUBLIC_BASE_URL = "https://keycloak.example.com";
     mockDiscoveryFetch(discoveryBody({ authorization_endpoint: "not a url" }));
+    const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
+
+    await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);
+  });
+
+  it("throws OidcDiscoveryError, not a raw TypeError, for a malformed token_endpoint", async () => {
+    mockDiscoveryFetch(discoveryBody({ token_endpoint: "not a url" }));
     const { getDiscoveryDocument, OidcDiscoveryError } = await freshImport();
 
     await expect(getDiscoveryDocument()).rejects.toBeInstanceOf(OidcDiscoveryError);

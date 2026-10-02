@@ -18,11 +18,13 @@ const DISCOVERY_FETCH_TIMEOUT_MS = 5000;
 
 export interface OidcDiscoveryDocument {
   issuer: string;
-  // Browser-redirect targets -- rewritten to ssoKeycloakPublicBaseUrl when configured.
+  // Browser-redirect target -- rewritten to ssoKeycloakPublicBaseUrl when configured.
   authorizationEndpoint: string;
-  // Not every OIDC provider advertises this.
+  // Server-to-server only -- rewritten to ssoKeycloakBaseUrl. Not every
+  // OIDC provider advertises this.
   endSessionEndpoint?: string;
-  // Called by the BFF, server-to-server only -- stay on the internal host.
+  // Server-to-server only -- rewritten to ssoKeycloakBaseUrl, never trusted
+  // as-discovered (Keycloak reports one hostname for every endpoint).
   tokenEndpoint: string;
   jwksUri: string;
 }
@@ -103,11 +105,16 @@ async function fetchDiscoveryDocument(): Promise<OidcDiscoveryDocument> {
 
   return {
     issuer,
-    authorizationEndpoint: rewritePublicBaseUrl(authorizationEndpoint, "authorization_endpoint"),
-    tokenEndpoint,
-    jwksUri,
+    authorizationEndpoint: rewriteBaseUrl(
+      authorizationEndpoint,
+      config.ssoKeycloakPublicBaseUrl,
+      "authorization_endpoint",
+    ),
+    tokenEndpoint: rewriteBaseUrl(tokenEndpoint, config.ssoKeycloakBaseUrl, "token_endpoint"),
+    jwksUri: rewriteBaseUrl(jwksUri, config.ssoKeycloakBaseUrl, "jwks_uri"),
     endSessionEndpoint:
-      endSessionEndpoint && rewritePublicBaseUrl(endSessionEndpoint, "end_session_endpoint"),
+      endSessionEndpoint &&
+      rewriteBaseUrl(endSessionEndpoint, config.ssoKeycloakBaseUrl, "end_session_endpoint"),
   };
 }
 
@@ -124,15 +131,18 @@ function optionalStringField(body: Record<string, unknown>, field: string): stri
   return typeof value === "string" && value ? value : undefined;
 }
 
-// Swaps only scheme+host+port to ssoKeycloakPublicBaseUrl, keeping the
-// discovered path -- the browser can't reach the internal host.
-function rewritePublicBaseUrl(endpoint: string, fieldName: string): string {
-  if (!config.ssoKeycloakPublicBaseUrl) return endpoint;
+// Swaps only scheme+host+port to targetBase, keeping the discovered path.
+function rewriteBaseUrl(
+  endpoint: string,
+  targetBase: string | undefined,
+  fieldName: string,
+): string {
+  if (!targetBase) return endpoint;
   try {
-    const publicBase = new URL(config.ssoKeycloakPublicBaseUrl);
+    const target = new URL(targetBase);
     const rewritten = new URL(endpoint);
-    rewritten.protocol = publicBase.protocol;
-    rewritten.host = publicBase.host; // host includes port
+    rewritten.protocol = target.protocol;
+    rewritten.host = target.host; // host includes port
     return rewritten.toString();
   } catch (err) {
     throw new OidcDiscoveryError(

@@ -114,6 +114,7 @@ describe("refreshSsoSession", () => {
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
     expect((err as Error).message).not.toContain("invalid_grant");
   });
 
@@ -123,16 +124,38 @@ describe("refreshSsoSession", () => {
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("rejected");
     expect((err as Error).message).toContain("invalid_grant");
   });
 
-  it("never leaks the token endpoint URL in the error message", async () => {
+  it("never leaks the token endpoint URL in the error message, and treats a 5xx as unreachable (not rejected)", async () => {
     mockTokenFetch({}, false, 500);
     const { refreshSsoSession, SsoTokenRefreshError } = await freshImport();
 
     const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
     expect((err as Error).message).not.toContain(PARAMS.tokenEndpoint);
+  });
+
+  it("treats a 429 as unreachable, not rejected -- rate-limiting says nothing about the token", async () => {
+    mockTokenFetch({ error: "temporarily_unavailable" }, false, 429);
+    const { refreshSsoSession, SsoTokenRefreshError } = await freshImport();
+
+    const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
+  });
+
+  it("treats a desynced client_secret (invalid_client) as unreachable, not rejected", async () => {
+    mockTokenFetch({ error: "invalid_client" }, false, 401);
+    const { refreshSsoSession, SsoTokenRefreshError } = await freshImport();
+
+    const err = await refreshSsoSession(PARAMS).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(SsoTokenRefreshError);
+    // Not the refresh token's fault -- forcing logout over this would be
+    // wrong, and it may clear once the secret is fixed.
+    expect((err as InstanceType<typeof SsoTokenRefreshError>).code).toBe("unreachable");
   });
 
   it("throws SsoTokenRefreshError on a non-JSON body", async () => {

@@ -10,6 +10,7 @@ import {
   getSession,
   sessionRedisKey,
   updateSessionTokens,
+  type RedisLike,
   type SessionRecord,
 } from "../../src/lib/session-store.js";
 import { FakeRedis } from "../helpers/build-app.js";
@@ -77,12 +78,12 @@ describe("updateSessionTokens", () => {
       },
       900,
     );
-    const before = Math.floor(Date.now() / 1000);
+    const tokenExpiresAt = Math.floor(Date.now() / 1000) + 300;
 
     const wrote = await updateSessionTokens(
       redis,
       sessionId,
-      { bearerToken: "new-at", refreshToken: "new-rt", idToken: "new-idt" }, // pragma: allowlist secret
+      { bearerToken: "new-at", refreshToken: "new-rt", idToken: "new-idt", tokenExpiresAt }, // pragma: allowlist secret
       300,
     );
 
@@ -91,8 +92,7 @@ describe("updateSessionTokens", () => {
     expect(stored?.bearerToken).toBe("new-at");
     expect(stored?.refreshToken).toBe("new-rt");
     expect(stored?.idToken).toBe("new-idt");
-    expect(stored?.tokenExpiresAt).toBeGreaterThanOrEqual(before + 300);
-    expect(stored?.tokenExpiresAt).toBeLessThanOrEqual(before + 305);
+    expect(stored?.tokenExpiresAt).toBe(tokenExpiresAt);
     // user (and everything else on the record) is untouched by a token refresh.
     expect(stored?.user).toEqual({ email: "user@example.com", auth_provider: "sso" });
   });
@@ -110,7 +110,8 @@ describe("updateSessionTokens", () => {
       900,
     );
 
-    await updateSessionTokens(redis, sessionId, { bearerToken: "new-at" }, 300); // pragma: allowlist secret
+    const tokenExpiresAt = Math.floor(Date.now() / 1000) + 300;
+    await updateSessionTokens(redis, sessionId, { bearerToken: "new-at", tokenExpiresAt }, 300); // pragma: allowlist secret
 
     const stored = await getSession(redis, sessionId);
     expect(stored?.refreshToken).toBe("stays-the-same-rt");
@@ -123,12 +124,47 @@ describe("updateSessionTokens", () => {
     const wrote = await updateSessionTokens(
       redis,
       "gone-id",
-      { bearerToken: "new-at" }, // pragma: allowlist secret
+      { bearerToken: "new-at", tokenExpiresAt: Math.floor(Date.now() / 1000) + 300 }, // pragma: allowlist secret
       300,
     );
 
     expect(wrote).toBe(false);
     expect(await getSession(redis, "gone-id")).toBeNull();
+  });
+
+  it("does not resurrect a session deleted between the read and the write (logout/refresh race)", async () => {
+    const redis = new FakeRedis();
+    const sessionId = await createSession(
+      redis,
+      {
+        bearerToken: "old-at", // pragma: allowlist secret
+        user: { email: "user@example.com", auth_provider: "sso" },
+        refreshToken: "old-rt", // pragma: allowlist secret
+        tokenExpiresAt: 1_700_000_000,
+      },
+      900,
+    );
+    // Simulates logout's `del` landing after our read but before our write --
+    // the real SET's EX+XX flags make this a no-op server-side regardless of
+    // what the stale local read already knew.
+    const raceyRedis: RedisLike = {
+      get: redis.get.bind(redis),
+      getdel: redis.getdel.bind(redis),
+      setex: redis.setex.bind(redis),
+      set: async () => null,
+      del: redis.del.bind(redis),
+      eval: redis.eval.bind(redis),
+      publish: redis.publish.bind(redis),
+    };
+
+    const wrote = await updateSessionTokens(
+      raceyRedis,
+      sessionId,
+      { bearerToken: "new-at", tokenExpiresAt: Math.floor(Date.now() / 1000) + 300 }, // pragma: allowlist secret
+      300,
+    );
+
+    expect(wrote).toBe(false);
   });
 });
 

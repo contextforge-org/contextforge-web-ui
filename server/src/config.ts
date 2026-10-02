@@ -88,6 +88,9 @@ export const config = {
   // TTL for the one-time PKCE verifier/state/nonce minted by the login route
   // and consumed by the callback route — same pattern as the nonce above.
   ssoLoginStateTtlSeconds: Number(optional("SSO_LOGIN_STATE_TTL_SECONDS", "300")),
+  // Refresh an SSO session's Keycloak tokens this many seconds before
+  // tokenExpiresAt, not exactly at it.
+  ssoTokenRefreshLeewaySeconds: Number(optional("SSO_TOKEN_REFRESH_LEEWAY_SECONDS", "30")),
 
   // memory:// (default) = in-process store, no Redis needed — dev only.
   // See lib/memory-redis.ts. Use a real redis:// URL beyond a single
@@ -179,6 +182,13 @@ if (
 
 if (!Number.isSafeInteger(config.ssoLoginStateTtlSeconds) || config.ssoLoginStateTtlSeconds <= 0) {
   throw new Error("SSO_LOGIN_STATE_TTL_SECONDS must be a positive integer");
+}
+
+if (
+  !Number.isSafeInteger(config.ssoTokenRefreshLeewaySeconds) ||
+  config.ssoTokenRefreshLeewaySeconds < 0
+) {
+  throw new Error("SSO_TOKEN_REFRESH_LEEWAY_SECONDS must be a non-negative integer");
 }
 
 // Fail fast at boot, not at the first /auth/sso/login request.
