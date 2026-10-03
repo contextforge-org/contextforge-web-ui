@@ -42,6 +42,7 @@ function makeAuth(isAdmin: boolean, ssoEnabled: boolean) {
     isAuthenticated: true,
     isLoading: false,
     selectedTeamId: null,
+    hasPermission: (_perm: string) => isAdmin,
     login: vi.fn(),
     logout: vi.fn(),
     ssoEnabled,

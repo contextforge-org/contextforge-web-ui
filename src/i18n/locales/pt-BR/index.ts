@@ -16,6 +16,7 @@ import mcpServer from "./mcpServer.json";
 import settings from "./settings.json";
 import tokens from "./tokens.json";
 import plugins from "./plugins.json";
+import rules from "./rules.json";
 
 export default {
   ...common,
@@ -36,4 +37,5 @@ export default {
   ...settings,
   ...tokens,
   ...plugins,
+  ...rules,
 };

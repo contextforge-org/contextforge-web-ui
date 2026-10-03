@@ -8,6 +8,7 @@ import { SsoSettings } from "@/components/settings/SsoSettings";
 import { Tokens } from "@/pages/Tokens";
 import { Users } from "@/pages/Users";
 import { Teams } from "@/pages/Teams";
+import { Rules } from "@/pages/Rules";
 
 // API Tokens is self-service (any authenticated user manages their own tokens),
 // so it is the default tab and is always visible. Users and Teams are admin-only
@@ -20,10 +21,11 @@ interface SettingsProps {
 
 export function Settings({ tab }: SettingsProps) {
   const intl = useIntl();
-  const { user, ssoEnabled } = useAuthContext();
+  const { user, ssoEnabled, hasPermission } = useAuthContext();
   const { navigate } = useRouter();
   const isAdmin = Boolean(user?.is_admin);
   const showSsoTab = isAdmin && !!ssoEnabled;
+  const canManageRules = hasPermission("rbac.rules.manage");
   // Toolbar slot rendered on the tab row; the active tab portals its actions
   // (search, create, …) here so they sit inline with the tab triggers.
   const [toolbarEl, setToolbarEl] = useState<HTMLDivElement | null>(null);
@@ -32,8 +34,13 @@ export function Settings({ tab }: SettingsProps) {
   const tabsContext = useMemo(() => ({ toolbar: toolbarEl, setTabsHidden }), [toolbarEl]);
 
   const availableTabs = useMemo(
-    () => ["tokens", ...(isAdmin ? ["users", "teams"] : []), ...(showSsoTab ? ["sso"] : [])],
-    [isAdmin, showSsoTab],
+    () => [
+      "tokens",
+      ...(isAdmin ? ["users", "teams"] : []),
+      ...(showSsoTab ? ["sso"] : []),
+      ...(canManageRules ? ["rules"] : []),
+    ],
+    [isAdmin, showSsoTab, canManageRules],
   );
 
   if (tab !== undefined && !availableTabs.includes(tab)) {
@@ -67,6 +74,11 @@ export function Settings({ tab }: SettingsProps) {
                   {intl.formatMessage({ id: "settings.tabs.sso" })}
                 </TabsTrigger>
               )}
+              {canManageRules && (
+                <TabsTrigger variant="line" value="rules">
+                  {intl.formatMessage({ id: "settings.tabs.rules" })}
+                </TabsTrigger>
+              )}
             </TabsList>
             {/* min-h-10 reserves the toolbar's populated height so the tab row
                 keeps a constant height whether or not the active tab has filled
@@ -91,6 +103,11 @@ export function Settings({ tab }: SettingsProps) {
           {showSsoTab && (
             <TabsContent value="sso">
               <SsoSettings />
+            </TabsContent>
+          )}
+          {canManageRules && (
+            <TabsContent value="rules">
+              <Rules />
             </TabsContent>
           )}
         </SettingsTabsProvider>

@@ -4,6 +4,7 @@
   "settings.tabs.users": "Users",
   "settings.tabs.teams": "Teams",
   "settings.tabs.sso": "SSO",
+  "settings.tabs.rules": "Rules",
   "settings.sso.statusLabel": "Status",
   "settings.sso.statusEnabled": "Enabled",
   "settings.sso.statusDisabled": "Disabled",
