@@ -8,6 +8,9 @@ export const handlers = [
   // an unhandled request.
   http.get("*/api/a2a", () => HttpResponse.json([])),
 
+  // Mock rule catalog list — empty by default; tests override with server.use.
+  http.get("*/api/rbac/rules", () => HttpResponse.json([])),
+
   // Mock Recent Activity endpoint — backed by RECENT_ACTIVITY_FIXTURE.
   http.get("*/api/logs/activity", ({ request }) => {
     const url = new URL(request.url);
