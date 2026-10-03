@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { PromptDetailsPanel } from "./PromptDetailsPanel";
 import type { PromptRead } from "@/generated/types";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/mocks/server";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -11,6 +13,10 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/api/prompts", () => ({
   promptsApi: { render: vi.fn() },
+}));
+
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: () => ({ hasPermission: () => true }),
 }));
 
 function mockPrompt(overrides?: Partial<NonNullable<PromptRead>>): NonNullable<PromptRead> {
@@ -47,6 +53,30 @@ describe("PromptDetailsPanel", () => {
     expect(screen.getByText("Greets the user")).toBeInTheDocument();
     expect(screen.getByLabelText(/user_name/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^preview$/i })).toBeInTheDocument();
+  });
+
+  it("renders the entity rules on the Rules tab", async () => {
+    server.use(
+      http.get("*/api/rbac/rules/entity-summary", () =>
+        HttpResponse.json({ rules: [], inherited: [], defaults: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <PromptDetailsPanel
+        prompts={[mockPrompt()]}
+        title="hugging-face"
+        open={true}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Rules" }));
+
+    expect(screen.getByTestId("entity-rules-prompt")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Token scopes (Layer 1) still apply to every check."),
+    ).toBeInTheDocument();
   });
 
   it("marks the region as hidden and inert when closed", () => {

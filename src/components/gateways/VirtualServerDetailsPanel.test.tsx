@@ -25,6 +25,10 @@ vi.mock("@/auth/useAuth", () => ({
   }),
 }));
 
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: () => ({ hasPermission: () => true }),
+}));
+
 function makeServer(overrides: Partial<VirtualServer> = {}): VirtualServer {
   return {
     id: "gateway-1",
@@ -598,6 +602,31 @@ describe("VirtualServerDetailsPanel render variants", () => {
       http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
       http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
     );
+  });
+
+  it("renders the entity rules on the Rules tab", async () => {
+    mswServer.use(
+      http.get("*/api/rbac/rules/entity-summary", () =>
+        HttpResponse.json({ rules: [], inherited: [], defaults: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Rules" }));
+
+    expect(screen.getByTestId("entity-rules-server")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Token scopes (Layer 1) still apply to every check."),
+    ).toBeInTheDocument();
   });
 
   it("localizes the components loading state", async () => {

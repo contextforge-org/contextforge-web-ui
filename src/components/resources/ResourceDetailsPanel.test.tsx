@@ -4,10 +4,16 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render } from "@/test/test-utils";
 import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
 import type { ResourceRead } from "@/generated/types";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/mocks/server";
 
 vi.mock("@/api/resources", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/resources")>()),
   resourcesApi: { test: vi.fn() },
+}));
+
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: () => ({ hasPermission: () => true }),
 }));
 
 function mockResource(overrides?: Partial<NonNullable<ResourceRead>>): NonNullable<ResourceRead> {
@@ -76,6 +82,30 @@ describe("ResourceDetailsPanel tabs", () => {
 
     expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "curl" })).toBeInTheDocument();
+  });
+
+  it("renders the entity rules on the Rules tab", async () => {
+    server.use(
+      http.get("*/api/rbac/rules/entity-summary", () =>
+        HttpResponse.json({ rules: [], inherited: [], defaults: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(
+      <ResourceDetailsPanel
+        resources={[mockResource()]}
+        gatewaySlug="local"
+        open
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Rules" }));
+
+    expect(screen.getByTestId("entity-rules-resource")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Token scopes (Layer 1) still apply to every check."),
+    ).toBeInTheDocument();
   });
 
   it("shares resource selection between the Definition table and the Try it chip picker", async () => {

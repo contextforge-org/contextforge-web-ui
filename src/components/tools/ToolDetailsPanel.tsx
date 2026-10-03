@@ -16,6 +16,7 @@ import type { Tool } from "@/types/tool";
 import { formatDateTime } from "@/utils/format";
 import { ToolsTable } from "@/components/tools/ToolsTable";
 import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
+import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
 
 const SEGMENTED_TRIGGER_CLASS =
   "flex-1 rounded-sm px-3 py-1.5 font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
@@ -206,6 +207,9 @@ export function ToolDetailsPanel({
                   <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
                     {intl.formatMessage({ id: "tools.details.tab.definition" })}
                   </TabsTrigger>
+                  <TabsTrigger value="rules" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "rules.title" })}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="tryIt" className="mt-8">
@@ -228,6 +232,12 @@ export function ToolDetailsPanel({
                     onEditTool={onEditTool}
                     onToggleTool={onToggleTool}
                   />
+                </TabsContent>
+
+                <TabsContent value="rules" className="mt-8">
+                  {selectedTool && (
+                    <EntityRulesTab capabilityType="tool" capabilityId={selectedTool.id} />
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

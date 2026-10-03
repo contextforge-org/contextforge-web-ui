@@ -17,6 +17,7 @@ import { formatBytes, formatDateTime } from "@/utils/format";
 import { getTagLabels } from "@/utils/tags";
 import { ResourceDefinitionTab } from "@/components/resources/ResourceDefinitionTab";
 import { ResourceTryItTab } from "@/components/resources/ResourceTryItTab";
+import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
 
 // Segmented-control styling for the Try it / Definition tab triggers.
 const SEGMENTED_TRIGGER_CLASS =
@@ -78,6 +79,7 @@ export function ResourceDetailsPanel({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const tryItContentRef = useRef<HTMLDivElement>(null);
   const definitionContentRef = useRef<HTMLDivElement>(null);
+  const rulesContentRef = useRef<HTMLDivElement>(null);
   const headingId = useMemo(() => `resource-details-heading-${gatewaySlug}`, [gatewaySlug]);
 
   // Manage selected resource state: select first on open, reset on close, and
@@ -115,7 +117,11 @@ export function ResourceDetailsPanel({
     setActiveTab(value);
     requestAnimationFrame(() => {
       const target =
-        value === "definition" ? definitionContentRef.current : tryItContentRef.current;
+        value === "definition"
+          ? definitionContentRef.current
+          : value === "rules"
+            ? rulesContentRef.current
+            : tryItContentRef.current;
       target?.focus();
     });
   }, []);
@@ -210,6 +216,9 @@ export function ResourceDetailsPanel({
                   <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
                     {intl.formatMessage({ id: "resources.details.tab.definition" })}
                   </TabsTrigger>
+                  <TabsTrigger value="rules" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "rules.title" })}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="tryIt" className="mt-8" ref={tryItContentRef} tabIndex={-1}>
@@ -234,6 +243,15 @@ export function ResourceDetailsPanel({
                     onDeleteResource={onDeleteResource}
                     onToggleResource={onToggleResource}
                   />
+                </TabsContent>
+
+                <TabsContent value="rules" className="mt-8" ref={rulesContentRef} tabIndex={-1}>
+                  {selectedResource && (
+                    <EntityRulesTab
+                      capabilityType="resource"
+                      capabilityId={String(selectedResource.id)}
+                    />
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

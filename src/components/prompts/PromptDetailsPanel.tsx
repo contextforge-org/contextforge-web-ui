@@ -19,6 +19,7 @@ import { formatDateTime } from "@/utils/format";
 
 import { PromptCodeTab } from "./PromptCodeTab";
 import { PromptDefinitionTable } from "./PromptDefinitionTable";
+import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
 
 // Segmented-control styling for the Try it / Definition tab triggers.
 const SEGMENTED_TRIGGER_CLASS =
@@ -205,6 +206,9 @@ export function PromptDetailsPanel({
                 <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
                   {intl.formatMessage({ id: "prompts.details.tab.definition" })}
                 </TabsTrigger>
+                <TabsTrigger value="rules" className={SEGMENTED_TRIGGER_CLASS}>
+                  {intl.formatMessage({ id: "rules.title" })}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="tryIt" className="mt-8 space-y-6">
@@ -260,6 +264,12 @@ export function PromptDetailsPanel({
                   onDelete={onDelete}
                   onTogglePrompt={onTogglePrompt}
                 />
+              </TabsContent>
+
+              <TabsContent value="rules" className="mt-8">
+                {selected && (
+                  <EntityRulesTab capabilityType="prompt" capabilityId={String(selected.id)} />
+                )}
               </TabsContent>
             </Tabs>
           </div>

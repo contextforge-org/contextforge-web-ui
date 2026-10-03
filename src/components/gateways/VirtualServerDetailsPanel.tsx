@@ -47,6 +47,7 @@ import {
   getVirtualServerEndpoint,
 } from "@/components/gateways/utils";
 import { useQuery } from "@/hooks/useQuery";
+import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
 
 const COMPONENT_FILTER_OPTIONS: Array<{ value: ComponentFilter; labelId: string }> = [
   { value: "all", labelId: "gateways.details.filter.all" },
@@ -55,7 +56,7 @@ const COMPONENT_FILTER_OPTIONS: Array<{ value: ComponentFilter; labelId: string 
   { value: "prompts", labelId: "gateways.details.filter.prompts" },
 ];
 
-type TopTab = "components" | "test";
+type TopTab = "components" | "test" | "rules";
 
 // Segmented-control styling shared with MCPServerDetailsPanel
 const SEGMENTED_TRIGGER_CLASS =
@@ -586,6 +587,9 @@ export function VirtualServerDetailsPanel({
                   <TabsTrigger value="components" className={SEGMENTED_TRIGGER_CLASS}>
                     {intl.formatMessage({ id: "gateways.details.components" })}
                   </TabsTrigger>
+                  <TabsTrigger value="rules" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "rules.title" })}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="test" className="mt-8">
@@ -879,6 +883,10 @@ export function VirtualServerDetailsPanel({
                       </div>
                     </>
                   )}
+                </TabsContent>
+
+                <TabsContent value="rules" className="mt-8">
+                  <EntityRulesTab capabilityType="server" capabilityId={server.id} />
                 </TabsContent>
               </Tabs>
             </div>

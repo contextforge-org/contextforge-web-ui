@@ -11,6 +11,10 @@ import type { MCPServer } from "@/types/server";
 
 vi.mock("@/lib/clipboard", () => ({ copyToClipboard: vi.fn() }));
 
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: () => ({ hasPermission: () => true }),
+}));
+
 const mockServer: MCPServer = {
   id: "test-server-123",
   name: "Test MCP Server",
@@ -106,6 +110,25 @@ describe("MCPServerDetailsPanel", () => {
     const region = screen.getByRole("region", { hidden: true });
     expect(region).toHaveAttribute("aria-hidden", "true");
     expect(region).toHaveAttribute("data-state", "closed");
+  });
+
+  it("renders the entity rules on the Rules tab", async () => {
+    server.use(
+      http.get("*/api/rbac/rules/entity-summary", () =>
+        HttpResponse.json({ rules: [], inherited: [], defaults: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <MCPServerDetailsPanel server={mockServer} error={null} open onClose={() => {}} />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Rules" }));
+
+    expect(screen.getByTestId("entity-rules-gateway")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Token scopes (Layer 1) still apply to every check."),
+    ).toBeInTheDocument();
   });
 
   it("renders server details when open", async () => {

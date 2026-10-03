@@ -4,12 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders as render, byTextContent } from "@/test/test-utils";
 import { ToolDetailsPanel } from "./ToolDetailsPanel";
 import type { Tool } from "@/types/tool";
+import { http, HttpResponse } from "msw";
+import { server } from "@/test/mocks/server";
 
 vi.mock("@/auth/useAuth", () => ({
   useAuth: () => ({
     hasPermission: () => true,
     permissionsLoading: false,
   }),
+}));
+
+vi.mock("@/auth/AuthContext", () => ({
+  useAuthContext: () => ({ hasPermission: () => true }),
 }));
 
 // Helper to create mock tools
@@ -129,6 +135,31 @@ describe("ToolDetailsPanel", () => {
     expect(screen.getByRole("tab", { name: "Try it", selected: true })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Definition", selected: false })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Tools" })).toBeInTheDocument();
+  });
+
+  it("renders the entity rules on the Rules tab", async () => {
+    server.use(
+      http.get("*/api/rbac/rules/entity-summary", () =>
+        HttpResponse.json({ rules: [], inherited: [], defaults: {} }),
+      ),
+    );
+    const user = userEvent.setup();
+    const tools = [createMockTool(1)];
+    render(
+      <ToolDetailsPanel
+        tools={tools}
+        gatewaySlug="test-gateway"
+        open={true}
+        onClose={mockOnClose}
+      />,
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Rules" }));
+
+    expect(screen.getByTestId("entity-rules-tool")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Token scopes (Layer 1) still apply to every check."),
+    ).toBeInTheDocument();
   });
 
   it.each([undefined, "", "   "])(

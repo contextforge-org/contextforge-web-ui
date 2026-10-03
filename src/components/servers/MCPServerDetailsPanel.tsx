@@ -31,13 +31,14 @@ import type { OAuthStatusEntry } from "@/api/oauth";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 import { ServerStatusIndicator } from "./ServerStatusIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
 
 interface MCPServer extends BaseMCPServer {
   tags?: Array<string | VirtualServerTag>;
 }
 
 type ComponentTab = "all" | "tools" | "resources" | "prompts";
-type TopTab = "tryit" | "components";
+type TopTab = "tryit" | "components" | "rules";
 
 const TABS: Array<{ value: ComponentTab; label: string }> = [
   { value: "all", label: "All" },
@@ -382,6 +383,9 @@ export function MCPServerDetailsPanel({
                   <TabsTrigger value="components" className={SEGMENTED_TRIGGER_CLASS}>
                     Components
                   </TabsTrigger>
+                  <TabsTrigger value="rules" className={SEGMENTED_TRIGGER_CLASS}>
+                    {intl.formatMessage({ id: "rules.title" })}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="components" className="mt-8">
@@ -544,6 +548,10 @@ export function MCPServerDetailsPanel({
 
                 <TabsContent value="tryit" className="mt-8">
                   <TestConnectionPanel key={server.id} serverUrl={server.url} />
+                </TabsContent>
+
+                <TabsContent value="rules" className="mt-8">
+                  <EntityRulesTab capabilityType="gateway" capabilityId={server.id} />
                 </TabsContent>
               </Tabs>
             </div>
