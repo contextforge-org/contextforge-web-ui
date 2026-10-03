@@ -111,7 +111,7 @@ Create, edit, and delete need the `rbac.rules.manage` permission. The Rules
 tab hides when you do not hold it. The gateway enforces the same permission on
 the endpoints.
 
-System rows are locked. The UI marks them as system rules. You cannot edit or
+The UI locks system rows. It marks them as system rules. You cannot edit or
 delete them from the UI. The gateway also refuses to delete them.
 
 ## Failure behavior
