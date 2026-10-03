@@ -55,6 +55,7 @@
   "rules.form.value": "Value",
   "rules.form.addCondition": "Add condition",
   "rules.form.join": "Join with",
+  "rules.form.argsFamily": "Tool argument (args.*)",
   "rules.form.errors.name": "Enter a name",
   "rules.form.errors.predicate": "Enter a predicate",
   "rules.permissionDenied": "You do not have permission to manage rules."

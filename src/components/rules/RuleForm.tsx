@@ -47,7 +47,7 @@ type Operator = (typeof OPERATORS)[number];
 type Joiner = "&" | "|";
 
 /** Attribute families the builder offers; the name narrows the family. */
-const FAMILIES = ["role", "perm", "team"] as const;
+const FAMILIES = ["role", "perm", "team", "args"] as const;
 const SPECIALS = ["authenticated", "token.is_admin", "subject.id"] as const;
 type Attribute = (typeof FAMILIES)[number] | (typeof SPECIALS)[number];
 
@@ -425,7 +425,9 @@ export function RuleForm({
                           ))}
                           {FAMILIES.map((f) => (
                             <SelectItem key={f} value={f}>
-                              {f}.*
+                              {f === "args"
+                                ? intl.formatMessage({ id: "rules.form.argsFamily" })
+                                : `${f}.*`}
                             </SelectItem>
                           ))}
                         </SelectContent>

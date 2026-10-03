@@ -168,4 +168,35 @@ describe("RuleForm", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Invalid predicate");
   });
+
+  it("compiles an args.tenant builder row into the predicate", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <RuleForm open={true} rule={null} onOpenChange={() => {}} onSaved={() => {}} />
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByLabelText("Attribute"));
+    await user.click(screen.getByRole("option", { name: "Tool argument (args.*)" }));
+    await user.type(screen.getByLabelText("Attribute 1"), "tenant");
+
+    expect(screen.getByTestId("compiled-predicate").textContent).toBe("args.tenant");
+  });
+
+  it("parses an existing args.tenant predicate into a builder row", () => {
+    render(
+      <I18nProvider>
+        <RuleForm
+          open={true}
+          rule={makeRule({ predicate: "args.tenant == 'acme'" })}
+          onOpenChange={() => {}}
+          onSaved={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByLabelText("Attribute 1")).toHaveValue("tenant");
+    expect(screen.getByTestId("compiled-predicate").textContent).toBe("args.tenant == 'acme'");
+  });
 });

@@ -55,6 +55,7 @@
   "rules.form.value": "Valor",
   "rules.form.addCondition": "Añadir condición",
   "rules.form.join": "Unir con",
+  "rules.form.argsFamily": "Argumento de herramienta (args.*)",
   "rules.form.errors.name": "Escriba un nombre",
   "rules.form.errors.predicate": "Escriba un predicado",
   "rules.permissionDenied": "No tiene permiso para gestionar reglas."
