@@ -150,8 +150,10 @@ describe("RuleForm", () => {
     );
 
     expect(screen.getByLabelText("Capability type")).toBeDisabled();
-    expect(screen.getByLabelText("Entity")).toBeDisabled();
-    expect(screen.getByDisplayValue("tool-42")).toBeInTheDocument();
+    // Entity stays an editable combobox, not a disabled input
+    expect(
+      screen.queryByLabelText("Entity", { selector: "input[disabled]" }),
+    ).not.toBeInTheDocument();
   });
 
   it("surfaces the gateway 422 detail under the predicate", async () => {
