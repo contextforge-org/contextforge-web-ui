@@ -226,7 +226,7 @@ export function RuleForm({
 
   // Fetch entity names for the picker when the rule is not locked.
   useEffect(() => {
-    if (!open || locked) {
+    if (!open) {
       setEntityNames([]);
       return;
     }
@@ -255,7 +255,7 @@ export function RuleForm({
         })
         .catch(() => setEntityNames([])),
     );
-  }, [open, locked, capabilityTypeState, contextTools]);
+  }, [open, capabilityTypeState, contextTools]);
 
   // Fetch the attribute names available for args.* predicates when the
   // rule targets a tool, gateway, or server.
@@ -427,14 +427,7 @@ export function RuleForm({
               <Label htmlFor="rule-capability-id">
                 {intl.formatMessage({ id: "rules.form.capabilityId" })}
               </Label>
-              {locked ? (
-                <Input
-                  id="rule-capability-id"
-                  value={capabilityIdState}
-                  disabled
-                  aria-describedby="rule-capability-id-hint"
-                />
-              ) : entityNames.length > 0 ? (
+              {entityNames.length > 0 ? (
                 <Combobox
                   options={[
                     { value: "", label: intl.formatMessage({ id: "rules.capability.all" }) },
@@ -768,7 +761,7 @@ export function RuleForm({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {intl.formatMessage({ id: "common.cancel" })}
+            {intl.formatMessage({ id: "common.button.cancel" })}
           </Button>
           <Button onClick={submit} data-testid="submit-rule">
             {intl.formatMessage({ id: rule ? "rules.edit" : "rules.create" })}

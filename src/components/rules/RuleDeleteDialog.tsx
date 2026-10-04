@@ -31,7 +31,7 @@ export function RuleDeleteDialog({ rule, onCancel, onConfirm }: RuleDeleteDialog
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            {intl.formatMessage({ id: "common.cancel" })}
+            {intl.formatMessage({ id: "common.button.cancel" })}
           </Button>
           <Button variant="destructive" onClick={onConfirm} data-testid="confirm-delete-rule">
             {intl.formatMessage({ id: "rules.delete" })}
