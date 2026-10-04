@@ -236,7 +236,7 @@ export function ToolDetailsPanel({
 
                 <TabsContent value="rules" className="mt-8">
                   {selectedTool && (
-                    <EntityRulesTab capabilityType="tool" capabilityId={selectedTool.id} />
+                    <EntityRulesTab capabilityType="tool" capabilityId={selectedTool.name} />
                   )}
                 </TabsContent>
               </Tabs>

@@ -174,6 +174,41 @@ export function RuleForm({
   });
   const [errors, setErrors] = useState<{ name?: string; predicate?: string }>({});
   const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
+  const locked = capabilityType !== undefined;
+  const [entityNames, setEntityNames] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch entity names for the picker when the rule is not locked.
+  useEffect(() => {
+    if (!open || locked) {
+      setEntityNames([]);
+      return;
+    }
+    const path =
+      capabilityTypeState === "tool"
+        ? "/tools"
+        : capabilityTypeState === "server"
+          ? "/servers"
+          : capabilityTypeState === "gateway"
+            ? "/gateways"
+            : null;
+    if (!path) {
+      setEntityNames([]);
+      return;
+    }
+    import("@/api/client").then(({ api }) =>
+      api
+        .get<{ id: string; name: string; displayName?: string; slug?: string }[]>(path)
+        .then((items) => {
+          setEntityNames(
+            items.map((item) => ({
+              id: item.slug ?? item.name,
+              name: item.displayName || item.name,
+            })),
+          );
+        })
+        .catch(() => setEntityNames([])),
+    );
+  }, [open, locked, capabilityTypeState]);
 
   // Fetch the attribute names available for args.* predicates when the
   // rule targets a tool, gateway, or server.
@@ -196,8 +231,6 @@ export function RuleForm({
       .then((r) => setAvailableAttrs(r.all_attributes))
       .catch(() => setAvailableAttrs([]));
   }, [open, capabilityTypeState, capabilityIdState, capabilityId]);
-
-  const locked = capabilityType !== undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -347,14 +380,41 @@ export function RuleForm({
               <Label htmlFor="rule-capability-id">
                 {intl.formatMessage({ id: "rules.form.capabilityId" })}
               </Label>
-              <Input
-                id="rule-capability-id"
-                value={capabilityIdState}
-                placeholder={capabilityId ?? undefined}
-                disabled={capabilityId !== undefined}
-                onChange={(e) => setCapabilityId(e.target.value)}
-                aria-describedby="rule-capability-id-hint"
-              />
+              {locked ? (
+                <Input
+                  id="rule-capability-id"
+                  value={capabilityIdState}
+                  disabled
+                  aria-describedby="rule-capability-id-hint"
+                />
+              ) : entityNames.length > 0 ? (
+                <Select
+                  value={capabilityIdState || "all"}
+                  onValueChange={(v) => setCapabilityId(v === "all" ? "" : v)}
+                >
+                  <SelectTrigger id="rule-capability-id" aria-describedby="rule-capability-id-hint">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {intl.formatMessage({ id: "rules.capability.all" })}
+                    </SelectItem>
+                    {entityNames.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="rule-capability-id"
+                  value={capabilityIdState}
+                  placeholder="name"
+                  onChange={(e) => setCapabilityId(e.target.value)}
+                  aria-describedby="rule-capability-id-hint"
+                />
+              )}
               <p id="rule-capability-id-hint" className="text-xs text-muted-foreground">
                 {intl.formatMessage({
                   id: locked ? "rules.entity.title" : "rules.form.capabilityIdHint",

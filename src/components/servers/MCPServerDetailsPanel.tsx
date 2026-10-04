@@ -552,10 +552,13 @@ export function MCPServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="rules" className="mt-8">
-                  <EntityRulesTab capabilityType="gateway" capabilityId={server.id} />
+                  <EntityRulesTab
+                    capabilityType="gateway"
+                    capabilityId={server.slug ?? server.name}
+                  />
                   <ForcedHeaderParams
                     entityType="gateway"
-                    entityId={server.id}
+                    entityId={server.slug ?? server.name}
                     initialParams={
                       (server as unknown as Record<string, unknown>).forced_header_params as
                         string[] | undefined

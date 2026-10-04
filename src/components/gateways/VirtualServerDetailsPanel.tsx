@@ -887,10 +887,10 @@ export function VirtualServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="rules" className="mt-8">
-                  <EntityRulesTab capabilityType="server" capabilityId={server.id} />
+                  <EntityRulesTab capabilityType="server" capabilityId={server.name} />
                   <ForcedHeaderParams
                     entityType="server"
-                    entityId={server.id}
+                    entityId={server.name}
                     initialParams={
                       (server as unknown as Record<string, unknown>).forced_header_params as
                         string[] | undefined
