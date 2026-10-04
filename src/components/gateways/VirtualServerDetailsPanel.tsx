@@ -892,7 +892,7 @@ export function VirtualServerDetailsPanel({
                     entityType="server"
                     entityId={server.id}
                     initialParams={
-                      (server as Record<string, unknown>).forced_header_params as
+                      (server as unknown as Record<string, unknown>).forced_header_params as
                         string[] | undefined
                     }
                   />
