@@ -188,8 +188,10 @@ export function RuleForm({
     if (!open) return;
     import("@/api/client").then(({ api }) =>
       api
-        .get<string[]>("/rbac/permissions/available")
-        .then((perms) => setAllPermissions(perms))
+        .get<{ all_permissions?: string[] } | string[]>("/rbac/permissions/available")
+        .then((resp) =>
+          setAllPermissions(Array.isArray(resp) ? resp : (resp.all_permissions ?? [])),
+        )
         .catch(() => setAllPermissions([])),
     );
   }, [open]);
