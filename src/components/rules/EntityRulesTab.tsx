@@ -16,9 +16,18 @@ import { useAuthContext } from "@/auth/AuthContext";
 interface EntityRulesTabProps {
   capabilityType: CapabilityType;
   capabilityId: string;
+  /** Server name context for tool-scoped rules from a server panel. */
+  serverContext?: string;
+  /** Tool names available in this server context. */
+  contextTools?: string[];
 }
 
-export function EntityRulesTab({ capabilityType, capabilityId }: EntityRulesTabProps) {
+export function EntityRulesTab({
+  capabilityType,
+  capabilityId,
+  serverContext,
+  contextTools,
+}: EntityRulesTabProps) {
   const intl = useIntl();
   const { hasPermission } = useAuthContext();
   const canManage = hasPermission("rbac.rules.manage");
@@ -128,8 +137,10 @@ export function EntityRulesTab({ capabilityType, capabilityId }: EntityRulesTabP
       <RuleForm
         open={formOpen}
         rule={editing}
-        capabilityType={capabilityType}
-        capabilityId={capabilityId}
+        capabilityType={serverContext ? "tool" : capabilityType}
+        capabilityId={serverContext ? undefined : capabilityId}
+        serverContext={serverContext}
+        contextTools={contextTools}
         onOpenChange={(open) => {
           setFormOpen(open);
           if (!open) setEditing(null);

@@ -887,7 +887,12 @@ export function VirtualServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="rules" className="mt-8">
-                  <EntityRulesTab capabilityType="server" capabilityId={server.name} />
+                  <EntityRulesTab
+                    capabilityType="server"
+                    capabilityId={server.name}
+                    serverContext={server.name}
+                    contextTools={fetchedTools.map((t) => t.name)}
+                  />
                   <ForcedHeaderParams
                     entityType="server"
                     entityId={server.name}

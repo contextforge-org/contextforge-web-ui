@@ -145,6 +145,8 @@ interface RuleFormProps {
   /** Locked capability context when opened from an entity tab. */
   capabilityType?: CapabilityType;
   capabilityId?: string;
+  serverContext?: string;
+  contextTools?: string[];
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
@@ -154,6 +156,8 @@ export function RuleForm({
   rule,
   capabilityType,
   capabilityId,
+  serverContext,
+  contextTools,
   onOpenChange,
   onSaved,
 }: RuleFormProps) {
@@ -175,7 +179,7 @@ export function RuleForm({
   });
   const [errors, setErrors] = useState<{ name?: string; predicate?: string }>({});
   const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
-  const locked = capabilityType !== undefined;
+  const locked = capabilityType !== undefined && !serverContext;
   const [entityNames, setEntityNames] = useState<{ id: string; name: string }[]>([]);
   const [allPermissions, setAllPermissions] = useState<string[]>([]);
 
@@ -249,7 +253,7 @@ export function RuleForm({
         })
         .catch(() => setEntityNames([])),
     );
-  }, [open, locked, capabilityTypeState]);
+  }, [open, locked, capabilityTypeState, contextTools]);
 
   // Fetch the attribute names available for args.* predicates when the
   // rule targets a tool, gateway, or server.
