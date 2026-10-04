@@ -58,5 +58,12 @@
   "rules.form.argsFamily": "Tool argument (args.*)",
   "rules.form.errors.name": "Enter a name",
   "rules.form.errors.predicate": "Enter a predicate",
-  "rules.permissionDenied": "You do not have permission to manage rules."
+  "rules.permissionDenied": "You do not have permission to manage rules.",
+  "rules.filter.tool": "Tool",
+  "rules.filter.allTools": "All tools",
+  "rules.form.attributeNames": "Available attributes",
+  "rules.form.loadingAttributes": "Loading attributes…",
+  "rules.forcedParams.title": "Header parameters",
+  "rules.forcedParams.description": "These parameters are forced into x-mcp-header annotations for every tool from this source, even when the original tool schema does not mark them.",
+  "rules.forcedParams.add": "Add parameter"
 }

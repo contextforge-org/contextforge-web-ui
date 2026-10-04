@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@/hooks/useQuery";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
@@ -20,17 +20,34 @@ import { ApiError } from "@/api/client";
 import { extractApiErrorDetail } from "@/utils/errors";
 
 const ALL_CAPABILITIES = "all";
+const ALL_TOOLS = "all";
+
+interface ToolListItem {
+  id: string;
+  name: string;
+  displayName?: string;
+}
 
 export function Rules() {
   const intl = useIntl();
   const [capabilityFilter, setCapabilityFilter] = useState<string>(ALL_CAPABILITIES);
+  const [toolFilter, setToolFilter] = useState<string>(ALL_TOOLS);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RbacRule | null>(null);
   const [deleting, setDeleting] = useState<RbacRule | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
 
-  const query = capabilityFilter === ALL_CAPABILITIES ? "" : `?capability_type=${capabilityFilter}`;
-  // The query re-runs when the filter or the mutation counter changes.
+  // Fetch the tool list for the filter dropdown.
+  const { data: toolsData } = useQuery<ToolListItem[]>("/tools");
+  const tools = useMemo(
+    () => (toolsData ?? []).map((t) => ({ id: t.name, name: t.displayName || t.name })),
+    [toolsData],
+  );
+
+  const params = new URLSearchParams();
+  if (capabilityFilter !== ALL_CAPABILITIES) params.set("capability_type", capabilityFilter);
+  if (toolFilter !== ALL_TOOLS) params.set("capability_id", toolFilter);
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const { data, isLoading, error } = useQuery<RbacRule[]>(
     refetchKey >= 0 ? `/rbac/rules${query}` : null,
   );
@@ -70,7 +87,7 @@ export function Rules() {
         <div className="flex items-center gap-2">
           <Select value={capabilityFilter} onValueChange={setCapabilityFilter}>
             <SelectTrigger
-              className="w-40"
+              className="w-36"
               aria-label={intl.formatMessage({ id: "rules.form.capabilityType" })}
             >
               <SelectValue />
@@ -88,6 +105,26 @@ export function Rules() {
               ))}
             </SelectContent>
           </Select>
+          {capabilityFilter === "tool" && (
+            <Select value={toolFilter} onValueChange={setToolFilter}>
+              <SelectTrigger
+                className="w-44"
+                aria-label={intl.formatMessage({ id: "rules.filter.tool" })}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_TOOLS}>
+                  {intl.formatMessage({ id: "rules.filter.allTools" })}
+                </SelectItem>
+                {tools.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button
             onClick={() => {
               setEditing(null);

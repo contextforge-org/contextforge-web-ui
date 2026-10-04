@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
   rulesApi,
+  toolAttributesApi,
   type CapabilityType,
   type RbacRule,
   type RuleEffect,
@@ -172,6 +173,29 @@ export function RuleForm({
     joiner: "&",
   });
   const [errors, setErrors] = useState<{ name?: string; predicate?: string }>({});
+  const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
+
+  // Fetch the attribute names available for args.* predicates when the
+  // rule targets a tool, gateway, or server.
+  useEffect(() => {
+    if (!open) return;
+    const params: { toolName?: string; gatewayId?: string; serverId?: string } = {};
+    if (capabilityTypeState === "tool" && (capabilityIdState || capabilityId)) {
+      params.toolName = capabilityIdState || capabilityId || undefined;
+    } else if (capabilityTypeState === "gateway" && (capabilityIdState || capabilityId)) {
+      params.gatewayId = capabilityIdState || capabilityId || undefined;
+    } else if (capabilityTypeState === "server" && (capabilityIdState || capabilityId)) {
+      params.serverId = capabilityIdState || capabilityId || undefined;
+    }
+    if (Object.keys(params).length === 0) {
+      setAvailableAttrs([]);
+      return;
+    }
+    toolAttributesApi
+      .get(params)
+      .then((r) => setAvailableAttrs(r.all_attributes))
+      .catch(() => setAvailableAttrs([]));
+  }, [open, capabilityTypeState, capabilityIdState, capabilityId]);
 
   const locked = capabilityType !== undefined;
 
@@ -432,14 +456,40 @@ export function RuleForm({
                           ))}
                         </SelectContent>
                       </Select>
-                      {(FAMILIES as readonly string[]).includes(condition.attribute) && (
-                        <Input
-                          value={condition.name}
-                          placeholder="name"
-                          onChange={(e) => updateCondition(index, { name: e.target.value })}
-                          aria-label={`${intl.formatMessage({ id: "rules.form.attribute" })} ${index + 1}`}
-                        />
-                      )}
+                      {(FAMILIES as readonly string[]).includes(condition.attribute) &&
+                        condition.attribute === "args" &&
+                        availableAttrs.length > 0 && (
+                          <Select
+                            value={condition.name}
+                            onValueChange={(v) => updateCondition(index, { name: v })}
+                          >
+                            <SelectTrigger
+                              aria-label={`${intl.formatMessage({ id: "rules.form.attribute" })} ${index + 1}`}
+                            >
+                              <SelectValue
+                                placeholder={intl.formatMessage({
+                                  id: "rules.form.attributeNames",
+                                })}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableAttrs.map((a) => (
+                                <SelectItem key={a} value={a}>
+                                  {a}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      {(FAMILIES as readonly string[]).includes(condition.attribute) &&
+                        (condition.attribute !== "args" || availableAttrs.length === 0) && (
+                          <Input
+                            value={condition.name}
+                            placeholder="name"
+                            onChange={(e) => updateCondition(index, { name: e.target.value })}
+                            aria-label={`${intl.formatMessage({ id: "rules.form.attribute" })} ${index + 1}`}
+                          />
+                        )}
                     </div>
                     <div className="grid gap-1">
                       <Select

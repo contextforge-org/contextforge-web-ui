@@ -58,5 +58,12 @@
   "rules.form.argsFamily": "Argumento de ferramenta (args.*)",
   "rules.form.errors.name": "Digite um nome",
   "rules.form.errors.predicate": "Digite um predicado",
-  "rules.permissionDenied": "Você não tem permissão para gerenciar regras."
+  "rules.permissionDenied": "Você não tem permissão para gerenciar regras.",
+  "rules.filter.tool": "Ferramenta",
+  "rules.filter.allTools": "Todas as ferramentas",
+  "rules.form.attributeNames": "Atributos disponíveis",
+  "rules.form.loadingAttributes": "Carregando atributos…",
+  "rules.forcedParams.title": "Parâmetros de cabeçalho",
+  "rules.forcedParams.description": "Estes parâmetros são forçados em anotações x-mcp-header para toda ferramenta desta fonte, mesmo quando o esquema original não os marca.",
+  "rules.forcedParams.add": "Adicionar parâmetro"
 }

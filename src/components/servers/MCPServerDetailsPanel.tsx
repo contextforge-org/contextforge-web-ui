@@ -32,6 +32,7 @@ import { TestConnectionPanel } from "./TestConnectionPanel";
 import { ServerStatusIndicator } from "./ServerStatusIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
+import { ForcedHeaderParams } from "@/components/rules/ForcedHeaderParams";
 
 interface MCPServer extends BaseMCPServer {
   tags?: Array<string | VirtualServerTag>;
@@ -552,6 +553,14 @@ export function MCPServerDetailsPanel({
 
                 <TabsContent value="rules" className="mt-8">
                   <EntityRulesTab capabilityType="gateway" capabilityId={server.id} />
+                  <ForcedHeaderParams
+                    entityType="gateway"
+                    entityId={server.id}
+                    initialParams={
+                      (server as Record<string, unknown>).forced_header_params as
+                        string[] | undefined
+                    }
+                  />
                 </TabsContent>
               </Tabs>
             </div>

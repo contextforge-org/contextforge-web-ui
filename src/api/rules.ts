@@ -112,3 +112,40 @@ export const rulesApi = {
     return api.get<EntityRulesSummary>(`/rbac/rules/entity-summary${query}`, undefined, signal);
   },
 };
+
+export interface ToolAttributes {
+  rule_attributes: string[];
+  schema_attributes: string[];
+  forced_attributes: string[];
+  all_attributes: string[];
+}
+
+export const toolAttributesApi = {
+  /** Fetch the attribute names available for args.* predicates. */
+  get: (params?: {
+    toolName?: string;
+    gatewayId?: string;
+    serverId?: string;
+  }): Promise<ToolAttributes> => {
+    const query = new URLSearchParams();
+    if (params?.toolName) query.set("tool_name", params.toolName);
+    if (params?.gatewayId) query.set("gateway_id", params.gatewayId);
+    if (params?.serverId) query.set("server_id", params.serverId);
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+    return api.get<ToolAttributes>(`/rbac/rules/tool-attributes${suffix}`);
+  },
+
+  /** Set forced header params on a gateway. */
+  setGatewayForced: (
+    gatewayId: string,
+    params: string[],
+  ): Promise<{ forced_header_params: string[] }> =>
+    api.patch(`/rbac/rules/gateway/${encodeURIComponent(gatewayId)}/forced-params`, params),
+
+  /** Set forced header params on a virtual server. */
+  setServerForced: (
+    serverId: string,
+    params: string[],
+  ): Promise<{ forced_header_params: string[] }> =>
+    api.patch(`/rbac/rules/server/${encodeURIComponent(serverId)}/forced-params`, params),
+};

@@ -48,6 +48,7 @@ import {
 } from "@/components/gateways/utils";
 import { useQuery } from "@/hooks/useQuery";
 import { EntityRulesTab } from "@/components/rules/EntityRulesTab";
+import { ForcedHeaderParams } from "@/components/rules/ForcedHeaderParams";
 
 const COMPONENT_FILTER_OPTIONS: Array<{ value: ComponentFilter; labelId: string }> = [
   { value: "all", labelId: "gateways.details.filter.all" },
@@ -887,6 +888,14 @@ export function VirtualServerDetailsPanel({
 
                 <TabsContent value="rules" className="mt-8">
                   <EntityRulesTab capabilityType="server" capabilityId={server.id} />
+                  <ForcedHeaderParams
+                    entityType="server"
+                    entityId={server.id}
+                    initialParams={
+                      (server as Record<string, unknown>).forced_header_params as
+                        string[] | undefined
+                    }
+                  />
                 </TabsContent>
               </Tabs>
             </div>
