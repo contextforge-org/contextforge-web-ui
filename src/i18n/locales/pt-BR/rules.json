@@ -65,5 +65,12 @@
   "rules.form.loadingAttributes": "Carregando atributos…",
   "rules.forcedParams.title": "Parâmetros de cabeçalho",
   "rules.forcedParams.description": "Estes parâmetros são forçados em anotações x-mcp-header para toda ferramenta desta fonte, mesmo quando o esquema original não os marca.",
-  "rules.forcedParams.add": "Adicionar parâmetro"
+  "rules.forcedParams.add": "Adicionar parâmetro",
+  "rules.form.expiresAt": "Expira",
+  "rules.form.expiresAtHint": "Deixe vazio para sem expiração. Insira uma duração (ex: 2h, 7d, 30m) ou uma data e hora específicas.",
+  "rules.form.expiresAtDuration": "Duração",
+  "rules.form.expiresAtDatetime": "Data e hora",
+  "rules.form.expiresAtExpired": "Expirada",
+  "rules.view": "Ver regra",
+  "rules.readOnly": "Esta é uma regra do sistema. É somente leitura."
 }

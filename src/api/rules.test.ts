@@ -18,6 +18,7 @@ const rule: RbacRule = {
   priority: 100,
   is_active: true,
   is_system: false,
+  expires_at: null,
   created_by: "admin@example.com",
   created_at: "2026-10-03T00:00:00Z",
   updated_at: null,

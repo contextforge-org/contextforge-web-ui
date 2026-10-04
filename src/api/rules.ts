@@ -27,6 +27,7 @@ export interface RbacRule {
   priority: number;
   is_active: boolean;
   is_system: boolean;
+  expires_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string | null;
@@ -42,6 +43,7 @@ export interface RbacRuleCreate {
   predicate: string;
   effect: RuleEffect;
   priority?: number;
+  expires_at?: string | null;
 }
 
 export interface RbacRuleUpdate {
@@ -53,6 +55,7 @@ export interface RbacRuleUpdate {
   effect?: RuleEffect;
   priority?: number;
   is_active?: boolean;
+  expires_at?: string | null;
 }
 
 export interface EntityRulesSummary {

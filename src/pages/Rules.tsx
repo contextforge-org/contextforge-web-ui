@@ -34,6 +34,7 @@ export function Rules() {
   const [toolFilter, setToolFilter] = useState<string>(ALL_TOOLS);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RbacRule | null>(null);
+  const [viewing, setViewing] = useState(false);
   const [deleting, setDeleting] = useState<RbacRule | null>(null);
   const [refetchKey, setRefetchKey] = useState(0);
 
@@ -147,6 +148,12 @@ export function Rules() {
           isLoading={isLoading}
           onEdit={(rule) => {
             setEditing(rule);
+            setViewing(false);
+            setFormOpen(true);
+          }}
+          onView={(rule) => {
+            setEditing(rule);
+            setViewing(true);
             setFormOpen(true);
           }}
           onDelete={setDeleting}
@@ -157,9 +164,13 @@ export function Rules() {
       <RuleForm
         open={formOpen}
         rule={editing}
+        readOnly={viewing}
         onOpenChange={(open) => {
           setFormOpen(open);
-          if (!open) setEditing(null);
+          if (!open) {
+            setEditing(null);
+            setViewing(false);
+          }
         }}
         onSaved={refresh}
       />

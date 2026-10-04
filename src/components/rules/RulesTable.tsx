@@ -1,5 +1,5 @@
 import { useIntl } from "react-intl";
-import { Lock, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Eye, Lock, MoreVertical, Pencil, Trash2 } from "lucide-react";
 
 import type { CapabilityType, RbacRule } from "@/api/rules";
 import { EffectBadge } from "./EffectBadge";
@@ -39,6 +39,7 @@ interface RulesTableProps {
   /** Hide row actions for read-only surfaces (inherited rules views). */
   readOnly?: boolean;
   onEdit?: (rule: RbacRule) => void;
+  onView?: (rule: RbacRule) => void;
   onDelete?: (rule: RbacRule) => void;
   onActiveChange?: (rule: RbacRule, isActive: boolean) => void;
 }
@@ -48,6 +49,7 @@ export function RulesTable({
   isLoading,
   readOnly = false,
   onEdit,
+  onView,
   onDelete,
   onActiveChange,
 }: RulesTableProps) {
@@ -142,10 +144,17 @@ export function RulesTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => onEdit?.(rule)} disabled={rule.is_system}>
-                      <Pencil className="size-4" />
-                      {intl.formatMessage({ id: "rules.edit" })}
-                    </DropdownMenuItem>
+                    {rule.is_system ? (
+                      <DropdownMenuItem onSelect={() => onView?.(rule)}>
+                        <Eye className="size-4" />
+                        {intl.formatMessage({ id: "rules.view" })}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onSelect={() => onEdit?.(rule)}>
+                        <Pencil className="size-4" />
+                        {intl.formatMessage({ id: "rules.edit" })}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       className="text-destructive"
                       onSelect={() => onDelete?.(rule)}

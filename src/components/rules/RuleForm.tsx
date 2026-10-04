@@ -147,6 +147,8 @@ interface RuleFormProps {
   capabilityId?: string;
   serverContext?: string;
   contextTools?: string[];
+  /** Open in read-only mode (system rules). */
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }
@@ -158,6 +160,7 @@ export function RuleForm({
   capabilityId,
   serverContext,
   contextTools,
+  readOnly = false,
   onOpenChange,
   onSaved,
 }: RuleFormProps) {
@@ -179,9 +182,27 @@ export function RuleForm({
   });
   const [errors, setErrors] = useState<{ name?: string; predicate?: string }>({});
   const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
-  const locked = capabilityType !== undefined && !serverContext;
+  const [expiresAt, setExpiresAt] = useState("");
+  const [roleNames, setRoleNames] = useState<string[]>([]);
+  const [teamNames, setTeamNames] = useState<string[]>([]);
+  const locked = (capabilityType !== undefined && !serverContext) || readOnly;
   const [entityNames, setEntityNames] = useState<{ id: string; name: string }[]>([]);
   const [allPermissions, setAllPermissions] = useState<string[]>([]);
+
+  // Fetch role and team names for predicate value typeahead.
+  useEffect(() => {
+    if (!open) return;
+    import("@/api/client").then(({ api }) => {
+      api
+        .get<{ name: string }[]>("/rbac/roles")
+        .then((roles) => setRoleNames(roles.map((r) => r.name)))
+        .catch(() => setRoleNames([]));
+      api
+        .get<{ name: string }[]>("/teams")
+        .then((teams) => setTeamNames(teams.map((t) => t.name)))
+        .catch(() => setTeamNames([]));
+    });
+  }, [open]);
 
   // Fetch the full permission list once for the permission combobox.
   useEffect(() => {
@@ -291,6 +312,7 @@ export function RuleForm({
     setPriority(rule?.priority ?? 100);
     setIsActive(rule?.is_active ?? true);
     setPredicate(rule?.predicate ?? "authenticated");
+    setExpiresAt(rule?.expires_at ? rule.expires_at.slice(0, 16) : "");
     setErrors({});
     const parsed = parseToBuilder(rule?.predicate ?? "authenticated");
     if (parsed) {
@@ -338,6 +360,7 @@ export function RuleForm({
           effect,
           priority,
           is_active: isActive,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         });
       } else {
         await rulesApi.create({
@@ -350,6 +373,7 @@ export function RuleForm({
           predicate: effectivePredicate,
           effect,
           priority,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         });
       }
       toast.success(intl.formatMessage({ id: rule ? "rules.edit" : "rules.create" }), {
@@ -598,38 +622,59 @@ export function RuleForm({
                         )}
                     </div>
                     <div className="grid gap-1">
-                      <Select
-                        value={condition.operator || "truthy"}
-                        onValueChange={(v) =>
-                          updateCondition(index, {
-                            operator: v === "truthy" ? "" : (v as Operator),
-                          })
-                        }
-                      >
-                        <SelectTrigger
-                          aria-label={intl.formatMessage({ id: "rules.form.operator" })}
+                      {(FAMILIES as readonly string[]).includes(condition.attribute) && (
+                        <Select
+                          value={condition.operator || "truthy"}
+                          onValueChange={(v) =>
+                            updateCondition(index, {
+                              operator: v === "truthy" ? "" : (v as Operator),
+                            })
+                          }
                         >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="truthy">—</SelectItem>
-                          {OPERATORS.map((o) => (
-                            <SelectItem key={o} value={o}>
-                              {o}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          <SelectTrigger
+                            aria-label={intl.formatMessage({ id: "rules.form.operator" })}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="truthy">—</SelectItem>
+                            {OPERATORS.map((o) => (
+                              <SelectItem key={o} value={o}>
+                                {o}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       {condition.operator &&
                         condition.operator !== "in" &&
-                        condition.operator !== "not in" && (
+                        condition.operator !== "not in" &&
+                        (condition.attribute === "role" && roleNames.length > 0 ? (
+                          <Combobox
+                            options={roleNames.map((r): ComboboxOption => ({ value: r, label: r }))}
+                            value={condition.value}
+                            onValueChange={(v) => updateCondition(index, { value: v })}
+                            placeholder={intl.formatMessage({ id: "rules.form.value" })}
+                            allowCustomValue
+                            className="w-full"
+                          />
+                        ) : condition.attribute === "team" && teamNames.length > 0 ? (
+                          <Combobox
+                            options={teamNames.map((t): ComboboxOption => ({ value: t, label: t }))}
+                            value={condition.value}
+                            onValueChange={(v) => updateCondition(index, { value: v })}
+                            placeholder={intl.formatMessage({ id: "rules.form.value" })}
+                            allowCustomValue
+                            className="w-full"
+                          />
+                        ) : (
                           <Input
                             value={condition.value}
                             placeholder={intl.formatMessage({ id: "rules.form.value" })}
                             onChange={(e) => updateCondition(index, { value: e.target.value })}
                             aria-label={`${intl.formatMessage({ id: "rules.form.value" })} ${index + 1}`}
                           />
-                        )}
+                        ))}
                       {(condition.operator === "in" || condition.operator === "not in") && (
                         <Input
                           value={condition.value}
@@ -743,6 +788,22 @@ export function RuleForm({
               </RadioGroup>
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="rule-expires">
+                {intl.formatMessage({ id: "rules.form.expiresAt" })}
+              </Label>
+              <Input
+                id="rule-expires"
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+                disabled={readOnly}
+                aria-describedby="rule-expires-hint"
+              />
+              <p id="rule-expires-hint" className="text-xs text-muted-foreground">
+                {intl.formatMessage({ id: "rules.form.expiresAtHint" })}
+              </p>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="rule-priority">
                 {intl.formatMessage({ id: "rules.form.priority" })}
               </Label>
@@ -760,12 +821,19 @@ export function RuleForm({
           </div>
         </div>
         <DialogFooter>
+          {readOnly && (
+            <p className="mr-auto text-xs text-muted-foreground">
+              {intl.formatMessage({ id: "rules.readOnly" })}
+            </p>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {intl.formatMessage({ id: "common.button.cancel" })}
           </Button>
-          <Button onClick={submit} data-testid="submit-rule">
-            {intl.formatMessage({ id: rule ? "rules.edit" : "rules.create" })}
-          </Button>
+          {!readOnly && (
+            <Button onClick={submit} data-testid="submit-rule">
+              {intl.formatMessage({ id: rule ? "rules.edit" : "rules.create" })}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

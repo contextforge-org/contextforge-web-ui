@@ -65,5 +65,12 @@
   "rules.form.loadingAttributes": "Loading attributes…",
   "rules.forcedParams.title": "Header parameters",
   "rules.forcedParams.description": "These parameters are forced into x-mcp-header annotations for every tool from this source, even when the original tool schema does not mark them.",
-  "rules.forcedParams.add": "Add parameter"
+  "rules.forcedParams.add": "Add parameter",
+  "rules.form.expiresAt": "Expires",
+  "rules.form.expiresAtHint": "Leave empty for no expiration. Enter a duration (e.g. 2h, 7d, 30m) or a specific date and time.",
+  "rules.form.expiresAtDuration": "Duration",
+  "rules.form.expiresAtDatetime": "Date and time",
+  "rules.form.expiresAtExpired": "Expired",
+  "rules.view": "View rule",
+  "rules.readOnly": "This is a system rule. It is read-only."
 }
