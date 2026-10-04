@@ -183,6 +183,7 @@ export function RuleForm({
   const [errors, setErrors] = useState<{ name?: string; predicate?: string }>({});
   const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState("");
+  const [expiryMode, setExpiryMode] = useState<"none" | "custom" | string>("none");
   const [roleNames, setRoleNames] = useState<string[]>([]);
   const [teamNames, setTeamNames] = useState<string[]>([]);
   const locked = (capabilityType !== undefined && !serverContext) || readOnly;
@@ -313,6 +314,7 @@ export function RuleForm({
     setIsActive(rule?.is_active ?? true);
     setPredicate(rule?.predicate ?? "authenticated");
     setExpiresAt(rule?.expires_at ? rule.expires_at.slice(0, 16) : "");
+    setExpiryMode("none");
     setErrors({});
     const parsed = parseToBuilder(rule?.predicate ?? "authenticated");
     if (parsed) {
@@ -327,6 +329,14 @@ export function RuleForm({
     () => (mode === "builder" ? compile(builder) : predicate),
     [mode, builder, predicate],
   );
+
+  const setExpiryDuration = (duration: string) => {
+    setExpiryMode(duration);
+    const num = parseInt(duration, 10);
+    const unit = duration.slice(-1);
+    const ms = unit === "h" ? num * 3600000 : unit === "d" ? num * 86400000 : num * 60000;
+    setExpiresAt(new Date(Date.now() + ms).toISOString().slice(0, 16));
+  };
 
   const updateCondition = (index: number, patch: Partial<Condition>) => {
     setBuilder((b) => ({
@@ -392,7 +402,7 @@ export function RuleForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {intl.formatMessage({ id: rule ? "rules.edit" : "rules.create" })}
@@ -737,7 +747,7 @@ export function RuleForm({
                   )}
                 </div>
                 <code
-                  className="rounded bg-muted px-2 py-1 font-mono text-xs"
+                  className="rounded border bg-muted/50 px-3 py-2 font-mono text-xs leading-relaxed"
                   data-testid="compiled-predicate"
                 >
                   {effectivePredicate || "—"}
@@ -765,6 +775,7 @@ export function RuleForm({
             )}
           </div>
 
+          <hr className="border-border" aria-hidden="true" />
           <div className="grid grid-cols-3 items-end gap-4">
             <div className="grid gap-2">
               <Label>{intl.formatMessage({ id: "rules.form.effect" })}</Label>
@@ -791,14 +802,48 @@ export function RuleForm({
               <Label htmlFor="rule-expires">
                 {intl.formatMessage({ id: "rules.form.expiresAt" })}
               </Label>
-              <Input
-                id="rule-expires"
-                type="datetime-local"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
-                disabled={readOnly}
-                aria-describedby="rule-expires-hint"
-              />
+              {readOnly ? (
+                <Input id="rule-expires" value={expiresAt || "—"} disabled />
+              ) : (
+                <div className="flex flex-wrap items-center gap-1" data-testid="expiry-picker">
+                  {(["1h", "24h", "7d", "30d"] as const).map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant={expiryMode === d ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setExpiryDuration(d)}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+                  <Input
+                    id="rule-expires"
+                    type="datetime-local"
+                    value={expiryMode === "custom" ? expiresAt : ""}
+                    onChange={(e) => {
+                      setExpiryMode("custom");
+                      setExpiresAt(e.target.value);
+                    }}
+                    className="w-44"
+                    aria-describedby="rule-expires-hint"
+                  />
+                  {(expiresAt || expiryMode !== "custom") && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setExpiresAt("");
+                        setExpiryMode("none");
+                      }}
+                      aria-label="Clear"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+              )}
               <p id="rule-expires-hint" className="text-xs text-muted-foreground">
                 {intl.formatMessage({ id: "rules.form.expiresAtHint" })}
               </p>
