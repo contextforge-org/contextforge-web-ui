@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/api/client";
@@ -176,6 +177,46 @@ export function RuleForm({
   const [availableAttrs, setAvailableAttrs] = useState<string[]>([]);
   const locked = capabilityType !== undefined;
   const [entityNames, setEntityNames] = useState<{ id: string; name: string }[]>([]);
+  const [allPermissions, setAllPermissions] = useState<string[]>([]);
+
+  // Fetch the full permission list once for the permission combobox.
+  useEffect(() => {
+    if (!open) return;
+    import("@/api/client").then(({ api }) =>
+      api
+        .get<string[]>("/rbac/permissions/available")
+        .then((perms) => setAllPermissions(perms))
+        .catch(() => setAllPermissions([])),
+    );
+  }, [open]);
+
+  // Filter permissions by the selected capability type.
+  const permissionOptions = useMemo(() => {
+    if (allPermissions.length === 0) return [];
+    const prefixes: Record<string, string[]> = {
+      tool: ["tools."],
+      resource: ["resources."],
+      prompt: ["prompts."],
+      server: ["servers."],
+      gateway: ["gateways."],
+      a2a_agent: ["a2a."],
+      route: [], // route covers everything else
+    };
+    const selected = prefixes[capabilityTypeState] ?? [];
+    const filtered =
+      selected.length > 0
+        ? allPermissions.filter((p) => selected.some((prefix) => p.startsWith(prefix)))
+        : allPermissions.filter(
+            (p) =>
+              !["tools.", "resources.", "prompts.", "servers.", "gateways.", "a2a."].some(
+                (prefix) => p.startsWith(prefix),
+              ),
+          );
+    return [
+      { value: "", label: intl.formatMessage({ id: "rules.form.permissionHint" }) },
+      ...filtered.map((p): ComboboxOption => ({ value: p, label: p })),
+    ];
+  }, [allPermissions, capabilityTypeState, intl]);
 
   // Fetch entity names for the picker when the rule is not locked.
   useEffect(() => {
@@ -388,24 +429,18 @@ export function RuleForm({
                   aria-describedby="rule-capability-id-hint"
                 />
               ) : entityNames.length > 0 ? (
-                <Select
-                  value={capabilityIdState || "all"}
-                  onValueChange={(v) => setCapabilityId(v === "all" ? "" : v)}
-                >
-                  <SelectTrigger id="rule-capability-id" aria-describedby="rule-capability-id-hint">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      {intl.formatMessage({ id: "rules.capability.all" })}
-                    </SelectItem>
-                    {entityNames.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={[
+                    { value: "", label: intl.formatMessage({ id: "rules.capability.all" }) },
+                    ...entityNames.map((e): ComboboxOption => ({ value: e.id, label: e.name })),
+                  ]}
+                  value={capabilityIdState}
+                  onValueChange={setCapabilityId}
+                  placeholder={intl.formatMessage({ id: "rules.form.capabilityIdHint" })}
+                  searchPlaceholder={intl.formatMessage({ id: "rules.form.attributeNames" })}
+                  allowCustomValue
+                  className="w-full"
+                />
               ) : (
                 <Input
                   id="rule-capability-id"
@@ -427,13 +462,25 @@ export function RuleForm({
               <Label htmlFor="rule-permission">
                 {intl.formatMessage({ id: "rules.form.permission" })}
               </Label>
-              <Input
-                id="rule-permission"
-                value={permission}
-                placeholder="tools.read"
-                onChange={(e) => setPermission(e.target.value)}
-                aria-describedby="rule-permission-hint"
-              />
+              {permissionOptions.length > 0 ? (
+                <Combobox
+                  options={permissionOptions}
+                  value={permission}
+                  onValueChange={setPermission}
+                  placeholder="tools.read"
+                  searchPlaceholder={intl.formatMessage({ id: "rules.form.attributeNames" })}
+                  allowCustomValue
+                  className="w-full"
+                />
+              ) : (
+                <Input
+                  id="rule-permission"
+                  value={permission}
+                  placeholder="tools.read"
+                  onChange={(e) => setPermission(e.target.value)}
+                  aria-describedby="rule-permission-hint"
+                />
+              )}
               <p id="rule-permission-hint" className="text-xs text-muted-foreground">
                 {intl.formatMessage({ id: "rules.form.permissionHint" })}
               </p>
