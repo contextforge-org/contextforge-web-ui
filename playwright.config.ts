@@ -36,6 +36,10 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    // e2e:docker:tls points BASE_URL at the self-signed https://localhost:8443
+    // stack. Covers both the browser and Playwright's own `request` context;
+    // stays off for every existing http:// mode.
+    ignoreHTTPSErrors: BASE_URL.startsWith("https"),
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
