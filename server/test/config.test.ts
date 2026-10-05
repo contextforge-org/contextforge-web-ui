@@ -22,6 +22,7 @@ const ENV_KEYS = [
   "SSO_KEYCLOAK_CLIENT_ID",
   "SSO_KEYCLOAK_CLIENT_SECRET",
   "SSO_LOGIN_STATE_TTL_SECONDS",
+  "NODE_TLS_REJECT_UNAUTHORIZED",
 ] as const;
 
 let savedEnv: Record<string, string | undefined>;
@@ -93,6 +94,38 @@ describe("config validation", () => {
     process.env.REDIS_URL = "redis://localhost:6379";
     process.env.TRUST_PROXY = "true";
     delete process.env.PUBLIC_ORIGIN;
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
+  it("rejects NODE_TLS_REJECT_UNAUTHORIZED=0 with COOKIE_SECURE=true", async () => {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    process.env.COOKIE_SECURE = "true";
+    process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.TRUST_PROXY = "true"; // avoid tripping the unrelated origin-guard check
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).rejects.toThrow("NODE_TLS_REJECT_UNAUTHORIZED=0 disables TLS verification");
+    resetModules();
+  });
+
+  it("allows NODE_TLS_REJECT_UNAUTHORIZED=0 with COOKIE_SECURE=false", async () => {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    process.env.COOKIE_SECURE = "false";
+    process.env.REDIS_URL = "redis://localhost:6379";
+
+    const { resetModules, run } = await freshImport();
+    await expect(run()).resolves.toBeTruthy();
+    resetModules();
+  });
+
+  it("allows NODE_TLS_REJECT_UNAUTHORIZED=1 with COOKIE_SECURE=true", async () => {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
+    process.env.COOKIE_SECURE = "true";
+    process.env.REDIS_URL = "redis://localhost:6379";
+    process.env.TRUST_PROXY = "true";
 
     const { resetModules, run } = await freshImport();
     await expect(run()).resolves.toBeTruthy();

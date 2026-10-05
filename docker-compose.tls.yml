@@ -20,6 +20,12 @@ services:
 
   nginx_tls:
     image: nginx:alpine
+    networks:
+      # "nginx_tls" has an underscore and isn't a valid DNS hostname — the
+      # cert's SAN uses "nginx", so give the service that as a network
+      # alias for in-network HTTPS calls (app -> https://nginx/...).
+      default:
+        aliases: [nginx]
     ports:
       # Loopback-only: keeps the TLS stack reachable from this machine
       # without exposing it to the rest of the local network.
@@ -49,3 +55,16 @@ services:
       COOKIE_SECURE: "true"
       TRUST_PROXY: "true"
       PUBLIC_ORIGIN: https://localhost:8443
+      # Trusts cert_init's self-signed cert for the app's own outbound
+      # HTTPS calls (global fetch + the undici Pool in
+      # upstream-http-client.ts). Read once at process start, so the cert
+      # must exist before the app boots — see depends_on below.
+      NODE_EXTRA_CA_CERTS: /certs/cert.pem
+    volumes:
+      # Only cert.pem, not the whole certs/ dir — the app never needs
+      # key.pem, and mounting it in (even read-only) would let an app
+      # compromise extract nginx's private key.
+      - ./certs/cert.pem:/certs/cert.pem:ro
+    depends_on:
+      cert_init:
+        condition: service_completed_successfully

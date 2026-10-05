@@ -148,11 +148,22 @@ npm run compose:tls:down
 - The app's `:3000` port stays published alongside `:8443` — see
   [#7031](https://github.com/IBM/mcp-context-forge/issues/7031)'s "Out of
   scope" for why that's harmless rather than a leftover to clean up.
+- The app also trusts `cert_init`'s cert for its own outbound HTTPS calls
+  (`NODE_EXTRA_CA_CERTS`, mounted read-only — just `cert.pem`, never
+  `key.pem`) — this is what lets it reach Keycloak/the gateway over
+  `https://nginx` once those are TLS-terminated too. **Never set
+  `NODE_TLS_REJECT_UNAUTHORIZED=0`** as a shortcut instead: it disables
+  TLS verification for _every_ outbound call, not just this one. Boot
+  refuses that combined with `COOKIE_SECURE=true` (the default,
+  production-like setting) — but that guard doesn't trigger under
+  `COOKIE_SECURE=false`, and a missing or invalid `NODE_EXTRA_CA_CERTS`
+  path isn't validated at boot either; either way the only way to find
+  out is a self-signed-cert error on the first outbound call.
 
-This covers certs and TLS termination
-([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories 1–2).
-Follow-up PRs add the BFF trusting the cert for its own outbound calls to
-Keycloak/the gateway, Keycloak served over HTTPS, and TLS coverage in CI.
+This covers certs, TLS termination, and the BFF's own outbound trust
+([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories
+1–3). Follow-up PRs add Keycloak served over HTTPS and TLS coverage in
+e2e/CI.
 
 ## Production checklist
 
@@ -163,11 +174,17 @@ Before this leaves a laptop:
 - `PUBLIC_ORIGIN=https://your-domain.example.com`, or `TRUST_PROXY=true` if
   directly TLS-terminated with no reverse proxy in front
 - `CONTEXTFORGE_URL` pointing at your real gateway
+- Don't set `NODE_TLS_REJECT_UNAUTHORIZED=0`; use `NODE_EXTRA_CA_CERTS`
+  for a private CA instead
 
-Get any of the first two wrong and the container won't boot at all —
-`server/src/config.ts` throws at startup rather than serving traffic
-insecurely. That's intentional; don't work around it by setting
-`NODE_ENV=production` or similar in the image itself.
+`server/src/config.ts` fails closed at boot, rather than serving
+traffic insecurely, on: `REDIS_URL=memory://` combined with
+`COOKIE_SECURE=true`; `COOKIE_SECURE=true` with neither `PUBLIC_ORIGIN`
+nor `TRUST_PROXY=true` set; and `NODE_TLS_REJECT_UNAUTHORIZED=0`
+combined with `COOKIE_SECURE=true`. `CONTEXTFORGE_URL` has no boot-time
+check at all — a wrong value just fails every `/api/*` call at request
+time. That fail-closed behavior is intentional; don't work around it by
+setting `NODE_ENV=production` or similar in the image itself.
 
 ## Joining an existing stack / network
 

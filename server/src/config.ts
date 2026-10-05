@@ -156,6 +156,18 @@ if (
   throw new Error("REDIS_URL=memory:// is dev-only — set a real redis:// URL in production");
 }
 
+// NODE_TLS_REJECT_UNAUTHORIZED=0 disables TLS verification for every
+// outbound call (Node reads it per connection, globally) — a MITM on all
+// bearer-token traffic if it ever reached production. Only the literal
+// string "0" disables verification in Node; trust a self-signed cert with
+// NODE_EXTRA_CA_CERTS instead (see docker-compose.tls.yml's cert_init).
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0" && config.cookieSecure) {
+  throw new Error(
+    "NODE_TLS_REJECT_UNAUTHORIZED=0 disables TLS verification for all outbound calls — " +
+      "not allowed with COOKIE_SECURE=true. Trust a self-signed cert with NODE_EXTRA_CA_CERTS instead.",
+  );
+}
+
 if (!HTTP_TOKEN_RE.test(config.contextforgeAuthHeaderName)) {
   throw new Error(
     `CONTEXTFORGE_AUTH_HEADER_NAME "${config.contextforgeAuthHeaderName}" is not a valid HTTP header token`,
