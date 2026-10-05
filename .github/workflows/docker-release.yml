@@ -5,9 +5,10 @@
 #     tagging convention — see git tag history)
 #   - builds the single combined image (Dockerfile) for linux/amd64 +
 #     linux/arm64, pushes it to GHCR
-#   - signs the pushed tags with Cosign (keyless OIDC) and attaches an SBOM
+#   - signs the pushed tags with Cosign (keyless OIDC); Trivy SBOMs for
+#     the image and for package-lock.json (bundled UI deps)
 #   - cuts a GitHub Release for the tag with auto-generated notes, the
-#     pull command, and the SBOM as a release asset
+#     pull command, and both SBOMs as release assets
 # ---------------------------------------------------------------
 
 name: Docker Release
@@ -125,12 +126,26 @@ jobs:
           echo "Signing ${IMAGE}@${DIGEST}"
           cosign sign --yes "${IMAGE}@${DIGEST}"
 
-      - name: 📋  Generate SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+      # Image SBOM: OS packages, Node runtime, BFF node_modules.
+      - name: 📋  Generate image SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}@${{ steps.build.outputs.digest }}
-          output-file: sbom.spdx.json
-          upload-artifact: false
+          version: v0.75.0
+          scan-type: image
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: sbom-image.cdx.json
+
+      # npm SBOM: all shipped JS deps, incl. UI deps bundled into server/public (invisible to the image scan).
+      - name: 📋  Generate npm SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          skip-setup-trivy: true
+          scan-type: fs
+          scan-ref: package-lock.json
+          format: cyclonedx
+          output: sbom-npm.cdx.json
 
       - name: 📦  Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
@@ -138,7 +153,9 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: sbom.spdx.json
+          files: |
+            sbom-image.cdx.json
+            sbom-npm.cdx.json
           body: |
             ## Container image
 
@@ -154,5 +171,5 @@ jobs:
               --certificate-oidc-issuer https://token.actions.githubusercontent.com
             ```
 
-            Built for `linux/amd64` and `linux/arm64`. SBOM (SPDX) attached below.
+            Built for `linux/amd64` and `linux/arm64`. SBOMs (CycloneDX) attached below: `sbom-image` (OS + BFF runtime) and `sbom-npm` (all shipped npm deps, incl. the bundled UI).
             See [DOCKER.md](../../blob/main/DOCKER.md#published-image) for compose/Helm usage.

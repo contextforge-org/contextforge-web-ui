@@ -13,7 +13,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
 
     location / {
-        proxy_pass http://app:3000;
+        proxy_pass http://app:3001;
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
         # Keeps the :8443 port; $host would drop it.
@@ -47,7 +47,7 @@ server {
     }
 
     location / {
-        proxy_pass http://app:3000;
+        proxy_pass http://app:3001;
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $http_host;

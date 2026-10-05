@@ -60,7 +60,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Visit `http://localhost:3000/` — redirects to `/app/login`. `GET /healthz`
+Visit `http://localhost:3001/` — redirects to `/app/login`. `GET /healthz`
 returns `{"ok":true}`.
 
 By default this boots with `COOKIE_SECURE=false` and sessions backed by
@@ -145,7 +145,7 @@ npm run compose:tls:down
   is sent (it would pin `localhost` to HTTPS in your browser).
 - SSE (streamed tool responses) is proxied unbuffered with a long read
   timeout, so long-lived streams survive past nginx's normal timeouts.
-- The app's `:3000` port stays published alongside `:8443` — see
+- The app's `:3001` port stays published alongside `:8443` — see
   [#7031](https://github.com/IBM/mcp-context-forge/issues/7031)'s "Out of
   scope" for why that's harmless rather than a leftover to clean up.
 
@@ -178,7 +178,7 @@ redis). If you already have your own Redis, network, or reverse proxy:
 
 ```bash
 docker build -t contextforge-web-ui .
-docker run -p 3000:3000 \
+docker run -p 3001:3001 \
   --network your-existing-network \
   -e COOKIE_SECURE=true \
   -e REDIS_URL=redis://your-redis-host:6379/0 \

@@ -42,7 +42,7 @@ npm run e2e:debug       # Step through with the Playwright Inspector
 npm run e2e:report      # Open the last HTML report
 ```
 
-The config spawns `npm run dev:e2e` (Vite with `--base=/`) on port `5173` and
+The config spawns `npm run dev:vite` (Vite only, no BFF) on port `5173` and
 tears it down after the run. Set `PLAYWRIGHT_BASE_URL` to point tests at an
 existing server instead:
 

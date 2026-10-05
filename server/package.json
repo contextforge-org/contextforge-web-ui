@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Backend For Frontend: session/CSRF boundary between the browser and the ContextForge API, keeping the API JWT off the browser.",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.22.1"
   },
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",

@@ -27,9 +27,6 @@ jobs:
     name: Lint & Test Server
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: server
 
     steps:
       - name: ⬇️  Checkout source
@@ -47,7 +44,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: 🔍  Typecheck
-        run: npm run lint
+        run: npm run lint -w server
 
       - name: 🧪  Run tests with Vitest
-        run: npm run test:run
+        run: npm run test:run -w server

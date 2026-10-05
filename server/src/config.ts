@@ -43,7 +43,7 @@ function validateKeycloakUrl(name: string, value: string, requireHttps: boolean)
 }
 
 export const config = {
-  port: Number(optional("PORT", "3000")),
+  port: Number(optional("PORT", "3001")),
   host: optional("HOST", "0.0.0.0"),
 
   // Upstream ContextForge API. All bearer-token traffic goes here,

@@ -58,7 +58,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command: `${VIRTUAL_SERVER_TOOL_TRY_IT_FLAG}npm run dev:e2e`,
+        command: `${VIRTUAL_SERVER_TOOL_TRY_IT_FLAG}npm run dev:vite`,
         url: BASE_URL,
         reuseExistingServer: REUSE_EXISTING_SERVER,
         timeout: 120_000,

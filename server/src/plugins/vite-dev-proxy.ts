@@ -4,7 +4,7 @@
 //
 // Dev-only substitute for plugins/static.ts: reverse-proxies everything not
 // matched by the BFF's own routes (SPA shell, JS/CSS modules, HMR) to a
-// separately-running `npm run dev` Vite dev server (config.viteDevServerUrl),
+// separately-running `npm run dev:vite` Vite dev server (config.viteDevServerUrl),
 // so the browser only ever talks to the BFF's own origin instead of Vite's —
 // avoiding the Origin mismatch a directly-visited Vite dev server would hit
 // against origin-guard.ts. Registered in index.ts instead of staticPlugin
