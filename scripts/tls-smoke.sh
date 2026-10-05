@@ -72,7 +72,7 @@ tls12_probe="$($TIMEOUT openssl s_client -connect localhost:8443 -tls1_2 </dev/n
 if printf '%s' "$tls12_probe" | grep -q 'Protocol *: *TLSv1\.2'; then
   pass "TLS 1.2 accepted"
 else
-  fail "TLS 1.2 accepted" "handshake failed"
+  fail "TLS 1.2 accepted" "handshake failed: $(printf '%s' "$tls12_probe" | tail -3 | tr '\n' ' ')"
 fi
 
 # 3. TLS 1.3 accepted — same output-based check as #2, same reason.
@@ -80,7 +80,7 @@ tls13_probe="$($TIMEOUT openssl s_client -connect localhost:8443 -tls1_3 </dev/n
 if printf '%s' "$tls13_probe" | grep -q 'Protocol *: *TLSv1\.3'; then
   pass "TLS 1.3 accepted"
 else
-  fail "TLS 1.3 accepted" "handshake failed"
+  fail "TLS 1.3 accepted" "handshake failed: $(printf '%s' "$tls13_probe" | tail -3 | tr '\n' ' ')"
 fi
 
 # 4. TLS 1.1 rejected. Needs `-cipher 'DEFAULT@SECLEVEL=0'` so the CLIENT
