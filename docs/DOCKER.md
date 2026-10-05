@@ -148,11 +148,18 @@ npm run compose:tls:down
 - The app's `:3000` port stays published alongside `:8443` — see
   [#7031](https://github.com/IBM/mcp-context-forge/issues/7031)'s "Out of
   scope" for why that's harmless rather than a leftover to clean up.
+- The app also trusts `cert_init`'s cert for its own outbound HTTPS calls
+  (`NODE_EXTRA_CA_CERTS`, mounted read-only from `./certs`) — this is what
+  lets it reach Keycloak/the gateway over `https://nginx` once those are
+  TLS-terminated too. **Never set `NODE_TLS_REJECT_UNAUTHORIZED=0`** as a
+  shortcut instead: it disables TLS verification for _every_ outbound
+  call, not just this one, and the app refuses to boot with it set
+  alongside `COOKIE_SECURE=true`.
 
-This covers certs and TLS termination
-([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories 1–2).
-Follow-up PRs add the BFF trusting the cert for its own outbound calls to
-Keycloak/the gateway, Keycloak served over HTTPS, and TLS coverage in CI.
+This covers certs, TLS termination, and the BFF's own outbound trust
+([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories
+1–3). Follow-up PRs add Keycloak served over HTTPS and TLS coverage in
+e2e/CI.
 
 ## Production checklist
 
@@ -163,8 +170,11 @@ Before this leaves a laptop:
 - `PUBLIC_ORIGIN=https://your-domain.example.com`, or `TRUST_PROXY=true` if
   directly TLS-terminated with no reverse proxy in front
 - `CONTEXTFORGE_URL` pointing at your real gateway
+- Don't set `NODE_TLS_REJECT_UNAUTHORIZED=0`; use `NODE_EXTRA_CA_CERTS`
+  for a private CA instead
 
-Get any of the first two wrong and the container won't boot at all —
+Get any of these wrong (other than `CONTEXTFORGE_URL`, which has no
+boot-time check) and the container won't boot at all —
 `server/src/config.ts` throws at startup rather than serving traffic
 insecurely. That's intentional; don't work around it by setting
 `NODE_ENV=production` or similar in the image itself.
