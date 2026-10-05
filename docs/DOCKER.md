@@ -149,12 +149,16 @@ npm run compose:tls:down
   [#7031](https://github.com/IBM/mcp-context-forge/issues/7031)'s "Out of
   scope" for why that's harmless rather than a leftover to clean up.
 - The app also trusts `cert_init`'s cert for its own outbound HTTPS calls
-  (`NODE_EXTRA_CA_CERTS`, mounted read-only from `./certs`) — this is what
-  lets it reach Keycloak/the gateway over `https://nginx` once those are
-  TLS-terminated too. **Never set `NODE_TLS_REJECT_UNAUTHORIZED=0`** as a
-  shortcut instead: it disables TLS verification for _every_ outbound
-  call, not just this one, and the app refuses to boot with it set
-  alongside `COOKIE_SECURE=true`.
+  (`NODE_EXTRA_CA_CERTS`, mounted read-only — just `cert.pem`, never
+  `key.pem`) — this is what lets it reach Keycloak/the gateway over
+  `https://nginx` once those are TLS-terminated too. **Never set
+  `NODE_TLS_REJECT_UNAUTHORIZED=0`** as a shortcut instead: it disables
+  TLS verification for _every_ outbound call, not just this one. Boot
+  refuses that combined with `COOKIE_SECURE=true` (the default,
+  production-like setting) — but that guard doesn't trigger under
+  `COOKIE_SECURE=false`, and a missing or invalid `NODE_EXTRA_CA_CERTS`
+  path isn't validated at boot either; either way the only way to find
+  out is a self-signed-cert error on the first outbound call.
 
 This covers certs, TLS termination, and the BFF's own outbound trust
 ([#7031](https://github.com/IBM/mcp-context-forge/issues/7031), stories
@@ -173,11 +177,14 @@ Before this leaves a laptop:
 - Don't set `NODE_TLS_REJECT_UNAUTHORIZED=0`; use `NODE_EXTRA_CA_CERTS`
   for a private CA instead
 
-Get any of these wrong (other than `CONTEXTFORGE_URL`, which has no
-boot-time check) and the container won't boot at all —
-`server/src/config.ts` throws at startup rather than serving traffic
-insecurely. That's intentional; don't work around it by setting
-`NODE_ENV=production` or similar in the image itself.
+`server/src/config.ts` fails closed at boot, rather than serving
+traffic insecurely, on: `REDIS_URL=memory://` combined with
+`COOKIE_SECURE=true`; `COOKIE_SECURE=true` with neither `PUBLIC_ORIGIN`
+nor `TRUST_PROXY=true` set; and `NODE_TLS_REJECT_UNAUTHORIZED=0`
+combined with `COOKIE_SECURE=true`. `CONTEXTFORGE_URL` has no boot-time
+check at all — a wrong value just fails every `/api/*` call at request
+time. That fail-closed behavior is intentional; don't work around it by
+setting `NODE_ENV=production` or similar in the image itself.
 
 ## Joining an existing stack / network
 

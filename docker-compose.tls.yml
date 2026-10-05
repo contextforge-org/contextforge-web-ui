@@ -61,7 +61,10 @@ services:
       # must exist before the app boots — see depends_on below.
       NODE_EXTRA_CA_CERTS: /certs/cert.pem
     volumes:
-      - ./certs:/certs:ro
+      # Only cert.pem, not the whole certs/ dir — the app never needs
+      # key.pem, and mounting it in (even read-only) would let an app
+      # compromise extract nginx's private key.
+      - ./certs/cert.pem:/certs/cert.pem:ro
     depends_on:
       cert_init:
         condition: service_completed_successfully
