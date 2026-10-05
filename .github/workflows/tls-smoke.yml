@@ -54,7 +54,7 @@ jobs:
     # being reported as skipped.
     env:
       E2E_TEST_EMAIL: test@example.com
-      E2E_TEST_PASSWORD: Ci-Tls-Smoke-Pass-1! # pragma: allowlist secret
+      E2E_TEST_PASSWORD: Ci-Tls-Smoke-Pass-19x! # pragma: allowlist secret
       NGINX_FORCE_HTTPS: "true"
 
     steps:
