@@ -1,0 +1,47 @@
+# TLS variant of the e2e stack — stack with docker-compose.e2e.yml and
+# docker-compose.tls.yml (in that order) via `npm run e2e:docker:tls`.
+# Reuses cert_init, nginx_tls and the app's TLS env from
+# docker-compose.tls.yml; this file only adds what's e2e-specific: the
+# gateway serving HTTPS, and the app reaching it over HTTPS.
+services:
+  gateway:
+    environment:
+      SSL: "true"
+      CERT_FILE: /app/certs/cert.pem
+      KEY_FILE: /app/certs/key.pem
+    volumes:
+      - ./certs:/app/certs:ro
+    # The image runs as 10001:10001 by default, but cert_init (running as
+    # root) leaves key.pem 640 and root:root — only readable via GID 0.
+    # Keeps the same UID, swaps the GID, so the key stays non-world-readable.
+    user: "10001:0"
+    depends_on:
+      cert_init:
+        condition: service_completed_successfully
+    healthcheck:
+      # Overrides the image's built-in healthcheck, which calls
+      # http://localhost:4444/health — that fails once SSL=true, and
+      # `up --wait` would hang waiting for a check that can never pass.
+      # verify=False is fine here: a loopback liveness probe inside the
+      # container, not a trust decision.
+      # Specifying `test` replaces the image's whole healthcheck config,
+      # not just this field — carry its interval/timeout/retries/
+      # start_period over too, or Compose's defaults (30s/30s/3/0s) apply
+      # and a slow boot (sqlite init) can flap unhealthy before gunicorn
+      # is ready.
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import httpx,sys;sys.exit(0 if httpx.get('https://localhost:4444/health',verify=False,timeout=5).status_code==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  app:
+    environment:
+      # The cert's SAN includes DNS:gateway.
+      CONTEXTFORGE_URL: https://gateway:4444

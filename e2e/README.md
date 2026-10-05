@@ -74,6 +74,24 @@ local-part — see `.env.example`).
 The `gateway` image tag in `docker-compose.e2e.yml` is pinned to match
 `openapi.json`'s `info.version` — bump both together.
 
+### TLS variant (`e2e:docker:tls`)
+
+`npm run e2e:docker:tls` runs the same real-backend suite with TLS on
+every hop: Playwright → nginx (`https://localhost:8443`) → BFF → gateway
+(`https://gateway:4444`). Stacks `docker-compose.e2e.yml` with
+`docker-compose.tls.yml` and `docker-compose.e2e-tls.yml` — reusing
+`cert_init`/`nginx_tls`/the app's TLS env from the latter, and switching
+the gateway itself to serve HTTPS. Same seed and credentials as
+`e2e:docker`, just over TLS.
+
+Requires `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` set in `.env` beforehand,
+same as `e2e:docker` (see above) — the seed step fails without them.
+
+```bash
+cp .env.example .env   # if you don't already have one
+npm run e2e:docker:tls
+```
+
 ## Writing a new test
 
 Import the `test` and `expect` helpers from the fixture that matches your needs:
