@@ -138,6 +138,20 @@ npm run compose:tls
 npm run compose:tls:down
 ```
 
+With the stack from `npm run compose:tls` still up (don't run
+`compose:tls:down` first), verify it's actually working with
+`npm run tls:smoke` — checks the health endpoint, TLS 1.1/1.2/1.3
+acceptance, the no-HSTS and force-redirect behavior, and (with
+`SMOKE_EMAIL`/`SMOKE_PASSWORD` set, pointing at a real login) that
+`bff_sid` and `bff_csrf` both come back `Secure`. Exits non-zero and
+names whichever checks failed:
+
+```bash
+npm run tls:smoke
+# or, to also check Secure cookies via a real login:
+SMOKE_EMAIL=you@example.com SMOKE_PASSWORD=yourpassword npm run tls:smoke # pragma: allowlist secret
+```
+
 - Plain HTTP still works on `:8080` (proxied, not redirected, by default).
   Set `NGINX_FORCE_HTTPS=true` before `compose:tls` to make `:8080` return
   a 301 to `:8443` instead.
