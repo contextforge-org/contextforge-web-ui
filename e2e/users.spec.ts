@@ -1,6 +1,8 @@
-import { test, expect } from "./fixtures/api-mock";
+import { test, expect, DEFAULT_TEST_USER } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
 import type { User } from "../src/types/user";
+
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
 
 // Logged-in admin (from apiMock.mockSession) uses DEFAULT_TEST_USER: email = "test@example.com".
 // MOCK_USER uses a different email so tests can delete/edit without self-conflict.
@@ -477,9 +479,19 @@ test.describe("Users page", () => {
 
   test("blocks self-delete client-side: no API call fires, dialog closes, error toast shown", async ({
     page,
+    apiMock,
   }) => {
-    // DEFAULT_TEST_USER (logged-in user) has email "test@example.com"
-    const selfUser: User = { ...MOCK_USER, email: "test@example.com", full_name: "Test User" };
+    // The logged-in user's email, matched against this mocked row, is what
+    // makes the app recognize it as "self". Under IS_REAL_API,
+    // apiMock.mockSession() (in the top beforeEach) did a real login with
+    // whatever E2E_TEST_EMAIL/PASSWORD this run was given -- hardcoding
+    // "test@example.com" here only self-identified by coincidence, when
+    // that happened to match. Read the real identity instead, same as
+    // DEFAULT_TEST_USER's email in mocked mode.
+    const realUser = IS_REAL_API ? await apiMock.getRealUser() : undefined;
+    const selfEmail = realUser?.email ?? DEFAULT_TEST_USER.email;
+    const selfName = realUser?.full_name ?? DEFAULT_TEST_USER.full_name ?? "Test User";
+    const selfUser: User = { ...MOCK_USER, email: selfEmail, full_name: selfName };
 
     await page.route("**/auth/email/admin/users?*", async (route) => {
       await route.fulfill({
@@ -491,22 +503,25 @@ test.describe("Users page", () => {
 
     // Track whether the DELETE endpoint is ever called — it must NOT be
     let deleteCallCount = 0;
-    await page.route("**/auth/email/admin/users/test%40example.com", async (route) => {
-      if (route.request().method() === "DELETE") {
-        deleteCallCount++;
-      }
-      // Fulfill just in case, but we assert it's never reached
-      await route.fulfill({
-        status: 400,
-        contentType: "application/json",
-        body: JSON.stringify({ detail: "Cannot delete your own account" }),
-      });
-    });
+    await page.route(
+      `**/auth/email/admin/users/${encodeURIComponent(selfEmail)}`,
+      async (route) => {
+        if (route.request().method() === "DELETE") {
+          deleteCallCount++;
+        }
+        // Fulfill just in case, but we assert it's never reached
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Cannot delete your own account" }),
+        });
+      },
+    );
 
     await page.goto(APP.USERS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: "Actions for Test User" }).click();
+    await page.getByRole("button", { name: `Actions for ${selfName}` }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
     const dialog = page.getByRole("alertdialog");
@@ -520,7 +535,7 @@ test.describe("Users page", () => {
     ).toBeVisible();
 
     // User stays in the table (no optimistic removal happened)
-    await expect(page.getByText("test@example.com")).toBeVisible();
+    await expect(page.getByText(selfEmail)).toBeVisible();
 
     // The DELETE API was never called
     expect(deleteCallCount).toBe(0);
