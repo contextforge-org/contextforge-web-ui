@@ -10,7 +10,7 @@ server {
 
     ssl_certificate /certs/cert.pem;
     ssl_certificate_key /certs/key.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
 
     location / {
         proxy_pass http://app:3000;
