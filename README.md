@@ -475,3 +475,5 @@ The test setup includes a mock for `window.matchMedia` in `src/test/setup.ts`. I
 3. Ensure all tests pass: `npm run test:run`
 4. Ensure linting passes: `npm run lint`
 5. Ensure formatting is correct: `npm run format:check`
+
+<!-- tls-smoke workflow no-trigger verification: this PR touches only this unrelated file. See #7045. -->
