@@ -69,7 +69,18 @@ fi
 # handshake that fully succeeded (confirmed via -tls1_2's own "Protocol"
 # line in the SSL-Session block), so the exit code alone is unreliable.
 tls12_probe="$($TIMEOUT openssl s_client -connect localhost:8443 -tls1_2 </dev/null 2>&1)"
-if printf '%s' "$tls12_probe" | grep -Eq 'Protocol *: *TLSv1\.2|New, *TLSv1\.2, *Cipher is'; then
+# Two ways to confirm a *genuine* success, since the SSL-Session block's
+# "Protocol  :" line is printed even on a handshake the server rejects
+# (same pitfall the TLS 1.1 check below guards against) — the "New,
+# TLSv1.2, Cipher is" summary line only names the real protocol on an
+# actual success (a rejection prints "New, (NONE), Cipher is (NONE)"),
+# and the SSL-Session block (when present) is only trustworthy combined
+# with a non-null cipher.
+if printf '%s' "$tls12_probe" | grep -Eq 'New, *TLSv1\.2, *Cipher is' ||
+  {
+    printf '%s' "$tls12_probe" | grep -q 'Protocol *: *TLSv1\.2' &&
+      ! printf '%s' "$tls12_probe" | grep -q 'Cipher *: *0000'
+  }; then
   pass "TLS 1.2 accepted"
 else
   fail "TLS 1.2 accepted" "handshake failed: $(printf '%s' "$tls12_probe" | tail -3 | tr '\n' ' ')"
@@ -77,7 +88,12 @@ fi
 
 # 3. TLS 1.3 accepted — same output-based check as #2, same reason.
 tls13_probe="$($TIMEOUT openssl s_client -connect localhost:8443 -tls1_3 </dev/null 2>&1)"
-if printf '%s' "$tls13_probe" | grep -Eq 'Protocol *: *TLSv1\.3|New, *TLSv1\.3, *Cipher is'; then
+# Same two-signal check as TLS 1.2 above, same reason.
+if printf '%s' "$tls13_probe" | grep -Eq 'New, *TLSv1\.3, *Cipher is' ||
+  {
+    printf '%s' "$tls13_probe" | grep -q 'Protocol *: *TLSv1\.3' &&
+      ! printf '%s' "$tls13_probe" | grep -q 'Cipher *: *0000'
+  }; then
   pass "TLS 1.3 accepted"
 else
   fail "TLS 1.3 accepted" "handshake failed: $(printf '%s' "$tls13_probe" | tail -3 | tr '\n' ' ')"
