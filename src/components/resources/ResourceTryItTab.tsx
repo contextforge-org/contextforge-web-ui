@@ -4,6 +4,8 @@ import { useIntl } from "react-intl";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "@/components/ui/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ListSearch } from "@/components/ui/list-search";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ResourceRead } from "@/generated/types";
 
@@ -15,6 +17,10 @@ import { ResourcePreviewResult } from "./ResourcePreviewResult";
 import { useResourcePreview } from "./useResourcePreview";
 
 const DEFAULT_LANGUAGE = "curl";
+/** Maximum number of resource chips shown before the picker truncates and relies on search. */
+const MAX_VISIBLE_RESOURCE_CHIPS = 10;
+/** Resource count above which the search box is worth showing. */
+const SEARCH_THRESHOLD = MAX_VISIBLE_RESOURCE_CHIPS;
 
 export interface ResourceTryItTabProps {
   resources: NonNullable<ResourceRead>[];
@@ -34,16 +40,55 @@ export function ResourceTryItTab({
   onSelectResource,
 }: ResourceTryItTabProps) {
   const intl = useIntl();
+  const [searchQuery, setSearchQuery] = useState("");
   const selected = useMemo(
     () => resources.find((r) => r.id === selectedResourceId) ?? resources[0] ?? null,
     [resources, selectedResourceId],
   );
 
+  const filteredResources = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return resources;
+    return resources.filter((resource) =>
+      (resource.title || resource.name).toLowerCase().includes(query),
+    );
+  }, [resources, searchQuery]);
+
+  // Cap the chip picker at MAX_VISIBLE_RESOURCE_CHIPS so a gateway with
+  // hundreds of resources doesn't push the preview pane out of view — the
+  // currently selected resource is pinned into the visible set even when it
+  // would otherwise fall past the cap (e.g. selected from the Definition tab).
+  const visibleResources = useMemo(() => {
+    const base = filteredResources.slice(0, MAX_VISIBLE_RESOURCE_CHIPS);
+    if (selected && !base.some((r) => r.id === selected.id)) {
+      const selectedStillMatches = filteredResources.some((r) => r.id === selected.id);
+      if (selectedStillMatches) {
+        return [...base.slice(0, MAX_VISIBLE_RESOURCE_CHIPS - 1), selected];
+      }
+    }
+    return base;
+  }, [filteredResources, selected]);
+
+  const hiddenCount = filteredResources.length - visibleResources.length;
+
   return (
     <div className="space-y-6">
-      <h3 className="text-sm font-semibold text-foreground">
-        {intl.formatMessage({ id: "resources.details.resourcePreview" })}
-      </h3>
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-sm font-semibold text-foreground">
+          {intl.formatMessage({ id: "resources.details.resourcePreview" })}
+        </h3>
+        {resources.length > SEARCH_THRESHOLD && (
+          <ListSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            ariaLabel={intl.formatMessage({ id: "resources.details.searchResources.label" })}
+            placeholder={intl.formatMessage({
+              id: "resources.details.searchResources.placeholder",
+            })}
+            expandedWidthClassName="w-48"
+          />
+        )}
+      </div>
 
       {resources.length > 1 && (
         <div
@@ -51,7 +96,7 @@ export function ResourceTryItTab({
           role="group"
           aria-label={intl.formatMessage({ id: "resources.details.selectResource" })}
         >
-          {resources.map((resource) => {
+          {visibleResources.map((resource) => {
             const isSelected = resource.id === selected?.id;
             return (
               <Button
@@ -73,6 +118,29 @@ export function ResourceTryItTab({
               </Button>
             );
           })}
+          {hiddenCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-default items-center rounded-full border border-transparent bg-muted px-3 py-1.5 font-mono text-[12px] text-muted-foreground">
+                  +{hiddenCount}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {intl.formatMessage(
+                  { id: "resources.details.selectResource.moreCount" },
+                  { count: hiddenCount },
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {filteredResources.length === 0 && (
+            <p className="text-[13px] text-muted-foreground">
+              {intl.formatMessage(
+                { id: "resources.details.searchResources.noResults" },
+                { query: searchQuery },
+              )}
+            </p>
+          )}
         </div>
       )}
 
