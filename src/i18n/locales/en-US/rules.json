@@ -72,5 +72,6 @@
   "rules.form.expiresAtDatetime": "Date and time",
   "rules.form.expiresAtExpired": "Expired",
   "rules.view": "View rule",
-  "rules.readOnly": "This is a system rule. It is read-only."
+  "rules.readOnly": "This is a system rule. It is read-only.",
+  "rules.form.predicateBuilderUnavailable": "The predicate uses forms the builder cannot express; edit it as raw text"
 }

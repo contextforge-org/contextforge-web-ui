@@ -72,5 +72,6 @@
   "rules.form.expiresAtDatetime": "Data e hora",
   "rules.form.expiresAtExpired": "Expirada",
   "rules.view": "Ver regra",
-  "rules.readOnly": "Esta é uma regra do sistema. É somente leitura."
+  "rules.readOnly": "Esta é uma regra do sistema. É somente leitura.",
+  "rules.form.predicateBuilderUnavailable": "O predicado usa formas que o construtor não consegue expressar; edite como texto"
 }

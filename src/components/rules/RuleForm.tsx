@@ -325,6 +325,20 @@ export function RuleForm({
     }
   }, [open, rule, capabilityType, capabilityId]);
 
+  const rawBuildable = useMemo(() => parseToBuilder(predicate) !== null, [predicate]);
+
+  const switchToBuilder = () => {
+    const parsed = parseToBuilder(predicate);
+    if (!parsed) return;
+    setBuilder(parsed);
+    setMode("builder");
+  };
+
+  const switchToRaw = () => {
+    setPredicate(effectivePredicate);
+    setMode("raw");
+  };
+
   const effectivePredicate = useMemo(
     () => (mode === "builder" ? compile(builder) : predicate),
     [mode, builder, predicate],
@@ -546,7 +560,13 @@ export function RuleForm({
                   type="button"
                   variant={mode === "builder" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setMode("builder")}
+                  onClick={switchToBuilder}
+                  disabled={!rawBuildable}
+                  title={
+                    rawBuildable
+                      ? undefined
+                      : intl.formatMessage({ id: "rules.form.predicateBuilderUnavailable" })
+                  }
                 >
                   {intl.formatMessage({ id: "rules.form.predicateBuilder" })}
                 </Button>
@@ -554,7 +574,7 @@ export function RuleForm({
                   type="button"
                   variant={mode === "raw" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => setMode("raw")}
+                  onClick={switchToRaw}
                 >
                   {intl.formatMessage({ id: "rules.form.predicateRaw" })}
                 </Button>

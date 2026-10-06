@@ -36,7 +36,6 @@ export function Rules() {
   const [editing, setEditing] = useState<RbacRule | null>(null);
   const [viewing, setViewing] = useState(false);
   const [deleting, setDeleting] = useState<RbacRule | null>(null);
-  const [refetchKey, setRefetchKey] = useState(0);
 
   // Fetch the tool list for the filter dropdown.
   const { data: toolsData } = useQuery<ToolListItem[]>("/tools");
@@ -49,12 +48,11 @@ export function Rules() {
   if (capabilityFilter !== ALL_CAPABILITIES) params.set("capability_type", capabilityFilter);
   if (toolFilter !== ALL_TOOLS) params.set("capability_id", toolFilter);
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  const { data, isLoading, error } = useQuery<RbacRule[]>(
-    refetchKey >= 0 ? `/rbac/rules${query}` : null,
-  );
+  const { data, isLoading, error, refetch } = useQuery<RbacRule[]>(`/rbac/rules${query}`);
   const rules = data ?? [];
-
-  const refresh = () => setRefetchKey((k) => k + 1);
+  const refresh = () => {
+    void refetch();
+  };
 
   const handleActiveChange = async (rule: RbacRule, isActive: boolean) => {
     try {
