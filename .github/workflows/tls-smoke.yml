@@ -1,0 +1,96 @@
+# ===============================================================
+# TLS smoke check
+# ===============================================================
+#   - brings up the e2e stack over TLS (nginx -> BFF -> HTTPS gateway)
+#   - seeds a test user, then runs scripts/tls-smoke.sh against it
+#   - path-filtered to the TLS setup, so it only runs on PRs/pushes
+#     that actually touch it
+#   - not a required check: a path-filtered workflow never reports on
+#     unrelated PRs, so GitHub can't block merges on a check that
+#     didn't run
+# ---------------------------------------------------------------
+
+name: TLS smoke
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "infra/nginx/**"
+      - "docker-compose*.yml"
+      - "Dockerfile"
+      - "scripts/gen-certs.sh"
+      - "scripts/tls-smoke.sh"
+      - "server/src/config.ts"
+      - ".github/workflows/tls-smoke.yml"
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    branches: ["main"]
+    paths:
+      - "infra/nginx/**"
+      - "docker-compose*.yml"
+      - "Dockerfile"
+      - "scripts/gen-certs.sh"
+      - "scripts/tls-smoke.sh"
+      - "server/src/config.ts"
+      - ".github/workflows/tls-smoke.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tls-smoke:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: TLS smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Throwaway values, no repository secrets. NGINX_FORCE_HTTPS=true
+    # so the smoke script's redirect check actually runs instead of
+    # being reported as skipped.
+    env:
+      E2E_TEST_EMAIL: test@example.com
+      E2E_TEST_PASSWORD: Ci-Tls-Smoke-Pass-19x! # pragma: allowlist secret
+      NGINX_FORCE_HTTPS: "true"
+
+    steps:
+      - name: ⬇️ Checkout source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: 🟩 Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: 📄 Prepare .env
+        run: cp .env.example .env
+
+      - name: 🐳 Bring up the TLS e2e stack
+        run: npm run e2e:docker:tls:up
+
+      - name: 🌱 Seed test user
+        run: npm run e2e:docker:seed
+        env:
+          E2E_GATEWAY_URL: https://localhost:4444
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/certs/cert.pem
+
+      - name: 🚬 Run TLS smoke checks
+        run: npm run tls:smoke
+        env:
+          SMOKE_EMAIL: ${{ env.E2E_TEST_EMAIL }}
+          SMOKE_PASSWORD: ${{ env.E2E_TEST_PASSWORD }}
+
+      - name: 📋 Dump stack logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml -f docker-compose.tls.yml -f docker-compose.e2e-tls.yml logs --no-color
+
+      - name: 🧹 Tear down the TLS e2e stack
+        if: always()
+        run: npm run e2e:docker:tls:down
