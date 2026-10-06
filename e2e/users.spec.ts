@@ -490,6 +490,10 @@ test.describe("Users page", () => {
     // DEFAULT_TEST_USER's email in mocked mode.
     const realUser = IS_REAL_API ? await apiMock.getRealUser() : undefined;
     const selfEmail = realUser?.email ?? DEFAULT_TEST_USER.email;
+    // Not used to locate the row/button below -- a real seeded user can have
+    // an empty or whitespace-only full_name, which UsersTable (getDisplayName)
+    // renders as "Unnamed User" rather than the raw string, so asserting
+    // against this value directly would drift from what's on screen.
     const selfName = realUser?.full_name ?? DEFAULT_TEST_USER.full_name ?? "Test User";
     const selfUser: User = { ...MOCK_USER, email: selfEmail, full_name: selfName };
 
@@ -521,7 +525,11 @@ test.describe("Users page", () => {
     await page.goto(APP.USERS);
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: `Actions for ${selfName}` }).click();
+    // Located by email, not by selfName -- an empty/whitespace-only real
+    // full_name renders as "Unnamed User" (see above), which would make a
+    // name-based locator time out.
+    const selfRow = page.getByRole("row").filter({ hasText: selfEmail });
+    await selfRow.getByRole("button", { name: /^Actions for/ }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
     const dialog = page.getByRole("alertdialog");
