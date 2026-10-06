@@ -1289,7 +1289,11 @@ test.describe("Virtual Servers page", () => {
       await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(value);
     };
 
-    const endpoint = `http://localhost:5173/servers/${MOCK_VIRTUAL_SERVER.id}/mcp`;
+    // Matches getVirtualServerEndpoint()'s window.location.origin fallback
+    // (src/components/gateways/utils.ts) -- not hardcoded, so this passes
+    // under any PLAYWRIGHT_BASE_URL (dev server, docker, TLS).
+    const origin = new URL(page.url()).origin;
+    const endpoint = `${origin}/servers/${MOCK_VIRTUAL_SERVER.id}/mcp`;
     await expectCopied("Copy Endpoint", endpoint);
     await expectCopied("Copy server ID", MOCK_VIRTUAL_SERVER.id);
     await expectCopied("Copy URL", endpoint);

@@ -55,14 +55,22 @@ test.describe("OAuth authorization-code popup flow", () => {
       await route.fulfill({
         status: 200,
         contentType: "text/html",
+        // The small setTimeout gives the opener's "Waiting for OAuth
+        // authorization in the popup window" state a guaranteed render
+        // tick before this popup resolves -- without it, this route
+        // fulfills (and the popup posts back + closes) fast enough to
+        // race the opener's own render of that transient state, which
+        // made the next assertion flaky.
         body: `<!DOCTYPE html><html><body><script>
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage(
-              { type: "oauth_callback", status: "success", gatewayId: "${GATEWAY_ID}", gatewayName: "${GATEWAY_NAME}" },
-              "*"
-            );
-          }
-          window.close();
+          setTimeout(() => {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage(
+                { type: "oauth_callback", status: "success", gatewayId: "${GATEWAY_ID}", gatewayName: "${GATEWAY_NAME}" },
+                "*"
+              );
+            }
+            window.close();
+          }, 200);
         </script></body></html>`,
       });
     });
