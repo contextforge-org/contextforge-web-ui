@@ -6,7 +6,7 @@ import type { ComponentProps } from "react";
 import type { CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
 import { renderWithProviders } from "@/test/test-utils";
-import { CatalogOAuthDialog } from "./CatalogOAuthDialog";
+import { CatalogOAuthForm } from "./CatalogOAuthForm";
 
 vi.mock("@/hooks/useQuery", () => ({ useQuery: vi.fn() }));
 const teamScopeState = vi.hoisted(() => ({
@@ -36,11 +36,12 @@ const server: CatalogServer = {
 
 const mockUseQuery = vi.mocked(useQuery);
 
-function renderDialog(
-  overrides: Partial<ComponentProps<typeof CatalogOAuthDialog>> = {},
+function renderForm(
+  overrides: Partial<ComponentProps<typeof CatalogOAuthForm>> = {},
   callbackQueryOverrides: Partial<ReturnType<typeof useQuery>> = {},
 ) {
-  const onOpenChange = vi.fn();
+  const onCancel = vi.fn();
+  const onSuccess = vi.fn();
   const onSubmit = vi.fn().mockResolvedValue(true);
   mockUseQuery.mockReturnValue({
     data: { redirectUri: "http://localhost:3000/oauth/callback" },
@@ -53,35 +54,58 @@ function renderDialog(
   } as ReturnType<typeof useQuery>);
 
   const rendered = renderWithProviders(
-    <CatalogOAuthDialog
+    <CatalogOAuthForm
       server={server}
-      onOpenChange={onOpenChange}
+      onCancel={onCancel}
+      onSuccess={onSuccess}
       onSubmit={onSubmit}
       isSubmitting={false}
       {...overrides}
     />,
   );
 
-  return { onOpenChange, onSubmit, ...rendered };
+  return { onCancel, onSuccess, onSubmit, ...rendered };
 }
 
 async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
-  const dialog = screen.getByRole("dialog", { name: "Add GitHub" });
-  await user.type(within(dialog).getByLabelText(/Issuer URL/i), "http://github.com");
-  await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo, read:user");
-  await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
-  await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+  const form = screen.getByRole("form", { name: "Add GitHub" });
+  await user.type(within(form).getByLabelText(/Issuer URL/i), "http://github.com");
+  await user.type(within(form).getByLabelText(/^Scopes/i), "repo, read:user");
+  await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+  await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
   await user.type(
-    within(dialog).getByLabelText(/^Authorization URL/i),
+    within(form).getByLabelText(/^Authorization URL/i),
     "https://github.com/login/oauth/authorize",
   );
   await user.type(
-    within(dialog).getByLabelText(/^Token URL/i),
+    within(form).getByLabelText(/^Token URL/i),
     "https://github.com/login/oauth/access_token",
   );
 }
 
-describe("CatalogOAuthDialog", () => {
+describe("CatalogOAuthForm", () => {
+  it("focuses its heading and renders without a modal", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    expect(screen.getByRole("heading", { name: "Add GitHub" })).toHaveFocus();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.tab();
+    expect(screen.getByLabelText("Custom name (optional)")).toHaveFocus();
+  });
+
+  it("retains credentials and displays failures without completing", async () => {
+    const user = userEvent.setup();
+    const { onSuccess } = renderForm({
+      onSubmit: vi.fn().mockResolvedValue(false),
+      notification: { type: "error", message: "Registration failed" },
+    });
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Registration failed");
+    expect(screen.getByLabelText(/^Client Secret/i)).toHaveValue("github-secret");
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     teamScopeState.teams = [];
     teamScopeState.onTeamChange.mockReset();
@@ -89,9 +113,9 @@ describe("CatalogOAuthDialog", () => {
 
   it("shows every required-field validation error without submitting", async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
+    const { onSubmit } = renderForm();
 
-    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Enter a valid issuer URL.")).toBeInTheDocument();
     expect(screen.getByText("Enter at least one scope.")).toBeInTheDocument();
@@ -124,7 +148,7 @@ describe("CatalogOAuthDialog", () => {
       },
     };
 
-    renderDialog({ server: oauthServer });
+    renderForm({ server: oauthServer });
 
     expect(screen.getByLabelText(/Issuer URL/i)).toHaveValue("https://github.com");
     expect(screen.getByLabelText(/^Scopes/i)).toHaveValue("repo read:user");
@@ -140,7 +164,8 @@ describe("CatalogOAuthDialog", () => {
 
   it("submits the displayed BFF callback URL with normalized authorization-code credentials", async () => {
     const user = userEvent.setup();
-    const onOpenChange = vi.fn();
+    const onCancel = vi.fn();
+    const onSuccess = vi.fn();
     const onSubmit = vi.fn().mockResolvedValue(true);
     mockUseQuery.mockReturnValue({
       data: { redirectUri: "http://localhost:3000/oauth/callback" },
@@ -152,9 +177,10 @@ describe("CatalogOAuthDialog", () => {
     } as ReturnType<typeof useQuery>);
 
     renderWithProviders(
-      <CatalogOAuthDialog
+      <CatalogOAuthForm
         server={server}
-        onOpenChange={onOpenChange}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
         onSubmit={onSubmit}
         isSubmitting={false}
       />,
@@ -164,7 +190,7 @@ describe("CatalogOAuthDialog", () => {
     expect(screen.getByText("http://localhost:3000/oauth/callback")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Custom name (optional)"), " My GitHub ");
     await fillRequiredFields(user);
-    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
@@ -183,7 +209,7 @@ describe("CatalogOAuthDialog", () => {
         },
       }),
     );
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onSuccess).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -193,11 +219,11 @@ describe("CatalogOAuthDialog", () => {
     { data: { redirectUri: "invalid" }, isLoading: false, error: null },
   ])("blocks registration when callback URL is unresolved: %j", async (callbackQuery) => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog({}, callbackQuery);
+    const { onSubmit } = renderForm({}, callbackQuery);
 
     await fillRequiredFields(user);
 
-    const submitButton = screen.getByRole("button", { name: "Configure and authorize" });
+    const submitButton = screen.getByRole("button", { name: "Save" });
     expect(submitButton).toBeDisabled();
     fireEvent.submit(submitButton.closest("form")!);
     expect(onSubmit).not.toHaveBeenCalled();
@@ -213,17 +239,18 @@ describe("CatalogOAuthDialog", () => {
   it("retries callback lookup and submits once it succeeds", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(true);
-    const onOpenChange = vi.fn();
+    const onCancel = vi.fn();
+    const onSuccess = vi.fn();
     const refetch = vi.fn().mockRejectedValue({ message: "Unavailable" });
-    const { rerender } = renderDialog(
-      { onSubmit, onOpenChange },
+    const { rerender } = renderForm(
+      { onSubmit, onCancel, onSuccess },
       { data: undefined, error: { message: "Unavailable" }, refetch },
     );
     await fillRequiredFields(user);
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(refetch).toHaveBeenCalledOnce();
-    expect(screen.getByRole("button", { name: "Configure and authorize" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
     mockUseQuery.mockReturnValue({
       data: { redirectUri: "https://web.example.com/oauth/callback" },
@@ -234,14 +261,15 @@ describe("CatalogOAuthDialog", () => {
       setData: vi.fn(),
     } as ReturnType<typeof useQuery>);
     rerender(
-      <CatalogOAuthDialog
+      <CatalogOAuthForm
         server={server}
-        onOpenChange={onOpenChange}
+        onCancel={onCancel}
+        onSuccess={onSuccess}
         onSubmit={onSubmit}
         isSubmitting={false}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     const expected = expect.objectContaining({
       redirect_uri: "https://web.example.com/oauth/callback",
@@ -253,34 +281,35 @@ describe("CatalogOAuthDialog", () => {
     );
   });
 
-  it("resets values and notifies parent when cancelled", async () => {
+  it("notifies parent when cancelled", async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderDialog();
+    const { onCancel } = renderForm();
 
     await user.type(screen.getByLabelText("Custom name (optional)"), "Temporary name");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(screen.getByLabelText("Custom name (optional)")).toHaveValue("");
+    expect(onCancel).toHaveBeenCalledOnce();
   });
 
   it("does not close while authorization is submitting", async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderDialog({ isSubmitting: true });
+    const { onCancel, onSubmit } = renderForm({ isSubmitting: true });
 
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Adding…" })).toBeDisabled();
   });
 
   it("requires a team before submitting team-visible OAuth configuration", async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
+    const { onSubmit } = renderForm();
 
     await user.click(screen.getByRole("combobox", { name: "Visibility" }));
     await user.click(screen.getByRole("option", { name: "Team" }));
     await fillRequiredFields(user);
-    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Select a team.")).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
@@ -292,14 +321,14 @@ describe("CatalogOAuthDialog", () => {
       { id: "team-alpha", name: "Alpha team" },
       { id: "team-beta", name: "Beta team" },
     ];
-    const { onSubmit } = renderDialog();
+    const { onSubmit } = renderForm();
 
     await user.click(screen.getByRole("combobox", { name: "Visibility" }));
     await user.click(screen.getByRole("option", { name: "Team" }));
     await user.click(screen.getByRole("combobox", { name: /^Team/ }));
     await user.click(screen.getByRole("option", { name: "Alpha team" }));
     await fillRequiredFields(user);
-    await user.click(screen.getByRole("button", { name: "Configure and authorize" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(

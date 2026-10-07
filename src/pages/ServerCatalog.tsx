@@ -13,7 +13,7 @@ import { ApiError } from "@/api/client";
 import { serversApi } from "@/api/servers";
 import { useAuth } from "@/auth/useAuth";
 import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
-import { CatalogOAuthDialog } from "@/components/server-catalog/CatalogOAuthDialog";
+import { CatalogOAuthForm } from "@/components/server-catalog/CatalogOAuthForm";
 import {
   CatalogResults,
   CatalogServerDetailsDialog,
@@ -391,7 +391,7 @@ export function ServerCatalog() {
   const disconnectPollAbortControllersRef = useRef(new Map<string, AbortController>());
   const [apiKeyServer, setApiKeyServer] = useState<CatalogServer | null>(null);
   const [oauthServer, setOAuthServer] = useState<CatalogServer | null>(null);
-  const [oauthDialogNotification, setOAuthDialogNotification] = useState<
+  const [oauthFormNotification, setOAuthFormNotification] = useState<
     RegistrationNotification | undefined
   >();
   const [oauthAuthorizing, setOAuthAuthorizing] = useState(false);
@@ -527,12 +527,15 @@ export function ServerCatalog() {
   );
 
   useEffect(() => {
-    if (!focusActionsForServerId) return;
+    if (!focusActionsForServerId || oauthServer) return;
 
-    const actions = document.getElementById(`catalog-server-actions-${focusActionsForServerId}`);
+    const actions =
+      document.getElementById(`catalog-server-actions-${focusActionsForServerId}`) ??
+      document.getElementById(`catalog-server-add-${focusActionsForServerId}`);
     if (actions instanceof HTMLButtonElement) actions.focus();
+    else pageHeadingRef.current?.focus();
     setFocusActionsForServerId(null);
-  }, [data, focusActionsForServerId]);
+  }, [data, focusActionsForServerId, oauthServer]);
 
   // Only the search box filters ahead of the URL, so the grid can react to the
   // debounced value. Category, provider and tag selections are committed to the
@@ -685,7 +688,7 @@ export function ServerCatalog() {
         return;
       }
       if (OAUTH_AUTH_TYPES.has(server.auth_type)) {
-        setOAuthDialogNotification(undefined);
+        setOAuthFormNotification(undefined);
         setOAuthServer(server);
         return;
       }
@@ -715,14 +718,14 @@ export function ServerCatalog() {
   const handleOAuthSubmit = useCallback(
     async (body: CatalogServerRegisterBody) => {
       if (!oauthServer) return false;
-      setOAuthDialogNotification(undefined);
+      setOAuthFormNotification(undefined);
       let authWindow: Window;
       try {
         // Must happen before the first await below. Browsers only allow popups
         // opened directly from this form submit gesture.
         authWindow = serversApi.openOAuthAuthorizationPopup();
       } catch (error) {
-        setOAuthDialogNotification({
+        setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
           message:
@@ -736,7 +739,7 @@ export function ServerCatalog() {
       let gatewayId = pendingOAuthGatewayId;
       if (!gatewayId) {
         const registration = await registerServer(oauthServer, body, {
-          reportNotification: (notification) => setOAuthDialogNotification(notification),
+          reportNotification: (notification) => setOAuthFormNotification(notification),
         });
         if (!registration.success) {
           authWindow.close();
@@ -751,7 +754,7 @@ export function ServerCatalog() {
       }
 
       setOAuthAuthorizing(true);
-      setOAuthDialogNotification(undefined);
+      setOAuthFormNotification(undefined);
       try {
         await serversApi.triggerOAuthAuthorization(gatewayId, authWindow);
         if (canUpdateServer) await serversApi.toggleEnabled(gatewayId, true);
@@ -759,11 +762,10 @@ export function ServerCatalog() {
         setData((current) => setCatalogServerOAuthPending(current, oauthServer.id, false));
         void refreshCatalogSilently();
         setPendingOAuthGatewayId(null);
-        setFocusActionsForServerId(oauthServer.id);
         return true;
       } catch (error) {
         authWindow.close();
-        setOAuthDialogNotification({
+        setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
           message:
@@ -1155,6 +1157,31 @@ export function ServerCatalog() {
     [dismissRegistrationNotification],
   );
 
+  const closeOAuthForm = () => {
+    if (!oauthServer) return;
+    setFocusActionsForServerId(oauthServer.id);
+    setOAuthServer(null);
+    setOAuthFormNotification(undefined);
+    setPendingOAuthGatewayId(null);
+  };
+
+  if (oauthServer) {
+    return (
+      <CatalogPageLayout headingRef={pageHeadingRef}>
+        <CatalogOAuthForm
+          key={oauthServer.id}
+          server={oauthServer}
+          onCancel={closeOAuthForm}
+          onSuccess={closeOAuthForm}
+          onSubmit={handleOAuthSubmit}
+          isSubmitting={addingServerIds.has(oauthServer.id) || oauthAuthorizing}
+          notification={oauthFormNotification}
+          onDismissNotification={() => setOAuthFormNotification(undefined)}
+        />
+      </CatalogPageLayout>
+    );
+  }
+
   if (isLoading && !data) {
     return (
       <CatalogPageLayout headingRef={pageHeadingRef}>
@@ -1347,22 +1374,6 @@ export function ServerCatalog() {
           isSubmitting={addingServerIds.has(apiKeyServer.id)}
           notification={apiKeyDialogNotification}
           onDismissNotification={() => setApiKeyDialogNotification(undefined)}
-        />
-      )}
-      {oauthServer && (
-        <CatalogOAuthDialog
-          server={oauthServer}
-          onOpenChange={(open) => {
-            if (!open) {
-              setOAuthServer(null);
-              setOAuthDialogNotification(undefined);
-              setPendingOAuthGatewayId(null);
-            }
-          }}
-          onSubmit={handleOAuthSubmit}
-          isSubmitting={addingServerIds.has(oauthServer.id) || oauthAuthorizing}
-          notification={oauthDialogNotification}
-          onDismissNotification={() => setOAuthDialogNotification(undefined)}
         />
       )}
     </CatalogPageLayout>
