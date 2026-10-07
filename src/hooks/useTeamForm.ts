@@ -3,7 +3,7 @@ import { useIntl } from "react-intl";
 import { toast } from "sonner";
 import { z } from "zod";
 import { api } from "@/api/client";
-import { createTeam, updateTeam, addTeamMember } from "@/api/teams";
+import { createTeam, updateTeam } from "@/api/teams";
 import { sanitizeError } from "@/utils/errors";
 import type { ComboboxOption } from "@/components/ui/combobox";
 import type { Team } from "@/types/team";
@@ -200,39 +200,35 @@ export function useTeamForm(team?: Team): UseTeamFormReturn {
           return;
         }
 
+        const filledMembers = members.filter((m) => m.email.trim());
+
+        // Members are seeded in the same request: the server routes each one
+        // (active user -> direct membership, anything else -> invitation) and
+        // writes the team, memberships and invitations in one transaction, so
+        // creation either fully succeeds or fully fails rather than leaving a
+        // half-populated team behind.
         const createdTeam = await createTeam({
           name: name.trim(),
           description: description.trim() || undefined,
           visibility,
           max_members: parseInt(maxMembers, 10),
+          members:
+            filledMembers.length > 0
+              ? filledMembers.map((m) => ({ email: m.email.trim(), role: m.role }))
+              : undefined,
         });
 
-        const filledMembers = members.filter((m) => m.email.trim());
-        if (filledMembers.length > 0) {
-          const results = await Promise.allSettled(
-            filledMembers.map((m) =>
-              addTeamMember(createdTeam.id, { email: m.email.trim(), role: m.role }),
+        // Report which seeded addresses were added directly vs. invited, so
+        // the user isn't left guessing whether an invitation was sent.
+        const invitedEmails = createdTeam.invitations_sent?.map((inv) => inv.email) ?? [];
+        if (invitedEmails.length > 0) {
+          toast.success(
+            intl.formatMessage(
+              { id: "teams.create.invitationsSent" },
+              { count: invitedEmails.length },
             ),
+            { description: invitedEmails.join(", ") },
           );
-          const failed = results
-            .map((r, i) =>
-              r.status === "rejected"
-                ? `${filledMembers[i].email}: ${sanitizeError(r.reason)}`
-                : null,
-            )
-            .filter((v): v is string => v !== null);
-          // The team was already created, so close the form and surface the
-          // partial failure via a toast rather than blocking on an inline error
-          // (which would tempt the user to resubmit and create a duplicate team).
-          if (failed.length > 0) {
-            toast.warning(
-              intl.formatMessage(
-                { id: "teams.create.warning.membersFailed" },
-                { name: createdTeam.name },
-              ),
-              { description: failed.join("\n") },
-            );
-          }
         }
 
         resetForm();

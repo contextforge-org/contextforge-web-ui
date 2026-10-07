@@ -8,6 +8,7 @@ import { useTeamMembersForm } from "./useTeamMembersForm";
 vi.mock("@/api/teams", () => ({
   listTeamMembers: vi.fn(),
   addTeamMember: vi.fn(() => Promise.resolve()),
+  inviteTeamMember: vi.fn(() => Promise.resolve()),
   updateTeamMember: vi.fn(() => Promise.resolve()),
   removeTeamMember: vi.fn(() => Promise.resolve()),
 }));
@@ -16,12 +17,22 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@/api/client", () => ({
-  api: { get: vi.fn(() => Promise.resolve({ users: [] })) },
-}));
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    api: { get: vi.fn(() => Promise.resolve({ users: [] })) },
+  };
+});
 
-import { listTeamMembers, addTeamMember, updateTeamMember, removeTeamMember } from "@/api/teams";
-import { api } from "@/api/client";
+import {
+  listTeamMembers,
+  addTeamMember,
+  inviteTeamMember,
+  updateTeamMember,
+  removeTeamMember,
+} from "@/api/teams";
+import { api, ApiError } from "@/api/client";
 import { toast } from "sonner";
 
 const TEAM_ID = "team-1";
@@ -138,6 +149,79 @@ describe("useTeamMembersForm", () => {
     });
     expect(onSuccess).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("invites a new row whose email has no account instead of failing", async () => {
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    vi.mocked(addTeamMember).mockRejectedValueOnce(
+      new ApiError(404, { detail: "User not found" }, "HTTP 404"),
+    );
+    const { result, onSuccess } = renderForm();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.changeEmail(result.current.members[0].id, "nobody@example.com"));
+    act(() => result.current.changeRole(result.current.members[0].id, "owner"));
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(addTeamMember).toHaveBeenCalledWith(TEAM_ID, {
+      email: "nobody@example.com",
+      role: "owner",
+    });
+    expect(inviteTeamMember).toHaveBeenCalledWith(TEAM_ID, {
+      email: "nobody@example.com",
+      role: "owner",
+    });
+    expect(onSuccess).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("invitation"),
+      expect.objectContaining({ description: expect.stringContaining("nobody@example.com") }),
+    );
+  });
+
+  it("invites a new row at the default member role (not just owner)", async () => {
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    vi.mocked(addTeamMember).mockRejectedValueOnce(
+      new ApiError(404, { detail: "User not found" }, "HTTP 404"),
+    );
+    const { result } = renderForm();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Row 0 starts at the default role ("member"); only the email is changed.
+    act(() => result.current.changeEmail(result.current.members[0].id, "nobody@example.com"));
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(inviteTeamMember).toHaveBeenCalledWith(TEAM_ID, {
+      email: "nobody@example.com",
+      role: "member",
+    });
+  });
+
+  it("does not fall back to inviting on a 404 unrelated to an unknown user", async () => {
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    vi.mocked(addTeamMember).mockRejectedValueOnce(
+      new ApiError(404, { detail: "Team not found" }, "HTTP 404"),
+    );
+    const { result, onClose } = renderForm();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.changeEmail(result.current.members[0].id, "someone@example.com"));
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(inviteTeamMember).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Failed to save team members",
+      expect.objectContaining({ description: expect.any(String) }),
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("skips new rows with a blank email", async () => {

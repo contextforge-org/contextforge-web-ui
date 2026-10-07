@@ -188,6 +188,22 @@ describe("ManageTeamMembersDialog", () => {
     expect(hookState.changeEmail).toHaveBeenCalledWith("new-1", "picked@example.com");
   });
 
+  it("accepts an email with no matching directory entry via the combobox's custom-value option", async () => {
+    const user = userEvent.setup();
+    hookState.members = [newRow({ id: "new-1" })];
+    hookState.memberOptions = [
+      { value: "picked@example.com", label: "Picked (picked@example.com)" },
+    ];
+    renderDialog(<ManageTeamMembersDialog {...baseProps()} />);
+
+    const emailInput = screen.getByPlaceholderText("Name or email...");
+    await user.click(emailInput);
+    await user.keyboard("nobody@example.com");
+    await user.click(await screen.findByRole("option", { name: 'Use "nobody@example.com"' }));
+
+    expect(hookState.changeEmail).toHaveBeenCalledWith("new-1", "nobody@example.com");
+  });
+
   it("calls changeRole when a new role is selected", async () => {
     const user = userEvent.setup();
     hookState.members = [newRow({ id: "new-1", role: "member" })];

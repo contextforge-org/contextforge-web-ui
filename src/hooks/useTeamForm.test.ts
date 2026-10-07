@@ -34,6 +34,7 @@ vi.mock("sonner", () => ({
 }));
 
 const mockToastWarning = vi.mocked(toast.warning);
+const mockToastSuccess = vi.mocked(toast.success);
 
 const wrapper = ({ children }: { children: ReactNode }) =>
   createElement(
@@ -50,6 +51,7 @@ const fakeSubmit = (e?: Partial<FormEvent<HTMLFormElement>>) =>
 
 beforeEach(() => {
   mockToastWarning.mockClear();
+  mockToastSuccess.mockClear();
   // The hook loads the user directory on mount; keep it quiet by default.
   server.use(http.get("*/auth/email/admin/users", () => HttpResponse.json({ users: [] })));
 });
@@ -167,14 +169,18 @@ describe("useTeamForm", () => {
       expect(result.current.name).toBe("");
     });
 
-    it("adds filled members after creating the team", async () => {
-      const memberBodies: unknown[] = [];
+    it("sends filled members in the create-team payload instead of looping add-member calls", async () => {
+      let capturedBody: Record<string, unknown> = {};
+      const memberCalls: unknown[] = [];
       server.use(
-        http.post("*/teams", () =>
-          HttpResponse.json({ id: "team-1", name: "Engineering" }, { status: 201 }),
-        ),
+        http.post("*/teams", async ({ request }) => {
+          capturedBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: "team-1", name: "Engineering" }, { status: 201 });
+        }),
+        // Seeding happens inside the create-team request now; nothing should
+        // call the per-member add endpoint.
         http.post("*/teams/team-1/members", async ({ request }) => {
-          memberBodies.push(await request.json());
+          memberCalls.push(await request.json());
           return HttpResponse.json({}, { status: 201 });
         }),
       );
@@ -190,17 +196,75 @@ describe("useTeamForm", () => {
         await result.current.handleSubmit(fakeSubmit());
       });
 
-      await waitFor(() => expect(memberBodies).toHaveLength(1));
-      expect(memberBodies[0]).toMatchObject({ email: "member@example.com", role: "member" });
+      await waitFor(() => expect(capturedBody).toHaveProperty("members"));
+      expect(capturedBody.members).toEqual([{ email: "member@example.com", role: "member" }]);
+      expect(memberCalls).toHaveLength(0);
     });
 
-    it("closes the form and warns via toast when a member add fails", async () => {
+    it("omits members from the payload when every row is empty", async () => {
+      let capturedBody: Record<string, unknown> = {};
+      server.use(
+        http.post("*/teams", async ({ request }) => {
+          capturedBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: "team-1", name: "Engineering" }, { status: 201 });
+        }),
+      );
+
+      const { result } = renderHook(() => useTeamForm());
+
+      act(() => result.current.setName("Engineering"));
+
+      await act(async () => {
+        await result.current.handleSubmit(fakeSubmit());
+      });
+
+      await waitFor(() => expect(capturedBody).toHaveProperty("name"));
+      expect(capturedBody).not.toHaveProperty("members");
+    });
+
+    it("reports invited addresses via toast without blocking on an inline error", async () => {
       server.use(
         http.post("*/teams", () =>
-          HttpResponse.json({ id: "team-1", name: "Engineering" }, { status: 201 }),
+          HttpResponse.json(
+            {
+              id: "team-1",
+              name: "Engineering",
+              members_added: [],
+              invitations_sent: [
+                { email: "external@partner.com", role: "member", invitation_id: "inv-1" },
+              ],
+            },
+            { status: 201 },
+          ),
         ),
-        http.post("*/teams/team-1/members", () =>
-          HttpResponse.json({ detail: "User is already a member" }, { status: 409 }),
+      );
+
+      const onSuccess = vi.fn();
+      const { result } = renderHook(() => useTeamForm());
+
+      act(() => {
+        result.current.setName("Engineering");
+        result.current.handleMemberEmailChange(0, "external@partner.com");
+      });
+
+      await act(async () => {
+        await result.current.handleSubmit(fakeSubmit(), onSuccess);
+      });
+
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        expect.stringContaining("invitation"),
+        expect.objectContaining({ description: expect.stringContaining("external@partner.com") }),
+      );
+      expect(result.current.error).toBeNull();
+      // Form resets after a successful create.
+      expect(result.current.name).toBe("");
+    });
+
+    it("creation fails as a unit when a seeded member row is invalid, with no partial-success toast", async () => {
+      server.use(
+        http.post("*/teams", () =>
+          HttpResponse.json({ detail: "Team member seed limit exceeded" }, { status: 400 }),
         ),
       );
 
@@ -216,16 +280,10 @@ describe("useTeamForm", () => {
         await result.current.handleSubmit(fakeSubmit(), onSuccess);
       });
 
-      // The team already exists, so we proceed to success (form closes) but warn
-      // about the members that could not be added.
-      await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
-      expect(mockToastWarning).toHaveBeenCalledOnce();
-      expect(mockToastWarning.mock.calls[0][1]).toMatchObject({
-        description: expect.stringContaining("owner@example.com"),
-      });
-      expect(result.current.error).toBeNull();
-      // Form resets after proceeding to success.
-      expect(result.current.name).toBe("");
+      await waitFor(() => expect(result.current.error).toBeTruthy());
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mockToastWarning).not.toHaveBeenCalled();
+      expect(mockToastSuccess).not.toHaveBeenCalled();
     });
 
     it("rejects an invalid member email before creating the team", async () => {

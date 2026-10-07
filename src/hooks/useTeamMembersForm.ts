@@ -1,14 +1,31 @@
 import { useState, useCallback, useEffect } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
-import { api } from "@/api/client";
-import { listTeamMembers, addTeamMember, updateTeamMember, removeTeamMember } from "@/api/teams";
+import { api, ApiError } from "@/api/client";
+import {
+  listTeamMembers,
+  addTeamMember,
+  inviteTeamMember,
+  updateTeamMember,
+  removeTeamMember,
+} from "@/api/teams";
 import type { ComboboxOption } from "@/components/ui/combobox";
 import type { TeamMember } from "@/types/team";
 import type { UsersResponse } from "@/types/user";
-import { sanitizeError } from "@/utils/errors";
+import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
 export const AVAILABLE_ROLES = ["owner", "member"] as const;
+type TeamRole = (typeof AVAILABLE_ROLES)[number];
+
+/**
+ * Narrows a row's role to the API's strict union. `MemberRow.role` is plain
+ * `string` (it round-trips through a generic `<select>`), but the role Select
+ * only ever offers `AVAILABLE_ROLES`, so this is just a type-safe cast with a
+ * defensive fallback rather than real runtime validation.
+ */
+function toTeamRole(role: string): TeamRole {
+  return role === "owner" ? "owner" : "member";
+}
 
 export interface MemberRow {
   id: string;
@@ -145,8 +162,31 @@ export function useTeamMembersForm({
         (m) => m.isExisting && originalRoleByEmail.get(m.email.toLowerCase()) !== m.role,
       );
 
+      // There is no "add-or-invite" endpoint for an existing team (only team
+      // creation seeds both in one call), so each row is added directly and,
+      // only when the address has no account (addTeamMember 404s with "User
+      // not found"), falls back to sending an invitation instead.
+      const invitedEmails: string[] = [];
       for (const member of membersToAdd) {
-        await addTeamMember(teamId, { email: member.email, role: member.role });
+        try {
+          await addTeamMember(teamId, { email: member.email, role: member.role });
+        } catch (err) {
+          // 404 is also returned when the team itself is gone; only fall back
+          // to inviting when the service specifically reported an unknown user.
+          const isUnknownUser =
+            err instanceof ApiError &&
+            err.status === 404 &&
+            extractApiErrorDetail(err.body) === "User not found";
+          if (isUnknownUser) {
+            await inviteTeamMember(teamId, {
+              email: member.email,
+              role: toTeamRole(member.role),
+            });
+            invitedEmails.push(member.email);
+          } else {
+            throw err;
+          }
+        }
       }
 
       for (const member of membersToUpdate) {
@@ -161,6 +201,18 @@ export function useTeamMembersForm({
       if (totalChanges > 0) {
         toast.success(intl.formatMessage({ id: "teams.members.success" }, { count: totalChanges }));
         onSuccess?.();
+      }
+
+      // Report which addresses were invited rather than added directly, so
+      // the user isn't left guessing whether an invitation was sent.
+      if (invitedEmails.length > 0) {
+        toast.success(
+          intl.formatMessage(
+            { id: "teams.members.invitationsSent" },
+            { count: invitedEmails.length },
+          ),
+          { description: invitedEmails.join(", ") },
+        );
       }
 
       onClose();

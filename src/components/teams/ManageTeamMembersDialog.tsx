@@ -111,7 +111,10 @@ export function ManageTeamMembersDialog({
                         emptyText={intl.formatMessage({
                           id: "teams.members.email.placeholder",
                         })}
-                        allowCustomValue={false}
+                        // An address with no account is still a valid row: it falls
+                        // back to an invitation instead of a direct add (see
+                        // useTeamMembersForm).
+                        allowCustomValue
                         disabled={member.isExisting || isSaving}
                         className="h-9"
                       />

@@ -205,7 +205,9 @@ export function TeamForm({ isOpen, onToggle, onSuccess, team }: TeamFormProps) {
                           id: "teams.create.memberPlaceholder",
                         })}
                         emptyText={intl.formatMessage({ id: "teams.create.memberPlaceholder" })}
-                        allowCustomValue={false}
+                        // An address with no account is still a valid row: the server
+                        // invites it instead of adding it directly (see useTeamForm).
+                        allowCustomValue
                         disabled={isSubmitting}
                         className="h-10 border-neutral-300 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
                       />
