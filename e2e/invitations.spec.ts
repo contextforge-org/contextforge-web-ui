@@ -7,6 +7,8 @@
 import { test, expect, DEFAULT_TEST_USER } from "./fixtures/api-mock";
 import type { Page } from "@playwright/test";
 import { APP } from "./utils/paths";
+
+const IS_REAL_API = process.env.E2E_REAL_API === "true";
 import type { Team, TeamInvitation } from "../src/types/team";
 
 const A_WEEK_FROM_NOW = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -269,6 +271,11 @@ test.describe("Pending team invitations", () => {
   });
 
   test("a non-admin can reach an invitation", async ({ page, apiMock }) => {
+    // apiMock.mockSession's `user` override is ignored under E2E_REAL_API
+    // (it does a real login instead of stubbing) -- the only seeded user
+    // is an admin, so there's no real non-admin identity to test this
+    // against without extending the seed script.
+    test.skip(IS_REAL_API, "needs a non-admin identity; only an admin is seeded");
     await apiMock.mockSession({ user: { ...DEFAULT_TEST_USER, is_admin: false } });
     await mockTeams(page, [MOCK_TEAM]);
     await mockInvitations(page, [PLATFORM_INVITATION]);

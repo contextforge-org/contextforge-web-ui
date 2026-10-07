@@ -49,23 +49,22 @@ test.describe("OAuth authorization-code popup flow", () => {
 
   test("create -> popup -> postMessage -> activate -> fetch tools", async ({ page, context }) => {
     // Registered at the browser-context level (not just this page) so it also
-    // covers the popup window's own navigation, exactly like mcpgateway's
-    // popup-branch callback HTML: postMessage(payload, '*') then window.close().
+    // covers the popup window's own navigation. The popup itself is now just
+    // a blank landing page -- the test drives the postMessage + close from
+    // the popup's own handle (below), once it has confirmed the opener is
+    // actually showing its "waiting" state, instead of racing a fixed delay
+    // against that render the way an in-popup setTimeout did.
     await context.route("**/oauth/authorize/**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "text/html",
-        body: `<!DOCTYPE html><html><body><script>
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage(
-              { type: "oauth_callback", status: "success", gatewayId: "${GATEWAY_ID}", gatewayName: "${GATEWAY_NAME}" },
-              "*"
-            );
-          }
-          window.close();
-        </script></body></html>`,
+        body: "<!DOCTYPE html><html><body></body></html>",
       });
     });
+
+    // Resolves once window.open() creates the popup (triggered below by
+    // clicking "Connect server"), giving a handle to run script inside it.
+    const popupPromise = context.waitForEvent("page");
 
     await page.route("**/v1/mcp-servers", async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
@@ -132,9 +131,42 @@ test.describe("OAuth authorization-code popup flow", () => {
 
     await page.getByRole("button", { name: "Connect server" }).click();
 
+    const popup = await popupPromise;
+    // openOAuthAuthorizationPopup() opens this window blank first (so the
+    // click-gesture isn't lost to the async nonce fetch), then navigates it
+    // via location.href once the nonce resolves -- waitForLoadState() right
+    // after the "page" event would resolve against that initial blank
+    // document, not the stub this test actually cares about, letting
+    // evaluate() below race the real navigation and lose its context.
+    await popup.waitForURL(/\/oauth\/authorize\//);
+
     await expect(
       page.getByText(/Waiting for OAuth authorization in the popup window/i),
     ).toBeVisible();
+
+    // Only now -- after the opener's "waiting" state is confirmed on screen
+    // -- does the popup post its result back, mirroring mcpgateway's own
+    // popup-branch callback HTML. No explicit popup.close() here:
+    // triggerOAuthAuthorization's own message handler (src/api/servers.ts)
+    // closes the popup itself as soon as it receives this, same as the real
+    // callback HTML does from the other side. That means this evaluate()
+    // call can lose its execution context mid-flight (the opener's close()
+    // racing the CDP round-trip for evaluate()'s return) -- expected, not a
+    // failure, hence the catch.
+    await popup
+      .evaluate(
+        ({ gatewayId, gatewayName }) => {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(
+              { type: "oauth_callback", status: "success", gatewayId, gatewayName },
+              "*",
+            );
+          }
+        },
+        { gatewayId: GATEWAY_ID, gatewayName: GATEWAY_NAME },
+      )
+      .catch(() => undefined);
+
     await expect(page.getByText(/OAuth authorization successful/i)).toBeVisible();
     await expect(page.getByText(/Fetched 3 tools\./i)).toBeVisible();
   });

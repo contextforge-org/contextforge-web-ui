@@ -64,6 +64,13 @@ export interface ApiMock {
   /** Real csrfToken from this test's real login — compare against this instead of MOCK_CSRF_TOKEN when IS_REAL_API. */
   getRealCsrfToken(): Promise<string | undefined>;
   /**
+   * Real user (name, email, is_admin, ...) from this test's real login —
+   * assert against this instead of DEFAULT_TEST_USER's hardcoded fields
+   * when IS_REAL_API, since the real seeded identity doesn't match the
+   * mock. Undefined under mocked-session mode (nothing to wait for).
+   */
+  getRealUser(): Promise<MockUser | undefined>;
+  /**
    * Mocks POST /auth/change-password-required, the BFF's route used by
    * PasswordChangeRequired.tsx (client/src/pages/) after a "password change
    * required" login failure. On success it returns the same { user,
@@ -78,7 +85,12 @@ export interface ApiMock {
 }
 
 export function createApiMock(page: Page): ApiMock {
-  let realSessionResponse: Promise<{ csrfToken?: string }> | undefined;
+  let realSessionResponse: Promise<{ csrfToken?: string; user?: MockUser } | undefined> | undefined;
+  // Set synchronously from /auth/login's own response (not /auth/session's
+  // later one) -- available immediately after mockSession() resolves, with
+  // no dependency on a page navigation ever happening (getRealCsrfToken()
+  // still sources its token from /auth/session specifically; see below).
+  let realUser: MockUser | undefined;
   return {
     async mockLogin({
       user = DEFAULT_TEST_USER,
@@ -120,10 +132,16 @@ export function createApiMock(page: Page): ApiMock {
         // the logged-out state stay logged out.
         if (authenticated) {
           // AuthContext's own /auth/session call sets ITS token, not realLogin()'s — arm before it fires.
+          // Caught: a test that ends early (e.g. test.skip() inside the
+          // test body, which still runs this beforeEach first) closes the
+          // page while this is still pending, rejecting it unhandled --
+          // getRealCsrfToken()/getRealUser() already tolerate undefined.
           realSessionResponse = page
             .waitForResponse((response) => /\/auth\/session(?:\?|$)/.test(response.url()))
-            .then((response) => response.json() as Promise<{ csrfToken?: string }>);
-          await realLogin(page);
+            .then((response) => response.json() as Promise<{ csrfToken?: string; user?: MockUser }>)
+            .catch(() => undefined);
+          const loginResult = await realLogin(page);
+          realUser = loginResult.user;
         }
         return;
       }
@@ -186,6 +204,10 @@ export function createApiMock(page: Page): ApiMock {
 
     async getRealCsrfToken() {
       return (await realSessionResponse)?.csrfToken;
+    },
+
+    async getRealUser() {
+      return realUser;
     },
   };
 }
