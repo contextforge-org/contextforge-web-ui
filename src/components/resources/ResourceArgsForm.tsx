@@ -1,8 +1,8 @@
 import { useCallback, useId } from "react";
 import { useIntl } from "react-intl";
 
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export interface ResourceArgsFormProps {
   args: Record<string, string>;
@@ -43,25 +43,23 @@ export function ResourceArgsForm({ args, placeholders, onChange }: ResourceArgsF
         {placeholders.map((name) => {
           const fieldId = `${fieldIdPrefix}-${name}`;
           return (
-            <div key={name} className="space-y-1.5">
-              <Label htmlFor={fieldId} className="inline-flex items-center gap-0.5">
-                <span className="font-mono text-[12px] text-foreground">{name}</span>
-                <span className="text-red-500" aria-hidden="true">
-                  *
-                </span>
-                <span className="sr-only">
-                  {intl.formatMessage({ id: "resources.details.code.args.required" })}
-                </span>
-              </Label>
-              <Input
-                id={fieldId}
-                value={args[name] ?? ""}
-                onChange={(event) => handleChange(name, event.target.value)}
-                required
-                aria-required
-                className="placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
-              />
-            </div>
+            <Field
+              key={name}
+              id={fieldId}
+              label={name}
+              required
+              labelProps={{ className: "font-mono text-[12px] text-foreground" }}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={args[name] ?? ""}
+                  onChange={(event) => handleChange(name, event.target.value)}
+                  required
+                  className="placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+                />
+              )}
+            </Field>
           );
         })}
       </div>

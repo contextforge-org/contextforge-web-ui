@@ -78,7 +78,6 @@
   "resources.details.resourcePreview": "Resource preview",
   "resources.details.selectResource": "Select resource",
   "resources.details.code.args.heading": "Arguments",
-  "resources.details.code.args.required": "Required",
   "resources.details.code.tab.curl": "curl",
   "resources.details.code.tab.jsonRpc": "JSON-RPC",
   "resources.details.code.tab.python": "Python",

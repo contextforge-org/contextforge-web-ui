@@ -13,7 +13,6 @@
   "prompts.card.activateAriaLabel": "Activate {name}",
   "prompts.card.deactivateAriaLabel": "Deactivate {name}",
   "prompts.details.code.args.heading": "Arguments",
-  "prompts.details.code.args.required": "Required",
   "prompts.details.code.tab.curl": "curl",
   "prompts.details.code.tab.jsonRpc": "JSON-RPC",
   "prompts.details.code.tab.python": "Python",

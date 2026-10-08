@@ -78,7 +78,6 @@
   "resources.details.resourcePreview": "Vista previa del recurso",
   "resources.details.selectResource": "Seleccionar recurso",
   "resources.details.code.args.heading": "Argumentos",
-  "resources.details.code.args.required": "Requerido",
   "resources.details.code.tab.curl": "curl",
   "resources.details.code.tab.jsonRpc": "JSON-RPC",
   "resources.details.code.tab.python": "Python",
