@@ -39,7 +39,7 @@ describe("TestConnectionPanel", () => {
     expect(screen.getByRole("radiogroup", { name: /method/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^path/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/content type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/headers/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^headers/i)).toBeInTheDocument();
   });
 
   it("exposes HTTP methods as radio options", () => {
@@ -55,11 +55,11 @@ describe("TestConnectionPanel", () => {
     render(<TestConnectionPanel {...defaultProps} />);
 
     // GET is selected by default — no body field.
-    expect(screen.queryByLabelText(/body/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^body/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "Post" }));
 
-    expect(screen.getByLabelText(/body/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^body/i)).toBeInTheDocument();
   });
 
   it("calls the connectivity endpoint and shows a successful response", async () => {
@@ -136,7 +136,7 @@ describe("TestConnectionPanel", () => {
     render(<TestConnectionPanel {...defaultProps} />);
 
     await user.click(screen.getByRole("radio", { name: "Post" }));
-    await user.type(screen.getByLabelText(/body/i), '{{"hello":"world"}');
+    await user.type(screen.getByLabelText(/^body/i), '{{"hello":"world"}');
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
@@ -159,7 +159,7 @@ describe("TestConnectionPanel", () => {
     render(<TestConnectionPanel {...defaultProps} />);
 
     await user.type(
-      screen.getByLabelText(/headers/i),
+      screen.getByLabelText(/^headers/i),
       '{{"Authorization":"Bearer tok","X-Trace":"1"}',
     );
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
@@ -208,7 +208,7 @@ describe("TestConnectionPanel", () => {
     await user.click(screen.getByRole("combobox", { name: /content type/i }));
     await user.click(screen.getByRole("option", { name: /x-www-form-urlencoded/i }));
     // A non-JSON body must NOT trigger the "Invalid body JSON" validation.
-    await user.type(screen.getByLabelText(/body/i), "name=subway&line=A");
+    await user.type(screen.getByLabelText(/^body/i), "name=subway&line=A");
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
     await waitFor(() => {
@@ -308,7 +308,7 @@ describe("TestConnectionPanel", () => {
     const user = userEvent.setup();
     render(<TestConnectionPanel {...defaultProps} />);
 
-    const headersField = screen.getByLabelText(/headers/i);
+    const headersField = screen.getByLabelText(/^headers/i);
     await user.clear(headersField);
     await user.type(headersField, "invalid json");
 
@@ -326,7 +326,7 @@ describe("TestConnectionPanel", () => {
     // Body is only available for non-GET methods.
     await user.click(screen.getByRole("radio", { name: "Post" }));
 
-    const bodyField = screen.getByLabelText(/body/i);
+    const bodyField = screen.getByLabelText(/^body/i);
     await user.type(bodyField, "not json");
 
     await user.click(screen.getByRole("button", { name: /^test connection$/i }));
@@ -410,10 +410,10 @@ describe("TestConnectionPanel", () => {
 
       expect(screen.getByLabelText(/^url/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/^path/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/headers/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^headers/i)).toBeInTheDocument();
       expect(screen.queryByRole("radiogroup", { name: /method/i })).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/content type/i)).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/body/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/^body/i)).not.toBeInTheDocument();
     });
 
     it("shows the stored-credentials hint under Headers", async () => {
@@ -636,7 +636,10 @@ describe("TestConnectionPanel", () => {
 
       const hint = screen.getByText(/stored credentials for registered servers/i);
       expect(hint.id).toBe("headers-hint");
-      expect(screen.getByLabelText(/headers/i)).toHaveAttribute("aria-describedby", "headers-hint");
+      expect(screen.getByLabelText(/^headers/i)).toHaveAttribute(
+        "aria-describedby",
+        "headers-hint",
+      );
     });
 
     it("describes the Headers field by both the error and the hint", async () => {
@@ -644,11 +647,11 @@ describe("TestConnectionPanel", () => {
       render(<TestConnectionPanel {...defaultProps} />);
 
       await selectHandshakeMode(user);
-      await user.type(screen.getByLabelText(/headers/i), "not json");
+      await user.type(screen.getByLabelText(/^headers/i), "not json");
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() => expect(screen.getByText(/invalid headers json/i)).toBeInTheDocument());
-      expect(screen.getByLabelText(/headers/i)).toHaveAttribute(
+      expect(screen.getByLabelText(/^headers/i)).toHaveAttribute(
         "aria-describedby",
         "headers-error headers-hint",
       );
@@ -666,7 +669,7 @@ describe("TestConnectionPanel", () => {
       render(<TestConnectionPanel {...defaultProps} />);
 
       await selectHandshakeMode(user);
-      await user.type(screen.getByLabelText(/headers/i), '{{"X-Retry": 3}');
+      await user.type(screen.getByLabelText(/^headers/i), '{{"X-Retry": 3}');
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
       await waitFor(() =>
@@ -723,7 +726,7 @@ describe("TestConnectionPanel", () => {
       // Only HTTP mode validates the body, and the handshake payload never
       // carries one — leftover invalid JSON must not be parsed on this path.
       await user.click(screen.getByRole("radio", { name: "Post" }));
-      await user.type(screen.getByLabelText(/body/i), "not json");
+      await user.type(screen.getByLabelText(/^body/i), "not json");
 
       await selectHandshakeMode(user);
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
@@ -874,7 +877,7 @@ describe("TestConnectionPanel", () => {
       render(<TestConnectionPanel {...defaultProps} />);
 
       await selectHandshakeMode(user);
-      await user.click(screen.getByLabelText(/headers/i));
+      await user.click(screen.getByLabelText(/^headers/i));
       await user.paste('{"X-Api-Key": "k"}');
       await user.click(screen.getByRole("button", { name: /^test connection$/i }));
 
