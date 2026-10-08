@@ -12,6 +12,7 @@ import {
 import type { ComboboxOption } from "@/components/ui/combobox";
 import type { TeamMember } from "@/types/team";
 import type { UsersResponse } from "@/types/user";
+import { copyToClipboard } from "@/lib/clipboard";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
 export const AVAILABLE_ROLES = ["owner", "member"] as const;
@@ -166,10 +167,17 @@ export function useTeamMembersForm({
       // creation seeds both in one call), so each row is added directly and,
       // only when the address has no account (addTeamMember 404s with "User
       // not found"), falls back to sending an invitation instead.
-      const invitedEmails: string[] = [];
+      const addedEmails: string[] = [];
+      const sentInvitationEmails: string[] = [];
+      const undeliveredInvitations: Array<{
+        email: string;
+        invitationUrl: string;
+        warning?: string | null;
+      }> = [];
       for (const member of membersToAdd) {
         try {
           await addTeamMember(teamId, { email: member.email, role: member.role });
+          addedEmails.push(member.email);
         } catch (err) {
           // 404 is also returned when the team itself is gone; only fall back
           // to inviting when the service specifically reported an unknown user.
@@ -178,11 +186,22 @@ export function useTeamMembersForm({
             err.status === 404 &&
             extractApiErrorDetail(err.body) === "User not found";
           if (isUnknownUser) {
-            await inviteTeamMember(teamId, {
+            const invitation = await inviteTeamMember(teamId, {
               email: member.email,
               role: toTeamRole(member.role),
             });
-            invitedEmails.push(member.email);
+            // The invitation is always created even when the notification email
+            // isn't; only report it as "sent" when delivery actually succeeded,
+            // and surface the rest as a warning with a link to share manually.
+            if (invitation.email_delivery_status === "sent") {
+              sentInvitationEmails.push(invitation.email);
+            } else {
+              undeliveredInvitations.push({
+                email: invitation.email,
+                invitationUrl: invitation.invitation_url,
+                warning: invitation.warning,
+              });
+            }
           } else {
             throw err;
           }
@@ -197,21 +216,53 @@ export function useTeamMembersForm({
         await removeTeamMember(teamId, member.user_email);
       }
 
-      const totalChanges = membersToAdd.length + membersToUpdate.length + membersToRemove.length;
+      const totalChanges =
+        addedEmails.length +
+        sentInvitationEmails.length +
+        undeliveredInvitations.length +
+        membersToUpdate.length +
+        membersToRemove.length;
       if (totalChanges > 0) {
         toast.success(intl.formatMessage({ id: "teams.members.success" }, { count: totalChanges }));
         onSuccess?.();
       }
 
-      // Report which addresses were invited rather than added directly, so
-      // the user isn't left guessing whether an invitation was sent.
-      if (invitedEmails.length > 0) {
+      // Report which addresses were added directly vs. invited, so the user
+      // isn't left guessing what happened to each address.
+      if (addedEmails.length > 0) {
+        toast.success(
+          intl.formatMessage({ id: "teams.members.membersAdded" }, { count: addedEmails.length }),
+          { description: addedEmails.join(", ") },
+        );
+      }
+
+      if (sentInvitationEmails.length > 0) {
         toast.success(
           intl.formatMessage(
             { id: "teams.members.invitationsSent" },
-            { count: invitedEmails.length },
+            { count: sentInvitationEmails.length },
           ),
-          { description: invitedEmails.join(", ") },
+          { description: sentInvitationEmails.join(", ") },
+        );
+      }
+
+      for (const undelivered of undeliveredInvitations) {
+        toast.warning(
+          intl.formatMessage(
+            { id: "teams.members.invitation.deliveryWarning" },
+            { email: undelivered.email },
+          ),
+          {
+            description:
+              undelivered.warning ??
+              intl.formatMessage({ id: "teams.members.invitation.deliveryWarning.description" }),
+            action: {
+              label: intl.formatMessage({ id: "common.button.copyLink" }),
+              onClick: () => {
+                void copyToClipboard(undelivered.invitationUrl);
+              },
+            },
+          },
         );
       }
 

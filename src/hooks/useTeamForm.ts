@@ -219,8 +219,17 @@ export function useTeamForm(team?: Team): UseTeamFormReturn {
         });
 
         // Report which seeded addresses were added directly vs. invited, so
-        // the user isn't left guessing whether an invitation was sent.
+        // the user isn't left guessing what happened to each address.
+        const addedEmails = createdTeam.members_added?.map((m) => m.email) ?? [];
         const invitedEmails = createdTeam.invitations_sent?.map((inv) => inv.email) ?? [];
+
+        if (addedEmails.length > 0) {
+          toast.success(
+            intl.formatMessage({ id: "teams.create.membersAdded" }, { count: addedEmails.length }),
+            { description: addedEmails.join(", ") },
+          );
+        }
+
         if (invitedEmails.length > 0) {
           toast.success(
             intl.formatMessage(

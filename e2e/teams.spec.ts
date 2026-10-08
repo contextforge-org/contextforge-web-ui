@@ -883,6 +883,93 @@ test.describe("Teams page", () => {
       ).toBeVisible();
     });
 
+    test("warns with a copyable link instead of reporting success when invite delivery fails", async ({
+      page,
+      context,
+    }) => {
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.route("**/teams?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ teams: [MOCK_TEAM] }),
+        });
+      });
+
+      await page.route(MOCK_TEAM_MEMBERS_ROUTE, async (route) => {
+        if (route.request().method() === "GET") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([MOCK_MEMBER]),
+          });
+        } else if (route.request().method() === "POST") {
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "User not found" }),
+          });
+        }
+      });
+
+      await page.route(`**/teams/${MOCK_TEAM.id}/invitations`, async (route) => {
+        if (route.request().method() === "POST") {
+          const body = JSON.parse(route.request().postData() || "{}");
+          await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+              id: "inv-2",
+              team_id: MOCK_TEAM.id,
+              team_name: MOCK_TEAM.name,
+              email: body.email,
+              role: body.role,
+              invited_by: "admin@example.com",
+              invited_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 86400000).toISOString(),
+              token: "token-2",
+              is_active: true,
+              is_expired: false,
+              invitation_url: "https://example.com/invite/token-2",
+              email_delivery_status: "disabled",
+              warning: "Email delivery is disabled for this deployment.",
+            }),
+          });
+        }
+      });
+
+      await page.goto(APP.TEAMS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for Engineering" }).click();
+      await page.getByRole("menuitem", { name: "Manage Members" }).click();
+
+      await page.getByRole("button", { name: "Add member" }).click();
+      await enterCustomComboboxEmail(
+        page,
+        page.locator(MANAGE_MEMBERS_INPUT).last(),
+        "nobody@example.com",
+      );
+
+      await page.getByRole("button", { name: "Save" }).click();
+
+      // The invitation was created, but delivery was disabled — this must not
+      // surface as a plain "invitation sent" success toast.
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /invitation sent/i }),
+      ).not.toBeVisible();
+
+      const warningToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "nobody@example.com" });
+      await expect(warningToast).toBeVisible();
+
+      await warningToast.getByRole("button", { name: "Copy link" }).click();
+      await expect
+        .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+        .toBe("https://example.com/invite/token-2");
+    });
+
     test("removes member", async ({ page }) => {
       let deleteCount = 0;
 

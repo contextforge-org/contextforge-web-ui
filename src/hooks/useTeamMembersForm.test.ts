@@ -8,13 +8,33 @@ import { useTeamMembersForm } from "./useTeamMembersForm";
 vi.mock("@/api/teams", () => ({
   listTeamMembers: vi.fn(),
   addTeamMember: vi.fn(() => Promise.resolve()),
-  inviteTeamMember: vi.fn(() => Promise.resolve()),
+  inviteTeamMember: vi.fn((_teamId: string, data: { email: string; role: string }) =>
+    Promise.resolve({
+      id: "inv-1",
+      team_id: "team-1",
+      team_name: "Team",
+      email: data.email,
+      role: data.role,
+      invited_by: "owner@example.com",
+      invited_at: "2024-01-01T00:00:00Z",
+      expires_at: "2024-01-08T00:00:00Z",
+      token: "token-1",
+      is_active: true,
+      is_expired: false,
+      invitation_url: "https://example.com/invite/token-1",
+      email_delivery_status: "sent",
+    }),
+  ),
   updateTeamMember: vi.fn(() => Promise.resolve()),
   removeTeamMember: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+}));
+
+vi.mock("@/lib/clipboard", () => ({
+  copyToClipboard: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -34,6 +54,7 @@ import {
 } from "@/api/teams";
 import { api, ApiError } from "@/api/client";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 const TEAM_ID = "team-1";
 
@@ -179,6 +200,73 @@ describe("useTeamMembersForm", () => {
       expect.stringContaining("invitation"),
       expect.objectContaining({ description: expect.stringContaining("nobody@example.com") }),
     );
+  });
+
+  it("reports a directly added member by address, not just a change count", async () => {
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    const { result } = renderForm();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.changeEmail(result.current.members[0].id, "new@example.com"));
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("member"),
+      expect.objectContaining({ description: expect.stringContaining("new@example.com") }),
+    );
+  });
+
+  it("warns with a copyable link when an invitation is created but not delivered", async () => {
+    vi.mocked(listTeamMembers).mockResolvedValue([]);
+    vi.mocked(addTeamMember).mockRejectedValueOnce(
+      new ApiError(404, { detail: "User not found" }, "HTTP 404"),
+    );
+    vi.mocked(inviteTeamMember).mockResolvedValueOnce({
+      id: "inv-2",
+      team_id: TEAM_ID,
+      team_name: "Team",
+      email: "nobody@example.com",
+      role: "member",
+      invited_by: "owner@example.com",
+      invited_at: "2024-01-01T00:00:00Z",
+      expires_at: "2024-01-08T00:00:00Z",
+      token: "token-2",
+      is_active: true,
+      is_expired: false,
+      invitation_url: "https://example.com/invite/token-2",
+      email_delivery_status: "disabled",
+      warning: "Email delivery is disabled for this deployment.",
+    });
+    const { result } = renderForm();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.changeEmail(result.current.members[0].id, "nobody@example.com"));
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    // Delivery wasn't confirmed, so this must not be reported via the
+    // "invitation sent" success toast.
+    expect(toast.success).not.toHaveBeenCalledWith(
+      expect.stringContaining("invitation"),
+      expect.anything(),
+    );
+    expect(toast.warning).toHaveBeenCalledWith(
+      expect.stringContaining("nobody@example.com"),
+      expect.objectContaining({
+        description: "Email delivery is disabled for this deployment.",
+        action: expect.objectContaining({ onClick: expect.any(Function) }),
+      }),
+    );
+
+    const [, options] = vi.mocked(toast.warning).mock.calls[0];
+    const action = options?.action as unknown as { onClick: () => void };
+    action.onClick();
+    expect(copyToClipboard).toHaveBeenCalledWith("https://example.com/invite/token-2");
   });
 
   it("invites a new row at the default member role (not just owner)", async () => {

@@ -261,6 +261,46 @@ describe("useTeamForm", () => {
       expect(result.current.name).toBe("");
     });
 
+    it("reports both directly added and invited addresses for a mixed submission", async () => {
+      server.use(
+        http.post("*/teams", () =>
+          HttpResponse.json(
+            {
+              id: "team-1",
+              name: "Engineering",
+              members_added: [{ email: "existing@partner.com", role: "member" }],
+              invitations_sent: [
+                { email: "external@partner.com", role: "member", invitation_id: "inv-1" },
+              ],
+            },
+            { status: 201 },
+          ),
+        ),
+      );
+
+      const onSuccess = vi.fn();
+      const { result } = renderHook(() => useTeamForm());
+
+      act(() => {
+        result.current.setName("Engineering");
+        result.current.handleMemberEmailChange(0, "existing@partner.com");
+      });
+
+      await act(async () => {
+        await result.current.handleSubmit(fakeSubmit(), onSuccess);
+      });
+
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        expect.stringContaining("member"),
+        expect.objectContaining({ description: expect.stringContaining("existing@partner.com") }),
+      );
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        expect.stringContaining("invitation"),
+        expect.objectContaining({ description: expect.stringContaining("external@partner.com") }),
+      );
+    });
+
     it("creation fails as a unit when a seeded member row is invalid, with no partial-success toast", async () => {
       server.use(
         http.post("*/teams", () =>
