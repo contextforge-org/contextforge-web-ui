@@ -106,6 +106,30 @@ describe("CatalogOAuthForm", () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
+  it("associates the explanatory description with the form landmark", () => {
+    renderForm();
+    const form = screen.getByRole("form", { name: "Add GitHub" });
+    const description = document.getElementById("catalog-oauth-description");
+    expect(description).toBeInTheDocument();
+    expect(description).not.toBeEmptyDOMElement();
+    expect(form).toHaveAccessibleDescription(description!.textContent!);
+  });
+
+  it("allows keyboard focus to leave the inline form without clearing credentials", async () => {
+    const user = userEvent.setup();
+    const { container } = renderForm();
+    const navigation = document.createElement("button");
+    navigation.textContent = "Global navigation";
+    container.append(navigation);
+
+    await user.type(screen.getByLabelText(/^Client Secret/i), "temporary-secret");
+    screen.getByRole("button", { name: "Save" }).focus();
+    await user.tab();
+
+    expect(navigation).toHaveFocus();
+    expect(screen.getByLabelText(/^Client Secret/i)).toHaveValue("temporary-secret");
+  });
+
   beforeEach(() => {
     teamScopeState.teams = [];
     teamScopeState.onTeamChange.mockReset();

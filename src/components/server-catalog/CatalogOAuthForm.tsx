@@ -191,12 +191,13 @@ export function CatalogOAuthForm({
               {intl.formatMessage({ id: "mcpServer.catalog.oauth.title" }, { name: server.name })}
             </h2>
           </div>
-          <p className="text-sm leading-6 text-muted-foreground">
+          <p id="catalog-oauth-description" className="text-sm leading-6 text-muted-foreground">
             {intl.formatMessage({ id: "mcpServer.catalog.oauth.description" })}
           </p>
         </div>
         <form
           aria-labelledby="catalog-oauth-heading"
+          aria-describedby="catalog-oauth-description"
           className="space-y-6"
           onSubmit={(event) => void handleSubmit(event)}
         >
