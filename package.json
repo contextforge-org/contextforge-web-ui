@@ -104,6 +104,9 @@
     "vite": "^6.4.3",
     "vitest": "^4.1.9"
   },
+  "overrides": {
+    "proxy-addr": "^2.0.8"
+  },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,json,css,md}": "prettier --write --ignore-unknown",
     "{src,server,e2e}/**/*.{ts,tsx}": "eslint --fix"
