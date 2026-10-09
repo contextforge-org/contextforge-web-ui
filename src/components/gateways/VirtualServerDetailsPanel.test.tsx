@@ -363,8 +363,11 @@ describe("VirtualServerDetailsPanel tool testing", () => {
       "true",
     );
     await user.click(screen.getByRole("tab", { name: "Components" }));
-    await user.click(await screen.findByRole("button", { name: "Actions for Search issues" }));
-    expect(screen.queryByRole("menuitem", { name: "Test" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Search issues")).toBeInTheDocument();
+    // No actions at all without the flag or a remove handler.
+    expect(
+      screen.queryByRole("button", { name: "Actions for Search issues" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens a fetched tool test in place and returns to the component list", async () => {
@@ -555,8 +558,10 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     );
 
     await user.click(await screen.findByRole("tab", { name: "Components" }));
-    await user.click(await screen.findByRole("button", { name: "Actions for Fallback Tool" }));
-    expect(screen.queryByRole("menuitem", { name: "Test" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Fallback Tool")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Actions for Fallback Tool" }),
+    ).not.toBeInTheDocument();
   });
 
   it.each([{ permissions: ["servers.use"] }, { permissions: ["tools.execute"] }])(
@@ -589,6 +594,68 @@ describe("VirtualServerDetailsPanel tool testing", () => {
       expect(screen.queryByText("Live invocation")).not.toBeInTheDocument();
     },
   );
+});
+
+describe("VirtualServerDetailsPanel remove from server", () => {
+  it("confirms, removes the component and refetches its list", async () => {
+    const user = userEvent.setup();
+    let tools = [makeTool()];
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools })),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+    );
+    const onRemoveComponent = vi.fn(async () => {
+      tools = [];
+    });
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+        onRemoveComponent={onRemoveComponent}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(await screen.findByRole("button", { name: "Actions for Search issues" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    await user.click(await screen.findByRole("button", { name: "Remove" }));
+
+    expect(onRemoveComponent).toHaveBeenCalledWith("tools", "tool-search");
+    await waitFor(() => expect(screen.queryByText("Search issues")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dialog open when removal fails", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [makeTool()] })),
+      http.get("*/v1/virtual-servers/:id/resources", () => HttpResponse.json({ resources: [] })),
+      http.get("*/v1/virtual-servers/:id/prompts", () => HttpResponse.json({ prompts: [] })),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer()}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+        onRemoveComponent={vi.fn().mockRejectedValue(new Error("nope"))}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(await screen.findByRole("button", { name: "Actions for Search issues" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    await user.click(await screen.findByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+  });
 });
 
 describe("VirtualServerDetailsPanel render variants", () => {

@@ -10,7 +10,9 @@ import { Loading } from "@/components/ui/loading";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   deleteVirtualServer,
+  getVirtualServer,
   setVirtualServerState,
+  updateVirtualServerComponents,
   updateVirtualServerTags,
 } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
@@ -56,6 +58,24 @@ export function Gateways() {
   const isDeletePending = pendingDeleteServerId !== null;
   const isTogglePending = pendingToggleServerId !== null;
 
+  // Patches one server in the page list and the open details panel.
+  const handleServerUpdated = useCallback(
+    (updated: VirtualServer) => {
+      setData((previous) =>
+        previous
+          ? {
+              ...previous,
+              servers: (previous.servers ?? []).map((candidate) =>
+                candidate.id === updated.id ? updated : candidate,
+              ),
+            }
+          : previous,
+      );
+      setDetailsServer((current) => (current?.id === updated.id ? updated : current));
+    },
+    [setData],
+  );
+
   const setServerState = useCallback(
     async (server: VirtualServer, activate: boolean) => {
       if (pendingToggleServerIdRef.current) return false;
@@ -65,17 +85,7 @@ export function Gateways() {
 
       try {
         const updated = await setVirtualServerState(server.id, activate);
-        setData((previous) =>
-          previous
-            ? {
-                ...previous,
-                servers: (previous.servers ?? []).map((candidate) =>
-                  candidate.id === updated.id ? updated : candidate,
-                ),
-              }
-            : previous,
-        );
-        setDetailsServer((current) => (current?.id === updated.id ? updated : current));
+        handleServerUpdated(updated);
         toast.success(
           intl.formatMessage(
             {
@@ -99,7 +109,7 @@ export function Gateways() {
         setPendingToggleServerId(null);
       }
     },
-    [intl, setData],
+    [intl, handleServerUpdated],
   );
 
   const handleToggleStatus = useCallback(
@@ -308,6 +318,7 @@ export function Gateways() {
           open={isDetailsPanelOpen}
           onClose={() => setIsDetailsPanelOpen(false)}
           onAddSources={(server) => openEditPanel(server)}
+          onServerUpdated={handleServerUpdated}
         />
       )}
 
@@ -356,12 +367,14 @@ function VirtualServerDetailsPanelContainer({
   open,
   onClose,
   onAddSources,
+  onServerUpdated,
 }: {
   serverId: string;
   server: VirtualServer | null;
   open: boolean;
   onClose: () => void;
   onAddSources: (server: VirtualServer) => void;
+  onServerUpdated: (server: VirtualServer) => void;
 }) {
   const intl = useIntl();
   const {
@@ -393,6 +406,35 @@ function VirtualServerDetailsPanelContainer({
     [setServerDetails, intl],
   );
 
+  const handleRemoveComponent = useCallback(
+    async (kind: "tools" | "resources" | "prompts", componentId: string) => {
+      if (!hydratedServer) return;
+      try {
+        // The PUT replaces the whole list, so read it fresh to keep concurrent edits.
+        // ponytail: still racy between GET and PUT; needs a backend remove-one endpoint or version check.
+        const latest = await getVirtualServer(hydratedServer.id);
+        const current =
+          kind === "tools"
+            ? (latest.associatedToolIds ?? [])
+            : kind === "resources"
+              ? (latest.associatedResources ?? [])
+              : (latest.associatedPrompts ?? []);
+        const updated = await updateVirtualServerComponents(
+          hydratedServer.id,
+          kind,
+          current.filter((id) => id !== componentId),
+        );
+        setServerDetails((prev) => (prev && prev.id === updated.id ? updated : prev));
+        onServerUpdated(updated);
+      } catch (err) {
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        toast.error(detail || intl.formatMessage({ id: "gateways.details.remove.error" }));
+        throw err;
+      }
+    },
+    [hydratedServer, setServerDetails, onServerUpdated, intl],
+  );
+
   if (!hydratedServer) {
     return null;
   }
@@ -406,6 +448,7 @@ function VirtualServerDetailsPanelContainer({
       onClose={onClose}
       onAddSources={() => onAddSources(hydratedServer)}
       onAddTag={handleAddTag}
+      onRemoveComponent={handleRemoveComponent}
     />
   );
 }

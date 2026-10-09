@@ -35,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText, getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
 import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
+import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { isVirtualServerToolTryItEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
 import type { MCPServer, VirtualServer } from "@/types/server";
@@ -155,6 +156,7 @@ export function VirtualServerDetailsPanel({
   onClose,
   onAddSources,
   onAddTag,
+  onRemoveComponent,
 }: {
   server: VirtualServer | null;
   error: { message: string } | null;
@@ -167,6 +169,8 @@ export function VirtualServerDetailsPanel({
    * tag row shows a non-interactive "add" affordance.
    */
   onAddTag?: (serverId: string, tags: string[]) => Promise<void>;
+  /** Drops one component from the server. When omitted, rows offer no remove action. */
+  onRemoveComponent?: (kind: Exclude<ComponentFilter, "all">, componentId: string) => Promise<void>;
 }) {
   const intl = useIntl();
   const endpoint = server ? getVirtualServerEndpoint(server) : "";
@@ -179,6 +183,8 @@ export function VirtualServerDetailsPanel({
   const [componentFilter, setComponentFilter] = useState<ComponentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<ComponentWithType | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -260,6 +266,7 @@ export function VirtualServerDetailsPanel({
     data: toolsData,
     isLoading: toolsLoading,
     error: toolsError,
+    refetch: refetchTools,
   } = useQuery<{ tools: VirtualServerTool[] } | VirtualServerTool[]>(toolsPath, {
     enabled: fetchEnabled,
   });
@@ -268,6 +275,7 @@ export function VirtualServerDetailsPanel({
     data: resourcesData,
     isLoading: resourcesLoading,
     error: resourcesError,
+    refetch: refetchResources,
   } = useQuery<{ resources: Resource[] }>(resourcesPath, {
     enabled: fetchEnabled,
   });
@@ -276,6 +284,7 @@ export function VirtualServerDetailsPanel({
     data: promptsData,
     isLoading: promptsLoading,
     error: promptsError,
+    refetch: refetchPrompts,
   } = useQuery<{ prompts: Prompt[] }>(promptsPath, {
     enabled: fetchEnabled,
   });
@@ -321,6 +330,25 @@ export function VirtualServerDetailsPanel({
   }, [server]);
 
   const allComponents = fetchedComponents.length > 0 ? fetchedComponents : fallbackComponents;
+  // Fallback rows carry synthetic IDs, so only fetched rows can be removed.
+  const canRemoveComponents = Boolean(onRemoveComponent) && fetchedComponents.length > 0;
+
+  const confirmRemoval = useCallback(async () => {
+    if (!pendingRemoval || !onRemoveComponent) return;
+    setIsRemoving(true);
+    try {
+      await onRemoveComponent(pendingRemoval.type, pendingRemoval.id);
+      const refetch = { tools: refetchTools, resources: refetchResources, prompts: refetchPrompts }[
+        pendingRemoval.type
+      ];
+      setPendingRemoval(null);
+      await refetch().catch(() => undefined);
+    } catch {
+      // The caller reports the failure; keep the dialog open for a retry.
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [pendingRemoval, onRemoveComponent, refetchTools, refetchResources, refetchPrompts]);
 
   // The virtual server's own aggregated component counts, used to flag a
   // mismatch against what the handshake test itself reports. The handshake
@@ -468,13 +496,14 @@ export function VirtualServerDetailsPanel({
 
   // ESC key handler
   useEffect(() => {
-    if (!open) return;
+    // The remove dialog handles its own Escape.
+    if (!open || pendingRemoval) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, pendingRemoval]);
 
   // Filter components based on active tab and search query
   const visibleComponents = useMemo((): ComponentWithType[] => {
@@ -814,7 +843,8 @@ export function VirtualServerDetailsPanel({
                                     <span aria-hidden="true" />
                                   </>
                                 )}
-                                {virtualServerToolTryItEnabled && testableTool ? (
+                                {(virtualServerToolTryItEnabled && testableTool) ||
+                                canRemoveComponents ? (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button
@@ -840,32 +870,33 @@ export function VirtualServerDetailsPanel({
                                         }
                                       }}
                                     >
-                                      <DropdownMenuItem
-                                        onSelect={() => {
-                                          openingToolTestRef.current = true;
-                                          returnToToolActionsIdRef.current = `virtual-server-tool-actions-${server.id}-${component.id}`;
-                                          setSelectedTestToolId(testableTool.id);
-                                        }}
-                                      >
-                                        {intl.formatMessage({
-                                          id: "gateways.details.component.test",
-                                        })}
-                                      </DropdownMenuItem>
+                                      {virtualServerToolTryItEnabled && testableTool && (
+                                        <DropdownMenuItem
+                                          onSelect={() => {
+                                            openingToolTestRef.current = true;
+                                            returnToToolActionsIdRef.current = `virtual-server-tool-actions-${server.id}-${component.id}`;
+                                            setSelectedTestToolId(testableTool.id);
+                                          }}
+                                        >
+                                          {intl.formatMessage({
+                                            id: "gateways.details.component.test",
+                                          })}
+                                        </DropdownMenuItem>
+                                      )}
+                                      {canRemoveComponents && (
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive"
+                                          onSelect={() => setPendingRemoval(component)}
+                                        >
+                                          {intl.formatMessage({
+                                            id: "gateways.details.component.remove",
+                                          })}
+                                        </DropdownMenuItem>
+                                      )}
                                     </DropdownMenuContent>
                                   </DropdownMenu>
                                 ) : (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    aria-label={intl.formatMessage(
-                                      { id: "gateways.details.actionsFor" },
-                                      { name: title ?? identifier },
-                                    )}
-                                    className="justify-self-end text-muted-foreground"
-                                  >
-                                    <EllipsisVertical className="size-4" />
-                                  </Button>
+                                  <span aria-hidden="true" />
                                 )}
                               </div>
                             );
@@ -980,6 +1011,31 @@ export function VirtualServerDetailsPanel({
           </div>
         )}
       </aside>
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        role="alertdialog"
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !isRemoving) setPendingRemoval(null);
+        }}
+        title={intl.formatMessage({ id: "gateways.details.remove.title" })}
+        description={intl.formatMessage(
+          { id: "gateways.details.remove.description" },
+          {
+            name: pendingRemoval
+              ? (pendingRemoval.title ?? getComponentIdentifier(pendingRemoval))
+              : "",
+            server: server?.name ?? "",
+            kind: pendingRemoval ? getComponentLabel(pendingRemoval.type) : "",
+          },
+        )}
+        confirmLabel={intl.formatMessage({ id: "gateways.details.remove.confirm" })}
+        cancelLabel={intl.formatMessage({ id: "common.button.cancel" })}
+        variant="destructive"
+        onConfirm={confirmRemoval}
+        isLoading={isRemoving}
+        loadingLabel={intl.formatMessage({ id: "gateways.details.remove.removing" })}
+        closeOnConfirm={false}
+      />
     </>
   );
 }
