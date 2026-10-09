@@ -19,8 +19,6 @@ import { useResourcePreview } from "./useResourcePreview";
 const DEFAULT_LANGUAGE = "curl";
 /** Maximum number of resource chips shown before the picker truncates and relies on search. */
 const MAX_VISIBLE_RESOURCE_CHIPS = 10;
-/** Resource count above which the search box is worth showing. */
-const SEARCH_THRESHOLD = MAX_VISIBLE_RESOURCE_CHIPS;
 
 export interface ResourceTryItTabProps {
   resources: NonNullable<ResourceRead>[];
@@ -77,7 +75,7 @@ export function ResourceTryItTab({
         <h3 className="text-sm font-semibold text-foreground">
           {intl.formatMessage({ id: "resources.details.resourcePreview" })}
         </h3>
-        {resources.length > SEARCH_THRESHOLD && (
+        {resources.length > MAX_VISIBLE_RESOURCE_CHIPS && (
           <ListSearch
             value={searchQuery}
             onChange={setSearchQuery}
@@ -121,7 +119,15 @@ export function ResourceTryItTab({
           {hiddenCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex cursor-default items-center rounded-full border border-transparent bg-muted px-3 py-1.5 font-mono text-[12px] text-muted-foreground">
+                <span
+                  tabIndex={0}
+                  role="img"
+                  aria-label={intl.formatMessage(
+                    { id: "resources.details.selectResource.moreCount" },
+                    { count: hiddenCount },
+                  )}
+                  className="inline-flex cursor-default items-center rounded-full border border-transparent bg-muted px-3 py-1.5 font-mono text-[12px] text-muted-foreground"
+                >
                   +{hiddenCount}
                 </span>
               </TooltipTrigger>
