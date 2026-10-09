@@ -47,6 +47,7 @@ function toolToInitialValues(tool: Tool) {
     authPassword: tool.auth?.password ?? "", // pragma: allowlist secret
     bearerToken: tool.auth?.token ?? "",
     customHeaders,
+    annotations: tool.annotations ?? {},
     advancedOpen: Boolean(
       tool.description ||
       (tool.tags && tool.tags.length > 0) ||
@@ -90,6 +91,7 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
     tags,
     inputSchema,
     outputSchema,
+    toolBehavior,
     isGeneratingSchema,
     schemaMode,
     openApiSpecUrl,
@@ -115,6 +117,7 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
     setTags,
     setInputSchema,
     setOutputSchema,
+    setToolBehavior,
     setSchemaMode,
     setOpenApiSpecUrl,
     generateSchema,
@@ -486,6 +489,8 @@ export function ToolForm({ isOpen, onToggle, onSuccess, tool }: ToolFormProps) {
                     onTagsChange={setTags}
                     description={description}
                     onDescriptionChange={setDescription}
+                    toolBehavior={integrationType !== "MCP" ? toolBehavior : undefined}
+                    onToolBehaviorChange={setToolBehavior}
                   />
                 </div>
               )}

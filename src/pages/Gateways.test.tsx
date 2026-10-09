@@ -7,7 +7,9 @@ import { Gateways } from "./Gateways";
 import { useQuery } from "@/hooks/useQuery";
 import {
   deleteVirtualServer,
+  getVirtualServer,
   setVirtualServerState,
+  updateVirtualServerComponents,
   updateVirtualServerTags,
 } from "@/api/virtualServers";
 import type { VirtualServer } from "@/types/server";
@@ -31,7 +33,9 @@ vi.mock("@/hooks/useQuery", () => ({
 
 vi.mock("@/api/virtualServers", () => ({
   deleteVirtualServer: vi.fn(),
+  getVirtualServer: vi.fn(),
   setVirtualServerState: vi.fn(),
+  updateVirtualServerComponents: vi.fn(),
   updateVirtualServerTags: vi.fn(),
 }));
 
@@ -53,6 +57,8 @@ const mockDeleteVirtualServer = vi.mocked(deleteVirtualServer);
 const mockSetVirtualServerState = vi.mocked(setVirtualServerState);
 const mockToastError = vi.mocked(toast.error);
 const mockUpdateVirtualServerTags = vi.mocked(updateVirtualServerTags);
+const mockUpdateVirtualServerComponents = vi.mocked(updateVirtualServerComponents);
+const mockGetVirtualServer = vi.mocked(getVirtualServer);
 
 // ---------------------------------------------------------------------------
 // Shared factory — avoids repeating all 30 fields in every test
@@ -1421,6 +1427,125 @@ describe("Gateways", () => {
     // The failed update runs the error branch and leaves the editor open to retry.
     await waitFor(() =>
       expect(mockUpdateVirtualServerTags).toHaveBeenCalledWith("gateway-1", ["alerts"]),
+    );
+  });
+});
+
+describe("Gateways – remove component from details panel", () => {
+  const detailServer = makeServer({
+    id: "gateway-1",
+    associatedToolIds: ["tool-1", "tool-2"],
+    associatedResources: ["res-1", "res-2"],
+    associatedPrompts: undefined,
+  });
+  const components = {
+    tools: { tools: [{ id: "tool-1", name: "t.lookup", originalName: "lookup" }] },
+    resources: { resources: [{ id: "res-1", name: "Doc", uri: "res://doc" }] },
+    prompts: { prompts: [{ id: "prompt-1", name: "greet", originalName: "greet" }] },
+  };
+
+  const listSetData = vi.fn();
+
+  beforeEach(() => {
+    mockUpdateVirtualServerComponents.mockReset();
+    mockGetVirtualServer.mockReset();
+    mockGetVirtualServer.mockResolvedValue(detailServer);
+    mockToastError.mockClear();
+    listSetData.mockClear();
+    mockUseQuery.mockImplementation((path) => {
+      const base = {
+        error: null,
+        isLoading: false,
+        execute: vi.fn(),
+        refetch: vi.fn().mockResolvedValue(undefined),
+        setData: vi.fn(),
+      };
+      if (path === "/v1/virtual-servers/gateway-1") return { ...base, data: detailServer };
+      const kind = path?.match(/^\/v1\/virtual-servers\/gateway-1\/(\w+)/)?.[1];
+      if (kind) return { ...base, data: components[kind as keyof typeof components] };
+      return { ...base, setData: listSetData, data: { servers: [detailServer] } };
+    });
+  });
+
+  async function removeComponent(actionName: string) {
+    const user = userEvent.setup();
+    renderWithProviders(<Gateways />);
+    await user.click(screen.getByRole("button", { name: "Actions for GH repo tasks" }));
+    await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(await screen.findByRole("button", { name: `Actions for ${actionName}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    await user.click(await screen.findByRole("button", { name: "Remove" }));
+  }
+
+  it.each([
+    ["lookup", "tools", ["tool-2"]],
+    ["res://doc", "resources", ["res-2"]],
+    // Missing association list is treated as empty.
+    ["greet", "prompts", []],
+  ] as const)("removes %s from the server's %s list", async (actionName, kind, remaining) => {
+    mockUpdateVirtualServerComponents.mockResolvedValue(detailServer);
+    await removeComponent(actionName);
+
+    await waitFor(() =>
+      expect(mockUpdateVirtualServerComponents).toHaveBeenCalledWith("gateway-1", kind, [
+        ...remaining,
+      ]),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("builds the new list from a fresh read, keeping concurrent additions", async () => {
+    mockGetVirtualServer.mockResolvedValue({
+      ...detailServer,
+      associatedToolIds: ["tool-1", "tool-2", "tool-added-elsewhere"],
+    });
+    mockUpdateVirtualServerComponents.mockResolvedValue(detailServer);
+    await removeComponent("lookup");
+
+    await waitFor(() =>
+      expect(mockUpdateVirtualServerComponents).toHaveBeenCalledWith("gateway-1", "tools", [
+        "tool-2",
+        "tool-added-elsewhere",
+      ]),
+    );
+    expect(mockGetVirtualServer).toHaveBeenCalledWith("gateway-1");
+  });
+
+  it("patches the page's server list with the updated server", async () => {
+    const updated = { ...detailServer, associatedToolIds: ["tool-2"] };
+    mockUpdateVirtualServerComponents.mockResolvedValue(updated);
+    await removeComponent("lookup");
+
+    await waitFor(() => expect(listSetData).toHaveBeenCalled());
+    const patch = listSetData.mock.lastCall?.[0] as (
+      previous: VirtualServersResponse | undefined,
+    ) => VirtualServersResponse | undefined;
+    const other = makeServer({ id: "gateway-2" });
+    expect(patch({ servers: [detailServer, other] } as VirtualServersResponse)?.servers).toEqual([
+      updated,
+      other,
+    ]);
+    expect(patch(undefined)).toBeUndefined();
+  });
+
+  it("toasts the API detail when removal fails", async () => {
+    mockUpdateVirtualServerComponents.mockRejectedValue(
+      new ApiError(403, { detail: "Not allowed" }, "HTTP 403"),
+    );
+    await removeComponent("lookup");
+
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("Not allowed"));
+  });
+
+  it("toasts a fallback message when removal fails without detail", async () => {
+    mockUpdateVirtualServerComponents.mockRejectedValue(new Error("boom"));
+    await removeComponent("lookup");
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Unable to remove from server. Please try again.",
+      ),
     );
   });
 });

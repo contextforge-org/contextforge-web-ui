@@ -466,6 +466,22 @@ describe("ToolForm", () => {
       expect(screen.queryByRole("button", { name: /Regenerate/i })).not.toBeInTheDocument();
     });
 
+    it("shows the behavior field for REST tools only", async () => {
+      const user = userEvent.setup();
+      const { unmount } = renderForm({
+        tool: createMockTool({ integrationType: "REST", requestType: "GET" }),
+      });
+      await user.click(screen.getByRole("button", { name: /Advanced settings/i }));
+      expect(screen.getByLabelText("Behavior")).toBeInTheDocument();
+      unmount();
+
+      renderForm({
+        tool: createMockTool({ integrationType: "MCP", requestType: "STREAMABLEHTTP" }),
+      });
+      await user.click(screen.getByRole("button", { name: /Advanced settings/i }));
+      expect(screen.queryByLabelText("Behavior")).not.toBeInTheDocument();
+    });
+
     it("does not show the Add manually button when editing", () => {
       renderForm({ tool: createMockTool() });
       expect(screen.queryByRole("button", { name: /Add manually/i })).not.toBeInTheDocument();

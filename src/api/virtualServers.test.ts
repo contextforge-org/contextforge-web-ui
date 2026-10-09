@@ -4,13 +4,16 @@ import {
   buildCreateVirtualServerPayload,
   buildUpdateVirtualServerPayload,
   deleteVirtualServer,
+  getVirtualServer,
   setVirtualServerState,
   testVirtualServerHandshake,
+  updateVirtualServerComponents,
   updateVirtualServerTags,
 } from "./virtualServers";
 
 vi.mock("./client", () => ({
   api: {
+    get: vi.fn(),
     delete: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
@@ -306,6 +309,26 @@ describe("virtualServers API", () => {
 
     expect(api.put).toHaveBeenCalledWith("/v1/virtual-servers/server-1", { tags: ["prod"] });
     expect(result).toBe(updated);
+  });
+
+  it.each([
+    ["tools", "associated_tools"],
+    ["resources", "associated_resources"],
+    ["prompts", "associated_prompts"],
+  ] as const)("PUTs only the %s list via updateVirtualServerComponents", async (kind, field) => {
+    vi.mocked(api.put).mockResolvedValue({});
+
+    await updateVirtualServerComponents("team/1", kind, ["a"]);
+
+    expect(api.put).toHaveBeenCalledWith("/v1/virtual-servers/team%2F1", { [field]: ["a"] });
+  });
+
+  it("GETs one server by URL-encoded ID via getVirtualServer", async () => {
+    const server = { id: "team/1" };
+    vi.mocked(api.get).mockResolvedValue(server);
+
+    await expect(getVirtualServer("team/1")).resolves.toBe(server);
+    expect(api.get).toHaveBeenCalledWith("/v1/virtual-servers/team%2F1");
   });
 
   it("URL-encodes the server ID in updateVirtualServerTags", async () => {
