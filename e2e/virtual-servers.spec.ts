@@ -1766,9 +1766,18 @@ test.describe("Virtual Servers page", () => {
       });
     });
     await page.route("**/tools?*", async (route) => {
-      expect(new URL(route.request().url()).searchParams.get("gateway_id")).toBe(
-        MOCK_MCP_SERVER.id,
-      );
+      const gatewayId = new URL(route.request().url()).searchParams.get("gateway_id");
+      // The form's REST-tools section fetches gateway-less tools (gateway_id=null)
+      // as soon as it mounts, alongside the per-MCP-server tools fetch below.
+      if (gatewayId === "null") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ tools: [] }),
+        });
+        return;
+      }
+      expect(gatewayId).toBe(MOCK_MCP_SERVER.id);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -2046,6 +2055,15 @@ test.describe("Virtual Servers page", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ gateways: [] }),
+      });
+    });
+    // Edit mode mounts the REST-tools section, which fetches gateway-less
+    // tools (gateway_id=null) as soon as the form renders.
+    await page.route("**/tools?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ tools: [] }),
       });
     });
     await page.route(`**/v1/virtual-servers/${MOCK_VIRTUAL_SERVER.id}`, async (route) => {
