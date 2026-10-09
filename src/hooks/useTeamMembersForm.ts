@@ -1,14 +1,32 @@
 import { useState, useCallback, useEffect } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
-import { api } from "@/api/client";
-import { listTeamMembers, addTeamMember, updateTeamMember, removeTeamMember } from "@/api/teams";
+import { api, ApiError } from "@/api/client";
+import {
+  listTeamMembers,
+  addTeamMember,
+  inviteTeamMember,
+  updateTeamMember,
+  removeTeamMember,
+} from "@/api/teams";
 import type { ComboboxOption } from "@/components/ui/combobox";
 import type { TeamMember } from "@/types/team";
 import type { UsersResponse } from "@/types/user";
-import { sanitizeError } from "@/utils/errors";
+import { copyToClipboard } from "@/lib/clipboard";
+import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
 export const AVAILABLE_ROLES = ["owner", "member"] as const;
+type TeamRole = (typeof AVAILABLE_ROLES)[number];
+
+/**
+ * Narrows a row's role to the API's strict union. `MemberRow.role` is plain
+ * `string` (it round-trips through a generic `<select>`), but the role Select
+ * only ever offers `AVAILABLE_ROLES`, so this is just a type-safe cast with a
+ * defensive fallback rather than real runtime validation.
+ */
+function toTeamRole(role: string): TeamRole {
+  return role === "owner" ? "owner" : "member";
+}
 
 export interface MemberRow {
   id: string;
@@ -145,8 +163,49 @@ export function useTeamMembersForm({
         (m) => m.isExisting && originalRoleByEmail.get(m.email.toLowerCase()) !== m.role,
       );
 
+      // There is no "add-or-invite" endpoint for an existing team (only team
+      // creation seeds both in one call), so each row is added directly and,
+      // only when the address has no account (addTeamMember 404s with "User
+      // not found"), falls back to sending an invitation instead.
+      const addedEmails: string[] = [];
+      const sentInvitationEmails: string[] = [];
+      const undeliveredInvitations: Array<{
+        email: string;
+        invitationUrl: string;
+        warning?: string | null;
+      }> = [];
       for (const member of membersToAdd) {
-        await addTeamMember(teamId, { email: member.email, role: member.role });
+        try {
+          await addTeamMember(teamId, { email: member.email, role: member.role });
+          addedEmails.push(member.email);
+        } catch (err) {
+          // 404 is also returned when the team itself is gone; only fall back
+          // to inviting when the service specifically reported an unknown user.
+          const isUnknownUser =
+            err instanceof ApiError &&
+            err.status === 404 &&
+            extractApiErrorDetail(err.body) === "User not found";
+          if (isUnknownUser) {
+            const invitation = await inviteTeamMember(teamId, {
+              email: member.email,
+              role: toTeamRole(member.role),
+            });
+            // The invitation is always created even when the notification email
+            // isn't; only report it as "sent" when delivery actually succeeded,
+            // and surface the rest as a warning with a link to share manually.
+            if (invitation.email_delivery_status === "sent") {
+              sentInvitationEmails.push(invitation.email);
+            } else {
+              undeliveredInvitations.push({
+                email: invitation.email,
+                invitationUrl: invitation.invitation_url,
+                warning: invitation.warning,
+              });
+            }
+          } else {
+            throw err;
+          }
+        }
       }
 
       for (const member of membersToUpdate) {
@@ -157,10 +216,54 @@ export function useTeamMembersForm({
         await removeTeamMember(teamId, member.user_email);
       }
 
-      const totalChanges = membersToAdd.length + membersToUpdate.length + membersToRemove.length;
+      const totalChanges =
+        addedEmails.length +
+        sentInvitationEmails.length +
+        undeliveredInvitations.length +
+        membersToUpdate.length +
+        membersToRemove.length;
       if (totalChanges > 0) {
         toast.success(intl.formatMessage({ id: "teams.members.success" }, { count: totalChanges }));
         onSuccess?.();
+      }
+
+      // Report which addresses were added directly vs. invited, so the user
+      // isn't left guessing what happened to each address.
+      if (addedEmails.length > 0) {
+        toast.success(
+          intl.formatMessage({ id: "teams.members.membersAdded" }, { count: addedEmails.length }),
+          { description: addedEmails.join(", ") },
+        );
+      }
+
+      if (sentInvitationEmails.length > 0) {
+        toast.success(
+          intl.formatMessage(
+            { id: "teams.members.invitationsSent" },
+            { count: sentInvitationEmails.length },
+          ),
+          { description: sentInvitationEmails.join(", ") },
+        );
+      }
+
+      for (const undelivered of undeliveredInvitations) {
+        toast.warning(
+          intl.formatMessage(
+            { id: "teams.members.invitation.deliveryWarning" },
+            { email: undelivered.email },
+          ),
+          {
+            description:
+              undelivered.warning ??
+              intl.formatMessage({ id: "teams.members.invitation.deliveryWarning.description" }),
+            action: {
+              label: intl.formatMessage({ id: "common.button.copyLink" }),
+              onClick: () => {
+                void copyToClipboard(undelivered.invitationUrl);
+              },
+            },
+          },
+        );
       }
 
       onClose();

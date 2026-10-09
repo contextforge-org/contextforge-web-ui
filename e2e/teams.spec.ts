@@ -2,7 +2,7 @@ import { test, expect } from "./fixtures/api-mock";
 import type { Page, Locator } from "@playwright/test";
 import { APP } from "./utils/paths";
 import type { Team, TeamMember } from "../src/types/team";
-import type { TeamCreateRequest, TeamMemberAddRequest } from "../src/generated/types";
+import type { TeamCreateRequest, TeamCreateResponse } from "../src/generated/types";
 
 const MOCK_TEAM: Team = {
   id: "team-1",
@@ -87,6 +87,17 @@ async function pickComboboxOption(
   await input.fill(searchTerm);
   const listboxId = await input.getAttribute("aria-controls");
   await page.locator(`[id="${listboxId}"]`).getByText(expectedEmail).click();
+}
+
+/**
+ * Types an address that has no match in the directory and commits it via the
+ * Combobox's "Use "<value>"" entry (allowCustomValue) — the only way to enter
+ * an email with no account, which the server then invites instead of adding.
+ */
+async function enterCustomComboboxEmail(page: Page, input: Locator, email: string) {
+  await input.fill(email);
+  const listboxId = await input.getAttribute("aria-controls");
+  await page.locator(`[id="${listboxId}"]`).getByText(`Use "${email}"`).click();
 }
 
 test.describe("Teams page", () => {
@@ -240,7 +251,9 @@ test.describe("Teams page", () => {
     test("creates team with single member", async ({ page }) => {
       let createCount = 0;
       let requestBody: TeamCreateRequest;
-      const memberRequests: TeamMemberAddRequest[] = [];
+      // No request should ever reach the per-member add endpoint during
+      // creation — members are seeded in the POST /teams body itself.
+      let memberAddCount = 0;
 
       await page.route("**/teams?*", async (route) => {
         await route.fulfill({
@@ -260,15 +273,9 @@ test.describe("Teams page", () => {
         });
       });
 
-      // Membership isn't sent with team creation; each row is added via its own
-      // POST to /teams/{id}/members after the team is created.
       await page.route("**/teams/team-new/members", async (route) => {
-        if (route.request().method() === "POST") {
-          memberRequests.push(JSON.parse(route.request().postData() || "{}"));
-          await route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
-        } else {
-          await route.fallback();
-        }
+        memberAddCount++;
+        await route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
       });
 
       await page.route("**/teams", async (route) => {
@@ -285,13 +292,15 @@ test.describe("Teams page", () => {
               description: requestBody.description,
               created_by: "test@example.com",
               is_personal: false,
-              visibility: requestBody.visibility,
+              visibility: requestBody.visibility ?? "private",
               max_members: requestBody.max_members,
               member_count: 1,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               is_active: true,
-            } satisfies Team),
+              members_added: [{ email: "member1@example.com", role: "member" }],
+              invitations_sent: [],
+            } satisfies TeamCreateResponse),
           });
         } else {
           await route.fallback();
@@ -318,15 +327,13 @@ test.describe("Teams page", () => {
       await page.getByRole("button", { name: "Create Team" }).click();
 
       await expect.poll(() => createCount).toBe(1);
-      await expect.poll(() => memberRequests).toHaveLength(1);
-      expect(memberRequests[0].email).toBe("member1@example.com");
-      expect(memberRequests[0].role).toBe("member");
+      expect(requestBody!.members).toEqual([{ email: "member1@example.com", role: "member" }]);
+      expect(memberAddCount).toBe(0);
     });
 
     test("creates team with multiple members (mixed roles)", async ({ page }) => {
       let createCount = 0;
       let requestBody: TeamCreateRequest;
-      const memberRequests: TeamMemberAddRequest[] = [];
 
       await page.route("**/teams?*", async (route) => {
         await route.fulfill({
@@ -350,15 +357,6 @@ test.describe("Teams page", () => {
         });
       });
 
-      await page.route("**/teams/team-new/members", async (route) => {
-        if (route.request().method() === "POST") {
-          memberRequests.push(JSON.parse(route.request().postData() || "{}"));
-          await route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
-        } else {
-          await route.fallback();
-        }
-      });
-
       await page.route("**/teams", async (route) => {
         if (route.request().method() === "POST") {
           createCount++;
@@ -373,13 +371,18 @@ test.describe("Teams page", () => {
               description: requestBody.description,
               created_by: "test@example.com",
               is_personal: false,
-              visibility: requestBody.visibility,
+              visibility: requestBody.visibility ?? "private",
               max_members: requestBody.max_members,
               member_count: 3,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               is_active: true,
-            } satisfies Team),
+              members_added: (requestBody.members ?? []).map((m) => ({
+                email: m.email,
+                role: m.role ?? "member",
+              })),
+              invitations_sent: [],
+            } satisfies TeamCreateResponse),
           });
         } else {
           await route.fallback();
@@ -424,9 +427,74 @@ test.describe("Teams page", () => {
       await page.getByRole("button", { name: "Create Team" }).click();
 
       await expect.poll(() => createCount).toBe(1);
-      await expect.poll(() => memberRequests).toHaveLength(3);
-      expect(memberRequests.filter((m) => m.role === "member")).toHaveLength(2);
-      expect(memberRequests.filter((m) => m.role === "owner")).toHaveLength(1);
+      expect(requestBody!.members).toHaveLength(3);
+      expect(requestBody!.members!.filter((m) => m.role === "member")).toHaveLength(2);
+      expect(requestBody!.members!.filter((m) => m.role === "owner")).toHaveLength(1);
+    });
+
+    test("invites an address with no account instead of reporting it not found", async ({
+      page,
+    }) => {
+      let requestBody: TeamCreateRequest;
+
+      await page.route("**/teams?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ teams: [] }),
+        });
+      });
+
+      await page.route("**/teams", async (route) => {
+        if (route.request().method() === "POST") {
+          requestBody = JSON.parse(route.request().postData() || "{}");
+          await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+              id: "team-new",
+              name: requestBody.name,
+              slug: "team-with-invite",
+              created_by: "test@example.com",
+              is_personal: false,
+              visibility: requestBody.visibility ?? "private",
+              max_members: requestBody.max_members,
+              member_count: 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              is_active: true,
+              members_added: [],
+              invitations_sent: [
+                { email: "nobody@example.com", role: "member", invitation_id: "inv-1" },
+              ],
+            } satisfies TeamCreateResponse),
+          });
+        } else {
+          await route.fallback();
+        }
+      });
+
+      await page.goto(APP.TEAMS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Create Team" }).click();
+      await page.locator("#team-name").fill("Team With Invite");
+
+      // No matching directory entry exists for this address — it's typed in
+      // and committed via the combobox's "Use ..." entry, not picked from suggestions.
+      await enterCustomComboboxEmail(
+        page,
+        page.locator(TEAM_FORM_MEMBER_INPUT).first(),
+        "nobody@example.com",
+      );
+
+      await page.getByRole("button", { name: "Create Team" }).click();
+
+      await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
+      expect(requestBody!.members).toEqual([{ email: "nobody@example.com", role: "member" }]);
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /invitation/i }),
+      ).toBeVisible();
     });
 
     test("name is required (validation)", async ({ page }) => {
@@ -452,7 +520,6 @@ test.describe("Teams page", () => {
     test("removes member row before submit", async ({ page }) => {
       let createCount = 0;
       let requestBody: TeamCreateRequest;
-      const memberRequests: TeamMemberAddRequest[] = [];
 
       await page.route("**/teams?*", async (route) => {
         await route.fulfill({
@@ -475,15 +542,6 @@ test.describe("Teams page", () => {
         });
       });
 
-      await page.route("**/teams/team-new/members", async (route) => {
-        if (route.request().method() === "POST") {
-          memberRequests.push(JSON.parse(route.request().postData() || "{}"));
-          await route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
-        } else {
-          await route.fallback();
-        }
-      });
-
       await page.route("**/teams", async (route) => {
         if (route.request().method() === "POST") {
           createCount++;
@@ -502,7 +560,12 @@ test.describe("Teams page", () => {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               is_active: true,
-            } satisfies Team),
+              members_added: (requestBody.members ?? []).map((m) => ({
+                email: m.email,
+                role: m.role ?? "member",
+              })),
+              invitations_sent: [],
+            } satisfies TeamCreateResponse),
           });
         } else {
           await route.fallback();
@@ -537,8 +600,7 @@ test.describe("Teams page", () => {
       await page.getByRole("button", { name: "Create Team" }).click();
 
       await expect.poll(() => createCount).toBe(1);
-      await expect.poll(() => memberRequests).toHaveLength(1);
-      expect(memberRequests[0].email).toBe("member2@example.com");
+      expect(requestBody!.members).toEqual([{ email: "member2@example.com", role: "member" }]);
     });
   });
 
@@ -740,6 +802,172 @@ test.describe("Teams page", () => {
       await expect(
         page.locator("[data-sonner-toast]").filter({ hasText: /member change/i }),
       ).toBeVisible();
+    });
+
+    test("invites an address with no account instead of reporting it not found", async ({
+      page,
+    }) => {
+      let invitationCount = 0;
+
+      await page.route("**/teams?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ teams: [MOCK_TEAM] }),
+        });
+      });
+
+      await page.route(MOCK_TEAM_MEMBERS_ROUTE, async (route) => {
+        if (route.request().method() === "GET") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([MOCK_MEMBER]),
+          });
+        } else if (route.request().method() === "POST") {
+          // No account exists for this address, matching the real API's
+          // UserNotFoundError response.
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "User not found" }),
+          });
+        }
+      });
+
+      await page.route(`**/teams/${MOCK_TEAM.id}/invitations`, async (route) => {
+        if (route.request().method() === "POST") {
+          invitationCount++;
+          const body = JSON.parse(route.request().postData() || "{}");
+          await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+              id: "inv-1",
+              team_id: MOCK_TEAM.id,
+              team_name: MOCK_TEAM.name,
+              email: body.email,
+              role: body.role,
+              invited_by: "admin@example.com",
+              invited_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 86400000).toISOString(),
+              token: "token-1",
+              is_active: true,
+              is_expired: false,
+              invitation_url: "https://example.com/invite/token-1",
+              email_delivery_status: "sent",
+            }),
+          });
+        }
+      });
+
+      await page.goto(APP.TEAMS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for Engineering" }).click();
+      await page.getByRole("menuitem", { name: "Manage Members" }).click();
+
+      await page.getByRole("button", { name: "Add member" }).click();
+      // No matching directory entry — commit the raw email via "Use ...".
+      await enterCustomComboboxEmail(
+        page,
+        page.locator(MANAGE_MEMBERS_INPUT).last(),
+        "nobody@example.com",
+      );
+
+      await page.getByRole("button", { name: "Save" }).click();
+
+      await expect.poll(() => invitationCount).toBe(1);
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /invitation/i }),
+      ).toBeVisible();
+    });
+
+    test("warns with a copyable link instead of reporting success when invite delivery fails", async ({
+      page,
+      context,
+    }) => {
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.route("**/teams?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ teams: [MOCK_TEAM] }),
+        });
+      });
+
+      await page.route(MOCK_TEAM_MEMBERS_ROUTE, async (route) => {
+        if (route.request().method() === "GET") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify([MOCK_MEMBER]),
+          });
+        } else if (route.request().method() === "POST") {
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "User not found" }),
+          });
+        }
+      });
+
+      await page.route(`**/teams/${MOCK_TEAM.id}/invitations`, async (route) => {
+        if (route.request().method() === "POST") {
+          const body = JSON.parse(route.request().postData() || "{}");
+          await route.fulfill({
+            status: 201,
+            contentType: "application/json",
+            body: JSON.stringify({
+              id: "inv-2",
+              team_id: MOCK_TEAM.id,
+              team_name: MOCK_TEAM.name,
+              email: body.email,
+              role: body.role,
+              invited_by: "admin@example.com",
+              invited_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 86400000).toISOString(),
+              token: "token-2",
+              is_active: true,
+              is_expired: false,
+              invitation_url: "https://example.com/invite/token-2",
+              email_delivery_status: "disabled",
+              warning: "Email delivery is disabled for this deployment.",
+            }),
+          });
+        }
+      });
+
+      await page.goto(APP.TEAMS);
+      await page.waitForLoadState("networkidle");
+
+      await page.getByRole("button", { name: "Actions for Engineering" }).click();
+      await page.getByRole("menuitem", { name: "Manage Members" }).click();
+
+      await page.getByRole("button", { name: "Add member" }).click();
+      await enterCustomComboboxEmail(
+        page,
+        page.locator(MANAGE_MEMBERS_INPUT).last(),
+        "nobody@example.com",
+      );
+
+      await page.getByRole("button", { name: "Save" }).click();
+
+      // The invitation was created, but delivery was disabled — this must not
+      // surface as a plain "invitation sent" success toast.
+      await expect(
+        page.locator("[data-sonner-toast]").filter({ hasText: /invitation sent/i }),
+      ).not.toBeVisible();
+
+      const warningToast = page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "nobody@example.com" });
+      await expect(warningToast).toBeVisible();
+
+      await warningToast.getByRole("button", { name: "Copy link" }).click();
+      await expect
+        .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+        .toBe("https://example.com/invite/token-2");
     });
 
     test("removes member", async ({ page }) => {

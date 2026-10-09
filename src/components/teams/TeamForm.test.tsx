@@ -152,7 +152,9 @@ describe("TeamForm", () => {
       const memberInput = screen.getByPlaceholderText(/name or email/i);
       await user.click(memberInput);
       await user.keyboard("alice");
-      await user.click(await screen.findByRole("option", { name: /alice/i }));
+      // Typing "alice" also matches the directory suggestion loosely, so this
+      // would otherwise also match the allowCustomValue "Use "alice"" entry.
+      await user.click(await screen.findByRole("option", { name: "Alice (alice@example.com)" }));
 
       await waitFor(() => {
         expect(memberInput).toHaveValue("Alice (alice@example.com)");
@@ -169,6 +171,25 @@ describe("TeamForm", () => {
 
       await waitFor(() => {
         expect(roleTrigger).toHaveTextContent("owner");
+      });
+    });
+
+    it("accepts an email with no matching directory entry via the combobox's custom-value option", async () => {
+      server.use(
+        http.get("*/auth/email/admin/users", () =>
+          HttpResponse.json({ users: [{ email: "alice@example.com", full_name: "Alice" }] }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderForm();
+
+      const memberInput = screen.getByPlaceholderText(/name or email/i);
+      await user.click(memberInput);
+      await user.keyboard("nobody@example.com");
+      await user.click(await screen.findByRole("option", { name: 'Use "nobody@example.com"' }));
+
+      await waitFor(() => {
+        expect(memberInput).toHaveValue("nobody@example.com");
       });
     });
 
