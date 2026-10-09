@@ -20,6 +20,7 @@ import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 import { VisibilityInfoContent } from "@/components/common/VisibilityInfoPopover";
 import { TeamSelect } from "@/components/common/TeamSelect";
+import type { ToolBehavior } from "@/hooks/useToolForm";
 
 export type { CustomHeader };
 
@@ -50,6 +51,9 @@ interface ToolAdvancedSettingsProps {
   onTagsChange: (value: string[]) => void;
   description: string;
   onDescriptionChange: (value: string) => void;
+  /** Omitted for MCP tools, whose hints come from the upstream server. */
+  toolBehavior?: ToolBehavior;
+  onToolBehaviorChange?: (value: ToolBehavior) => void;
 }
 
 export function ToolAdvancedSettings({
@@ -75,6 +79,8 @@ export function ToolAdvancedSettings({
   onTagsChange,
   description,
   onDescriptionChange,
+  toolBehavior,
+  onToolBehaviorChange,
 }: ToolAdvancedSettingsProps) {
   const intl = useIntl();
   const tagSuggestions = useTagSuggestions();
@@ -150,6 +156,37 @@ export function ToolAdvancedSettings({
           onChange={onTeamChange}
           error={teamError}
         />
+      )}
+
+      {toolBehavior && onToolBehaviorChange && (
+        <Field
+          id="tool-behavior"
+          labelProps={{ className: "text-neutral-950 dark:text-white" }}
+          label={intl.formatMessage({ id: "tools.form.behavior.label" })}
+          hint={intl.formatMessage({ id: "tools.form.behavior.hint" })}
+        >
+          {(controlProps) => (
+            <Select value={toolBehavior} onValueChange={onToolBehaviorChange}>
+              <SelectTrigger
+                {...controlProps}
+                className="border-neutral-300 dark:border-neutral-700"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unspecified">
+                  {intl.formatMessage({ id: "tools.form.behavior.unspecified" })}
+                </SelectItem>
+                <SelectItem value="readOnly">
+                  {intl.formatMessage({ id: "tools.form.behavior.readOnly" })}
+                </SelectItem>
+                <SelectItem value="destructive">
+                  {intl.formatMessage({ id: "tools.form.behavior.destructive" })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
       )}
 
       {/* Authentication type */}

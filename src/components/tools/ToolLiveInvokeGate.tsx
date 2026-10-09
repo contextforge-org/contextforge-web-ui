@@ -9,7 +9,7 @@ import { TOOL_CANCEL_REVEAL_DELAY_MS } from "@/config/toolInvocation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { ToolInvokeState } from "@/hooks/useToolInvoke";
 import type { Tool } from "@/types/tool";
-import { getToolAnnotationHints } from "./toolAnnotations";
+import { getToolAnnotationHints } from "@/lib/toolAnnotations";
 
 export type ToolLiveInvokeAvailability =
   | { state: "checkingAccess" }

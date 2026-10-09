@@ -6,10 +6,12 @@ import { useGenerateSchemaFromOpenapi } from "@/hooks/useGenerateSchemaFromOpena
 import type { Visibility } from "@/types/server";
 import type { BodyCreateToolV1ToolsPost, ToolCreate, ToolUpdate } from "@/generated/types";
 import { sanitizeString, sanitizeUrl, sanitizePassword, sanitizeToken } from "@/lib/sanitize";
+import { getToolAnnotationHints } from "@/lib/toolAnnotations";
 
 export type RequestType = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type AuthType = "none" | "basic" | "bearer" | "custom";
 export type SchemaMode = "none" | "generated" | "manual";
+export type ToolBehavior = "unspecified" | "readOnly" | "destructive";
 
 // Mirrors the backend `settings.masked_auth_value`: secrets are returned masked
 // in tool reads, so the edit form must never round-trip this placeholder back
@@ -190,6 +192,7 @@ export interface UseToolFormReturn {
   tags: string[];
   inputSchema: string;
   outputSchema: string;
+  toolBehavior: ToolBehavior;
   isGeneratingSchema: boolean;
   schemaMode: SchemaMode;
   openApiSpecUrl: string;
@@ -217,6 +220,7 @@ export interface UseToolFormReturn {
   setTags: (value: string[]) => void;
   setInputSchema: (value: string) => void;
   setOutputSchema: (value: string) => void;
+  setToolBehavior: (value: ToolBehavior) => void;
   setSchemaMode: (mode: SchemaMode) => void;
   setOpenApiSpecUrl: (value: string) => void;
   generateSchema: () => Promise<void>;
@@ -268,6 +272,7 @@ export interface ToolFormInitialValues {
   authPassword?: string; // pragma: allowlist secret
   bearerToken?: string;
   customHeaders?: CustomHeader[];
+  annotations?: Record<string, unknown>;
 }
 
 export function useToolForm({
@@ -322,6 +327,24 @@ export function useToolForm({
     initialValues?.outputSchema ?? initialState.outputSchema,
   );
   const [schemaMode, setSchemaMode] = useState<SchemaMode>(initialValues?.schemaMode ?? "none");
+  // Kept whole so hints this form doesn't edit (title, idempotentHint, ...) survive a save.
+  const [annotations, setAnnotations] = useState<Record<string, unknown>>(
+    initialValues?.annotations ?? {},
+  );
+  const hints = getToolAnnotationHints(annotations);
+  const toolBehavior: ToolBehavior = hints.destructiveHint
+    ? "destructive"
+    : hints.readOnlyHint
+      ? "readOnly"
+      : "unspecified";
+  const setToolBehavior = useCallback((value: ToolBehavior) => {
+    setAnnotations((prev) => {
+      const { readOnlyHint: _r, destructiveHint: _d, ...rest } = prev;
+      if (value === "readOnly") return { ...rest, readOnlyHint: true };
+      if (value === "destructive") return { ...rest, destructiveHint: true };
+      return rest;
+    });
+  }, []);
   const [errors, setErrors] = useState<FormErrors>({});
 
   const setUrlError = useCallback(
@@ -408,6 +431,8 @@ export function useToolForm({
       jsonpath_filter: responseFilter ? sanitizeString(responseFilter, 500) : undefined,
       tags: cleanTags.length > 0 ? cleanTags : undefined,
       visibility: visibility || undefined,
+      // Always sent: the backend replaces annotations wholesale, so `{}` clears a removed hint.
+      annotations,
     };
 
     const apiAuthType = AUTH_TYPE_TO_API[authType];
@@ -455,6 +480,7 @@ export function useToolForm({
     visibility,
     teamId,
     maxCustomHeaders,
+    annotations,
   ]);
 
   const validateForm = useCallback((): boolean => {
@@ -543,6 +569,7 @@ export function useToolForm({
     setTags(initialState.tags);
     setInputSchema(initialState.inputSchema);
     setOutputSchema(initialState.outputSchema);
+    setAnnotations({});
     setSchemaMode("none");
     resetSchemaGeneration();
     setErrors({});
@@ -610,6 +637,8 @@ export function useToolForm({
               jsonpath_filter: formData.tool.jsonpath_filter,
               tags: formData.tool.tags,
               visibility: formData.tool.visibility,
+              // MCP tools take their hints from the upstream server.
+              ...(integrationType !== "MCP" ? { annotations: formData.tool.annotations } : {}),
               customName: formData.tool.name,
               ...authFields,
               // Guarded by REST_METHODS, so request_type is a valid REST verb here;
@@ -671,7 +700,17 @@ export function useToolForm({
         }
       }
     },
-    [validateForm, getFormData, createTool, updateTool, resetForm, toolId, authType, intl],
+    [
+      validateForm,
+      getFormData,
+      createTool,
+      updateTool,
+      resetForm,
+      toolId,
+      authType,
+      integrationType,
+      intl,
+    ],
   );
 
   const isValid = useMemo(() => {
@@ -739,6 +778,7 @@ export function useToolForm({
     tags,
     inputSchema,
     outputSchema,
+    toolBehavior,
     isGeneratingSchema,
     schemaMode,
     openApiSpecUrl,
@@ -766,6 +806,7 @@ export function useToolForm({
     setTags,
     setInputSchema,
     setOutputSchema,
+    setToolBehavior,
     setSchemaMode,
     setOpenApiSpecUrl,
     generateSchema,
