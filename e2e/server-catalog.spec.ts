@@ -77,6 +77,71 @@ test.describe("Server catalog page", () => {
     });
   });
 
+  for (const width of [1440, 390]) {
+    test(`OAuth registration form supports keyboard and cancellation at ${width}px`, async ({
+      page,
+      context,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await mockCatalog(page, [
+        {
+          ...API_KEY_SERVER,
+          id: "github",
+          name: "GitHub",
+          provider: "GitHub",
+          auth_type: "OAuth2.1",
+        },
+      ]);
+      let callbackAvailable = false;
+      await page.route("**/oauth/callback-url", async (route) => {
+        await route.fulfill({
+          status: callbackAvailable ? 200 : 503,
+          contentType: "application/json",
+          body: JSON.stringify(
+            callbackAvailable
+              ? { redirectUri: "https://web.example.com/oauth/callback" }
+              : { detail: "Unavailable" },
+          ),
+        });
+      });
+      await page.goto(APP.SERVER_CATALOG + "?search=GitHub&provider=GitHub");
+      const catalogUrl = page.url();
+      await page.getByRole("button", { name: "Add GitHub" }).click();
+      const form = page.getByRole("form", { name: "Add GitHub" });
+      await expect(page.getByRole("heading", { name: "Add GitHub" })).toBeFocused();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(page.getByRole("list", { name: "Catalog servers" })).toHaveCount(0);
+      await page.keyboard.press("Tab");
+      await expect(form.getByLabel("Custom name (optional)")).toBeFocused();
+      await expect(form.getByRole("alert")).toContainText("Couldn't load the default redirect URI");
+      await expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
+      callbackAvailable = true;
+      await form.getByRole("button", { name: "Retry" }).click();
+      await expect(form.getByRole("button", { name: "Save" })).toBeEnabled();
+      await form.getByRole("button", { name: "Copy Redirect URI" }).click();
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+        "https://web.example.com/oauth/callback",
+      );
+      await form.getByRole("button", { name: "Save" }).click();
+      await expect(form.getByLabel(/Issuer URL/)).toHaveAttribute("aria-invalid", "true");
+      await expect(form.getByText("Client secret is required.")).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`oauth-form-${width}.png`),
+        fullPage: true,
+      });
+      await form.getByLabel(/^Client Secret/).fill("temporary-secret");
+      await form.getByRole("button", { name: "Cancel" }).click();
+      await expect(page).toHaveURL(catalogUrl);
+      await expect(page.getByRole("button", { name: "Add GitHub" })).toBeFocused();
+      await page.getByRole("button", { name: "Add GitHub" }).click();
+      await expect(form.getByLabel(/^Client Secret/)).toHaveValue("");
+    });
+  }
+
   test("lists supported catalog servers and marks registered ones connected", async ({ page }) => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE, API_KEY_SERVER]);
 

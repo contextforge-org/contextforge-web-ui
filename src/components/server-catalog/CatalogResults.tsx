@@ -322,6 +322,7 @@ function CatalogCard({
               ) : (
                 <Button
                   ref={addTriggerRef}
+                  id={`catalog-server-add-${server.id}`}
                   type="button"
                   variant="outline"
                   size="xs"
