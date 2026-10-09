@@ -1338,11 +1338,6 @@ test.describe("Virtual Servers page", () => {
   });
 
   test.describe("virtual server tool testing", () => {
-    test.skip(
-      process.env.VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT !== "true",
-      "requires VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT=true before Vite starts",
-    );
-
     test("previews then live invokes an attached tool through the virtual server", async ({
       page,
     }) => {
