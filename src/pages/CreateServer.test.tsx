@@ -116,6 +116,40 @@ describe("CreateServer", () => {
       id: "server-1",
       name: "Research server",
     } as Awaited<ReturnType<typeof updateVirtualServer>>);
+    server.use(
+      http.get("*/tools", ({ request }) =>
+        new URL(request.url).searchParams.get("gateway_id") === "null"
+          ? HttpResponse.json([])
+          : undefined,
+      ),
+    );
+  });
+
+  it("lists REST tools and adds the selected ones on create", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/tools", ({ request }) =>
+        new URL(request.url).searchParams.get("gateway_id") === "null"
+          ? HttpResponse.json([
+              { id: "rest-1", name: "random_joke", integrationType: "REST" },
+              { id: "a2a-1", name: "agent_tool", integrationType: "A2A" },
+            ])
+          : undefined,
+      ),
+    );
+    renderWithProviders(<CreateServer />);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Select random_joke" }));
+    expect(screen.queryByRole("checkbox", { name: "Select agent_tool" })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Name/), "Research server");
+    await user.click(screen.getByRole("button", { name: /Continue/ }));
+    await user.click(await screen.findByRole("button", { name: "Skip for now" }));
+
+    await waitFor(() => {
+      expect(mockCreateVirtualServer).toHaveBeenCalledWith(
+        expect.objectContaining({ associatedTools: ["rest-1"] }),
+      );
+    });
   });
 
   it("renders accessible form fields", () => {
@@ -374,7 +408,7 @@ describe("CreateServer", () => {
         const url = new URL(request.url);
         const gatewayId = url.searchParams.get("gateway_id");
         const cursor = url.searchParams.get("cursor");
-        toolCursors.push(cursor);
+        if (gatewayId !== "null") toolCursors.push(cursor);
         return HttpResponse.json({
           tools:
             gatewayId === "github-notify" && !cursor
@@ -471,6 +505,7 @@ describe("CreateServer", () => {
         oauthEnabled: true,
         tags: ["research", "tools"],
         description: "A composed endpoint for research tools.",
+        associatedTools: [],
         associatedMCPServerIds: [],
       });
     });

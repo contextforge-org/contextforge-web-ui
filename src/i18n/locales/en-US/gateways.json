@@ -56,6 +56,8 @@
   "gateways.editServer.errorFallback": "Unable to update server. Please try again.",
   "gateways.editServer.mcpServers": "MCP server",
   "gateways.editServer.noMCPServers": "No MCP servers found.",
+  "gateways.editServer.restTools": "REST tools",
+  "gateways.editServer.noRestTools": "No REST tools found.",
   "gateways.editServer.connectedMCPServers": "Connected MCP servers",
   "gateways.editServer.noConnectedMCPServers": "No connected MCP servers found.",
   "gateways.editServer.availableMCPServers": "Available MCP servers",
