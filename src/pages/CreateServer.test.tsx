@@ -8,7 +8,43 @@ import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
 import { truncateMiddle } from "@/components/gateways/utils";
+import type { Tool } from "@/types/tool";
 import { CreateServer } from "./CreateServer";
+
+// Full `GET /tools` item (ToolRead); typed so a contract change breaks the build.
+function makeRestTool(overrides: Partial<Tool> = {}): Tool {
+  return {
+    id: "rest-1",
+    name: "random_joke",
+    originalName: "random_joke",
+    customName: "random_joke",
+    customNameSlug: "random_joke",
+    displayName: "random_joke",
+    description: null,
+    originalDescription: null,
+    gatewayId: null,
+    gatewaySlug: "",
+    enabled: true,
+    reachable: true,
+    deprecated: false,
+    executionCount: 0,
+    tags: [],
+    integrationType: "REST",
+    requestType: "GET",
+    url: "https://official-joke-api.appspot.com/random_joke",
+    headers: {},
+    annotations: {},
+    jsonpathFilter: null,
+    auth: null,
+    version: 1,
+    visibility: "public",
+    createdAt: "2026-10-09T11:00:00",
+    updatedAt: "2026-10-09T11:00:00",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    outputSchema: null,
+    ...overrides,
+  };
+}
 
 interface MockCreateServerFormProps {
   onSuccess: (details: Record<string, unknown> | null) => void;
@@ -116,6 +152,40 @@ describe("CreateServer", () => {
       id: "server-1",
       name: "Research server",
     } as Awaited<ReturnType<typeof updateVirtualServer>>);
+    server.use(
+      http.get("*/tools", ({ request }) =>
+        new URL(request.url).searchParams.get("gateway_id") === "null"
+          ? HttpResponse.json([])
+          : undefined,
+      ),
+    );
+  });
+
+  it("lists REST tools and adds the selected ones on create", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/tools", ({ request }) =>
+        new URL(request.url).searchParams.get("gateway_id") === "null"
+          ? HttpResponse.json([
+              makeRestTool(),
+              makeRestTool({ id: "a2a-1", name: "agent_tool", integrationType: "A2A" }),
+            ])
+          : undefined,
+      ),
+    );
+    renderWithProviders(<CreateServer />);
+
+    await user.click(await screen.findByRole("checkbox", { name: "Select random_joke" }));
+    expect(screen.queryByRole("checkbox", { name: "Select agent_tool" })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/Name/), "Research server");
+    await user.click(screen.getByRole("button", { name: /Continue/ }));
+    await user.click(await screen.findByRole("button", { name: "Skip for now" }));
+
+    await waitFor(() => {
+      expect(mockCreateVirtualServer).toHaveBeenCalledWith(
+        expect.objectContaining({ associatedTools: ["rest-1"] }),
+      );
+    });
   });
 
   it("renders accessible form fields", () => {
@@ -374,7 +444,7 @@ describe("CreateServer", () => {
         const url = new URL(request.url);
         const gatewayId = url.searchParams.get("gateway_id");
         const cursor = url.searchParams.get("cursor");
-        toolCursors.push(cursor);
+        if (gatewayId !== "null") toolCursors.push(cursor);
         return HttpResponse.json({
           tools:
             gatewayId === "github-notify" && !cursor
@@ -471,6 +541,7 @@ describe("CreateServer", () => {
         oauthEnabled: true,
         tags: ["research", "tools"],
         description: "A composed endpoint for research tools.",
+        associatedTools: [],
         associatedMCPServerIds: [],
       });
     });

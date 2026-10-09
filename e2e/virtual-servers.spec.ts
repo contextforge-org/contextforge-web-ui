@@ -194,6 +194,11 @@ test.describe("Virtual Servers page", () => {
     await apiMock.mockSession();
     await apiMock.mockPermissions();
 
+    // The server form lists gateway-less (REST) tools; default to none.
+    await page.route("**/tools?*gateway_id=null*", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+
     // Set auth token in sessionStorage
     await page.addInitScript(() => {
       sessionStorage.setItem("mcpgateway_token", "mock-token-12345");
@@ -1771,9 +1776,10 @@ test.describe("Virtual Servers page", () => {
       });
     });
     await page.route("**/tools?*", async (route) => {
-      expect(new URL(route.request().url()).searchParams.get("gateway_id")).toBe(
-        MOCK_MCP_SERVER.id,
-      );
+      const gatewayId = new URL(route.request().url()).searchParams.get("gateway_id");
+      // Gateway-less REST tools are served by the beforeEach default.
+      if (gatewayId === "null") return route.fallback();
+      expect(gatewayId).toBe(MOCK_MCP_SERVER.id);
       await route.fulfill({
         status: 200,
         contentType: "application/json",

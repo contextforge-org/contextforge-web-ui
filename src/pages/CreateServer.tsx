@@ -36,6 +36,8 @@ import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server"
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
 const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
+// gateway_id=null lists tools not owned by any gateway (REST, A2A, ...); only REST ones are offered here, on purpose.
+const GATEWAYLESS_TOOLS_QUERY_PATH = "/tools?limit=1000&include_inactive=true&gateway_id=null";
 const COMPONENT_PAGE_SIZE = 100;
 
 type CreateServerStep = "details" | "sources";
@@ -51,6 +53,7 @@ interface GatewayTool {
   originalName?: string;
   gatewayId?: string;
   gateway_id?: string;
+  integrationType?: string;
 }
 
 interface GatewayResource {
@@ -346,7 +349,7 @@ function ComponentGroup({
   selectedIds,
   onComponentSelectionChange,
 }: {
-  title: string;
+  title?: string;
   components: SelectableComponent[];
   selectedIds: Set<string>;
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
@@ -355,9 +358,11 @@ function ComponentGroup({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-        {title}
-      </h3>
+      {title && (
+        <h3 className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+          {title}
+        </h3>
+      )}
       <div className="divide-y divide-border/60 rounded-md border border-border/60">
         {components.map((component) => (
           <ComponentCheckboxRow
@@ -689,6 +694,71 @@ function EditMCPServersSection({
   );
 }
 
+function RestToolsSection({
+  selectedToolIds,
+  onComponentSelectionChange,
+}: {
+  selectedToolIds: string[];
+  onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
+}) {
+  const intl = useIntl();
+  const headingId = useId();
+  const { data, error, isLoading } = useQuery<GatewayTool[] | { tools: GatewayTool[] }>(
+    GATEWAYLESS_TOOLS_QUERY_PATH,
+  );
+  const tools = useMemo(
+    () =>
+      getResponseItems(data, "tools")
+        .filter((tool) => tool.integrationType === "REST")
+        .map((tool): SelectableComponent => ({ ...tool, kind: "tools" })),
+    [data],
+  );
+  const selectedToolIdSet = useMemo(() => new Set(selectedToolIds), [selectedToolIds]);
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="border-t border-border pt-7 dark:border-[#2b2b2f]"
+    >
+      <div className="flex items-center gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground dark:bg-[#252529]">
+          <Code className="size-5" aria-hidden="true" />
+        </span>
+        <h2 id={headingId} className="text-sm font-semibold text-foreground">
+          {intl.formatMessage({ id: "gateways.editServer.restTools" })}
+        </h2>
+      </div>
+
+      {isLoading && <SourcesLoadingStatus message={intl.formatMessage({ id: "common.loading" })} />}
+
+      {!isLoading && error && (
+        <p
+          role="alert"
+          className="mt-5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {error.message}
+        </p>
+      )}
+
+      {!isLoading && !error && tools.length === 0 && (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          {intl.formatMessage({ id: "gateways.editServer.noRestTools" })}
+        </p>
+      )}
+
+      {!isLoading && !error && tools.length > 0 && (
+        <div className="mt-5">
+          <ComponentGroup
+            components={tools}
+            selectedIds={selectedToolIdSet}
+            onComponentSelectionChange={onComponentSelectionChange}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function CreateServer() {
   const intl = useIntl();
   const { navigate, path } = useRouter();
@@ -803,12 +873,13 @@ export function CreateServer() {
           : null;
       const detailsWithSources = {
         ...serverDetails,
+        associatedTools: uniqueStrings([
+          ...(serverDetails.associatedTools ?? []),
+          ...selectedComponents.tools,
+          ...(selectedSourceComponents?.tools ?? []),
+        ]),
         ...(selectedSourceComponents
           ? {
-              associatedTools: uniqueStrings([
-                ...(serverDetails.associatedTools ?? []),
-                ...selectedSourceComponents.tools,
-              ]),
               associatedResources: uniqueStrings([
                 ...(serverDetails.associatedResources ?? []),
                 ...selectedSourceComponents.resources,
@@ -949,6 +1020,10 @@ export function CreateServer() {
               onComponentSelectionChange={handleComponentSelectionChange}
             />
           )}
+          <RestToolsSection
+            selectedToolIds={selectedComponents.tools}
+            onComponentSelectionChange={handleComponentSelectionChange}
+          />
         </CreateServerForm>
       </div>
     </main>
