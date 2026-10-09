@@ -36,7 +36,7 @@ import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server"
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
 const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
-// gateway_id=null lists tools not owned by any gateway (REST, A2A, ...).
+// gateway_id=null lists tools not owned by any gateway (REST, A2A, ...); only REST ones are offered here, on purpose.
 const GATEWAYLESS_TOOLS_QUERY_PATH = "/tools?limit=1000&include_inactive=true&gateway_id=null";
 const COMPONENT_PAGE_SIZE = 100;
 
@@ -349,7 +349,7 @@ function ComponentGroup({
   selectedIds,
   onComponentSelectionChange,
 }: {
-  title: string;
+  title?: string;
   components: SelectableComponent[];
   selectedIds: Set<string>;
   onComponentSelectionChange: (kind: ComponentKind, componentId: string, checked: boolean) => void;
@@ -358,9 +358,11 @@ function ComponentGroup({
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-        {title}
-      </h3>
+      {title && (
+        <h3 className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+          {title}
+        </h3>
+      )}
       <div className="divide-y divide-border/60 rounded-md border border-border/60">
         {components.map((component) => (
           <ComponentCheckboxRow
@@ -747,7 +749,6 @@ function RestToolsSection({
       {!isLoading && !error && tools.length > 0 && (
         <div className="mt-5">
           <ComponentGroup
-            title={intl.formatMessage({ id: "gateways.details.filter.tools" })}
             components={tools}
             selectedIds={selectedToolIdSet}
             onComponentSelectionChange={onComponentSelectionChange}

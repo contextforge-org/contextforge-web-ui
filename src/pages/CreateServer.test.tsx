@@ -8,7 +8,43 @@ import { renderWithProviders, byTextContent } from "@/test/test-utils";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
 import { truncateMiddle } from "@/components/gateways/utils";
+import type { Tool } from "@/types/tool";
 import { CreateServer } from "./CreateServer";
+
+// Full `GET /tools` item (ToolRead); typed so a contract change breaks the build.
+function makeRestTool(overrides: Partial<Tool> = {}): Tool {
+  return {
+    id: "rest-1",
+    name: "random_joke",
+    originalName: "random_joke",
+    customName: "random_joke",
+    customNameSlug: "random_joke",
+    displayName: "random_joke",
+    description: null,
+    originalDescription: null,
+    gatewayId: null,
+    gatewaySlug: "",
+    enabled: true,
+    reachable: true,
+    deprecated: false,
+    executionCount: 0,
+    tags: [],
+    integrationType: "REST",
+    requestType: "GET",
+    url: "https://official-joke-api.appspot.com/random_joke",
+    headers: {},
+    annotations: {},
+    jsonpathFilter: null,
+    auth: null,
+    version: 1,
+    visibility: "public",
+    createdAt: "2026-10-09T11:00:00",
+    updatedAt: "2026-10-09T11:00:00",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    outputSchema: null,
+    ...overrides,
+  };
+}
 
 interface MockCreateServerFormProps {
   onSuccess: (details: Record<string, unknown> | null) => void;
@@ -131,8 +167,8 @@ describe("CreateServer", () => {
       http.get("*/tools", ({ request }) =>
         new URL(request.url).searchParams.get("gateway_id") === "null"
           ? HttpResponse.json([
-              { id: "rest-1", name: "random_joke", integrationType: "REST" },
-              { id: "a2a-1", name: "agent_tool", integrationType: "A2A" },
+              makeRestTool(),
+              makeRestTool({ id: "a2a-1", name: "agent_tool", integrationType: "A2A" }),
             ])
           : undefined,
       ),
