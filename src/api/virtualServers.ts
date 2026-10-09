@@ -64,6 +64,10 @@ export function createVirtualServer(details: CreateServerDetails): Promise<Virtu
   return api.post<VirtualServer>("/v1/virtual-servers", buildCreateVirtualServerPayload(details));
 }
 
+export function getVirtualServer(id: string): Promise<VirtualServer> {
+  return api.get<VirtualServer>(`/v1/virtual-servers/${encodeURIComponent(id)}`);
+}
+
 export function deleteVirtualServer(id: string): Promise<void> {
   return api.delete<void>(`/v1/virtual-servers/${encodeURIComponent(id)}`);
 }
@@ -121,6 +125,25 @@ export function updateVirtualServer(
  */
 export function updateVirtualServerTags(serverId: string, tags: string[]): Promise<VirtualServer> {
   return api.put<VirtualServer>(`/v1/virtual-servers/${encodeURIComponent(serverId)}`, { tags });
+}
+
+const ASSOCIATION_FIELDS = {
+  tools: "associated_tools",
+  resources: "associated_resources",
+  prompts: "associated_prompts",
+} as const;
+
+/**
+ * Replace one of a virtual server's component lists (partial PUT; other fields are kept).
+ */
+export function updateVirtualServerComponents(
+  serverId: string,
+  kind: keyof typeof ASSOCIATION_FIELDS,
+  ids: string[],
+): Promise<VirtualServer> {
+  return api.put<VirtualServer>(`/v1/virtual-servers/${encodeURIComponent(serverId)}`, {
+    [ASSOCIATION_FIELDS[kind]]: ids,
+  });
 }
 
 /**
