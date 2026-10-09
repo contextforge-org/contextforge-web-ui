@@ -8,13 +8,7 @@ const IS_REAL_API = process.env.E2E_REAL_API === "true";
 // Override for a pre-running server (typically together with PLAYWRIGHT_SKIP_WEBSERVER).
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173";
 const IS_CI = !!process.env.CI;
-// Keep the webServer command authoritative for feature flags. Opt in only when
-// the pre-running server was started with the same flags.
 const REUSE_EXISTING_SERVER = process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "true";
-const VIRTUAL_SERVER_TOOL_TRY_IT_FLAG =
-  process.env.VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT === "true"
-    ? "VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT=true "
-    : "";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -62,7 +56,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command: `${VIRTUAL_SERVER_TOOL_TRY_IT_FLAG}npm run dev:e2e`,
+        command: "npm run dev:e2e",
         url: BASE_URL,
         reuseExistingServer: REUSE_EXISTING_SERVER,
         timeout: 120_000,

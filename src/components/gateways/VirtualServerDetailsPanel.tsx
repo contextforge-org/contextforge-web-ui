@@ -36,7 +36,6 @@ import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText, getTruncatedMiddle } from "@/components/ui/truncated-middle-text";
 import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
-import { isVirtualServerToolTryItEnabled } from "@/config/features";
 import { cn } from "@/lib/utils";
 import type { MCPServer, VirtualServer } from "@/types/server";
 import { normalizeVirtualServerTool, type VirtualServerTool } from "./normalizeVirtualServerTool";
@@ -194,7 +193,6 @@ export function VirtualServerDetailsPanel({
   const restoreToolActionsFocusRef = useRef(false);
   const openingToolTestRef = useRef(false);
   const headingId = useMemo(() => `server-details-heading-${server?.id ?? "none"}`, [server?.id]);
-  const virtualServerToolTryItEnabled = isVirtualServerToolTryItEnabled();
 
   const getComponentLabel = useCallback(
     (type: Exclude<ComponentFilter, "all">) =>
@@ -470,11 +468,11 @@ export function VirtualServerDetailsPanel({
 
   useEffect(() => {
     if (!selectedTestToolId) return;
-    if (!virtualServerToolTryItEnabled || !selectedTestTool) {
+    if (!selectedTestTool) {
       restoreToolActionsFocusRef.current = open && topTab === "components";
       setSelectedTestToolId(null);
     }
-  }, [open, selectedTestTool, selectedTestToolId, topTab, virtualServerToolTryItEnabled]);
+  }, [open, selectedTestTool, selectedTestToolId, topTab]);
 
   useEffect(() => {
     if (sourceFilter === "all") return;
@@ -627,7 +625,7 @@ export function VirtualServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="components" className="mt-8">
-                  {open && virtualServerToolTryItEnabled && selectedTestTool ? (
+                  {open && selectedTestTool ? (
                     <VirtualServerToolTestView
                       server={server}
                       tool={selectedTestTool}
@@ -843,8 +841,7 @@ export function VirtualServerDetailsPanel({
                                     <span aria-hidden="true" />
                                   </>
                                 )}
-                                {(virtualServerToolTryItEnabled && testableTool) ||
-                                canRemoveComponents ? (
+                                {testableTool || canRemoveComponents ? (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button
@@ -870,7 +867,7 @@ export function VirtualServerDetailsPanel({
                                         }
                                       }}
                                     >
-                                      {virtualServerToolTryItEnabled && testableTool && (
+                                      {testableTool && (
                                         <DropdownMenuItem
                                           onSelect={() => {
                                             openingToolTestRef.current = true;

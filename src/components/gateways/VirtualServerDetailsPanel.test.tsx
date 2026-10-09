@@ -339,40 +339,8 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     await user.click(testAction);
   }
 
-  it("keeps the existing handshake Try-it tab and hides tool Test actions when disabled", async () => {
-    const user = userEvent.setup();
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "false");
-    mswServer.use(
-      http.get("*/v1/virtual-servers/:id/tools", () =>
-        HttpResponse.json({ tools: [makeTool({ displayName: "Find issues" })] }),
-      ),
-    );
-
-    render(
-      <VirtualServerDetailsPanel
-        server={makeServer()}
-        error={null}
-        open
-        onClose={vi.fn()}
-        onAddSources={vi.fn()}
-      />,
-    );
-
-    expect(await screen.findByRole("tab", { name: "Try it" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await user.click(screen.getByRole("tab", { name: "Components" }));
-    expect(await screen.findByText("Search issues")).toBeInTheDocument();
-    // No actions at all without the flag or a remove handler.
-    expect(
-      screen.queryByRole("button", { name: "Actions for Search issues" }),
-    ).not.toBeInTheDocument();
-  });
-
   it("opens a fetched tool test in place and returns to the component list", async () => {
     const user = userEvent.setup();
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
     mswServer.use(
       http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({ tools: [makeTool({ id: "tool-1", displayName: "Find issues" })] }),
@@ -416,7 +384,6 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     "cancels a pending live call when the drawer closes with %s",
     async (closeWith) => {
       const user = userEvent.setup();
-      vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
       mswServer.use(
         http.get("*/v1/virtual-servers/:id/tools", () =>
           HttpResponse.json({ tools: [makeTool()] }),
@@ -466,7 +433,6 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
   it("uses snake_case tool fields for scoped testing", async () => {
     const user = userEvent.setup();
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
     const tool: Record<string, unknown> = { ...makeTool({ title: undefined }) };
     delete tool.displayName;
     delete tool.originalName;
@@ -510,7 +476,6 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
   it("keeps Preview available but blocks Live for an explicitly blank gateway ID", async () => {
     const user = userEvent.setup();
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
     mswServer.use(
       http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({
@@ -539,7 +504,6 @@ describe("VirtualServerDetailsPanel tool testing", () => {
 
   it("does not expose Test for associatedToolIds fallback rows", async () => {
     const user = userEvent.setup();
-    vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
     mswServer.use(
       http.get("*/v1/virtual-servers/:id/tools", () => HttpResponse.json({ tools: [] })),
     );
@@ -569,7 +533,6 @@ describe("VirtualServerDetailsPanel tool testing", () => {
     async ({ permissions }) => {
       const user = userEvent.setup();
       authMock.permissions = permissions;
-      vi.stubEnv("VITE_ENABLE_VIRTUAL_SERVER_TOOL_TRY_IT", "true");
       mswServer.use(
         http.get("*/v1/virtual-servers/:id/tools", () =>
           HttpResponse.json({ tools: [makeTool()] }),
