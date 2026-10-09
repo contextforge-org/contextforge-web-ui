@@ -139,6 +139,54 @@ describe("ResourceTryItTab", () => {
     expect(onSelectResource).toHaveBeenCalledWith(expect.objectContaining({ id: "r2" }));
   });
 
+  it("truncates the chip picker and lets search reveal a resource past the cap", async () => {
+    const user = userEvent.setup();
+    const onSelectResource = vi.fn();
+    const resources = Array.from({ length: 15 }, (_, i) =>
+      mockResource({ id: `r${i}`, name: `resource-${i}.md` }),
+    );
+
+    render(
+      <ResourceTryItTab
+        resources={resources}
+        selectedResourceId="r0"
+        onSelectResource={onSelectResource}
+      />,
+    );
+
+    // Only the first 10 chips plus the overflow indicator are rendered.
+    expect(screen.getByRole("button", { name: "resource-0.md" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "resource-9.md" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "resource-14.md" })).not.toBeInTheDocument();
+    expect(screen.getByText("+5")).toBeInTheDocument();
+
+    const search = screen.getByRole("searchbox", { name: /search resources/i });
+    await user.click(search);
+    await user.type(search, "resource-14");
+
+    const hiddenChip = screen.getByRole("button", { name: "resource-14.md" });
+    expect(hiddenChip).toBeInTheDocument();
+    await user.click(hiddenChip);
+    expect(onSelectResource).toHaveBeenCalledWith(expect.objectContaining({ id: "r14" }));
+  });
+
+  it("keeps the selected resource's chip visible even when it falls past the truncation cap", () => {
+    const resources = Array.from({ length: 15 }, (_, i) =>
+      mockResource({ id: `r${i}`, name: `resource-${i}.md` }),
+    );
+
+    render(
+      <ResourceTryItTab
+        resources={resources}
+        selectedResourceId="r14"
+        onSelectResource={vi.fn()}
+      />,
+    );
+
+    const selectedChip = screen.getByRole("button", { name: "resource-14.md" });
+    expect(selectedChip).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("resets the Preview button and hides the response when the language tab changes", async () => {
     vi.mocked(resourcesApi.test).mockResolvedValue({
       content: { mimeType: "text/plain", text: "hello" },
