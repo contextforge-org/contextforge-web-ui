@@ -237,6 +237,102 @@ describe("useToolForm", () => {
     });
   });
 
+  describe("tool behavior annotations", () => {
+    it("swaps the hint and keeps annotations the form does not edit", () => {
+      const { result } = renderHook(() =>
+        useToolForm({ initialValues: { annotations: { title: "Joke", readOnlyHint: true } } }),
+      );
+      expect(result.current.toolBehavior).toBe("readOnly");
+
+      act(() => result.current.setToolBehavior("destructive"));
+      expect(result.current.getFormData().tool.annotations).toEqual({
+        title: "Joke",
+        destructiveHint: true,
+      });
+
+      act(() => result.current.setToolBehavior("unspecified"));
+      expect(result.current.getFormData().tool.annotations).toEqual({ title: "Joke" });
+    });
+
+    it("sends empty annotations when none are set", () => {
+      const { result } = renderHook(() => useToolForm());
+      expect(result.current.toolBehavior).toBe("unspecified");
+      expect(result.current.getFormData().tool.annotations).toEqual({});
+    });
+
+    async function submitEdit(
+      integrationType: string,
+      annotations: Record<string, unknown>,
+      behavior?: "unspecified" | "readOnly" | "destructive",
+    ) {
+      let body: Record<string, unknown> | undefined;
+      server.use(
+        http.put("*/tools/tool-1", async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: "tool-1" });
+        }),
+      );
+      const { result } = renderHook(() =>
+        useToolForm({
+          toolId: "tool-1",
+          initialValues: {
+            name: "my-tool",
+            url: "https://api.example.com",
+            integrationType,
+            requestType: "GET",
+            annotations,
+          },
+        }),
+      );
+      if (behavior) act(() => result.current.setToolBehavior(behavior));
+      await act(async () => {
+        await result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as FormEvent<HTMLFormElement>);
+      });
+      await waitFor(() => expect(body).toBeDefined());
+      return body!;
+    }
+
+    it("sends the chosen hint on update for REST tools", async () => {
+      const body = await submitEdit("REST", { title: "Joke" }, "readOnly");
+      expect(body.annotations).toEqual({ title: "Joke", readOnlyHint: true });
+    });
+
+    it("sends {} on update when a REST tool's only hint is cleared", async () => {
+      const body = await submitEdit("REST", { readOnlyHint: true }, "unspecified");
+      expect(body.annotations).toEqual({});
+    });
+
+    it("leaves annotations out of the update for MCP tools", async () => {
+      const body = await submitEdit("MCP", { readOnlyHint: true });
+      expect(body).not.toHaveProperty("annotations");
+    });
+
+    it("sends the chosen hint on create", async () => {
+      let body: { tool?: Record<string, unknown> } | undefined;
+      server.use(
+        http.post("*/tools", async ({ request }) => {
+          body = (await request.json()) as typeof body;
+          return HttpResponse.json({ id: "tool-1" });
+        }),
+      );
+      const { result } = renderHook(() => useToolForm());
+      act(() => {
+        result.current.setName("random_joke");
+        result.current.setUrl("https://official-joke-api.appspot.com/random_joke");
+        result.current.setRequestType("GET");
+        result.current.setToolBehavior("destructive");
+      });
+      await act(async () => {
+        await result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as FormEvent<HTMLFormElement>);
+      });
+      await waitFor(() => expect(body?.tool?.annotations).toEqual({ destructiveHint: true }));
+    });
+  });
+
   describe("getFormData – custom headers", () => {
     it("sends all non-empty custom headers as auth_headers array when maxCustomHeaders is unset", () => {
       const { result } = renderHook(() => useToolForm());
