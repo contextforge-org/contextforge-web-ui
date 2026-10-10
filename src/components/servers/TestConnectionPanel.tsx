@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { Info, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { STATUS_ICON } from "@/lib/status";
 import { useIntl, type IntlShape } from "react-intl";
 import { Button } from "../ui/button";
 import { CopyButton } from "../ui/copy-button";
+import { Field } from "../ui/field";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { RadioGroup } from "../ui/radio-group";
@@ -159,32 +160,6 @@ function validateBody(value: string, method: string, contentType: string): strin
     return `Invalid body JSON: ${e instanceof Error ? e.message : "Parse error"}`;
   }
   return undefined;
-}
-
-function FieldLabel({
-  htmlFor,
-  children,
-  required,
-  hint,
-}: {
-  htmlFor?: string;
-  children: React.ReactNode;
-  required?: boolean;
-  hint?: string;
-}) {
-  return (
-    <Label htmlFor={htmlFor} className="flex items-center gap-1 text-sm font-medium">
-      <span>
-        {children}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
-      </span>
-      {hint && (
-        <Info className="size-3.5 text-muted-foreground">
-          <title>{hint}</title>
-        </Info>
-      )}
-    </Label>
-  );
 }
 
 export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
@@ -364,58 +339,58 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
       {/* Left column — request form */}
       <div className="space-y-4">
         {/* Test type */}
-        <div className="space-y-2">
-          <FieldLabel htmlFor="test-mode">
-            {intl.formatMessage({ id: "mcpServer.testConnection.mode.label" })}
-          </FieldLabel>
-          <Select value={mode} onValueChange={handleModeChange} disabled={isTesting}>
-            <SelectTrigger
-              id="test-mode"
-              className="w-full bg-transparent dark:bg-transparent dark:hover:bg-transparent"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="http">
-                {intl.formatMessage({ id: "mcpServer.testConnection.mode.http" })}
-              </SelectItem>
-              <SelectItem value="handshake">
-                {intl.formatMessage({ id: "mcpServer.testConnection.mode.handshake" })}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Field
+          id="test-mode"
+          label={intl.formatMessage({ id: "mcpServer.testConnection.mode.label" })}
+        >
+          {(controlProps) => (
+            <Select value={mode} onValueChange={handleModeChange} disabled={isTesting}>
+              <SelectTrigger
+                {...controlProps}
+                className="w-full bg-transparent dark:bg-transparent dark:hover:bg-transparent"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="http">
+                  {intl.formatMessage({ id: "mcpServer.testConnection.mode.http" })}
+                </SelectItem>
+                <SelectItem value="handshake">
+                  {intl.formatMessage({ id: "mcpServer.testConnection.mode.handshake" })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
 
         {/* URL */}
-        <div className="space-y-2">
-          <FieldLabel htmlFor="url" required hint="The full URL of the MCP server to test.">
-            URL
-          </FieldLabel>
-          <Input
-            id="url"
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-              clearError("url");
-            }}
-            onBlur={() => setErrors((prev) => ({ ...prev, url: validateUrl(url) }))}
-            placeholder="https://mcp.github.com/mcp"
-            disabled={isTesting}
-            aria-invalid={!!errors.url}
-            aria-describedby={errors.url ? "url-error" : undefined}
-            className="bg-transparent dark:bg-transparent"
-          />
-          {errors.url && (
-            <p id="url-error" className="text-sm text-destructive">
-              {errors.url}
-            </p>
+        <Field
+          id="url"
+          label="URL"
+          required
+          info="The full URL of the MCP server to test."
+          error={errors.url}
+        >
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                clearError("url");
+              }}
+              onBlur={() => setErrors((prev) => ({ ...prev, url: validateUrl(url) }))}
+              placeholder="https://mcp.github.com/mcp"
+              disabled={isTesting}
+              className="bg-transparent dark:bg-transparent"
+            />
           )}
-        </div>
+        </Field>
 
         {/* Method */}
         {mode === "http" && (
           <div className="space-y-2">
-            <FieldLabel>Method</FieldLabel>
+            <Label className="mb-2.5 block">Method</Label>
             <RadioGroup
               value={method}
               onValueChange={setMethod}
@@ -443,121 +418,108 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
         )}
 
         {/* Path */}
-        <div className="space-y-2">
-          <FieldLabel htmlFor="path" hint="Optional path appended to the URL.">
-            Path
-          </FieldLabel>
-          <Input
-            id="path"
-            value={path}
-            onChange={(e) => {
-              setPath(e.target.value);
-              clearError("path");
-            }}
-            onBlur={() => setErrors((prev) => ({ ...prev, path: validatePath(path) }))}
-            placeholder="/health"
-            disabled={isTesting}
-            aria-invalid={!!errors.path}
-            aria-describedby={errors.path ? "path-error" : undefined}
-            className="bg-transparent dark:bg-transparent"
-          />
-          {errors.path && (
-            <p id="path-error" className="text-sm text-destructive">
-              {errors.path}
-            </p>
+        <Field id="path" label="Path" info="Optional path appended to the URL." error={errors.path}>
+          {(controlProps) => (
+            <Input
+              {...controlProps}
+              value={path}
+              onChange={(e) => {
+                setPath(e.target.value);
+                clearError("path");
+              }}
+              onBlur={() => setErrors((prev) => ({ ...prev, path: validatePath(path) }))}
+              placeholder="/health"
+              disabled={isTesting}
+              className="bg-transparent dark:bg-transparent"
+            />
           )}
-        </div>
+        </Field>
 
         {/* Content type */}
         {mode === "http" && (
-          <div className="space-y-2">
-            <FieldLabel htmlFor="content-type">Content type</FieldLabel>
-            <Select value={contentType} onValueChange={setContentType} disabled={isTesting}>
-              <SelectTrigger
-                id="content-type"
-                className="w-full bg-transparent dark:bg-transparent dark:hover:bg-transparent"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="application/json">application/json</SelectItem>
-                <SelectItem value="application/x-www-form-urlencoded">
-                  application/x-www-form-urlencoded
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Field id="content-type" label="Content type">
+            {(controlProps) => (
+              <Select value={contentType} onValueChange={setContentType} disabled={isTesting}>
+                <SelectTrigger
+                  {...controlProps}
+                  className="w-full bg-transparent dark:bg-transparent dark:hover:bg-transparent"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="application/json">application/json</SelectItem>
+                  <SelectItem value="application/x-www-form-urlencoded">
+                    application/x-www-form-urlencoded
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
         )}
 
         {/* Headers */}
-        <div className="space-y-2">
-          <FieldLabel htmlFor="headers" hint="Request headers as a JSON object.">
-            Headers
-          </FieldLabel>
-          <Textarea
-            id="headers"
-            value={headers}
-            onChange={(e) => {
-              setHeaders(e.target.value);
-              clearError("headers");
-            }}
-            onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
-            placeholder="Add request headers as JSON..."
-            className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
-            disabled={isTesting}
-            aria-invalid={!!errors.headers}
-            aria-describedby={
-              [
-                errors.headers ? "headers-error" : null,
-                mode === "handshake" ? "headers-hint" : null,
-              ]
-                .filter(Boolean)
-                .join(" ") || undefined
-            }
-          />
-          {errors.headers && (
-            <p id="headers-error" className="text-sm text-destructive">
-              {errors.headers}
-            </p>
+        <Field
+          id="headers"
+          label="Headers"
+          info="Request headers as a JSON object."
+          error={errors.headers}
+        >
+          {(controlProps) => (
+            <>
+              <Textarea
+                {...controlProps}
+                aria-describedby={
+                  [controlProps["aria-describedby"], mode === "handshake" ? "headers-hint" : null]
+                    .filter(Boolean)
+                    .join(" ") || undefined
+                }
+                value={headers}
+                onChange={(e) => {
+                  setHeaders(e.target.value);
+                  clearError("headers");
+                }}
+                onBlur={() => setErrors((prev) => ({ ...prev, headers: validateHeaders(headers) }))}
+                placeholder="Add request headers as JSON..."
+                className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+                disabled={isTesting}
+              />
+              {mode === "handshake" && (
+                <p id="headers-hint" className="text-[13px] text-muted-foreground">
+                  {intl.formatMessage({ id: "mcpServer.testConnection.storedCredentialsHint" })}
+                </p>
+              )}
+            </>
           )}
-          {mode === "handshake" && (
-            <p id="headers-hint" className="text-[13px] text-muted-foreground">
-              {intl.formatMessage({ id: "mcpServer.testConnection.storedCredentialsHint" })}
-            </p>
-          )}
-        </div>
+        </Field>
 
         {/* Body — not applicable to GET requests */}
         {mode === "http" && method !== "Get" && (
-          <div className="space-y-2">
-            <FieldLabel htmlFor="body" hint="Request body sent with non-GET methods.">
-              Body
-            </FieldLabel>
-            <Textarea
-              id="body"
-              value={body}
-              onChange={(e) => {
-                setBody(e.target.value);
-                clearError("body");
-              }}
-              onBlur={() =>
-                setErrors((prev) => ({
-                  ...prev,
-                  body: validateBody(body, method, contentType),
-                }))
-              }
-              placeholder="Add request body as JSON..."
-              className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
-              disabled={isTesting}
-              aria-invalid={!!errors.body}
-              aria-describedby={errors.body ? "body-error" : undefined}
-            />
-            {errors.body && (
-              <p id="body-error" className="text-sm text-destructive">
-                {errors.body}
-              </p>
+          <Field
+            id="body"
+            label="Body"
+            info="Request body sent with non-GET methods."
+            error={errors.body}
+          >
+            {(controlProps) => (
+              <Textarea
+                {...controlProps}
+                value={body}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  clearError("body");
+                }}
+                onBlur={() =>
+                  setErrors((prev) => ({
+                    ...prev,
+                    body: validateBody(body, method, contentType),
+                  }))
+                }
+                placeholder="Add request body as JSON..."
+                className="bg-transparent font-mono text-sm focus-visible:ring-1 focus-visible:ring-offset-0"
+                disabled={isTesting}
+              />
             )}
-          </div>
+          </Field>
         )}
       </div>
 
