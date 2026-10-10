@@ -82,7 +82,6 @@
   "resources.details.searchResources.placeholder": "Buscar por nombre...",
   "resources.details.searchResources.noResults": "Ningún recurso coincide con \"{query}\"",
   "resources.details.code.args.heading": "Argumentos",
-  "resources.details.code.args.required": "Requerido",
   "resources.details.code.tab.curl": "curl",
   "resources.details.code.tab.jsonRpc": "JSON-RPC",
   "resources.details.code.tab.python": "Python",

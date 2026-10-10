@@ -1,8 +1,8 @@
 import { useCallback, useId, useMemo } from "react";
 import { useIntl } from "react-intl";
 
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { PromptArgument } from "@/generated/types";
 
 export interface PromptArgsFormProps {
@@ -76,30 +76,24 @@ export function PromptArgsForm({ args, schema, onChange }: PromptArgsFormProps) 
           const fieldId = `${fieldIdPrefix}-${arg.name}`;
           const required = Boolean(arg.required);
           return (
-            <div key={arg.name} className="space-y-1.5">
-              <Label htmlFor={fieldId} className="inline-flex items-center gap-0.5">
-                <span className="font-mono text-[12px] text-foreground">{arg.name}</span>
-                {required && (
-                  <>
-                    <span className="text-red-500" aria-hidden="true">
-                      *
-                    </span>
-                    <span className="sr-only">
-                      {intl.formatMessage({ id: "prompts.details.code.args.required" })}
-                    </span>
-                  </>
-                )}
-              </Label>
-              <Input
-                id={fieldId}
-                value={args[arg.name] ?? ""}
-                onChange={(event) => handleChange(arg.name, event.target.value)}
-                placeholder={toPlaceholder(arg.description)}
-                required={required}
-                aria-required={required}
-                className="placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
-              />
-            </div>
+            <Field
+              key={arg.name}
+              id={fieldId}
+              label={arg.name}
+              required={required}
+              labelProps={{ className: "font-mono text-[12px] text-foreground" }}
+            >
+              {(controlProps) => (
+                <Input
+                  {...controlProps}
+                  value={args[arg.name] ?? ""}
+                  onChange={(event) => handleChange(arg.name, event.target.value)}
+                  placeholder={toPlaceholder(arg.description)}
+                  required={required}
+                  className="placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+                />
+              )}
+            </Field>
           );
         })}
       </div>
