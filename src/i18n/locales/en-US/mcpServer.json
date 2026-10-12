@@ -174,7 +174,6 @@
   "mcpServer.catalog.apiKey.submit": "Add server",
   "mcpServer.catalog.oauth.title": "Add {name}",
   "mcpServer.catalog.oauth.description": "Configure OAuth and choose who can use this server.",
-  "mcpServer.catalog.oauth.submit": "Configure and authorize",
   "mcpServer.catalog.oauth.issuerRequired": "Enter a valid issuer URL.",
   "mcpServer.catalog.oauth.scopesRequired": "Enter at least one scope.",
   "mcpServer.catalog.oauth.clientIdRequired": "Client ID is required.",

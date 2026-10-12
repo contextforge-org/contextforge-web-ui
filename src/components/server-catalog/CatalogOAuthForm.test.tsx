@@ -159,6 +159,24 @@ describe("CatalogOAuthForm", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("keeps scopes format guidance accessible alongside validation errors", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const scopes = screen.getByLabelText(/^Scopes/i);
+    const hint = document.getElementById("catalog-oauth-scopes-hint")!;
+    expect(hint).toBeVisible();
+    expect(scopes).toHaveAccessibleDescription(hint.textContent!);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(hint).toBeVisible();
+    expect(scopes).toHaveAttribute("aria-invalid", "true");
+    expect(scopes).toHaveAccessibleDescription(`Enter at least one scope. ${hint.textContent}`);
+
+    await user.type(scopes, "repo");
+    expect(screen.queryByText("Enter at least one scope.")).not.toBeInTheDocument();
+    expect(scopes).toHaveAccessibleDescription(hint.textContent!);
+  });
+
   it("prefills public OAuth metadata without pre-filling client credentials", () => {
     const oauthServer: CatalogServer = {
       ...server,

@@ -9,7 +9,6 @@ import { MCPIcon } from "@/components/icons/MCPIcon";
 import { Field } from "@/components/ui/field";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -258,24 +257,38 @@ export function CatalogOAuthForm({
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesLabel" })}
               required
               error={errors.scopes}
-              hint={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
             >
               {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  value={scopes}
-                  onChange={(event) => {
-                    setScopes(event.target.value);
-                    setErrors((current) => ({ ...current, scopes: undefined }));
-                  }}
-                  placeholder={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesPlaceholder" })}
-                  disabled={isSubmitting}
-                />
+                <>
+                  <Input
+                    {...controlProps}
+                    aria-describedby={[
+                      controlProps["aria-describedby"],
+                      "catalog-oauth-scopes-hint",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    value={scopes}
+                    onChange={(event) => {
+                      setScopes(event.target.value);
+                      setErrors((current) => ({ ...current, scopes: undefined }));
+                    }}
+                    placeholder={intl.formatMessage({
+                      id: "mcpServer.auth.oauth.scopesPlaceholder",
+                    })}
+                    disabled={isSubmitting}
+                  />
+                  <p id="catalog-oauth-scopes-hint" className="text-xs text-muted-foreground">
+                    {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
+                  </p>
+                </>
               )}
             </Field>
 
             <div className="space-y-2.5">
-              <Label>{intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}</Label>
+              <p className="text-sm font-medium leading-none">
+                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
+              </p>
               {isCallbackUrlReady && callbackUrl ? (
                 <>
                   <CopyValue

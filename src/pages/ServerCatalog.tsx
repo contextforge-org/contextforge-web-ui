@@ -1157,13 +1157,13 @@ export function ServerCatalog() {
     [dismissRegistrationNotification],
   );
 
-  const closeOAuthForm = () => {
+  const closeOAuthForm = useCallback(() => {
     if (!oauthServer) return;
     setFocusActionsForServerId(oauthServer.id);
     setOAuthServer(null);
     setOAuthFormNotification(undefined);
     setPendingOAuthGatewayId(null);
-  };
+  }, [oauthServer]);
 
   if (oauthServer) {
     return (
