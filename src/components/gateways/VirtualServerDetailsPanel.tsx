@@ -399,9 +399,7 @@ export function VirtualServerDetailsPanel({
     return `/v1/mcp-servers?${params}`;
   }, []);
 
-  const { data: sourcesData, isLoading: sourcesLoading } = useQuery<
-    MCPServersResponse | MCPServer[]
-  >(sourcesPath, {
+  const { data: sourcesData } = useQuery<MCPServersResponse | MCPServer[]>(sourcesPath, {
     enabled: fetchEnabled && sourceIds.length > 0,
   });
 
@@ -637,7 +635,7 @@ export function VirtualServerDetailsPanel({
                     />
                   ) : (
                     <>
-                      {(sourcesLoading || sourceTabs.length > 0) && (
+                      {sourceTabs.length > 1 && (
                         <div
                           role="tablist"
                           aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}

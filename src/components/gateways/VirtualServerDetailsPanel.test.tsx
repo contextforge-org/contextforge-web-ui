@@ -295,6 +295,36 @@ describe("VirtualServerDetailsPanel components list", () => {
     expect(screen.getByRole("tab", { name: "Gateway A" })).toHaveFocus();
   });
 
+  it("hides the source selector when the server has a single source", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () =>
+        HttpResponse.json({
+          tools: [{ id: "t1", name: "Tool One", originalName: "tool_one", gateway_id: "gwA" }],
+        }),
+      ),
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({ gateways: [{ id: "gwA", name: "Gateway A" }] }),
+      ),
+    );
+
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-single-source" })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    expect(await screen.findByText("tool_one")).toBeInTheDocument();
+
+    expect(screen.queryByRole("tab", { name: "All sources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Gateway A" })).not.toBeInTheDocument();
+  });
+
   it("moves the active tab with arrow keys", async () => {
     const user = userEvent.setup();
     renderWithComponents();

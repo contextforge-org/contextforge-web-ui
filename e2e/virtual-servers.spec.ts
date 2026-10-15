@@ -1208,6 +1208,45 @@ test.describe("Virtual Servers page", () => {
     await expect(detailsPanel.getByText("github://repo/{owner}/{repo}")).toHaveCount(0);
   });
 
+  test("filters components by source in the details panel when there are several", async ({
+    page,
+  }) => {
+    await routeVirtualServerTryIt(page, [
+      makeTryItTool(),
+      makeTryItTool({
+        id: "tool-post",
+        name: "slack.post_message",
+        originalName: "post_message",
+        gatewayId: MOCK_MCP_SERVER_2.id,
+      }),
+    ]);
+    // Registered after the helper's route, so it takes precedence.
+    await page.route("**/v1/mcp-servers?*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ gateways: [MOCK_MCP_SERVER, MOCK_MCP_SERVER_2] }),
+      });
+    });
+
+    await page.goto(APP.GATEWAYS);
+    await page.getByRole("button", { name: "Actions for testVS" }).click();
+    await page.getByRole("menuitem", { name: "View details" }).click();
+
+    const panel = page.getByRole("region", { name: "testVS details" });
+    await panel.getByRole("tab", { name: "Components" }).click();
+
+    await expect(panel.getByRole("tab", { name: "All sources" })).toBeVisible();
+    await expect(panel.getByRole("tab", { name: "github-mcp" })).toBeVisible();
+    await expect(panel.getByRole("tab", { name: "slack-mcp" })).toBeVisible();
+    await expect(panel.getByText("search_issues")).toBeVisible();
+    await expect(panel.getByText("post_message")).toBeVisible();
+
+    await panel.getByRole("tab", { name: "slack-mcp" }).click();
+    await expect(panel.getByText("post_message")).toBeVisible();
+    await expect(panel.getByText("search_issues")).toHaveCount(0);
+  });
+
   test("shows a tooltip with the full endpoint when it's truncated in the Try it tab", async ({
     page,
   }) => {
