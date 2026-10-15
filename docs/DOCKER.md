@@ -101,6 +101,14 @@ the compose default). If you see the `memory-redis` warning in
 `docker compose logs app` and didn't ask for it, check `.env` isn't
 setting `REDIS_URL=memory://`.
 
+## SSO (Keycloak)
+
+`SSO_ENABLED=false` by default — the container boots the same either way,
+nothing extra to configure for a plain password-login deployment. Turning
+it on needs a Keycloak client registered for this BFF (separate from the
+gateway's own) and a one-time gateway-side admin-API step with no env var
+equivalent — see [`sso-keycloak-setup.md`](./sso-keycloak-setup.md).
+
 ## Local TLS (self-signed certs)
 
 `npm run certs` generates a self-signed cert/key pair for local HTTPS
