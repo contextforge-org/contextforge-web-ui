@@ -1236,13 +1236,18 @@ test.describe("Virtual Servers page", () => {
     const panel = page.getByRole("region", { name: "testVS details" });
     await panel.getByRole("tab", { name: "Components" }).click();
 
-    await expect(panel.getByRole("tab", { name: "All sources" })).toBeVisible();
-    await expect(panel.getByRole("tab", { name: "github-mcp" })).toBeVisible();
-    await expect(panel.getByRole("tab", { name: "slack-mcp" })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Sources" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "All sources" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "github-mcp" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "slack-mcp" })).toBeVisible();
     await expect(panel.getByText("search_issues")).toBeVisible();
     await expect(panel.getByText("post_message")).toBeVisible();
 
-    await panel.getByRole("tab", { name: "slack-mcp" }).click();
+    await panel.getByRole("button", { name: "slack-mcp" }).click();
+    await expect(panel.getByRole("button", { name: "slack-mcp" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(panel.getByText("post_message")).toBeVisible();
     await expect(panel.getByText("search_issues")).toHaveCount(0);
   });

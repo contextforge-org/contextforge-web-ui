@@ -113,6 +113,7 @@
   "gateways.details.filter.tools": "Tools",
   "gateways.details.filter.resources": "Resources",
   "gateways.details.filter.prompts": "Prompts",
+  "gateways.details.sources": "Sources",
   "gateways.details.filterSources": "Filter sources",
   "gateways.details.searchComponents": "Search components",
   "gateways.details.filterComponents": "Filter components",
