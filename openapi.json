@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.0.11+9b2156"
+    "version": "1.1.0+42a06c"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -62,7 +62,7 @@
     "/health": {
       "get": {
         "summary": "Healthcheck",
-        "description": "Perform a basic health check to verify database connectivity.\n\nSync function so FastAPI runs it in a threadpool, avoiding event loop blocking.\nUses a dedicated session to avoid cross-thread issues and double-commit\nfrom get_db dependency. All DB operations happen in the same thread.\n\nArgs:\n    response: Optional response object used to attach runtime-mode headers.\n\nReturns:\n    A dictionary with the health status and optional error message.",
+        "description": "Perform a basic health check to verify database connectivity.\n\nSync function so FastAPI runs it in a threadpool, avoiding event loop blocking.\nUses a dedicated session to avoid cross-thread issues and double-commit\nfrom get_db dependency. All DB operations happen in the same thread.\n\nReturns:\n    A dictionary with the health status and optional error message.",
         "operationId": "healthcheck_health_get",
         "responses": {
           "200": {
@@ -7527,7 +7527,7 @@
           "Observability"
         ],
         "summary": "Get Metrics Timeseries",
-        "description": "Get execution counts bucketed over time.\n\nArgs:\n    request: FastAPI request object (required by the permission decorator)\n    hours: Number of hours to look back (1-168)\n    interval_minutes: Aggregation interval in minutes (5-1440)\n    user: Authenticated user context (required by the permission decorator)\n    db: Database session\n\nReturns:\n    TimeseriesResponse: Sparse buckets with one execution count each. Empty\n    series when observability is disabled.\n\nRaises:\n    HTTPException: 500 if aggregation fails",
+        "description": "Get execution counts bucketed over time.\n\nArgs:\n    request: FastAPI request object (required by the permission decorator)\n    hours: Number of hours to look back (1-168)\n    interval_minutes: Aggregation interval in minutes (5-1440)\n    user: Authenticated user context (required by the permission decorator)\n    db: Database session\n\nReturns:\n    TimeseriesResponse: Sparse buckets with aligned execution, success, and\n    error counts. Empty series when observability is disabled.\n\nRaises:\n    HTTPException: 500 if aggregation fails",
         "operationId": "get_metrics_timeseries_v1_observability_metrics_timeseries_get",
         "security": [
           {
@@ -8936,9 +8936,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Invoke A2A Agent V1 A2A  Agent Name  Invoke Post"
+                  "$ref": "#/components/schemas/A2AInvokeResponse"
                 }
               }
             }
@@ -9003,9 +9001,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Invoke A2A Agent By Id V1 A2A Invoke Post"
+                  "$ref": "#/components/schemas/A2AInvokeResponse"
                 }
               }
             }
@@ -9081,9 +9077,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Invoke A2A Agent Jsonrpc V1 A2A  Agent Name  Jsonrpc Post"
+                  "$ref": "#/components/schemas/A2AJsonRpcResponse"
                 }
               }
             }
@@ -10527,6 +10521,710 @@
             "ConfigurableHTTPBearer": []
           }
         ]
+      }
+    },
+    "/v1/auth/sso/providers": {
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "List Sso Providers",
+        "description": "List available SSO providers for login.\n\nArgs:\n    db: Database session\n\nReturns:\n    List of enabled SSO providers with basic information.\n\nRaises:\n    HTTPException: If SSO authentication is disabled\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_sso_providers)\n    True",
+        "operationId": "list_sso_providers_v1_auth_sso_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SSOProviderResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Sso Providers V1 Auth Sso Providers Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/login/{provider_id}": {
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Initiate Sso Login",
+        "description": "Initiate SSO authentication flow.\n\nValidates the redirect_uri against a server-side allowlist to prevent open redirect attacks.\nOnly allows relative URIs, URIs matching app_domain, or URIs from configured allowed_origins.\nDoes NOT trust the Host header for validation.\n\nArgs:\n    provider_id: SSO provider identifier (e.g., 'github', 'google')\n    request: FastAPI request object\n    response: FastAPI response object used to set session-binding cookie\n    redirect_uri: Callback URI after successful authentication\n    scopes: Optional custom OAuth scopes (space-separated)\n    db: Database session\n\nReturns:\n    Authorization URL and state parameter for redirect.\n\nRaises:\n    HTTPException: If SSO is disabled, provider not found, or redirect_uri is invalid\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(initiate_sso_login)\n    True",
+        "operationId": "initiate_sso_login_v1_auth_sso_login__provider_id__get",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 2048,
+              "description": "Callback URI after authentication",
+              "title": "Redirect Uri"
+            },
+            "description": "Callback URI after authentication"
+          },
+          {
+            "name": "scopes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Space-separated OAuth scopes",
+              "title": "Scopes"
+            },
+            "description": "Space-separated OAuth scopes"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SSOLoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/callback/{provider_id}": {
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Handle Sso Callback",
+        "description": "Handle SSO authentication callback.\n\nArgs:\n    provider_id: SSO provider identifier\n    code: Authorization code from provider (present on success)\n    state: CSRF state parameter for validation\n    error: OAuth error code (present on failure)\n    error_description: OAuth error description (present on failure)\n    request: FastAPI request object\n    response: FastAPI response object\n    db: Database session\n\nReturns:\n    JWT access token and user information, or redirect to login with error.\n\nRaises:\n    HTTPException: If SSO is disabled or authentication fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(handle_sso_callback)\n    True",
+        "operationId": "handle_sso_callback_v1_auth_sso_callback__provider_id__get",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Authorization code from SSO provider",
+              "title": "Code"
+            },
+            "description": "Authorization code from SSO provider"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSRF state parameter",
+              "title": "State"
+            },
+            "description": "CSRF state parameter"
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OAuth error code",
+              "title": "Error"
+            },
+            "description": "OAuth error code"
+          },
+          {
+            "name": "error_description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "OAuth error description",
+              "title": "Error Description"
+            },
+            "description": "OAuth error description"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/admin/providers": {
+      "post": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Create Sso Provider",
+        "description": "Create new SSO provider configuration (Admin only).\n\nArgs:\n    provider_data: SSO provider configuration\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Created provider information.\n\nRaises:\n    HTTPException: If provider already exists or creation fails",
+        "operationId": "create_sso_provider_v1_auth_sso_admin_providers_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SSOProviderCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Sso Provider V1 Auth Sso Admin Providers Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "List All Sso Providers",
+        "description": "List all SSO providers including disabled ones (Admin only).\n\nArgs:\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    List of all SSO providers with configuration details.",
+        "operationId": "list_all_sso_providers_v1_auth_sso_admin_providers_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List All Sso Providers V1 Auth Sso Admin Providers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/admin/providers/{provider_id}": {
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Get Sso Provider",
+        "description": "Get SSO provider details (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Provider configuration details.\n\nRaises:\n    HTTPException: If provider not found",
+        "operationId": "get_sso_provider_v1_auth_sso_admin_providers__provider_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Sso Provider V1 Auth Sso Admin Providers  Provider Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Update Sso Provider",
+        "description": "Update SSO provider configuration (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    provider_data: Updated provider configuration\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Updated provider information.\n\nRaises:\n    HTTPException: If provider not found or update fails",
+        "operationId": "update_sso_provider_v1_auth_sso_admin_providers__provider_id__put",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SSOProviderUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Sso Provider V1 Auth Sso Admin Providers  Provider Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Delete Sso Provider",
+        "description": "Delete SSO provider configuration (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Deletion confirmation.\n\nRaises:\n    HTTPException: If provider not found",
+        "operationId": "delete_sso_provider_v1_auth_sso_admin_providers__provider_id__delete",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Sso Provider V1 Auth Sso Admin Providers  Provider Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/pending-approvals": {
+      "get": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "List Pending Approvals",
+        "description": "List pending SSO user approval requests (Admin only).\n\nArgs:\n    include_expired: Whether to include expired requests\n    db: Database session\n    user: Current authenticated admin user\n\nReturns:\n    List of pending approval requests",
+        "operationId": "list_pending_approvals_v1_auth_sso_pending_approvals_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_expired",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include expired approval requests",
+              "default": false,
+              "title": "Include Expired"
+            },
+            "description": "Include expired approval requests"
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingUserApprovalResponse"
+                  },
+                  "title": "Response List Pending Approvals V1 Auth Sso Pending Approvals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/sso/pending-approvals/{approval_id}/action": {
+      "post": {
+        "tags": [
+          "SSO Authentication",
+          "SSO Authentication"
+        ],
+        "summary": "Handle Approval Request",
+        "description": "Approve or reject a pending SSO user registration (Admin only).\n\nArgs:\n    approval_id: ID of the approval request\n    request: Approval action (approve/reject) with optional reason/notes\n    db: Database session\n    user: Current authenticated admin user\n\nReturns:\n    Action confirmation message\n\nRaises:\n    HTTPException: If approval not found or invalid action",
+        "operationId": "handle_approval_request_v1_auth_sso_pending_approvals__approval_id__action_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Approval Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Handle Approval Request V1 Auth Sso Pending Approvals  Approval Id  Action Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/teams/": {
@@ -32452,250 +33150,6 @@
         }
       }
     },
-    "/v1/admin/runtime/mcp-mode": {
-      "get": {
-        "tags": [
-          "Runtime Admin"
-        ],
-        "summary": "Get Mcp Mode",
-        "description": "Return the current MCP runtime mode and override state.\n\nArgs:\n    user: Authenticated user context (must have ``admin.system_config``).\n\nReturns:\n    State payload describing boot mode, effective mode, override state, and propagation status.",
-        "operationId": "get_mcp_mode_v1_admin_runtime_mcp_mode_get",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Mcp Mode V1 Admin Runtime Mcp Mode Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "Runtime Admin"
-        ],
-        "summary": "Patch Mcp Mode",
-        "description": "Flip the public ``/mcp`` ingress between ``shadow`` and ``edge``.\n\nArgs:\n    body: Request body containing the target mode.\n    request: FastAPI request (used for reverse-proxy header detection).\n    user: Authenticated user context (must have ``admin.system_config``).\n    db: Request-scoped DB session for the audit write.\n\nReturns:\n    Updated state payload after the flip is applied locally and published.",
-        "operationId": "patch_mcp_mode_v1_admin_runtime_mcp_mode_patch",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RuntimeModeUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Patch Mcp Mode V1 Admin Runtime Mcp Mode Patch"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/admin/runtime/a2a-mode": {
-      "get": {
-        "tags": [
-          "Runtime Admin"
-        ],
-        "summary": "Get A2A Mode",
-        "description": "Return the current A2A runtime mode and override state.\n\nArgs:\n    user: Authenticated user context (must have ``admin.system_config``).\n\nReturns:\n    State payload describing boot mode, effective mode, override state, and propagation status.",
-        "operationId": "get_a2a_mode_v1_admin_runtime_a2a_mode_get",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get A2A Mode V1 Admin Runtime A2A Mode Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "tags": [
-          "Runtime Admin"
-        ],
-        "summary": "Patch A2A Mode",
-        "description": "Flip the registered-A2A invocation path between Python and the Rust runtime.\n\nArgs:\n    body: Request body containing the target mode.\n    request: FastAPI request (used for reverse-proxy header detection).\n    user: Authenticated user context (must have ``admin.system_config``).\n    db: Request-scoped DB session for the audit write.\n\nReturns:\n    Updated state payload after the flip is applied locally and published.",
-        "operationId": "patch_a2a_mode_v1_admin_runtime_a2a_mode_patch",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RuntimeModeUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Patch A2A Mode V1 Admin Runtime A2A Mode Patch"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/admin/well-known": {
       "get": {
         "tags": [
@@ -35423,6 +35877,116 @@
         }
       }
     },
+    "/v1/admin/users/sso": {
+      "post": {
+        "tags": [
+          "SSO User Provisioning"
+        ],
+        "summary": "Create Sso User",
+        "description": "Provision a passwordless user using an enabled, configured SSO provider.\n\nArgs:\n    request: JSON request, parsed after authentication and authorization.\n    current_user_ctx: Authenticated caller context.\n    db: Request-scoped database session.\n\nReturns:\n    The created user's public details.\n\nRaises:\n    HTTPException: Unsupported media type, malformed JSON, password input,\n        invalid provider/email, duplicate user, or unexpected service failure.\n    RequestValidationError: JSON does not match the request schema.",
+        "operationId": "create_sso_user_v1_admin_users_sso_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailUserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "Administrator-driven passwordless SSO user creation request.\n\nProviders are validated against enabled provider rows by the service. The\nendpoint rejects a password key before validating this schema.",
+                "properties": {
+                  "email": {
+                    "description": "User's email address",
+                    "format": "email",
+                    "title": "Email",
+                    "type": "string"
+                  },
+                  "auth_provider": {
+                    "description": "Configured SSO provider ID; azure-ad is an alias for entra",
+                    "title": "Auth Provider",
+                    "type": "string"
+                  },
+                  "full_name": {
+                    "anyOf": [
+                      {
+                        "maxLength": 255,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "User's full name",
+                    "title": "Full Name"
+                  },
+                  "is_admin": {
+                    "default": false,
+                    "description": "Grant admin privileges to user",
+                    "title": "Is Admin",
+                    "type": "boolean"
+                  },
+                  "is_active": {
+                    "default": true,
+                    "description": "Whether user account is active",
+                    "title": "Is Active",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "email",
+                  "auth_provider"
+                ],
+                "title": "AdminCreateSSOUserRequest",
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc": {
       "post": {
         "tags": [
@@ -36295,7 +36859,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools List Authz",
-        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_tools_list_authz__internal_mcp_tools_list_authz_post",
         "responses": {
           "200": {
@@ -36315,7 +36879,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Tools List Authz",
-        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_tools_list_authz__internal_mcp_tools_list_authz__post",
         "responses": {
           "200": {
@@ -36335,7 +36899,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Resources List Authz",
-        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_resources_list_authz__internal_mcp_resources_list_authz_post",
         "responses": {
           "200": {
@@ -36355,7 +36919,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Resources List Authz",
-        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_resources_list_authz__internal_mcp_resources_list_authz__post",
         "responses": {
           "200": {
@@ -36415,7 +36979,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Resource Templates List Authz",
-        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_resource_templates_list_authz__internal_mcp_resources_templates_list_authz_post",
         "responses": {
           "200": {
@@ -36435,7 +36999,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Resource Templates List Authz",
-        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_resource_templates_list_authz__internal_mcp_resources_templates_list_authz__post",
         "responses": {
           "200": {
@@ -36455,7 +37019,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Prompts List Authz",
-        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_prompts_list_authz__internal_mcp_prompts_list_authz_post",
         "responses": {
           "200": {
@@ -36475,7 +37039,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Prompts List Authz",
-        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
+        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
         "operationId": "handle_internal_mcp_prompts_list_authz__internal_mcp_prompts_list_authz__post",
         "responses": {
           "200": {
@@ -37356,46 +37920,6 @@
         "summary": "Handle Internal Mcp Tools Call",
         "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
         "operationId": "handle_internal_mcp_tools_call__internal_mcp_tools_call__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call/resolve": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call Resolve",
-        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_tools_call_resolve__internal_mcp_tools_call_resolve_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call/resolve/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call Resolve",
-        "description": "Resolve a Rust-direct MCP tools/call execution plan without executing the tool.\n\nArgs:\n    request: Trusted internal MCP tools/call resolve request.\n\nReturns:\n    ORJSONResponse: JSON-RPC response containing execution plan on success,\n                    or JSON-RPC error on validation/permission/plugin failures.\n                    All errors returned as structured JSON-RPC (never re-raised)\n                    since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_tools_call_resolve__internal_mcp_tools_call_resolve__post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -41555,6 +42079,54 @@
         "description": "Schema for updating an existing A2A agent.\n\nSimilar to A2AAgentCreate but all fields are optional to allow partial updates.",
         "nullable": true
       },
+      "A2AInvokeResponse": {
+        "properties": {
+          "jsonrpc": {
+            "title": "Jsonrpc",
+            "description": "JSON-RPC protocol version echoed by the agent"
+          },
+          "result": {
+            "title": "Result",
+            "description": "Result payload forwarded from the agent"
+          },
+          "error": {
+            "title": "Error",
+            "description": "Error forwarded from the agent"
+          },
+          "id": {
+            "title": "Id",
+            "description": "Request id this response correlates to, omitted for notifications"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "A2AInvokeResponse",
+        "description": "Schema for ``POST /v1/a2a/{agent_name}/invoke`` and ``POST /v1/a2a/invoke``.\n\nBoth routes hand the agent's document to the caller after ContextForge governance\n(auth, RBAC, rate limiting, metrics) without reshaping it. When the gateway has\nnothing to forward, ``error`` carries a plain message string rather than a JSON-RPC\nerror object and the remaining keys are absent.\n\nIts fields deliberately match :class:`A2AJsonRpcResponse`, while the two class\nnames provide distinct OpenAPI components for the corresponding routes."
+      },
+      "A2AJsonRpcResponse": {
+        "properties": {
+          "jsonrpc": {
+            "title": "Jsonrpc",
+            "description": "JSON-RPC protocol version echoed by the agent"
+          },
+          "result": {
+            "title": "Result",
+            "description": "Result payload forwarded from the agent"
+          },
+          "error": {
+            "title": "Error",
+            "description": "Error forwarded from the agent"
+          },
+          "id": {
+            "title": "Id",
+            "description": "Request id this response correlates to, omitted for notifications"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "A2AJsonRpcResponse",
+        "description": "Schema for ``POST /v1/a2a/{agent_name}/jsonrpc``.\n\nThis passthrough always answers with a JSON-RPC envelope: an agent document that\nalready carries ``jsonrpc`` is returned unchanged, otherwise the agent's response is\nwrapped as ``{\"jsonrpc\": \"2.0\", \"result\": ...}``. ``id`` is only present when the\nrequest had one. The gateway's own JSON-RPC error replies are returned as explicit\nresponses with a non-2xx status, so they bypass this model.\n\nIts fields deliberately match :class:`A2AInvokeResponse`; the separate class\nname provides a distinct OpenAPI component for this route."
+      },
       "ActivityItem": {
         "properties": {
           "id": {
@@ -41821,6 +42393,42 @@
         "type": "object",
         "title": "Annotations",
         "description": "Optional annotations for client rendering hints (MCP spec-compliant).\n\nAttributes:\n    audience (Optional[List[Role]]): Describes who the intended customer of this\n                                    object or data is. Can include multiple entries\n                                    (e.g., [\"user\", \"assistant\"]).\n    priority (Optional[float]): Describes how important this data is for operating\n                               the server. 1 = most important (effectively required),\n                               0 = least important (entirely optional).\n    last_modified (Optional[str]): ISO 8601 timestamp of last modification.\n                                  Serialized as 'lastModified' in JSON."
+      },
+      "ApprovalActionRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "ApprovalActionRequest",
+        "description": "Request model for approval actions."
       },
       "AuditTrailResponse": {
         "properties": {
@@ -45007,7 +45615,7 @@
               }
             ],
             "title": "Gatewayid",
-            "description": "Exact registered gateway to use for transport and connection settings"
+            "description": "Exact registered gateway to use for transport, TLS, and stored-credential settings; combined with credential_mode to control whether stored credentials are applied"
           },
           "credentialMode": {
             "type": "string",
@@ -45016,7 +45624,7 @@
               "candidate_only"
             ],
             "title": "Credentialmode",
-            "description": "Whether the handshake may use stored gateway credentials",
+            "description": "Credential handling mode. 'stored_with_override' applies stored gateway credentials; form headers take precedence. 'candidate_only' suppresses all stored credentials so only the supplied headers are tested.",
             "default": "stored_with_override"
           }
         },
@@ -47294,12 +47902,6 @@
             "type": "array",
             "title": "Status Items",
             "description": "List of component health statuses"
-          },
-          "mcp_runtime": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Mcp Runtime",
-            "description": "MCP runtime diagnostics and configuration"
           }
         },
         "type": "object",
@@ -48841,15 +49443,6 @@
         "title": "MetricsStatsResponse",
         "description": "Response model for metrics stats."
       },
-      "OverrideMode": {
-        "type": "string",
-        "enum": [
-          "shadow",
-          "edge"
-        ],
-        "title": "OverrideMode",
-        "description": "Modes that the runtime override can flip between at runtime."
-      },
       "PaginatedResponse": {
         "properties": {
           "data": {
@@ -49082,6 +49675,62 @@
         ],
         "title": "PasswordResetTokenValidationResponse",
         "description": "Response schema for reset-token validation."
+      },
+      "PendingUserApprovalResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "auth_provider": {
+            "type": "string",
+            "title": "Auth Provider"
+          },
+          "requested_at": {
+            "type": "string",
+            "title": "Requested At"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "sso_metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "full_name",
+          "auth_provider",
+          "requested_at",
+          "expires_at",
+          "status"
+        ],
+        "title": "PendingUserApprovalResponse",
+        "description": "Response model for pending user approval."
       },
       "PercentilesResponse": {
         "properties": {
@@ -52113,19 +52762,391 @@
         "description": "Management-only schema for root updates.",
         "nullable": true
       },
-      "RuntimeModeUpdate": {
+      "SSOLoginResponse": {
         "properties": {
-          "mode": {
-            "$ref": "#/components/schemas/OverrideMode",
-            "description": "Target override mode. Only shadow and edge are supported at runtime."
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
           }
         },
         "type": "object",
         "required": [
-          "mode"
+          "authorization_url",
+          "state"
         ],
-        "title": "RuntimeModeUpdate",
-        "description": "Request body for ``PATCH /admin/runtime/{runtime}-mode``."
+        "title": "SSOLoginResponse",
+        "description": "SSO login initiation response."
+      },
+      "SSOProviderCreateRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "type": "string",
+            "title": "Client Secret"
+          },
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          },
+          "token_url": {
+            "type": "string",
+            "title": "Token Url"
+          },
+          "userinfo_url": {
+            "type": "string",
+            "title": "Userinfo Url"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "jwks_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jwks Uri"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": "openid profile email"
+          },
+          "trusted_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Trusted Domains",
+            "default": []
+          },
+          "auto_create_users": {
+            "type": "boolean",
+            "title": "Auto Create Users",
+            "default": true
+          },
+          "team_mapping": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Team Mapping",
+            "default": {}
+          },
+          "provider_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Provider Metadata",
+            "default": {}
+          },
+          "trusted_for_api_auth": {
+            "type": "boolean",
+            "title": "Trusted For Api Auth",
+            "default": false
+          },
+          "api_audience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Audience"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display_name",
+          "provider_type",
+          "client_id",
+          "client_secret",
+          "authorization_url",
+          "token_url",
+          "userinfo_url"
+        ],
+        "title": "SSOProviderCreateRequest",
+        "description": "Request to create SSO provider."
+      },
+      "SSOProviderResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "authorization_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "display_name"
+        ],
+        "title": "SSOProviderResponse",
+        "description": "SSO provider information for client."
+      },
+      "SSOProviderUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "authorization_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Url"
+          },
+          "token_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Url"
+          },
+          "userinfo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userinfo Url"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "jwks_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jwks Uri"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "trusted_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trusted Domains"
+          },
+          "auto_create_users": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Create Users"
+          },
+          "team_mapping": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Mapping"
+          },
+          "provider_metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Metadata"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "trusted_for_api_auth": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trusted For Api Auth"
+          },
+          "api_audience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Audience"
+          }
+        },
+        "type": "object",
+        "title": "SSOProviderUpdateRequest",
+        "description": "Request to update SSO provider."
       },
       "SecurityEventResponse": {
         "properties": {
@@ -54398,15 +55419,31 @@
             },
             "type": "array",
             "title": "Values"
+          },
+          "success_count": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Success Count"
+          },
+          "error_count": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Error Count"
           }
         },
         "type": "object",
         "required": [
           "buckets",
-          "values"
+          "values",
+          "success_count",
+          "error_count"
         ],
         "title": "TimeseriesResponse",
-        "description": "Execution counts bucketed over time."
+        "description": "Index-aligned execution and status counts.\n\n``values`` counts every trace. ``success_count`` and ``error_count`` count\nonly explicit ``ok`` and ``error`` statuses. Other statuses, including\n``unset``, are included only in ``values``."
       },
       "TokenCreateRequest": {
         "properties": {
