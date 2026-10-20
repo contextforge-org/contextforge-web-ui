@@ -66,7 +66,7 @@ describe("ForgotPassword", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Too many requests. Please try again later.",
     );
-    expect(input).toHaveAttribute("aria-invalid", "false");
+    expect(input).not.toHaveAttribute("aria-invalid");
   });
 
   it("validates email before calling API", async () => {

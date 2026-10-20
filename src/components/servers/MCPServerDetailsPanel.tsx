@@ -191,11 +191,13 @@ export function MCPServerDetailsPanel({
     };
   }, [open]);
 
-  // ESC closes while open.
+  // ESC closes while open. An Escape a nested Radix layer (e.g. a field-help
+  // popover) already consumed arrives with defaultPrevented set; leave the
+  // drawer open for it so dismissing help doesn't discard the form behind it.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -1,10 +1,10 @@
 /**
- * Mocked Keycloak SSO login flow (mcp-context-forge#6919, Task 4.1).
+ * Mocked Keycloak SSO login flow.
  *
  * The real round trip -- browser redirected to Keycloak's own login UI,
  * then back to the BFF's /auth/sso/callback, which exchanges the code and
- * calls establishSession() -- can't be driven through a real IdP in CI
- * (that's Task 4.2, against a real backend). What's testable end to end
+ * calls establishSession() -- can't be driven through a real IdP in the
+ * mocked suite (see "Real Keycloak SSO login flow" below). What's testable end to end
  * through a real browser, without any backend, is the client-side contract
  * that round trip feeds into: Login.tsx's full-page redirect out and back,
  * the post-redirect session bootstrap, the generic error rendering for any
@@ -13,6 +13,7 @@
  * the hop that can't run here, let everything else run for real.
  */
 import { test, expect, DEFAULT_TEST_USER, MOCK_CSRF_TOKEN } from "../fixtures/api-mock";
+import { realSsoLogin } from "../fixtures/real-sso-login";
 import { API, APP } from "../utils/paths";
 import type { Page } from "@playwright/test";
 
@@ -54,24 +55,24 @@ async function mockSessionTransition(page: Page): Promise<void> {
 }
 
 test.describe("Mocked Keycloak SSO login flow", () => {
+  // Pure client-side contract tests -- no real backend involved. A faked
+  // /auth/session has no real cookie behind it, so under E2E_REAL_API every
+  // other proxied call 401s and bounces back to /app/login, racing these
+  // tests. "Real Keycloak SSO login flow" below is the E2E_REAL_API coverage.
+  test.skip(IS_REAL_API, "mocked-only, see 'Real Keycloak SSO login flow'");
+
   test.beforeEach(async ({ apiMock }) => {
     await apiMock.mockSession({
       authenticated: false,
       ssoEnabled: true,
       providerName: "Keycloak",
     });
+    await apiMock.mockPermissions();
   });
 
   test('clicking "Sign in with Keycloak" navigates away, and a successful callback lands authenticated', async ({
     page,
   }) => {
-    // Same root cause as the "logout" test's skip below: mockSessionTransition
-    // fakes /auth/session into an authenticated state with no corresponding
-    // real backend session, so other real API calls the dashboard needs can
-    // 401 and bounce back to login. Passes in isolation but is a genuine
-    // race under full-suite parallel load (confirmed: 3/3 passes alone,
-    // intermittent failure under `npm run e2e:docker`).
-    test.skip(IS_REAL_API, "mocked SSO round-trip only -- doesn't apply under a real backend");
     await mockSessionTransition(page);
     // Stands in for the entire server-side code-exchange + establishSession()
     // round trip -- sso-callback.ts's own success path ends in exactly this
@@ -105,14 +106,6 @@ test.describe("Mocked Keycloak SSO login flow", () => {
   });
 
   test("logout clears the session and returns to the login page", async ({ page }) => {
-    // mockSessionTransition fakes /auth/session with a made-up csrfToken --
-    // no real backend session is ever established, since the whole SSO
-    // round-trip this file tests is mocked (see file header: real SSO
-    // against a real IdP is Task 4.2). Under E2E_REAL_API, every other
-    // call the authenticated app makes hits the real backend for real and
-    // 401s (no real session cookie), which bounces straight back to
-    // /app/login -- the "Test User" click races that live navigation.
-    test.skip(IS_REAL_API, "mocked SSO round-trip only -- doesn't apply under a real backend");
     await mockSessionTransition(page);
     await page.route(API.SSO_LOGIN, async (route) => {
       await route.fulfill({ status: 302, headers: { location: APP.ROOT } });
@@ -130,5 +123,62 @@ test.describe("Mocked Keycloak SSO login flow", () => {
 
     await expect(page).toHaveURL(APP.LOGIN);
     await expect(page.getByLabel("Password")).toBeVisible();
+  });
+});
+
+async function loginThroughRealKeycloak(page: Page): Promise<void> {
+  await page.goto(APP.LOGIN);
+  await page.getByRole("button", { name: /Sign in with Keycloak/i }).click();
+  // Real Keycloak's own login form now, not this app's.
+  await realSsoLogin(page);
+  await page.waitForURL(new RegExp(`${APP.ROOT}$`));
+}
+
+test.describe("Real Keycloak SSO login flow", () => {
+  test.skip(!IS_REAL_API, "requires E2E_REAL_API=true against the real Keycloak stack");
+  // TODO(#190): v1.0.11's get_current_user() never dispatches external-IdP
+  // bearer tokens -- every real-login API call 401s. Fixed on
+  // mcp-context-forge main, ships in v1.0.12. Remove this skip once
+  // docker-compose.e2e.yml's gateway image is bumped to v1.0.12+.
+  test.skip(IS_REAL_API, "blocked on mcp-context-forge v1.0.12 (external-IdP token dispatch fix)");
+
+  test("logs in through the real Keycloak form and makes a real proxied API call", async ({
+    page,
+  }) => {
+    await loginThroughRealKeycloak(page);
+    await expect(page.getByRole("button", { name: "Home" })).toBeVisible();
+
+    // Proves the gateway actually accepted the Keycloak-derived bearer token
+    // forwarded by the BFF's proxy, not just that a BFF-side cookie exists.
+    // Must go through /api/* (catch-all.ts) -- the bare path falls through
+    // to the SPA shell and always 200s regardless of auth state.
+    const response = await page.request.get("/api/rbac/my/permissions");
+    expect(response.ok()).toBeTruthy();
+  });
+
+  test("logout clears the BFF session and ends the Keycloak SSO session too", async ({ page }) => {
+    await loginThroughRealKeycloak(page);
+    await expect(page.getByRole("button", { name: "Home" })).toBeVisible();
+
+    // Not "Test User" -- that's the mocked fixture's name. The real
+    // Keycloak user's full_name comes from realm-export.json's firstName/lastName.
+    await page.getByRole("button", { name: "SSO Test" }).click();
+    await page.getByRole("button", { name: "Sign Out" }).click();
+
+    // Real logout can land on a bare /app/login (client-side redirect) or on
+    // /app/login?next=... (a dashboard background call 401ing first) -- both
+    // are the same "actually logged out" outcome, see smoke/app-loads.spec.ts.
+    await expect(page).toHaveURL(/\/app\/login(\?.*)?$/);
+    await expect(page.getByLabel("Password")).toBeVisible();
+
+    // BFF side: the session is actually gone, not just the cookie cleared
+    // client-side. Same /api/* note as the login test above.
+    const response = await page.request.get("/api/rbac/my/permissions");
+    expect(response.status()).toBe(401);
+
+    // Keycloak side: a live SSO session would silently re-approve this next
+    // request instead of showing the login form again -- only a real IdP can catch that.
+    await page.getByRole("button", { name: /Sign in with Keycloak/i }).click();
+    await expect(page.locator("#username")).toBeVisible();
   });
 });

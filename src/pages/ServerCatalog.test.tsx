@@ -339,7 +339,7 @@ describe("ServerCatalog", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("collects OAuth credentials in the catalog dialog and registers them in one call", async () => {
+  it("collects OAuth credentials in the catalog form and registers them in one call", async () => {
     const user = userEvent.setup();
     const authWindow = { close: vi.fn() } as unknown as Window;
     const statusRefresh = deferred<Awaited<ReturnType<typeof getOAuthStatuses>>>();
@@ -362,21 +362,21 @@ describe("ServerCatalog", () => {
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
+    const form = await screen.findByRole("form", { name: "Add GitHub" });
 
-    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
-    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo read:user");
-    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
-    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo read:user");
+    await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
     await user.type(
-      within(dialog).getByLabelText(/^Authorization URL/i),
+      within(form).getByLabelText(/^Authorization URL/i),
       "https://github.com/login/oauth/authorize",
     );
     await user.type(
-      within(dialog).getByLabelText(/^Token URL/i),
+      within(form).getByLabelText(/^Token URL/i),
       "https://github.com/login/oauth/access_token",
     );
-    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(mockRegisterCatalogServer).toHaveBeenCalledWith("oauth", {
@@ -422,23 +422,23 @@ describe("ServerCatalog", () => {
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
-    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
-    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo");
-    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
-    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    const form = await screen.findByRole("form", { name: "Add GitHub" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
     await user.type(
-      within(dialog).getByLabelText(/^Authorization URL/i),
+      within(form).getByLabelText(/^Authorization URL/i),
       "https://github.com/login/oauth/authorize",
     );
     await user.type(
-      within(dialog).getByLabelText(/^Token URL/i),
+      within(form).getByLabelText(/^Token URL/i),
       "https://github.com/login/oauth/access_token",
     );
-    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(dialog).findByText("Failed to open OAuth authorization window"),
+      await within(form).findByText("Failed to open OAuth authorization window"),
     ).toBeVisible();
     expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
   });
@@ -523,31 +523,86 @@ describe("ServerCatalog", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps the OAuth dialog open after a cancelled authorization so it can retry", async () => {
+  it("keeps the OAuth form open after a cancelled authorization so it can retry", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(new Error("OAuth authorization was cancelled"));
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add GitHub" });
-    await user.type(within(dialog).getByLabelText(/Issuer URL/i), "https://github.com");
-    await user.type(within(dialog).getByLabelText(/^Scopes/i), "repo");
-    await user.type(within(dialog).getByLabelText(/^Client ID/i), "github-client");
-    await user.type(within(dialog).getByLabelText(/^Client Secret/i), "github-secret");
+    const form = await screen.findByRole("form", { name: "Add GitHub" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
     await user.type(
-      within(dialog).getByLabelText(/^Authorization URL/i),
+      within(form).getByLabelText(/^Authorization URL/i),
       "https://github.com/login/oauth/authorize",
     );
     await user.type(
-      within(dialog).getByLabelText(/^Token URL/i),
+      within(form).getByLabelText(/^Token URL/i),
       "https://github.com/login/oauth/access_token",
     );
-    await user.click(within(dialog).getByRole("button", { name: "Configure and authorize" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    expect(
-      await within(dialog).findByText("OAuth authorization was cancelled"),
-    ).toBeInTheDocument();
+    expect(await within(form).findByText("OAuth authorization was cancelled")).toBeInTheDocument();
     expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
+    mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
+    mockUseQuery.mockImplementation((path) =>
+      queryResult({
+        data:
+          path === "/oauth/callback-url"
+            ? { redirectUri: "http://localhost:3000/oauth/callback" }
+            : {
+                ...response,
+                servers: response.servers.map((server) =>
+                  server.id === "oauth"
+                    ? { ...server, is_registered: true, gateway_id: "registered-server" }
+                    : server,
+                ),
+              },
+      }),
+    );
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("form", { name: "Add GitHub" })).not.toBeInTheDocument(),
+    );
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
+    expect(mockOpenOAuthAuthorizationPopup).toHaveBeenCalledTimes(2);
+    expect(mockTriggerOAuthAuthorization).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Actions for GitHub" })).toHaveFocus();
+  });
+
+  it("preserves filters, restores focus on cancel, and clears credentials on reopening", async () => {
+    const user = userEvent.setup();
+    const path = "/app/server-catalog?search=GitHub&provider=GitHub";
+    renderWithRouter(<ServerCatalog />, path);
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    expect(screen.getByRole("heading", { name: "Add GitHub" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: /^Filters/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Actions for GitHub" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/^Client Secret/i), "temporary-secret");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(window.location.pathname + window.location.search).toBe(path);
+    expect(screen.getByRole("button", { name: "Add GitHub" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    expect(screen.getByLabelText(/^Client Secret/i)).toHaveValue("");
+  });
+
+  it("focuses the catalog heading when the selected server disappears", async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ServerCatalog />);
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    mockUseQuery.mockImplementation((path) =>
+      queryResult({
+        data:
+          path === "/oauth/callback-url"
+            ? { redirectUri: "http://localhost:3000/oauth/callback" }
+            : { ...response, servers: response.servers.filter((server) => server.id !== "oauth") },
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("heading", { name: "Server catalog" })).toHaveFocus();
   });
 
   it("offers API auth entries through the API-key add flow", async () => {

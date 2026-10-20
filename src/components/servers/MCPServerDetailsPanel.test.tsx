@@ -510,6 +510,36 @@ describe("MCPServerDetailsPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the drawer open when Escape dismisses a field-help popover, then closes on the next Escape", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    renderWithProviders(
+      <MCPServerDetailsPanel server={mockServer} error={null} open={true} onClose={onClose} />,
+    );
+
+    // "Try it" is the default tab; type into the connection form first so we
+    // can prove dismissing help doesn't discard it.
+    const urlField = await screen.findByLabelText(/^url/i);
+    await user.clear(urlField);
+    await user.type(urlField, "https://mcp.example.com/mcp");
+
+    await user.click(screen.getByRole("button", { name: /more information about url/i }));
+    expect(await screen.findByText(/full url of the mcp server to test/i)).toBeInTheDocument();
+
+    // Escape consumed by the popover: help closes, drawer and form stay.
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByText(/full url of the mcp server to test/i)).not.toBeInTheDocument(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^url/i)).toHaveValue("https://mcp.example.com/mcp");
+
+    // With no popover open, Escape closes the drawer as before.
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("does not close on Escape when already closed", async () => {
     const onClose = vi.fn();
 

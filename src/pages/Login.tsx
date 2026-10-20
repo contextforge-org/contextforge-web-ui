@@ -6,7 +6,7 @@ import { ApiError } from "../api/client";
 import { classifyLoginError } from "../api/loginErrors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 
 export function Login() {
   const intl = useIntl();
@@ -73,40 +73,44 @@ export function Login() {
           {intl.formatMessage({ id: "auth.login.title" })}
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <div>
-            <Label
-              htmlFor="email"
-              className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1"
-            >
-              {intl.formatMessage({ id: "auth.login.email" })}
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-neutral-300 dark:border-neutral-600 rounded px-3 py-2 text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400"
-            />
-          </div>
-          <div>
-            <Label
-              htmlFor="password"
-              className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1"
-            >
-              {intl.formatMessage({ id: "auth.login.password" })}
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-neutral-300 dark:border-neutral-600 rounded px-3 py-2 text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400"
-            />
-          </div>
+          <Field
+            id="email"
+            label={intl.formatMessage({ id: "auth.login.email" })}
+            labelProps={{
+              className: "block text-sm font-medium text-neutral-700 dark:text-neutral-300",
+            }}
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-neutral-300 dark:border-neutral-600 rounded px-3 py-2 text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400"
+              />
+            )}
+          </Field>
+          <Field
+            id="password"
+            label={intl.formatMessage({ id: "auth.login.password" })}
+            labelProps={{
+              className: "block text-sm font-medium text-neutral-700 dark:text-neutral-300",
+            }}
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-neutral-300 dark:border-neutral-600 rounded px-3 py-2 text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400"
+              />
+            )}
+          </Field>
           {error && (
             <p role="alert" className="text-sm text-red-600">
               {error}

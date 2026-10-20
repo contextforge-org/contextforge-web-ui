@@ -12,10 +12,19 @@ services:
     env_file:
       - .env
     environment:
+      PORT: ${PORT:-3000}
       REDIS_URL: redis://redis:6379/0
       CONTEXTFORGE_URL: http://gateway:4444
+      SSO_ENABLED: ${SSO_ENABLED:-true}
+      SSO_KEYCLOAK_BASE_URL: http://keycloak:8080
+      SSO_KEYCLOAK_PUBLIC_BASE_URL: http://localhost:8180
+      SSO_KEYCLOAK_REALM: mcp-gateway
+      SSO_KEYCLOAK_CLIENT_ID: contextforge-web-ui
+      SSO_KEYCLOAK_CLIENT_SECRET: contextforge-web-ui-e2e-secret
     depends_on:
       redis:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     restart: "no"
 
@@ -32,9 +41,10 @@ services:
 
   gateway:
     # Keep in sync with openapi.json's `info.version` — the API surface this repo's BFF proxies to.
-    image: ghcr.io/ibm/mcp-context-forge:v1.0.9
+    image: ghcr.io/ibm/mcp-context-forge:v1.0.11
     environment:
       HOST: 0.0.0.0
+      GUNICORN_WORKERS: "1"
       DATABASE_URL: sqlite:///./data/mcp.db
       # `:-` not `-`: E2E_TEST_EMAIL/PASSWORD ship blank in .env.example, so
       # fall back even when set-but-empty.
@@ -43,6 +53,7 @@ services:
       # E2E_TEST_PASSWORD before tests run — real logins never use this one.
       PLATFORM_ADMIN_PASSWORD: ${E2E_BOOTSTRAP_PASSWORD:-changeme-e2e-bootstrap-pwd1}
       PLATFORM_ADMIN_FULL_NAME: E2E Test User
+      DEFAULT_USER_PASSWORD: ${DEFAULT_USER_PASSWORD:-e2e-testing-default-pwd1}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-e2e-testing-secret-key-not-for-prod}
       AUTH_ENCRYPTION_SECRET: ${AUTH_ENCRYPTION_SECRET:-e2e-testing-secret-not-for-prod-32ch}
       MCPGATEWAY_UI_ENABLED: "true"
@@ -50,9 +61,51 @@ services:
       AUTH_REQUIRED: "true"
       # Parallel workers each logging in for real blow past the login rate limit and lock the account.
       RATE_LIMITING_ENABLED: "false"
+      SSO_ENABLED: "true"
+      SSO_KEYCLOAK_ENABLED: "true"
+      SSO_KEYCLOAK_BASE_URL: http://keycloak:8080
+      SSO_KEYCLOAK_PUBLIC_BASE_URL: http://localhost:8180
+      SSO_KEYCLOAK_REALM: mcp-gateway
+      SSO_KEYCLOAK_CLIENT_ID: mcp-gateway
+      SSO_KEYCLOAK_CLIENT_SECRET: keycloak-dev-secret
+      SSO_API_TOKEN_AUTH_ENABLED: "true"
     ports:
       - "4444:4444"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-changeme-e2e-keycloak-admin}
+      KC_HOSTNAME: ${KC_HOSTNAME:-http://localhost:8180}
+      KC_HOSTNAME_STRICT: ${KC_HOSTNAME_STRICT:-true}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - ./e2e/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - keycloak-data:/opt/keycloak/data
+    ports:
+      - "127.0.0.1:8180:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-ec",
+          "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -Eq '\"status\"[[:space:]]*:[[:space:]]*\"UP\"' <&3",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     restart: "no"
 
 volumes:
   redis-data:
+  keycloak-data:

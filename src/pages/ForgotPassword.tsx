@@ -6,7 +6,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { useRouter } from "@/router";
 
 export function ForgotPassword() {
@@ -71,33 +71,27 @@ export function ForgotPassword() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-          <div className="space-y-1">
-            <Label htmlFor="email">{intl.formatMessage({ id: "auth.forgotPassword.email" })}</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              required
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                setEmailError(null);
-              }}
-              aria-invalid={!!emailError}
-              aria-describedby={emailError ? "forgot-password-email-error" : undefined}
-            />
-            {emailError && (
-              <p
-                id="forgot-password-email-error"
-                role="alert"
-                className="text-sm text-red-600 dark:text-red-400"
-              >
-                {emailError}
-              </p>
+          <Field
+            id="email"
+            label={intl.formatMessage({ id: "auth.forgotPassword.email" })}
+            error={emailError ?? undefined}
+          >
+            {(controlProps) => (
+              <Input
+                {...controlProps}
+                name="email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                required
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setEmailError(null);
+                }}
+              />
             )}
-          </div>
+          </Field>
           {error && <InlineNotification type="error" message={error} />}
           <Button type="submit" disabled={loading || !email.trim()} className="w-full">
             {loading

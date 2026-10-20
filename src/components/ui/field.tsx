@@ -35,6 +35,12 @@ interface FieldProps {
   info?: React.ReactNode;
   /** Optional help text shown below the control. */
   hint?: React.ReactNode;
+  /**
+   * Always-visible note shown below the control and any error. Unlike `hint`,
+   * which hides once an error explains the problem, this stays on screen
+   * while `error` is set, for context the user needs either way.
+   */
+  persistentHint?: React.ReactNode;
   /** Validation message; when present the error colour applies. */
   error?: string;
   /** Render prop for the control; receives `id`/`aria-invalid`/`aria-describedby`/`aria-required` to spread onto whichever element is DOM-facing (e.g. `SelectTrigger` inside `Select`). */
@@ -54,6 +60,7 @@ function Field({
   required,
   info,
   hint,
+  persistentHint,
   error,
   children,
   className,
@@ -66,11 +73,13 @@ function Field({
   const hasError = error !== undefined;
   const errorId = hasError ? `${id}-error` : undefined;
   const hintId = hint && !hasError ? `${id}-hint` : undefined;
+  const persistentHintId = persistentHint ? `${id}-persistent-hint` : undefined;
 
   const controlProps: FieldControlProps = {
     id,
-    "aria-invalid": hasError,
-    "aria-describedby": errorId ?? hintId,
+    // Omitted (not "false") on a neutral field, matching a bare control.
+    "aria-invalid": hasError || undefined,
+    "aria-describedby": [errorId, hintId, persistentHintId].filter(Boolean).join(" ") || undefined,
     "aria-required": required !== undefined ? required : undefined,
   };
 
@@ -120,6 +129,11 @@ function Field({
         {hasError && (
           <p id={errorId} role="alert" className="text-sm text-destructive">
             {error}
+          </p>
+        )}
+        {persistentHintId && (
+          <p id={persistentHintId} className="text-[13px] text-muted-foreground">
+            {persistentHint}
           </p>
         )}
       </div>

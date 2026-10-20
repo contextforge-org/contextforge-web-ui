@@ -187,4 +187,62 @@ describe("Field", () => {
     // The wrapper the caller chose not to tag stays untouched.
     expect(screen.getByTestId("select-root")).not.toHaveAttribute("aria-invalid");
   });
+  it("omits aria-invalid on a neutral control and sets it only when there is an error", () => {
+    const { rerender } = render(
+      <Field id="email" label="Email">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-invalid");
+
+    rerender(
+      <Field id="email" label="Email" error="Required">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("keeps persistentHint visible alongside an error, after it, and describes the control by both", () => {
+    render(
+      <Field
+        id="headers"
+        label="Headers"
+        error="Invalid JSON"
+        persistentHint="Stored credentials apply"
+      >
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    const error = screen.getByRole("alert");
+    const note = screen.getByText("Stored credentials apply");
+    expect(note).toHaveAttribute("id", "headers-persistent-hint");
+    // The error reads first, the standing note second.
+    expect(error.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "aria-describedby",
+      "headers-error headers-persistent-hint",
+    );
+  });
+
+  it("shows persistentHint without an error and omits it when not provided", () => {
+    const { rerender } = render(
+      <Field id="headers" label="Headers" persistentHint="Stored credentials apply">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.getByText("Stored credentials apply")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "aria-describedby",
+      "headers-persistent-hint",
+    );
+
+    rerender(
+      <Field id="headers" label="Headers">
+        {(controlProps) => <Input {...controlProps} />}
+      </Field>,
+    );
+    expect(screen.queryByText("Stored credentials apply")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("aria-describedby");
+  });
 });

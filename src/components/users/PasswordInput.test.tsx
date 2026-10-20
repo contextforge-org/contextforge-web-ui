@@ -180,7 +180,7 @@ describe("PasswordInput", () => {
     renderWithProviders(<PasswordInput {...defaultProps} />);
 
     const input = screen.getByLabelText(/Password/);
-    expect(input).toHaveAttribute("aria-invalid", "false");
+    expect(input).not.toHaveAttribute("aria-invalid");
   });
 
   it("should maintain focus after toggling visibility", async () => {

@@ -8,7 +8,7 @@ import { PasswordInput } from "@/components/users/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
 import { VALIDATION } from "@/lib/constants";
 import {
   countPasswordCharacterClasses,
@@ -192,12 +192,14 @@ export function PasswordChangeRequired() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-              <div className="space-y-1">
-                <Label htmlFor="email">
-                  {intl.formatMessage({ id: "auth.passwordChangeRequired.email" })}
-                </Label>
-                <Input id="email" type="email" value={email} disabled readOnly />
-              </div>
+              <Field
+                id="email"
+                label={intl.formatMessage({ id: "auth.passwordChangeRequired.email" })}
+              >
+                {(controlProps) => (
+                  <Input {...controlProps} type="email" value={email} disabled readOnly />
+                )}
+              </Field>
               <PasswordInput
                 ref={oldPasswordInputRef}
                 id="old-password"

@@ -1,0 +1,91 @@
+{
+  "realm": "mcp-gateway",
+  "enabled": true,
+  "displayName": "ContextForge E2E Realm",
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": false,
+  "resetPasswordAllowed": true,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "mcp-gateway",
+      "name": "ContextForge Gateway (e2e)",
+      "description": "Preconfigured docker-compose.e2e.yml client for the real gateway image",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "keycloak-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["http://localhost:4444/auth/sso/callback/keycloak"],
+      "webOrigins": ["http://localhost:4444"],
+      "rootUrl": "http://localhost:4444",
+      "baseUrl": "http://localhost:4444",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4444/*"
+      },
+      "defaultClientScopes": ["web-origins", "acr", "roles", "profile", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"]
+    },
+    {
+      "clientId": "contextforge-web-ui",
+      "name": "ContextForge Web UI (e2e)",
+      "description": "Preconfigured docker-compose.e2e.yml client for the contextforge-web-ui BFF",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "contextforge-web-ui-e2e-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/auth/sso/callback",
+        "https://localhost:8443/auth/sso/callback"
+      ],
+      "webOrigins": ["http://localhost:3000", "https://localhost:8443"],
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "http://localhost:3000",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##https://localhost:8443/*"
+      },
+      "defaultClientScopes": ["web-origins", "acr", "roles", "profile", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access", "microprofile-jwt"],
+      "protocolMappers": [
+        {
+          "name": "audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "mcp-gateway-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ssotest@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "SSO",
+      "lastName": "Test",
+      "email": "ssotest@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "changeme-e2e-sso",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
