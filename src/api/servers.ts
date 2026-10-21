@@ -18,6 +18,17 @@ import { validateServerId } from "@/utils/serverId";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
 
+/** Provider callback failure; its description is safe to render as plain text. */
+export class OAuthAuthorizationError extends Error {
+  constructor(
+    public readonly code?: string,
+    public readonly description?: string,
+  ) {
+    super(description || code || "OAuth authorization failed");
+    this.name = "OAuthAuthorizationError";
+  }
+}
+
 /** The user closed the OAuth popup. Typed so callers can stay quiet about it. */
 export class OAuthCancelledError extends Error {
   constructor() {
@@ -265,7 +276,7 @@ export const serversApi = {
         if (data.status === "success") {
           resolve(data);
         } else {
-          reject(new Error(data.errorDescription ?? data.error ?? "OAuth authorization failed"));
+          reject(new OAuthAuthorizationError(data.error, data.errorDescription));
         }
       };
 

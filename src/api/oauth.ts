@@ -101,3 +101,9 @@ export async function getOAuthStatuses(
 
   return result;
 }
+
+/** Transient UI outcome, separate from the caller's authoritative token status. */
+export type OAuthAttempt =
+  | { state: "pending" }
+  | { state: "succeeded" }
+  | { state: "failed"; reason: string; dialogOpen: boolean };

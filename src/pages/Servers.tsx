@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { MCPIcon } from "@/components/icons/MCPIcon";
@@ -12,18 +12,23 @@ import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useLocalSearch } from "@/hooks/useLocalSearch";
 import { ApiError, api } from "@/api/client";
-import { OAuthCancelledError, serversApi } from "@/api/servers";
+import { OAuthAuthorizationError, OAuthCancelledError, serversApi } from "@/api/servers";
 import { useRouter } from "@/router";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 import type { MCPServer, ServersResponse } from "@/types/server";
 import { Loading } from "@/components/ui/loading";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { useIntl } from "react-intl";
+import type { OAuthAttempt } from "@/api/oauth";
 import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { isOAuthServer } from "@/lib/serverStatus";
 
 // Pagination constants
 const DEFAULT_PAGE_SIZE = 10;
+
+function oauthFailureReason(error: unknown): string {
+  return error instanceof OAuthAuthorizationError ? error.message : sanitizeError(error);
+}
 
 export function Servers() {
   const intl = useIntl();
@@ -44,6 +49,15 @@ export function Servers() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedServerIdForDetails, setSelectedServerIdForDetails] = useState<string | null>(null);
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
+  const [detailsInitialTab, setDetailsInitialTab] = useState<"tryit" | "components">("tryit");
+  const [oauthAttempts, setOAuthAttempts] = useState<Record<string, OAuthAttempt>>({});
+  const pendingAuthorizationIds = useRef(new Set<string>());
+  const pendingRefreshIds = useRef(new Set<string>());
+  const refreshKinds = useRef(new Map<string, "oauth" | "manual">());
+  const [componentRevisions, setComponentRevisions] = useState<Record<string, number>>({});
+  const [componentRefreshErrors, setComponentRefreshErrors] = useState<
+    Record<string, string | undefined>
+  >({});
   const selectedSearchServerId = useMemo(() => {
     const queryString = path.split("?")[1] ?? "";
     return new URLSearchParams(queryString).get("selected")?.trim() || null;
@@ -92,7 +106,9 @@ export function Servers() {
     () => allServers.find((s) => s.id === selectedServerIdForDetails) ?? null,
     [allServers, selectedServerIdForDetails],
   );
-  const panelServer = detailsServer ?? selectedRow;
+  const panelServer =
+    detailsServer?.id === selectedServerIdForDetails ? detailsServer : selectedRow;
+  const panelAttempt = panelServer ? oauthAttempts[panelServer.id] : undefined;
 
   // Update servers on initial load
   useEffect(() => {
@@ -105,8 +121,13 @@ export function Servers() {
   // Derive servers from accumulated list
   const servers = allServers;
   const oauthServerIds = useMemo(
-    () => servers.filter(isOAuthServer).map((server) => server.id),
-    [servers],
+    () => [
+      ...new Set([
+        ...servers.filter(isOAuthServer).map((server) => server.id),
+        ...(panelServer && isOAuthServer(panelServer) ? [panelServer.id] : []),
+      ]),
+    ],
+    [servers, panelServer],
   );
   const {
     entries: oauthStatuses,
@@ -233,46 +254,76 @@ export function Servers() {
     [patchServer],
   );
 
-  const handleAuthorize = useCallback(
+  const discoverOAuthComponents = useCallback(
     async (id: string) => {
+      if (!canUpdateServer || pendingRefreshIds.current.has(id)) return;
+      pendingRefreshIds.current.add(id);
+      refreshKinds.current.set(id, "oauth");
+      setRefreshingServerIds((prev) => new Set(prev).add(id));
+      setComponentRefreshErrors((prev) => ({ ...prev, [id]: undefined }));
       try {
-        await serversApi.triggerOAuthAuthorization(id);
+        const result = await serversApi.fetchToolsAfterOAuth(id);
+        if (result.success === false) throw new Error(result.message);
+        setComponentRevisions((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
       } catch (err) {
-        if (err instanceof OAuthCancelledError) return;
-        toast.error(
-          intl.formatMessage(
-            { id: "mcpServer.status.authorizationError" },
-            { error: sanitizeError(err) },
-          ),
-        );
-        return;
-      }
-
-      await reloadOAuthStatuses([id]);
-
-      if (canUpdateServer) {
-        try {
-          await serversApi.fetchToolsAfterOAuth(id);
-        } catch (err) {
-          toast.warning(intl.formatMessage({ id: "mcpServer.status.componentRefreshError" }), {
-            description: sanitizeError(err),
-          });
-          console.error("Failed to fetch components after authorization:", sanitizeError(err));
-        }
-      }
-
-      try {
-        await refetch();
-      } catch (err) {
-        console.error("Failed to refresh servers after authorization:", sanitizeError(err));
+        setComponentRefreshErrors((prev) => ({ ...prev, [id]: sanitizeError(err) }));
+      } finally {
+        pendingRefreshIds.current.delete(id);
+        setRefreshingServerIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     },
-    [canUpdateServer, intl, refetch, reloadOAuthStatuses],
+    [canUpdateServer],
   );
+
+  const handleAuthorize = useCallback(
+    async (id: string) => {
+      if (!canReadServers || pendingAuthorizationIds.current.has(id)) return;
+      pendingAuthorizationIds.current.add(id);
+      setSelectedServerIdForDetails(id);
+      setDetailsInitialTab("components");
+      setIsDetailsDrawerOpen(true);
+      setOAuthAttempts((prev) => ({ ...prev, [id]: { state: "pending" } }));
+      try {
+        // Keep this call before any await: window.open requires the click gesture.
+        await serversApi.triggerOAuthAuthorization(id);
+      } catch (err) {
+        setOAuthAttempts((prev) => {
+          const next = { ...prev };
+          if (err instanceof OAuthCancelledError) delete next[id];
+          else next[id] = { state: "failed", reason: oauthFailureReason(err), dialogOpen: true };
+          return next;
+        });
+        return;
+      } finally {
+        pendingAuthorizationIds.current.delete(id);
+      }
+      setOAuthAttempts((prev) => ({ ...prev, [id]: { state: "succeeded" } }));
+      await Promise.allSettled([reloadOAuthStatuses([id]), discoverOAuthComponents(id), refetch()]);
+    },
+    [canReadServers, refetch, reloadOAuthStatuses, discoverOAuthComponents],
+  );
+
+  const dismissOAuthFailure = () => {
+    if (!panelServer) return;
+    const id = panelServer.id;
+    setOAuthAttempts((prev) => {
+      const attempt = prev[id];
+      return attempt?.state === "failed"
+        ? { ...prev, [id]: { ...attempt, dialogOpen: false } }
+        : prev;
+    });
+  };
 
   const handleRefresh = useCallback(
     async (id: string) => {
-      if (refreshingServerIds.has(id)) return;
+      if (pendingRefreshIds.current.has(id)) return;
+      pendingRefreshIds.current.add(id);
+      refreshKinds.current.set(id, "manual");
+      setComponentRefreshErrors((prev) => ({ ...prev, [id]: undefined }));
       setRefreshingServerIds((prev) => new Set(prev).add(id));
 
       const name = allServers.find((s) => s.id === id)?.name ?? id;
@@ -281,12 +332,17 @@ export function Servers() {
         const result = await serversApi.refreshTools(id);
 
         if (result && result.success === false) {
+          setComponentRefreshErrors((prev) => ({
+            ...prev,
+            [id]: result.error ?? intl.formatMessage({ id: "mcpServer.oauth.discoveryError" }),
+          }));
           toast.error(intl.formatMessage({ id: "mcpServer.refresh.errorTitle" }), {
             description: result.error ?? intl.formatMessage({ id: "mcpServer.refresh.errorTitle" }),
           });
           return;
         }
 
+        setComponentRevisions((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
         const toolsAdded = result?.toolsAdded ?? 0;
         const toolsUpdated = result?.toolsUpdated ?? 0;
         const toolsRemoved = result?.toolsRemoved ?? 0;
@@ -351,6 +407,7 @@ export function Servers() {
           console.error("Failed to refresh servers after refresh:", sanitizeError(refreshErr));
         }
       } catch (err) {
+        setComponentRefreshErrors((prev) => ({ ...prev, [id]: sanitizeError(err) }));
         if (err instanceof ApiError && err.status === 409) {
           toast.error(intl.formatMessage({ id: "mcpServer.refresh.conflict" }, { name }));
           return;
@@ -363,6 +420,7 @@ export function Servers() {
           ),
         });
       } finally {
+        pendingRefreshIds.current.delete(id);
         setRefreshingServerIds((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -370,10 +428,11 @@ export function Servers() {
         });
       }
     },
-    [refreshingServerIds, allServers, intl, patchServer],
+    [allServers, intl, patchServer],
   );
 
   const handleViewDetails = useCallback((id: string) => {
+    setDetailsInitialTab("tryit");
     setSelectedServerIdForDetails(id);
     setIsDetailsDrawerOpen(true);
   }, []);
@@ -528,6 +587,21 @@ export function Servers() {
                 onRefresh={canUpdateServer ? handleRefresh : undefined}
                 refreshingServerIds={refreshingServerIds}
                 oauthStatuses={oauthStatuses}
+                authorizationNeededServerIds={
+                  new Set(
+                    Object.keys(oauthAttempts).filter((id) => {
+                      const attempt = oauthAttempts[id];
+                      return attempt.state === "failed" && !attempt.dialogOpen;
+                    }),
+                  )
+                }
+                authorizingServerIds={
+                  new Set(
+                    Object.keys(oauthAttempts).filter(
+                      (id) => oauthAttempts[id].state === "pending",
+                    ),
+                  )
+                }
                 onAuthorize={canReadServers ? handleAuthorize : undefined}
                 onRetryOAuthStatus={(id) => void retryOAuthStatus(id)}
               />
@@ -620,7 +694,22 @@ export function Servers() {
       />
 
       <MCPServerDetailsPanel
+        key={selectedServerIdForDetails ?? "none"}
         server={panelServer}
+        initialTab={detailsInitialTab}
+        oauthAttempt={panelAttempt}
+        componentRefreshRevision={panelServer ? (componentRevisions[panelServer.id] ?? 0) : 0}
+        componentRefreshError={panelServer ? componentRefreshErrors[panelServer.id] : undefined}
+        isRefreshing={panelServer ? refreshingServerIds.has(panelServer.id) : false}
+        onRefresh={canUpdateServer && panelServer ? () => handleRefresh(panelServer.id) : undefined}
+        onRetryDiscovery={
+          canUpdateServer && panelServer
+            ? () =>
+                refreshKinds.current.get(panelServer.id) === "manual"
+                  ? handleRefresh(panelServer.id)
+                  : discoverOAuthComponents(panelServer.id)
+            : undefined
+        }
         error={detailsError}
         open={isDetailsDrawerOpen}
         onClose={() => handleCloseDetails(false)}
@@ -630,6 +719,34 @@ export function Servers() {
           canReadServers && panelServer ? () => handleAuthorize(panelServer.id) : undefined
         }
         onRetryOAuthStatus={panelServer ? () => void retryOAuthStatus(panelServer.id) : undefined}
+      />
+      <ConfirmDialog
+        open={isDetailsDrawerOpen && panelAttempt?.state === "failed" && panelAttempt.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissOAuthFailure();
+        }}
+        title={intl.formatMessage(
+          { id: "mcpServer.oauth.failureTitle" },
+          { name: panelServer?.name ?? "" },
+        )}
+        description={
+          <p className="break-words">
+            {panelAttempt?.state === "failed" ? panelAttempt.reason : ""}
+          </p>
+        }
+        confirmLabel={intl.formatMessage({ id: "mcpServer.oauth.tryAgain" })}
+        cancelLabel={intl.formatMessage({ id: "mcpServer.oauth.dismiss" })}
+        closeOnConfirm={false}
+        onConfirm={async () => {
+          if (panelServer) await handleAuthorize(panelServer.id);
+        }}
+        onCloseAutoFocus={(event) => {
+          const target = document.getElementById(`oauth-authorize-${panelServer?.id}`);
+          if (target) {
+            event.preventDefault();
+            target.focus();
+          }
+        }}
       />
     </div>
   );

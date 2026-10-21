@@ -27,7 +27,8 @@ import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
-import type { OAuthStatusEntry } from "@/api/oauth";
+import type { OAuthAttempt, OAuthStatusEntry } from "@/api/oauth";
+import { InlineNotification } from "@/components/ui/inline-notification";
 import { TestConnectionPanel } from "./TestConnectionPanel";
 import { ServerStatusIndicator } from "./ServerStatusIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -139,6 +140,12 @@ export function MCPServerDetailsPanel({
   oauthStatus,
   onAuthorize,
   onRetryOAuthStatus,
+  oauthAttempt,
+  componentRefreshRevision = 0,
+  componentRefreshError,
+  isRefreshing = false,
+  onRefresh,
+  onRetryDiscovery,
 }: {
   server: MCPServer | null;
   error: { message: string } | null;
@@ -155,6 +162,12 @@ export function MCPServerDetailsPanel({
   oauthStatus?: OAuthStatusEntry;
   onAuthorize?: () => Promise<void>;
   onRetryOAuthStatus?: () => void;
+  oauthAttempt?: OAuthAttempt;
+  componentRefreshRevision?: number;
+  componentRefreshError?: string;
+  isRefreshing?: boolean;
+  onRefresh?: () => Promise<void>;
+  onRetryDiscovery?: () => Promise<void>;
 }) {
   const [topTab, setTopTab] = useState<TopTab>(initialTab);
   const [activeTab, setActiveTab] = useState<ComponentTab>("all");
@@ -197,7 +210,12 @@ export function MCPServerDetailsPanel({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) onClose();
+      if (
+        e.key === "Escape" &&
+        !e.defaultPrevented &&
+        !document.querySelector('[role="dialog"][data-state="open"]')
+      )
+        onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -224,25 +242,52 @@ export function MCPServerDetailsPanel({
 
   // Fetch components data - only when panel is open and server exists
   const fetchEnabled = open && Boolean(server?.id);
-  const { data: toolsData, isLoading: toolsLoading } = useQuery<{ tools: Tool[] }>(toolsPath, {
+  const {
+    data: toolsData,
+    isLoading: toolsLoading,
+    error: toolsError,
+    refetch: refetchTools,
+  } = useQuery<{ tools: Tool[] }>(toolsPath, {
     enabled: fetchEnabled,
   });
 
-  const { data: resourcesData, isLoading: resourcesLoading } = useQuery<{ resources: Resource[] }>(
-    resourcesPath,
-    {
-      enabled: fetchEnabled,
-    },
-  );
+  const {
+    data: resourcesData,
+    isLoading: resourcesLoading,
+    error: resourcesError,
+    refetch: refetchResources,
+  } = useQuery<{ resources: Resource[] }>(resourcesPath, {
+    enabled: fetchEnabled,
+  });
 
-  const { data: promptsData, isLoading: promptsLoading } = useQuery<{ prompts: Prompt[] }>(
-    promptsPath,
-    {
-      enabled: fetchEnabled,
-    },
-  );
+  const {
+    data: promptsData,
+    isLoading: promptsLoading,
+    error: promptsError,
+    refetch: refetchPrompts,
+  } = useQuery<{ prompts: Prompt[] }>(promptsPath, {
+    enabled: fetchEnabled,
+  });
+
+  const retryComponentReads = useCallback(() => {
+    void Promise.allSettled([refetchTools(), refetchResources(), refetchPrompts()]);
+  }, [refetchTools, refetchResources, refetchPrompts]);
+  const previousRevision = useRef(componentRefreshRevision);
+  useEffect(() => {
+    if (previousRevision.current === componentRefreshRevision) return;
+    previousRevision.current = componentRefreshRevision;
+    if (fetchEnabled) retryComponentReads();
+  }, [componentRefreshRevision, fetchEnabled, retryComponentReads]);
 
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
+  const componentReadError = toolsError || resourcesError || promptsError;
+  const isAuthorizing = oauthAttempt?.state === "pending";
+  const supportsAuthorization =
+    oauthStatus?.state === "ready" || server?.oauthConfig?.grant_type === "authorization_code";
+  const needsAuthorizationAfterFailure =
+    oauthAttempt?.state === "failed" &&
+    oauthStatus?.state === "ready" &&
+    (oauthStatus.tokenStatus === "missing" || oauthStatus.tokenStatus === "expired");
 
   // Filter components based on active tab and search query
   const visibleComponents = useMemo((): ComponentWithType[] => {
@@ -387,6 +432,69 @@ export function MCPServerDetailsPanel({
                 </TabsList>
 
                 <TabsContent value="components" className="mt-8">
+                  <div className="mb-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                      {onAuthorize && supportsAuthorization && (
+                        <Button
+                          id={`oauth-authorize-${server.id}`}
+                          variant="outline"
+                          size="sm"
+                          disabled={isAuthorizing}
+                          onClick={() => void onAuthorize()}
+                        >
+                          {intl.formatMessage({
+                            id: isAuthorizing
+                              ? "mcpServer.status.authorizing"
+                              : "mcpServer.oauth.authorize",
+                          })}
+                        </Button>
+                      )}
+                      {onRefresh && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isRefreshing || isAuthorizing}
+                          onClick={() => void onRefresh()}
+                        >
+                          {intl.formatMessage({
+                            id: isRefreshing
+                              ? "mcpServer.oauth.refreshing"
+                              : "mcpServer.oauth.refresh",
+                          })}
+                        </Button>
+                      )}
+                    </div>
+                    {oauthAttempt?.state === "succeeded" && (
+                      <InlineNotification
+                        type="success"
+                        message={intl.formatMessage({ id: "mcpServer.oauth.success" })}
+                      />
+                    )}
+                    {componentRefreshError && (
+                      <InlineNotification
+                        type="warning"
+                        message={`${intl.formatMessage({ id: "mcpServer.oauth.discoveryError" })} ${componentRefreshError}`}
+                        action={
+                          !isRefreshing && onRetryDiscovery
+                            ? {
+                                label: intl.formatMessage({ id: "mcpServer.oauth.retryRefresh" }),
+                                onClick: () => void onRetryDiscovery(),
+                              }
+                            : undefined
+                        }
+                      />
+                    )}
+                    {componentReadError && (
+                      <InlineNotification
+                        type="error"
+                        message={intl.formatMessage({ id: "mcpServer.oauth.readError" })}
+                        action={{
+                          label: intl.formatMessage({ id: "mcpServer.oauth.retryRefresh" }),
+                          onClick: retryComponentReads,
+                        }}
+                      />
+                    )}
+                  </div>
                   <div className="flex min-w-0 items-center justify-between gap-6">
                     <div
                       role="tablist"
@@ -568,12 +676,33 @@ export function MCPServerDetailsPanel({
 
                 <dl className="space-y-4">
                   <DetailRow label="Status">
-                    <ServerStatusIndicator
-                      server={server}
-                      oauthStatus={oauthStatus}
-                      onAuthorize={onAuthorize}
-                      onRetry={onRetryOAuthStatus}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      {needsAuthorizationAfterFailure ? (
+                        <>
+                          <span className="text-warning">
+                            {intl.formatMessage({ id: "mcpServer.oauth.needed" })}
+                          </span>
+                          {onAuthorize && (
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={isAuthorizing}
+                              onClick={() => void onAuthorize()}
+                            >
+                              {intl.formatMessage({ id: "mcpServer.oauth.authorize" })}
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <ServerStatusIndicator
+                          server={server}
+                          oauthStatus={oauthStatus}
+                          onAuthorize={onAuthorize}
+                          onRetry={onRetryOAuthStatus}
+                          authorizing={isAuthorizing}
+                        />
+                      )}
+                    </div>
                   </DetailRow>
                   <DetailRow label="Visibility">
                     <span className="flex items-center gap-2">

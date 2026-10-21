@@ -249,7 +249,11 @@ describe("serversApi", () => {
       Object.defineProperty(event, "source", { value: mockAuthWindow, writable: false });
       window.dispatchEvent(event);
 
-      await expect(promise).rejects.toThrow("User denied access");
+      await expect(promise).rejects.toMatchObject({
+        name: "OAuthAuthorizationError",
+        code: "access_denied",
+        description: "User denied access",
+      });
     });
 
     it("falls back to the error code when errorDescription is absent", async () => {

@@ -20,6 +20,8 @@ interface ServerStatusIndicatorProps {
   server: ServerAvailabilityInput & { name: string; lastError?: string | null };
   oauthStatus?: OAuthStatusEntry;
   compact?: boolean;
+  authorizing?: boolean;
+  authorizationNeeded?: boolean;
   /** Disable popover/authorization interaction when nested inside another interactive control. */
   interactive?: boolean;
   onAuthorize?: () => Promise<void>;
@@ -32,6 +34,8 @@ export function ServerStatusIndicator({
   server,
   oauthStatus,
   compact = false,
+  authorizing = false,
+  authorizationNeeded = false,
   interactive = true,
   onAuthorize,
   onRetry,
@@ -39,19 +43,27 @@ export function ServerStatusIndicator({
   className,
 }: ServerStatusIndicatorProps) {
   const intl = useIntl();
-  const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [localAuthorizing, setIsAuthorizing] = useState(false);
+  const isAuthorizing = authorizing || localAuthorizing;
   const availability = getServerAvailability(server, oauthStatus);
   const presentation = getAvailabilityPresentation(availability);
   const StatusIcon = presentation.Icon;
   const authorize = needsOAuthAuthorization(availability) ? onAuthorize : undefined;
   const canRetry =
     availability === "authorization_unavailable" && isRetryableOAuthStatus(oauthStatus);
+  const showAuthorizationNeeded = authorizationNeeded && needsOAuthAuthorization(availability);
   const statusLabel = intl.formatMessage({
-    id: compact ? presentation.shortLabelId : presentation.labelId,
+    id: showAuthorizationNeeded
+      ? "mcpServer.oauth.needed"
+      : compact
+        ? presentation.shortLabelId
+        : presentation.labelId,
   });
   const authorizingLabel = intl.formatMessage({ id: "mcpServer.status.authorizing" });
   const label = isAuthorizing ? authorizingLabel : statusLabel;
-  const fullLabel = intl.formatMessage({ id: presentation.labelId });
+  const fullLabel = intl.formatMessage({
+    id: showAuthorizationNeeded ? "mcpServer.oauth.needed" : presentation.labelId,
+  });
   const isAbbreviated = compact && presentation.shortLabelId !== presentation.labelId;
 
   if (interactive && authorize) {

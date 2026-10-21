@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@testing-library/react";
 import { toast } from "sonner";
@@ -45,7 +45,7 @@ vi.mock("@/auth/useAuth", () => ({
 }));
 
 import { api, ApiError } from "@/api/client";
-import { serversApi } from "@/api/servers";
+import { OAuthAuthorizationError, OAuthCancelledError, serversApi } from "@/api/servers";
 
 const mockToastSuccess = vi.mocked(toast.success);
 const mockToastError = vi.mocked(toast.error);
@@ -581,7 +581,7 @@ describe("Servers", () => {
     await user.click(authorize);
 
     await waitFor(() => {
-      expect(screen.getByText("Active")).toBeInTheDocument();
+      expect(screen.getAllByText("Active").length).toBeGreaterThan(0);
     });
     expect(
       screen.queryByRole("button", { name: /authorize test server 0/i }),
@@ -1457,6 +1457,344 @@ describe("Servers", () => {
         name: /refreshing test server 0/i,
       });
       expect(pendingItem).toHaveAttribute("aria-disabled", "true");
+    });
+  });
+
+  describe("OAuth outcomes on the MCP Servers page", () => {
+    function setupOAuth({ token = "missing", statusUnavailable = false, emptyList = false } = {}) {
+      let tokenStatus = token;
+      let discovered = false;
+      const first = {
+        ...mockServerDetails,
+        authType: "oauth",
+        oauthConfig: { grant_type: "authorization_code" },
+      };
+      const second = { ...first, id: "server-1", name: "Test Server 1" };
+      vi.mocked(api.get).mockImplementation((path: string) => {
+        if (path.startsWith("/oauth/status")) {
+          if (statusUnavailable) return Promise.reject(new Error("Service down"));
+          return Promise.resolve(
+            Object.fromEntries(
+              [first, second].map((server) => [
+                server.id,
+                {
+                  oauth_enabled: true,
+                  grant_type: "authorization_code",
+                  user_token_status: { status: tokenStatus, authorized: tokenStatus === "valid" },
+                },
+              ]),
+            ) as never,
+          );
+        }
+        if (path.startsWith("/v1/mcp-servers?"))
+          return Promise.resolve({
+            gateways: emptyList ? [] : [first, second],
+            nextCursor: null,
+          } as never);
+        if (path === "/v1/mcp-servers/server-0") return Promise.resolve(first as never);
+        if (path === "/v1/mcp-servers/server-1") return Promise.resolve(second as never);
+        if (path.startsWith("/tools?"))
+          return Promise.resolve({
+            tools: discovered
+              ? [
+                  {
+                    id: "new-tool",
+                    name: "new_tool",
+                    originalName: "new_tool",
+                    title: "Fresh tool",
+                  },
+                ]
+              : [],
+          } as never);
+        if (path.startsWith("/resources?"))
+          return Promise.resolve({
+            resources: discovered
+              ? [
+                  {
+                    id: "new-resource",
+                    name: "new_resource",
+                    uri: "file:///fresh",
+                    title: "Fresh resource",
+                  },
+                ]
+              : [],
+          } as never);
+        if (path.startsWith("/prompts?"))
+          return Promise.resolve({
+            prompts: discovered
+              ? [
+                  {
+                    id: "new-prompt",
+                    name: "new_prompt",
+                    originalName: "new_prompt",
+                    title: "Fresh prompt",
+                  },
+                ]
+              : [],
+          } as never);
+        return Promise.resolve({} as never);
+      });
+      const authorize = vi
+        .spyOn(serversApi, "triggerOAuthAuthorization")
+        .mockImplementation(async () => {
+          tokenStatus = "valid";
+          return { type: "oauth_callback", status: "success" };
+        });
+      const discover = vi.spyOn(serversApi, "fetchToolsAfterOAuth").mockImplementation(async () => {
+        discovered = true;
+        return { success: true, message: "Fetched components" };
+      });
+      return {
+        authorize,
+        discover,
+        markDiscovered: () => {
+          discovered = true;
+        },
+      };
+    }
+
+    it("opens Components and refetches tools, resources, and prompts after authorization", async () => {
+      const user = userEvent.setup();
+      const { discover } = setupOAuth();
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(await screen.findByText("Fresh resource")).toBeVisible();
+      expect(await screen.findByText("Fresh prompt")).toBeVisible();
+      expect(discover).toHaveBeenCalledWith("server-0");
+      expect(screen.getByRole("tab", { name: "Components" })).toHaveAttribute(
+        "data-state",
+        "active",
+      );
+    });
+
+    it("shows the provider reason, dismisses without closing details, and retries successfully", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(
+        new OAuthAuthorizationError("access_denied", "Provider denied the requested scope"),
+      );
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "OAuth authorization failed for Test Server 0",
+      });
+      expect(within(dialog).getByText("Provider denied the requested scope")).toBeVisible();
+      await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      const panel = screen.getByRole("region", { name: /Test Server 0/i });
+      expect(within(panel).getByText("Authorization needed")).toBeVisible();
+      expect(screen.getAllByText("Authorization needed")).toHaveLength(2);
+      await user.click(within(panel).getAllByRole("button", { name: "Authorize" })[0]);
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(screen.queryByText("Authorization needed")).not.toBeInTheDocument();
+      expect(authorize).toHaveBeenCalledTimes(2);
+    });
+
+    it("dismisses only the failure dialog with Escape and restores focus to Authorize", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      await screen.findByRole("dialog");
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByRole("region", { name: /Test Server 0/i })).toBeVisible();
+      await waitFor(() =>
+        expect(document.getElementById("oauth-authorize-server-0")).toHaveFocus(),
+      );
+    });
+
+    it("retries directly from the failure dialog", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      await user.click(
+        within(await screen.findByRole("dialog")).getByRole("button", { name: "Try again" }),
+      );
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("preserves valid authorization after a failed reauthorization", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth({ token: "valid" });
+      authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(await screen.findByRole("button", { name: "Authorize" }));
+      await user.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Dismiss",
+        }),
+      );
+      expect(screen.queryByText("Authorization needed")).not.toBeInTheDocument();
+      expect(
+        within(screen.getByRole("region", { name: /Test Server 0/i })).getByText("Active"),
+      ).toBeVisible();
+    });
+
+    it("keeps OAuth success when discovery returns success:false and retries discovery independently", async () => {
+      const user = userEvent.setup();
+      const { authorize, discover } = setupOAuth();
+      discover.mockResolvedValueOnce({ success: false, message: "Unavailable" });
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      await user.click(await screen.findByRole("button", { name: "Retry refresh" }));
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(authorize).toHaveBeenCalledTimes(1);
+      expect(discover).toHaveBeenCalledTimes(2);
+    });
+
+    it("allows authorization without component discovery for read-only users", async () => {
+      const user = userEvent.setup();
+      const { discover } = setupOAuth();
+      mockHasPermission.mockImplementation((permission) => permission === "gateways.read");
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      expect(discover).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Refresh components" })).not.toBeInTheDocument();
+    });
+
+    it("treats popup closure as cancellation without a failure dialog", async () => {
+      const user = userEvent.setup();
+      const { authorize, discover } = setupOAuth();
+      authorize.mockRejectedValueOnce(new OAuthCancelledError());
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Authorizing..." })).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(discover).not.toHaveBeenCalled();
+      expect(
+        screen.getAllByRole("button", { name: "Authorize Test Server 0" }).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("shows generic popup failures in a retryable dialog", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(new Error("Failed to open OAuth authorization window"));
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByRole("button", { name: "Try again" })).toBeVisible();
+      expect(within(dialog).getByText("An error occurred. Please try again.")).toBeVisible();
+    });
+
+    it("loads OAuth status for a deep-linked server outside the current list", async () => {
+      setupOAuth({ emptyList: true });
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      await waitFor(() =>
+        expect(api.get).toHaveBeenCalledWith(
+          expect.stringContaining("gateway_ids=server-0"),
+          undefined,
+          expect.any(AbortSignal),
+        ),
+      );
+      expect(await screen.findByRole("button", { name: "Authorize Test Server 0" })).toBeVisible();
+    });
+
+    it("keeps unavailable OAuth status distinguishable from missing authorization", async () => {
+      setupOAuth({ statusUnavailable: true });
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const panel = await screen.findByRole("region", { name: /Test Server 0/i });
+      expect(await within(panel).findByText("Authorization status unavailable")).toBeVisible();
+      expect(within(panel).queryByText("Authorization needed")).not.toBeInTheDocument();
+    });
+
+    it("prevents duplicate attempts and does not reopen closed details when a callback arrives", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      let finish!: () => void;
+      authorize.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve({ type: "oauth_callback", status: "success" });
+          }),
+      );
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const panel = screen.getByRole("region", { name: /Test Server 0/i });
+      expect(within(panel).getByRole("button", { name: "Authorizing..." })).toBeDisabled();
+      await user.click(within(panel).getByRole("button", { name: "Authorizing..." }));
+      expect(authorize).toHaveBeenCalledTimes(1);
+      await user.click(within(panel).getByRole("button", { name: "Close MCP server details" }));
+      await act(async () => finish());
+      expect(screen.queryByRole("region", { name: /Test Server 0/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("does not apply a late failure to another selected server", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      let fail!: () => void;
+      authorize.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            fail = () =>
+              reject(new OAuthAuthorizationError("access_denied", "Failure from server 0"));
+          }),
+      );
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      await user.click(screen.getByRole("button", { name: "Actions for Test Server 1" }));
+      await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+      expect(await screen.findByRole("region", { name: /Test Server 1/i })).toBeVisible();
+      await act(async () => fail());
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByText("Failure from server 0")).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: /Test Server 1/i })).toBeVisible();
+    });
+
+    it("refreshes an open component list independently of authorization", async () => {
+      const user = userEvent.setup();
+      const { authorize, markDiscovered } = setupOAuth({ token: "valid" });
+      const refresh = vi.spyOn(serversApi, "refreshTools").mockImplementation(async () => {
+        markDiscovered();
+        return {
+          success: true,
+          gatewayId: "server-0",
+          durationMs: 1,
+          refreshedAt: "2026-10-21T00:00:00Z",
+        };
+      });
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      expect(screen.queryByText("Fresh tool")).not.toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "Refresh components" }));
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(refresh).toHaveBeenCalledWith("server-0");
+      expect(authorize).not.toHaveBeenCalled();
+    });
+
+    it("retries component-list read failures without restarting OAuth", async () => {
+      const user = userEvent.setup();
+      const { authorize, markDiscovered } = setupOAuth({ token: "valid" });
+      const get = vi.mocked(api.get).getMockImplementation()!;
+      let failReads = true;
+      vi.mocked(api.get).mockImplementation((...args) => {
+        if (args[0].startsWith("/tools?") && failReads)
+          return Promise.reject(new Error("Service down"));
+        return get(...args);
+      });
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      expect(
+        await screen.findByText("Tools, resources, or prompts could not be loaded."),
+      ).toBeVisible();
+      failReads = false;
+      markDiscovered();
+      await user.click(screen.getByRole("button", { name: "Retry refresh" }));
+      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      expect(authorize).not.toHaveBeenCalled();
     });
   });
 });

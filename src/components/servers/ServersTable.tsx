@@ -55,6 +55,8 @@ interface ServersTableProps {
   onToggleEnabled?: (id: string, enabled: boolean) => void;
   onRefresh?: (id: string) => void;
   refreshingServerIds?: Set<string>;
+  authorizingServerIds?: Set<string>;
+  authorizationNeededServerIds?: Set<string>;
   oauthStatuses?: Record<string, OAuthStatusEntry>;
   onAuthorize?: (id: string) => Promise<void>;
   onRetryOAuthStatus?: (id: string) => void;
@@ -70,6 +72,8 @@ export function ServersTable({
   onRefresh,
   refreshingServerIds,
   oauthStatuses,
+  authorizingServerIds,
+  authorizationNeededServerIds,
   onAuthorize,
   onRetryOAuthStatus,
 }: ServersTableProps) {
@@ -190,6 +194,8 @@ export function ServersTable({
                   <ServerStatusIndicator
                     server={server}
                     oauthStatus={oauthStatuses?.[server.id]}
+                    authorizing={authorizingServerIds?.has(server.id)}
+                    authorizationNeeded={authorizationNeededServerIds?.has(server.id)}
                     onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
                     onRetry={onRetryOAuthStatus && (() => onRetryOAuthStatus(server.id))}
                     compact
