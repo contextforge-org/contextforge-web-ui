@@ -241,9 +241,9 @@ describe("VirtualServerDetailsPanel components list", () => {
     expect(searchBox).toHaveValue("Titled");
   });
 
-  it("renders source tabs and filters components by source", async () => {
+  it("renders source chips and filters components by source", async () => {
     const user = userEvent.setup();
-    // Fetched components carry a gateway_id, which drives the source tabs.
+    // Fetched components carry a gateway_id, which drives the source chips.
     mswServer.use(
       http.get("*/v1/virtual-servers/:id/tools", () =>
         HttpResponse.json({
@@ -275,24 +275,33 @@ describe("VirtualServerDetailsPanel components list", () => {
 
     await user.click(await screen.findByRole("tab", { name: "Components" }));
 
-    // Source tabs resolve from the gateways response.
-    expect(await screen.findByRole("tab", { name: "Gateway A" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Gateway B" })).toBeInTheDocument();
+    // Source chips resolve from the gateways response.
+    expect(await screen.findByRole("button", { name: "Gateway A" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sources" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gateway B" })).toBeInTheDocument();
     expect(screen.getByText("tool_one")).toBeInTheDocument();
     expect(screen.getByText("tool_two")).toBeInTheDocument();
 
+    // All sources is pressed until another chip is chosen.
+    expect(screen.getByRole("button", { name: "All sources" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
     // Selecting a source filters the component list to that gateway.
-    await user.click(screen.getByRole("tab", { name: "Gateway A" }));
+    await user.click(screen.getByRole("button", { name: "Gateway A" }));
     await waitFor(() => {
       expect(screen.queryByText("tool_two")).not.toBeInTheDocument();
     });
     expect(screen.getByText("tool_one")).toBeInTheDocument();
-
-    // Arrow keys move focus across the source tablist.
-    const allSources = screen.getByRole("tab", { name: "All sources" });
-    allSources.focus();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "Gateway A" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Gateway A" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "All sources" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("hides the source selector when the server has a single source", async () => {
@@ -321,8 +330,10 @@ describe("VirtualServerDetailsPanel components list", () => {
     await user.click(await screen.findByRole("tab", { name: "Components" }));
     expect(await screen.findByText("tool_one")).toBeInTheDocument();
 
-    expect(screen.queryByRole("tab", { name: "All sources" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Gateway A" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "All sources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Gateway A" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Filter sources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sources" })).not.toBeInTheDocument();
   });
 
   it("moves the active tab with arrow keys", async () => {

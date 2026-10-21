@@ -113,6 +113,7 @@
   "gateways.details.filter.tools": "Herramientas",
   "gateways.details.filter.resources": "Recursos",
   "gateways.details.filter.prompts": "Prompts",
+  "gateways.details.sources": "Fuentes",
   "gateways.details.filterSources": "Filtrar fuentes",
   "gateways.details.searchComponents": "Buscar componentes",
   "gateways.details.filterComponents": "Filtrar componentes",

@@ -226,19 +226,6 @@ export function VirtualServerDetailsPanel({
     [],
   );
 
-  const handleSourceTabKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLButtonElement>, currentIndex: number, sourceCount: number) => {
-      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-      e.preventDefault();
-      const nextIndex =
-        e.key === "ArrowRight"
-          ? (currentIndex + 1) % sourceCount
-          : (currentIndex - 1 + sourceCount) % sourceCount;
-      document.getElementById(`source-tab-${nextIndex}`)?.focus();
-    },
-    [],
-  );
-
   // Build API paths - only when server exists
   const toolsPath = useMemo(() => {
     if (!server?.id) return "";
@@ -636,54 +623,57 @@ export function VirtualServerDetailsPanel({
                   ) : (
                     <>
                       {sourceTabs.length > 1 && (
-                        <div
-                          role="tablist"
-                          aria-label={intl.formatMessage({ id: "gateways.details.filterSources" })}
-                          className="flex max-w-full items-center overflow-x-auto rounded-md bg-muted p-1"
-                        >
-                          {[
-                            {
-                              id: "all",
-                              label: intl.formatMessage({
-                                id: "gateways.details.filter.allSources",
-                              }),
-                              isTruncated: false,
-                              fullValue: undefined as string | undefined,
-                            },
-                            ...sourceTabs,
-                          ].map((source, index, sources) => {
-                            const isSelected = sourceFilter === source.id;
-                            const tabButton = (
-                              <Button
-                                id={`source-tab-${index}`}
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                role="tab"
-                                aria-selected={isSelected}
-                                tabIndex={isSelected ? 0 : -1}
-                                className={cn(
-                                  "h-8 shrink-0 rounded-sm px-4 text-sm font-medium transition-colors",
-                                  isSelected
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground",
-                                )}
-                                onClick={() => setSourceFilter(source.id)}
-                                onKeyDown={(e) => handleSourceTabKeyDown(e, index, sources.length)}
-                              >
-                                {source.label}
-                              </Button>
-                            );
+                        <div className="space-y-6">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            {intl.formatMessage({ id: "gateways.details.sources" })}
+                          </h3>
+                          <div
+                            role="group"
+                            aria-label={intl.formatMessage({
+                              id: "gateways.details.filterSources",
+                            })}
+                            className="flex flex-wrap items-center gap-2"
+                          >
+                            {[
+                              {
+                                id: "all",
+                                label: intl.formatMessage({
+                                  id: "gateways.details.filter.allSources",
+                                }),
+                                isTruncated: false,
+                                fullValue: undefined as string | undefined,
+                              },
+                              ...sourceTabs,
+                            ].map((source) => {
+                              const isSelected = sourceFilter === source.id;
+                              const sourceButton = (
+                                <Button
+                                  type="button"
+                                  variant={isSelected ? "secondary" : "outline"}
+                                  size="sm"
+                                  aria-pressed={isSelected}
+                                  className={cn(
+                                    "rounded-full font-mono text-[12px] shadow-none",
+                                    isSelected
+                                      ? "border-transparent bg-muted text-foreground"
+                                      : "text-muted-foreground",
+                                  )}
+                                  onClick={() => setSourceFilter(source.id)}
+                                >
+                                  {source.label}
+                                </Button>
+                              );
 
-                            return (
-                              <Tooltip key={source.id}>
-                                <TooltipTrigger asChild>{tabButton}</TooltipTrigger>
-                                {source.isTruncated && (
-                                  <TooltipContent>{source.fullValue}</TooltipContent>
-                                )}
-                              </Tooltip>
-                            );
-                          })}
+                              return (
+                                <Tooltip key={source.id}>
+                                  <TooltipTrigger asChild>{sourceButton}</TooltipTrigger>
+                                  {source.isTruncated && (
+                                    <TooltipContent>{source.fullValue}</TooltipContent>
+                                  )}
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
 
