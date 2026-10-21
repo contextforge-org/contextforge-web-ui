@@ -123,6 +123,24 @@ export function Servers() {
   // Convert query error to string for display
   const error = queryError ? queryError.message : null;
 
+  // Patch a single server into local state (and the query cache) instead of
+  // refetching the whole list: a refetch() remounts the table behind the
+  // page-level isLoading spinner, which reads as flicker. Same approach as
+  // Tools.tsx handleToggleTool.
+  const patchServer = useCallback(
+    (updated: MCPServer) => {
+      setAllServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      // Keep the query cache aligned so the refetch useEffect doesn't restore
+      // the pre-mutation row.
+      setQueryData((prev) =>
+        prev
+          ? { ...prev, gateways: prev.gateways.map((s) => (s.id === updated.id ? updated : s)) }
+          : prev,
+      );
+    },
+    [setQueryData],
+  );
+
   const handleEdit = (id: string) => {
     setUpdateServerId(id);
     setIsFormOpen(true);
@@ -197,14 +215,22 @@ export function Servers() {
       setToggleError(null);
       try {
         await serversApi.toggleEnabled(id, enabled);
-        await refetch();
+        try {
+          // Refresh only the toggled server and patch it into the list, instead
+          // of refetching the whole page (which remounts the table and flickers).
+          serversApi.invalidateGetCache(id);
+          const updated = await serversApi.get(id);
+          patchServer(updated);
+        } catch (refreshErr) {
+          console.error("Failed to refresh server after toggle:", sanitizeError(refreshErr));
+        }
       } catch (err) {
         const errorMsg = sanitizeError(err);
         setToggleError(errorMsg);
         console.error("Failed to toggle server state:", errorMsg);
       }
     },
-    [refetch],
+    [patchServer],
   );
 
   const handleAuthorize = useCallback(
@@ -316,7 +342,11 @@ export function Servers() {
           toast.success(successMessage);
         }
         try {
-          await refetch();
+          // Patch just the refreshed server into the list instead of refetching
+          // the whole page (which remounts the table and flickers).
+          serversApi.invalidateGetCache(id);
+          const updated = await serversApi.get(id);
+          patchServer(updated);
         } catch (refreshErr) {
           console.error("Failed to refresh servers after refresh:", sanitizeError(refreshErr));
         }
@@ -340,7 +370,7 @@ export function Servers() {
         });
       }
     },
-    [refreshingServerIds, allServers, intl, refetch],
+    [refreshingServerIds, allServers, intl, patchServer],
   );
 
   const handleViewDetails = useCallback((id: string) => {

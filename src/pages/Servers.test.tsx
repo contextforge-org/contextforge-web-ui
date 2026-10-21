@@ -616,7 +616,7 @@ describe("Servers", () => {
     });
   });
 
-  it("calls refetch and clears error when toggleEnabled succeeds", async () => {
+  it("patches only the toggled server into the list instead of refetching", async () => {
     const user = userEvent.setup();
 
     vi.mocked(api.get).mockResolvedValueOnce({
@@ -630,12 +630,12 @@ describe("Servers", () => {
       expect(screen.getByText("Test Server 0")).toBeInTheDocument();
     });
 
-    vi.mocked(api.post).mockResolvedValueOnce({});
+    vi.mocked(api.post).mockResolvedValueOnce({ status: "success", message: "ok" });
 
-    // api.get should be called again for refetch
+    // Single-server fetch for the targeted patch (not a list refetch).
     vi.mocked(api.get).mockResolvedValueOnce({
-      gateways: createMockServers(0, 1),
-      nextCursor: null,
+      ...createMockServers(0, 1)[0],
+      enabled: false,
     });
 
     const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
@@ -648,9 +648,18 @@ describe("Servers", () => {
       expect(api.post).toHaveBeenCalledWith(expect.stringContaining("activate=false"));
     });
 
+    // The page re-reads just the one server: one list fetch + one single-server fetch.
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledTimes(2); // Initial fetch + refetch
+      expect(api.get).toHaveBeenCalledWith("/v1/mcp-servers/server-0");
     });
+    expect(api.get).toHaveBeenCalledTimes(2);
+
+    // The row stays mounted (no spinner swap) and reflects the new state.
+    expect(screen.getByText("Test Server 0")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: /loading/i })).not.toBeInTheDocument();
+    const reopenedButtons = screen.getAllByRole("button", { name: /actions for/i });
+    await user.click(reopenedButtons[0]);
+    expect(await screen.findByRole("menuitem", { name: /activate/i })).toBeInTheDocument();
   });
 
   it("no longer offers Test Connection in the actions menu (moved to the details drawer)", async () => {
@@ -1132,10 +1141,10 @@ describe("Servers", () => {
         durationMs: 100,
         refreshedAt: "2025-09-09T00:00:00Z",
       });
-      // Refetch after a successful refresh.
+      // Targeted patch after a successful refresh: re-read just the one server.
       vi.mocked(api.get).mockResolvedValueOnce({
-        gateways: createMockServers(0, 1),
-        nextCursor: null,
+        ...createMockServers(0, 1)[0],
+        toolCount: 8,
       });
 
       const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
@@ -1152,6 +1161,54 @@ describe("Servers", () => {
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("Test Server 0"));
       });
+    });
+
+    it("patches the refreshed server's counts without refetching the list", async () => {
+      const user = userEvent.setup();
+
+      vi.mocked(api.get).mockResolvedValueOnce({
+        gateways: [{ ...createMockServers(0, 1)[0], toolCount: 5 }],
+        nextCursor: null,
+      });
+
+      renderWithRouter(<Servers />);
+
+      await waitFor(() => {
+        expect(screen.getByText("5 tools")).toBeInTheDocument();
+      });
+
+      vi.mocked(api.post).mockResolvedValueOnce({
+        gatewayId: "server-0",
+        success: true,
+        toolsAdded: 3,
+        toolsUpdated: 0,
+        toolsRemoved: 0,
+        durationMs: 100,
+        refreshedAt: "2025-09-09T00:00:00Z",
+      });
+      // Re-read just the one server after refresh.
+      vi.mocked(api.get).mockResolvedValueOnce({
+        ...createMockServers(0, 1)[0],
+        toolCount: 8,
+      });
+
+      const actionsButtons = screen.getAllByRole("button", { name: /actions for/i });
+      await user.click(actionsButtons[0]);
+
+      const refreshItem = await screen.findByRole("menuitem", { name: /^refresh$/i });
+      await user.click(refreshItem);
+
+      await waitFor(() => {
+        expect(api.get).toHaveBeenCalledWith("/v1/mcp-servers/server-0");
+      });
+      // One list fetch + one single-server fetch: no whole-list refetch.
+      expect(api.get).toHaveBeenCalledTimes(2);
+
+      // The row stays mounted (no spinner swap) and shows the new counts.
+      await waitFor(() => {
+        expect(screen.getByText("8 tools")).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("status", { name: /loading/i })).not.toBeInTheDocument();
     });
 
     it("shows a warning toast when refresh returns success: true with validationErrors", async () => {

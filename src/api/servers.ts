@@ -104,6 +104,16 @@ export const serversApi = {
   },
 
   /**
+   * Drop the cached single-server request so the next `get` hits the network.
+   *
+   * Call this after a mutation (activate/deactivate/refresh) before re-reading
+   * the server, otherwise `get` would return the pre-mutation snapshot.
+   */
+  invalidateGetCache: (id: string): void => {
+    serverByIdRequestCache.delete(validateServerId(id));
+  },
+
+  /**
    * Delete an MCP server
    */
   delete: (id: string): Promise<void> => {

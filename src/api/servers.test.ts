@@ -497,6 +497,20 @@ describe("serversApi", () => {
       expect(result).toEqual({ id: "get-evict" });
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
+
+    it("invalidateGetCache drops the cached entry so the next get refetches", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ id: "get-invalidate", enabled: true }));
+      const before = await serversApi.get("get-invalidate");
+      expect(before).toEqual({ id: "get-invalidate", enabled: true });
+
+      serversApi.invalidateGetCache("get-invalidate");
+
+      mockFetch.mockResolvedValueOnce(jsonResponse({ id: "get-invalidate", enabled: false }));
+      const after = await serversApi.get("get-invalidate");
+
+      expect(after).toEqual({ id: "get-invalidate", enabled: false });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("testConnection", () => {
