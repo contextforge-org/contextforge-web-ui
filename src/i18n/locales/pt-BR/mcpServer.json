@@ -391,6 +391,5 @@
   "mcpServer.oauth.success": "Autorização OAuth concluída.",
   "mcpServer.oauth.discoveryError": "Não foi possível atualizar os componentes.",
   "mcpServer.oauth.retryRefresh": "Tentar atualizar novamente",
-  "mcpServer.oauth.readError": "Não foi possível carregar as ferramentas, os recursos ou os prompts.",
-  "mcpServer.oauth.needed": "Autorização necessária"
+  "mcpServer.oauth.readError": "Não foi possível carregar as ferramentas, os recursos ou os prompts."
 }

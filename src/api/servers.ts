@@ -18,14 +18,29 @@ import { validateServerId } from "@/utils/serverId";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
 
-/** Provider callback failure; its description is safe to render as plain text. */
+export const MAX_OAUTH_ERROR_LENGTH = 1000;
+
+function providerErrorText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  if (!text) return undefined;
+  return text.length > MAX_OAUTH_ERROR_LENGTH
+    ? `${text.slice(0, MAX_OAUTH_ERROR_LENGTH - 1)}…`
+    : text;
+}
+
+/** Provider callback failure; render only bounded plain-text fields. */
 export class OAuthAuthorizationError extends Error {
-  constructor(
-    public readonly code?: string,
-    public readonly description?: string,
-  ) {
-    super(description || code || "OAuth authorization failed");
+  readonly code?: string;
+  readonly description?: string;
+
+  constructor(code?: unknown, description?: unknown) {
+    const safeCode = providerErrorText(code);
+    const safeDescription = providerErrorText(description);
+    super(safeDescription || safeCode || "OAuth authorization failed");
     this.name = "OAuthAuthorizationError";
+    this.code = safeCode;
+    this.description = safeDescription;
   }
 }
 

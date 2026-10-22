@@ -391,6 +391,5 @@
   "mcpServer.oauth.success": "OAuth authorization successful.",
   "mcpServer.oauth.discoveryError": "Components could not be refreshed.",
   "mcpServer.oauth.retryRefresh": "Retry refresh",
-  "mcpServer.oauth.readError": "Tools, resources, or prompts could not be loaded.",
-  "mcpServer.oauth.needed": "Authorization needed"
+  "mcpServer.oauth.readError": "Tools, resources, or prompts could not be loaded."
 }

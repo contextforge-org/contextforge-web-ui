@@ -288,6 +288,37 @@ describe("serversApi", () => {
       await expect(promise).rejects.toThrow("OAuth authorization failed");
     });
 
+    it.each([
+      {
+        error: "access_denied",
+        errorDescription: "x".repeat(2000),
+        expected: `${"x".repeat(999)}…`,
+      },
+      {
+        error: { unsafe: "object" },
+        errorDescription: ["not text"],
+        expected: "OAuth authorization failed",
+      },
+      { error: "access_denied", errorDescription: "  ", expected: "access_denied" },
+    ])(
+      "normalizes and bounds provider error fields: $expected",
+      async ({ error, errorDescription, expected }) => {
+        const popup = mockAuthPopup();
+        vi.spyOn(window, "open").mockReturnValue(popup);
+        mockFetch.mockResolvedValueOnce(nonceResponse());
+        const promise = serversApi.triggerOAuthAuthorization("server-123");
+        const event = new MessageEvent("message", {
+          data: { type: "oauth_callback", status: "error", error, errorDescription },
+        });
+        Object.defineProperty(event, "source", { value: popup });
+        window.dispatchEvent(event);
+        await expect(promise).rejects.toMatchObject({
+          name: "OAuthAuthorizationError",
+          message: expected,
+        });
+      },
+    );
+
     it("ignores postMessages from other sources", async () => {
       vi.useFakeTimers();
       const mockAuthWindow = mockAuthPopup();

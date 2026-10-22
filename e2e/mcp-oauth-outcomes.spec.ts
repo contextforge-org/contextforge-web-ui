@@ -126,7 +126,7 @@ test("MCP server OAuth failure → dismissal → retry → fresh components", as
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
   const panel = page.getByRole("region", { name: /MCP Server details: OAuth outcomes server/ });
-  await expect(panel.getByText("Authorization needed")).toBeVisible();
+  await expect(panel.getByText("Authorization required")).toBeVisible();
   await expect(page.locator(`#oauth-authorize-${server.id}`)).toBeFocused();
 
   const retryPopupPromise = context.waitForEvent("page");
@@ -142,5 +142,5 @@ test("MCP server OAuth failure → dismissal → retry → fresh components", as
   await expect(panel.getByText("Fresh tool")).toBeVisible();
   await expect(panel.getByText("Fresh resource")).toBeVisible();
   await expect(panel.getByText("Fresh prompt")).toBeVisible();
-  await expect(panel.getByText("Authorization needed")).not.toBeVisible();
+  await expect(panel.getByText("Authorization required")).not.toBeVisible();
 });

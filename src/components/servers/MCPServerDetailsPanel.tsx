@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
+import { getServerAvailability, needsOAuthAuthorization } from "@/lib/serverStatus";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
 import type { OAuthAttempt, OAuthStatusEntry } from "@/api/oauth";
@@ -164,7 +165,7 @@ export function MCPServerDetailsPanel({
   onRetryOAuthStatus?: () => void;
   oauthAttempt?: OAuthAttempt;
   componentRefreshRevision?: number;
-  componentRefreshError?: string;
+  componentRefreshError?: { reason?: string };
   isRefreshing?: boolean;
   onRefresh?: () => Promise<void>;
   onRetryDiscovery?: () => Promise<void>;
@@ -282,12 +283,9 @@ export function MCPServerDetailsPanel({
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
   const componentReadError = toolsError || resourcesError || promptsError;
   const isAuthorizing = oauthAttempt?.state === "pending";
-  const supportsAuthorization =
-    oauthStatus?.state === "ready" || server?.oauthConfig?.grant_type === "authorization_code";
-  const needsAuthorizationAfterFailure =
-    oauthAttempt?.state === "failed" &&
-    oauthStatus?.state === "ready" &&
-    (oauthStatus.tokenStatus === "missing" || oauthStatus.tokenStatus === "expired");
+  const needsAuthorization = server
+    ? needsOAuthAuthorization(getServerAvailability(server, oauthStatus))
+    : false;
 
   // Filter components based on active tab and search query
   const visibleComponents = useMemo((): ComponentWithType[] => {
@@ -434,7 +432,7 @@ export function MCPServerDetailsPanel({
                 <TabsContent value="components" className="mt-8">
                   <div className="mb-5 space-y-3">
                     <div className="flex items-center gap-2">
-                      {onAuthorize && supportsAuthorization && (
+                      {onAuthorize && needsAuthorization && (
                         <Button
                           id={`oauth-authorize-${server.id}`}
                           variant="outline"
@@ -473,7 +471,12 @@ export function MCPServerDetailsPanel({
                     {componentRefreshError && (
                       <InlineNotification
                         type="warning"
-                        message={`${intl.formatMessage({ id: "mcpServer.oauth.discoveryError" })} ${componentRefreshError}`}
+                        message={[
+                          intl.formatMessage({ id: "mcpServer.oauth.discoveryError" }),
+                          componentRefreshError.reason,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                         action={
                           !isRefreshing && onRetryDiscovery
                             ? {
@@ -661,6 +664,7 @@ export function MCPServerDetailsPanel({
             <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
+                id={`mcp-server-close-${server?.id}`}
                 type="button"
                 variant="ghost"
                 size="icon-xs"
@@ -677,30 +681,29 @@ export function MCPServerDetailsPanel({
                 <dl className="space-y-4">
                   <DetailRow label="Status">
                     <div className="flex flex-wrap items-center gap-2">
-                      {needsAuthorizationAfterFailure ? (
-                        <>
-                          <span className="text-warning">
-                            {intl.formatMessage({ id: "mcpServer.oauth.needed" })}
-                          </span>
-                          {onAuthorize && (
-                            <Button
-                              variant="outline"
-                              size="xs"
-                              disabled={isAuthorizing}
-                              onClick={() => void onAuthorize()}
-                            >
-                              {intl.formatMessage({ id: "mcpServer.oauth.authorize" })}
-                            </Button>
+                      <ServerStatusIndicator
+                        server={server}
+                        oauthStatus={oauthStatus}
+                        onRetry={onRetryOAuthStatus}
+                        authorizing={isAuthorizing}
+                      />
+                      {needsAuthorization && onAuthorize && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          disabled={isAuthorizing}
+                          aria-label={intl.formatMessage(
+                            { id: "mcpServer.status.authorizeTrigger" },
+                            { name: server.name },
                           )}
-                        </>
-                      ) : (
-                        <ServerStatusIndicator
-                          server={server}
-                          oauthStatus={oauthStatus}
-                          onAuthorize={onAuthorize}
-                          onRetry={onRetryOAuthStatus}
-                          authorizing={isAuthorizing}
-                        />
+                          onClick={() => void onAuthorize()}
+                        >
+                          {intl.formatMessage({
+                            id: isAuthorizing
+                              ? "mcpServer.status.authorizing"
+                              : "mcpServer.oauth.authorize",
+                          })}
+                        </Button>
                       )}
                     </div>
                   </DetailRow>
