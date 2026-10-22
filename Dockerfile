@@ -24,8 +24,9 @@ COPY --chown=1001:0 package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 # ---- UI build ----
-# npm run build = "npm run generate && tsc -b && vite build". `generate`
-# runs orval against the committed openapi.json (no network call). vite's
+# npm run build generates API code, checks types, then runs vite build.
+# api:generate runs orval against the committed openapi.json (no network
+# call). Vite's
 # outDir is "server/public", so output lands at
 # /opt/app-root/src/server/public here.
 FROM ui-deps AS ui-build

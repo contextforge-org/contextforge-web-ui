@@ -20,7 +20,7 @@ This runs [`scripts/refresh-openapi.sh`](./scripts/refresh-openapi.sh), which:
 1. Verifies the sibling checkout has a remote pointing at `IBM/mcp-context-forge`, then pulls `main` there (default location: `../mcp-context-forge`; override with `OPENAPI_SOURCE_DIR` or a path argument).
 2. Regenerates `openapi.json` from it and pins `info.version` to `<API version>+<first 6 chars of the commit hash>` — [semver build metadata](https://semver.org/#spec-item-10), no spaces or parentheses (e.g. `1.0.0+589c69`).
 3. Updates the two places the README quotes that same pin (the `This UI targets **ContextForge API vX.Y.Z**` line and the codegen note further down).
-4. Runs `npm run generate` to regenerate the API client.
+4. Runs `npm run api:generate` to regenerate the API client.
 5. Commits on a new `chore/openapi-...` branch (based on `origin/main`).
 
 Run with `--dry-run` to stop after step 4 and inspect `git diff` yourself before committing anything. Both the API checkout and this repo must have a clean working tree before you run it.

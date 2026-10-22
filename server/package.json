@@ -11,9 +11,9 @@
     "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=../.env dist/index.js",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "lint": "tsc -p tsconfig.json --noEmit"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fastify/compress": "^9.2.0",
