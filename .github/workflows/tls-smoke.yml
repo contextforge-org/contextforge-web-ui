@@ -24,7 +24,7 @@ on:
       - "server/src/config.ts"
       - ".github/workflows/tls-smoke.yml"
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: ["main"]
     paths:
       - "infra/nginx/**"
@@ -58,39 +58,39 @@ jobs:
       NGINX_FORCE_HTTPS: "true"
 
     steps:
-      - name: ⬇️ Checkout source
+      - name: Checkout source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: 🟩 Setup Node
+      - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".nvmrc"
 
-      - name: 📄 Prepare .env
+      - name: Prepare .env
         run: cp .env.example .env
 
-      - name: 🐳 Bring up the TLS e2e stack
+      - name: Bring up the TLS e2e stack
         run: npm run e2e:docker:tls:up
 
-      - name: 🌱 Seed test user
+      - name: Seed test user
         run: npm run e2e:docker:seed
         env:
           E2E_GATEWAY_URL: https://localhost:4444
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/certs/cert.pem
 
-      - name: 🚬 Run TLS smoke checks
+      - name: Run TLS smoke checks
         run: npm run tls:smoke
         env:
           SMOKE_EMAIL: ${{ env.E2E_TEST_EMAIL }}
           SMOKE_PASSWORD: ${{ env.E2E_TEST_PASSWORD }}
 
-      - name: 📋 Dump stack logs on failure
+      - name: Dump stack logs on failure
         if: failure()
         run: docker compose -f docker-compose.e2e.yml -f docker-compose.tls.yml -f docker-compose.e2e-tls.yml logs --no-color
 
-      - name: 🧹 Tear down the TLS e2e stack
+      - name: Tear down the TLS e2e stack
         if: always()
         run: npm run e2e:docker:tls:down
