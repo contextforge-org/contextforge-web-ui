@@ -33,4 +33,10 @@ test.describe("App loading (smoke)", () => {
     await page.goto("/app");
     await expect(page).toHaveURL(/\/app\/login\?next=%2Fapp%2F$/);
   });
+  test("authenticated session redirects to /app/", async ({ page, apiMock }) => {
+    await apiMock.mockSession({ authenticated: true });
+
+    await page.goto(APP.LOGIN);
+    await expect(page).toHaveURL(/\/app\/$/);
+  });
 });
