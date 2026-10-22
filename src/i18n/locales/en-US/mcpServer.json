@@ -381,5 +381,15 @@
   "mcpServer.testConnection.virtualServer.failureCopy.protocol": "The server responded, but MCP protocol negotiation failed. This can happen when the virtual server is disabled or a federated source returned an unexpected response.",
   "mcpServer.testConnection.virtualServer.failureCopy.auth": "Authentication failed. Check the credentials or headers being sent.",
   "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse": "The server returned a response that couldn't be parsed as a valid MCP handshake.",
-  "mcpServer.testConnection.virtualServer.failureCopy.default": "Check the credentials being sent and that the virtual server is enabled."
+  "mcpServer.testConnection.virtualServer.failureCopy.default": "Check the credentials being sent and that the virtual server is enabled.",
+  "mcpServer.oauth.failureTitle": "OAuth authorization failed for {name}",
+  "mcpServer.oauth.tryAgain": "Try again",
+  "mcpServer.oauth.dismiss": "Dismiss",
+  "mcpServer.oauth.authorize": "Authorize",
+  "mcpServer.oauth.refresh": "Refresh components",
+  "mcpServer.oauth.refreshing": "Refreshing components…",
+  "mcpServer.oauth.success": "OAuth authorization successful.",
+  "mcpServer.oauth.discoveryError": "Components could not be refreshed.",
+  "mcpServer.oauth.retryRefresh": "Retry refresh",
+  "mcpServer.oauth.readError": "Tools, resources, or prompts could not be loaded."
 }

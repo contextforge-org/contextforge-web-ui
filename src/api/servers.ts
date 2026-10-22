@@ -18,6 +18,32 @@ import { validateServerId } from "@/utils/serverId";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
 
+export const MAX_OAUTH_ERROR_LENGTH = 1000;
+
+function providerErrorText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const text = value.trim();
+  if (!text) return undefined;
+  return text.length > MAX_OAUTH_ERROR_LENGTH
+    ? `${text.slice(0, MAX_OAUTH_ERROR_LENGTH - 1)}…`
+    : text;
+}
+
+/** Provider callback failure; render only bounded plain-text fields. */
+export class OAuthAuthorizationError extends Error {
+  readonly code?: string;
+  readonly description?: string;
+
+  constructor(code?: unknown, description?: unknown) {
+    const safeCode = providerErrorText(code);
+    const safeDescription = providerErrorText(description);
+    super(safeDescription || safeCode || "OAuth authorization failed");
+    this.name = "OAuthAuthorizationError";
+    this.code = safeCode;
+    this.description = safeDescription;
+  }
+}
+
 /** The user closed the OAuth popup. Typed so callers can stay quiet about it. */
 export class OAuthCancelledError extends Error {
   constructor() {
@@ -265,7 +291,7 @@ export const serversApi = {
         if (data.status === "success") {
           resolve(data);
         } else {
-          reject(new Error(data.errorDescription ?? data.error ?? "OAuth authorization failed"));
+          reject(new OAuthAuthorizationError(data.error, data.errorDescription));
         }
       };
 
