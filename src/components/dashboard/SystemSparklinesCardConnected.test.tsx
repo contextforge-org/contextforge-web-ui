@@ -45,7 +45,7 @@ describe("SystemSparklinesCardConnected", () => {
   it("renders the card otherwise", () => {
     mockUseMetrics.mockReturnValue(
       metricsState({
-        timeseries: { buckets: [], values: [] },
+        timeseries: { buckets: [], values: [], success_count: [], error_count: [] },
         percentiles: { buckets: [], p50: [], p95: [], p99: [] },
       }),
     );
@@ -57,7 +57,10 @@ describe("SystemSparklinesCardConnected", () => {
 
   it("only shows the loading state on the first load, not on a refresh", () => {
     mockUseMetrics.mockReturnValue(
-      metricsState({ isLoading: true, timeseries: { buckets: [], values: [] } }),
+      metricsState({
+        isLoading: true,
+        timeseries: { buckets: [], values: [], success_count: [], error_count: [] },
+      }),
     );
 
     const { container } = renderWithProviders(<SystemSparklinesCardConnected />);

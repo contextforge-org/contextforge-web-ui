@@ -9,7 +9,8 @@
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
 
-import type { PercentilesResponse, TimeseriesResponse } from "@/types/metrics";
+import type { PercentilesResponse } from "@/generated/types/percentilesResponse";
+import type { TimeseriesResponse } from "@/generated/types/timeseriesResponse";
 import { WINDOW_HOURS, WINDOW_INTERVAL_MINUTES } from "@/hooks/useMetrics";
 
 import { SparklineRow } from "./SparklineRow";
@@ -87,7 +88,12 @@ export function SystemSparklinesCard({
   const statusMessage = error
     ? intl.formatMessage({ id: "dashboard.home.sparklines.error" })
     : isEmpty
-      ? intl.formatMessage({ id: "dashboard.home.sparklines.empty" })
+      ? intl.formatMessage({
+          id:
+            timeseries?.enabled === false || percentiles?.enabled === false
+              ? "dashboard.home.sparklines.empty.disabled"
+              : "dashboard.home.sparklines.empty.noTraffic",
+        })
       : null;
 
   return (

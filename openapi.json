@@ -49761,6 +49761,11 @@
             },
             "type": "array",
             "title": "P99"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
           }
         },
         "type": "object",
@@ -55433,6 +55438,11 @@
             },
             "type": "array",
             "title": "Error Count"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
           }
         },
         "type": "object",

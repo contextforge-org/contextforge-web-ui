@@ -10,7 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { metricsApi } from "@/api/metrics";
-import type { PercentilesResponse, TimeseriesResponse } from "@/types/metrics";
+import type { PercentilesResponse } from "@/generated/types/percentilesResponse";
+import type { TimeseriesResponse } from "@/generated/types/timeseriesResponse";
 
 /** 24h at 60m granularity = 24 buckets. Fixed: the card has no range control. */
 export const WINDOW_HOURS = 24;

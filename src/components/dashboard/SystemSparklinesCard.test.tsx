@@ -33,7 +33,12 @@ describe("SystemSparklinesCard", () => {
   it("totals executions across the window and takes the latest latency bucket", () => {
     renderWithProviders(
       <SystemSparklinesCard
-        timeseries={{ buckets: [bucket(3), bucket(1)], values: [2, 5] }}
+        timeseries={{
+          buckets: [bucket(3), bucket(1)],
+          values: [2, 5],
+          success_count: [0, 0],
+          error_count: [0, 0],
+        }}
         percentiles={{
           buckets: [bucket(3), bucket(1)],
           p50: [0.9, 0.317],
@@ -49,16 +54,28 @@ describe("SystemSparklinesCard", () => {
     expect(screen.getByText("0.523ms")).toBeInTheDocument();
   });
 
-  it("explains an empty window rather than showing it as a failure", () => {
+  it("explains when observability is disabled", () => {
     renderWithProviders(
       <SystemSparklinesCard
-        timeseries={{ buckets: [], values: [] }}
-        percentiles={{ buckets: [], p50: [], p95: [], p99: [] }}
+        timeseries={{ buckets: [], values: [], success_count: [], error_count: [], enabled: false }}
+        percentiles={{ buckets: [], p50: [], p95: [], p99: [], enabled: false }}
       />,
     );
 
-    expect(screen.getByText(/No traced requests/)).toBeInTheDocument();
-    expect(screen.queryByText("Couldn't load metrics.")).not.toBeInTheDocument();
+    expect(screen.getByText(/Tracing is off/)).toBeInTheDocument();
+    expect(screen.queryByText(/No MCP or A2A requests/)).not.toBeInTheDocument();
+  });
+
+  it("explains an enabled window with no traffic", () => {
+    renderWithProviders(
+      <SystemSparklinesCard
+        timeseries={{ buckets: [], values: [], success_count: [], error_count: [], enabled: true }}
+        percentiles={{ buckets: [], p50: [], p95: [], p99: [], enabled: true }}
+      />,
+    );
+
+    expect(screen.getByText(/No MCP or A2A requests/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tracing is off/)).not.toBeInTheDocument();
   });
 
   it("surfaces a load failure", () => {
