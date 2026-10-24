@@ -6,7 +6,8 @@
  * and `platform_viewer` hold it by default, so a 403 is a routine outcome.
  */
 
-import type { PercentilesResponse, TimeseriesResponse } from "@/types/metrics";
+import type { PercentilesResponse } from "@/generated/types/percentilesResponse";
+import type { TimeseriesResponse } from "@/generated/types/timeseriesResponse";
 
 import { api } from "./client";
 

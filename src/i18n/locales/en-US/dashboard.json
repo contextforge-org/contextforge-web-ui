@@ -94,6 +94,8 @@
   "dashboard.home.sparklines.p99": "p99 latency",
   "dashboard.home.sparklines.error": "Couldn't load metrics.",
   "dashboard.home.sparklines.empty": "No traced requests. If you haven't already, set OBSERVABILITY_ENABLED=true and restart ContextForge.",
+  "dashboard.home.sparklines.empty.disabled": "Tracing is off. Set OBSERVABILITY_ENABLED=true on the ContextForge server and restart.",
+  "dashboard.home.sparklines.empty.noTraffic": "No MCP or A2A requests in this window.",
   "dashboard.home.sparklines.tooltip.noRequests": "No requests",
   "dashboard.home.sparklines.tooltip.requests": "{count, plural, one {# request} other {# requests}}",
   "dashboard.home.sparklines.tooltip.executions": "{count, plural, one {# execution} other {# executions}}",

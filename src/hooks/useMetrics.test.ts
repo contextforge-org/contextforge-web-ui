@@ -13,7 +13,7 @@ const mockTimeseries = vi.mocked(metricsApi.getTimeseries);
 const mockPercentiles = vi.mocked(metricsApi.getPercentiles);
 
 function resolveBoth() {
-  mockTimeseries.mockResolvedValue({ buckets: [], values: [] });
+  mockTimeseries.mockResolvedValue({ buckets: [], values: [], success_count: [], error_count: [] });
   mockPercentiles.mockResolvedValue({ buckets: [], p50: [], p95: [], p99: [] });
 }
 
@@ -104,7 +104,13 @@ describe("useMetrics", () => {
     mockTimeseries.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          release = () => resolve({ buckets: ["2026-09-01T12:00:00Z"], values: [9] });
+          release = () =>
+            resolve({
+              buckets: ["2026-09-01T12:00:00Z"],
+              values: [9],
+              success_count: [0],
+              error_count: [0],
+            });
         }),
     );
 
@@ -118,7 +124,12 @@ describe("useMetrics", () => {
     });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.timeseries).toEqual({ buckets: [], values: [] });
+    expect(result.current.timeseries).toEqual({
+      buckets: [],
+      values: [],
+      success_count: [],
+      error_count: [],
+    });
   });
 
   it("refetches on becoming visible when nothing has loaded yet", async () => {
