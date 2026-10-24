@@ -78,6 +78,19 @@ describe("SystemSparklinesCard", () => {
     expect(screen.queryByText(/Tracing is off/)).not.toBeInTheDocument();
   });
 
+  it("uses the original empty-state message when observability status is unknown", () => {
+    renderWithProviders(
+      <SystemSparklinesCard
+        timeseries={{ buckets: [], values: [], success_count: [], error_count: [] }}
+        percentiles={{ buckets: [], p50: [], p95: [], p99: [] }}
+      />,
+    );
+
+    expect(screen.getByText(/set OBSERVABILITY_ENABLED=true/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tracing is off/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No MCP or A2A requests/)).not.toBeInTheDocument();
+  });
+
   it("surfaces a load failure", () => {
     renderWithProviders(
       <SystemSparklinesCard timeseries={null} percentiles={null} error={new Error("boom")} />,

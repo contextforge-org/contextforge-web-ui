@@ -24,9 +24,11 @@ import {
 } from "./sparklineSeries";
 import { formatCount, formatResponseTime } from "./systemMetrics";
 
+type ObservabilityStatus = { enabled?: boolean };
+
 interface SystemSparklinesCardProps {
-  timeseries: TimeseriesResponse | null;
-  percentiles: PercentilesResponse | null;
+  timeseries: (TimeseriesResponse & ObservabilityStatus) | null;
+  percentiles: (PercentilesResponse & ObservabilityStatus) | null;
   loading?: boolean;
   error?: Error | null;
 }
@@ -84,15 +86,20 @@ export function SystemSparklinesCard({
 
   const isEmpty = !loading && !error && rows.every((row) => isEmptySeries(row.points));
 
+  // APIs older than IBM/mcp-context-forge#7326 report neither state.
+  const tracingEnabled = timeseries?.enabled ?? percentiles?.enabled;
+
   // Sits under the title
   const statusMessage = error
     ? intl.formatMessage({ id: "dashboard.home.sparklines.error" })
     : isEmpty
       ? intl.formatMessage({
           id:
-            timeseries?.enabled === false || percentiles?.enabled === false
-              ? "dashboard.home.sparklines.empty.disabled"
-              : "dashboard.home.sparklines.empty.noTraffic",
+            tracingEnabled === undefined
+              ? "dashboard.home.sparklines.empty"
+              : tracingEnabled
+                ? "dashboard.home.sparklines.empty.noTraffic"
+                : "dashboard.home.sparklines.empty.disabled",
         })
       : null;
 
