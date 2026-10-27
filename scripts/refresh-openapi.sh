@@ -159,7 +159,7 @@ write_changes() {
   [[ "$SPEC_CHANGED" == 1 ]] && cp "$TMP_SPEC" "$REPO_ROOT/openapi.json"
   [[ "$README_CHANGED" == 1 ]] && cp "$TMP_README" "$REPO_ROOT/README.md"
   echo "==> Regenerating API client"
-  (cd "$REPO_ROOT" && npm run generate)
+  (cd "$REPO_ROOT" && npm run api:generate)
 }
 
 if [[ "$DRY_RUN" == "1" ]]; then
