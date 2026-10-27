@@ -8,6 +8,7 @@ import {
   MessageSquareCode,
   PanelRightClose,
   Search,
+  RefreshCw,
   Server,
   Wrench,
 } from "lucide-react";
@@ -25,7 +26,6 @@ import { Input } from "@/components/ui/input";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { TruncatedMiddleText } from "@/components/ui/truncated-middle-text";
 import { cn } from "@/lib/utils";
-import { getServerAvailability, needsOAuthAuthorization } from "@/lib/serverStatus";
 import type { MCPServer as BaseMCPServer, VirtualServerTag } from "@/types/server";
 import { useQuery } from "@/hooks/useQuery";
 import type { OAuthAttempt, OAuthStatusEntry } from "@/api/oauth";
@@ -283,9 +283,6 @@ export function MCPServerDetailsPanel({
   const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
   const componentReadError = toolsError || resourcesError || promptsError;
   const isAuthorizing = oauthAttempt?.state === "pending";
-  const needsAuthorization = server
-    ? needsOAuthAuthorization(getServerAvailability(server, oauthStatus))
-    : false;
 
   // Filter components based on active tab and search query
   const visibleComponents = useMemo((): ComponentWithType[] => {
@@ -431,48 +428,11 @@ export function MCPServerDetailsPanel({
 
                 <TabsContent value="components" className="mt-8">
                   <div className="mb-5 space-y-3">
-                    <div className="flex items-center gap-2">
-                      {onAuthorize && needsAuthorization && (
-                        <Button
-                          id={`oauth-authorize-${server.id}`}
-                          variant="outline"
-                          size="sm"
-                          disabled={isAuthorizing}
-                          onClick={() => void onAuthorize()}
-                        >
-                          {intl.formatMessage({
-                            id: isAuthorizing
-                              ? "mcpServer.status.authorizing"
-                              : "mcpServer.oauth.authorize",
-                          })}
-                        </Button>
-                      )}
-                      {onRefresh && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isRefreshing || isAuthorizing}
-                          onClick={() => void onRefresh()}
-                        >
-                          {intl.formatMessage({
-                            id: isRefreshing
-                              ? "mcpServer.oauth.refreshing"
-                              : "mcpServer.oauth.refresh",
-                          })}
-                        </Button>
-                      )}
-                    </div>
-                    {oauthAttempt?.state === "succeeded" && (
-                      <InlineNotification
-                        type="success"
-                        message={intl.formatMessage({ id: "mcpServer.oauth.success" })}
-                      />
-                    )}
                     {componentRefreshError && (
                       <InlineNotification
                         type="warning"
                         message={[
-                          intl.formatMessage({ id: "mcpServer.oauth.discoveryError" }),
+                          intl.formatMessage({ id: "mcpServer.components.discoveryError" }),
                           componentRefreshError.reason,
                         ]
                           .filter(Boolean)
@@ -480,7 +440,9 @@ export function MCPServerDetailsPanel({
                         action={
                           !isRefreshing && onRetryDiscovery
                             ? {
-                                label: intl.formatMessage({ id: "mcpServer.oauth.retryRefresh" }),
+                                label: intl.formatMessage({
+                                  id: "mcpServer.components.retryRefresh",
+                                }),
                                 onClick: () => void onRetryDiscovery(),
                               }
                             : undefined
@@ -490,9 +452,9 @@ export function MCPServerDetailsPanel({
                     {componentReadError && (
                       <InlineNotification
                         type="error"
-                        message={intl.formatMessage({ id: "mcpServer.oauth.readError" })}
+                        message={intl.formatMessage({ id: "mcpServer.components.readError" })}
                         action={{
-                          label: intl.formatMessage({ id: "mcpServer.oauth.retryRefresh" }),
+                          label: intl.formatMessage({ id: "mcpServer.components.retryRefresh" }),
                           onClick: retryComponentReads,
                         }}
                       />
@@ -528,6 +490,23 @@ export function MCPServerDetailsPanel({
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {onRefresh && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          disabled={isRefreshing}
+                          onClick={() => void onRefresh()}
+                          className="size-8 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          aria-label={intl.formatMessage({
+                            id: isRefreshing
+                              ? "mcpServer.components.refreshing"
+                              : "mcpServer.components.refresh",
+                          })}
+                        >
+                          <RefreshCw className={cn("size-4", isRefreshing && "animate-spin")} />
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="ghost"
@@ -664,7 +643,6 @@ export function MCPServerDetailsPanel({
             <aside className="relative border-t border-border bg-popover lg:border-l lg:border-t-0">
               <Button
                 ref={closeButtonRef}
-                id={`mcp-server-close-${server?.id}`}
                 type="button"
                 variant="ghost"
                 size="icon-xs"
@@ -680,31 +658,14 @@ export function MCPServerDetailsPanel({
 
                 <dl className="space-y-4">
                   <DetailRow label="Status">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div data-server-status>
                       <ServerStatusIndicator
                         server={server}
                         oauthStatus={oauthStatus}
+                        onAuthorize={onAuthorize}
                         onRetry={onRetryOAuthStatus}
                         authorizing={isAuthorizing}
                       />
-                      {needsAuthorization && onAuthorize && (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          disabled={isAuthorizing}
-                          aria-label={intl.formatMessage(
-                            { id: "mcpServer.status.authorizeTrigger" },
-                            { name: server.name },
-                          )}
-                          onClick={() => void onAuthorize()}
-                        >
-                          {intl.formatMessage({
-                            id: isAuthorizing
-                              ? "mcpServer.status.authorizing"
-                              : "mcpServer.oauth.authorize",
-                          })}
-                        </Button>
-                      )}
                     </div>
                   </DetailRow>
                   <DetailRow label="Visibility">

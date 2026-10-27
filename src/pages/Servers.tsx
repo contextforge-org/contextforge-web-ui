@@ -49,8 +49,12 @@ export function Servers() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedServerIdForDetails, setSelectedServerIdForDetails] = useState<string | null>(null);
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
-  const [detailsInitialTab, setDetailsInitialTab] = useState<"tryit" | "components">("tryit");
   const [oauthAttempts, setOAuthAttempts] = useState<Record<string, OAuthAttempt>>({});
+  const [oauthDialogServerId, setOAuthDialogServerId] = useState<string | null>(null);
+  const authorizationTriggers = useRef(
+    new Map<string, { element: HTMLElement | null; container: Element | null; name: string }>(),
+  );
+  const dialogAttempt = oauthDialogServerId ? oauthAttempts[oauthDialogServerId] : undefined;
   const pendingAuthorizationIds = useRef(new Set<string>());
   const pendingRefreshIds = useRef(new Set<string>());
   const refreshKinds = useRef(new Map<string, "oauth" | "manual">());
@@ -283,14 +287,22 @@ export function Servers() {
     async (id: string) => {
       if (!canReadServers || pendingAuthorizationIds.current.has(id)) return;
       pendingAuthorizationIds.current.add(id);
-      setSelectedServerIdForDetails(id);
-      setDetailsInitialTab("components");
-      setIsDetailsDrawerOpen(true);
+      if (
+        !document.activeElement?.closest('[role="dialog"]') ||
+        !authorizationTriggers.current.has(id)
+      ) {
+        authorizationTriggers.current.set(id, {
+          element: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+          container: document.activeElement?.closest("[data-server-status]") ?? null,
+          name: allServers.find((server) => server.id === id)?.name ?? panelServer?.name ?? id,
+        });
+      }
       setOAuthAttempts((prev) => ({ ...prev, [id]: { state: "pending" } }));
       try {
         // Keep this call before any await: window.open requires the click gesture.
         await serversApi.triggerOAuthAuthorization(id);
       } catch (err) {
+        if (!(err instanceof OAuthCancelledError)) setOAuthDialogServerId(id);
         setOAuthAttempts((prev) => {
           const next = { ...prev };
           if (err instanceof OAuthCancelledError) delete next[id];
@@ -302,14 +314,30 @@ export function Servers() {
         pendingAuthorizationIds.current.delete(id);
       }
       setOAuthAttempts((prev) => ({ ...prev, [id]: { state: "succeeded" } }));
-      await Promise.allSettled([reloadOAuthStatuses([id]), discoverOAuthComponents(id), refetch()]);
+      await Promise.allSettled([reloadOAuthStatuses([id]), discoverOAuthComponents(id)]);
+      try {
+        serversApi.invalidateGetCache(id);
+        const updated = await serversApi.get(id);
+        patchServer(updated);
+        setDetailsServer((prev) => (prev?.id === id ? updated : prev));
+      } catch (err) {
+        console.error("Failed to refresh server after authorization:", sanitizeError(err));
+      }
     },
-    [canReadServers, refetch, reloadOAuthStatuses, discoverOAuthComponents],
+    [
+      canReadServers,
+      reloadOAuthStatuses,
+      discoverOAuthComponents,
+      allServers,
+      panelServer,
+      patchServer,
+      setDetailsServer,
+    ],
   );
 
   const dismissOAuthFailure = () => {
-    if (!panelServer) return;
-    const id = panelServer.id;
+    if (!oauthDialogServerId) return;
+    const id = oauthDialogServerId;
     setOAuthAttempts((prev) => {
       const attempt = prev[id];
       return attempt?.state === "failed"
@@ -440,7 +468,6 @@ export function Servers() {
   );
 
   const handleViewDetails = useCallback((id: string) => {
-    setDetailsInitialTab("tryit");
     setSelectedServerIdForDetails(id);
     setIsDetailsDrawerOpen(true);
   }, []);
@@ -696,7 +723,6 @@ export function Servers() {
       <MCPServerDetailsPanel
         key={selectedServerIdForDetails ?? "none"}
         server={panelServer}
-        initialTab={detailsInitialTab}
         oauthAttempt={panelAttempt}
         componentRefreshRevision={panelServer ? (componentRevisions[panelServer.id] ?? 0) : 0}
         componentRefreshError={panelServer ? componentRefreshErrors[panelServer.id] : undefined}
@@ -723,33 +749,38 @@ export function Servers() {
         onRetryOAuthStatus={panelServer ? () => void retryOAuthStatus(panelServer.id) : undefined}
       />
       <ConfirmDialog
-        open={isDetailsDrawerOpen && panelAttempt?.state === "failed" && panelAttempt.dialogOpen}
+        open={dialogAttempt?.state === "failed" && dialogAttempt.dialogOpen}
         onOpenChange={(open) => {
           if (!open) dismissOAuthFailure();
         }}
         title={intl.formatMessage(
           { id: "mcpServer.oauth.failureTitle" },
-          { name: panelServer?.name ?? "" },
+          {
+            name: oauthDialogServerId
+              ? (authorizationTriggers.current.get(oauthDialogServerId)?.name ?? "")
+              : "",
+          },
         )}
         description={
           <p className="break-words">
-            {panelAttempt?.state === "failed" ? panelAttempt.reason : ""}
+            {dialogAttempt?.state === "failed" ? dialogAttempt.reason : ""}
           </p>
         }
         confirmLabel={intl.formatMessage({ id: "mcpServer.oauth.tryAgain" })}
         cancelLabel={intl.formatMessage({ id: "mcpServer.oauth.dismiss" })}
         closeOnConfirm={false}
         onConfirm={async () => {
-          if (panelServer) await handleAuthorize(panelServer.id);
+          if (oauthDialogServerId) await handleAuthorize(oauthDialogServerId);
         }}
         onCloseAutoFocus={(event) => {
-          const authorize = document.getElementById(
-            `oauth-authorize-${panelServer?.id}`,
-          ) as HTMLButtonElement | null;
+          const origin = oauthDialogServerId
+            ? authorizationTriggers.current.get(oauthDialogServerId)
+            : undefined;
+          const trigger = origin?.element;
           const target =
-            authorize && !authorize.disabled
-              ? authorize
-              : document.getElementById(`mcp-server-close-${panelServer?.id}`);
+            trigger?.isConnected && !trigger.matches(":disabled")
+              ? trigger
+              : origin?.container?.querySelector<HTMLElement>("button:not(:disabled)");
           if (target) {
             event.preventDefault();
             target.focus();

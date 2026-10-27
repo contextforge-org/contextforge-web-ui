@@ -1553,20 +1553,33 @@ describe("Servers", () => {
       };
     }
 
-    it("opens Components and refetches tools, resources, and prompts after authorization", async () => {
+    it("authorizes from the row without opening details or reloading the table", async () => {
       const user = userEvent.setup();
       const { discover } = setupOAuth();
       renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
-      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      const chip = await screen.findByRole("button", { name: "Authorize Test Server 0" });
+      const listCalls = vi
+        .mocked(api.get)
+        .mock.calls.filter(([path]) => path.startsWith("/v1/mcp-servers?")).length;
+      await user.click(chip);
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: "Authorize Test Server 0" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByRole("region", { name: /Test Server 0/i })).not.toBeInTheDocument();
+      expect(screen.queryByText("OAuth authorization successful.")).not.toBeInTheDocument();
+      expect(discover).toHaveBeenCalledWith("server-0");
+      expect(
+        vi.mocked(api.get).mock.calls.filter(([path]) => path.startsWith("/v1/mcp-servers?"))
+          .length,
+      ).toBe(listCalls);
+      await user.click(screen.getByRole("button", { name: "Actions for Test Server 0" }));
+      await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
       expect(await screen.findByText("Fresh tool")).toBeVisible();
       expect(await screen.findByText("Fresh resource")).toBeVisible();
       expect(await screen.findByText("Fresh prompt")).toBeVisible();
-      expect(discover).toHaveBeenCalledWith("server-0");
-      expect(screen.getByRole("tab", { name: "Components" })).toHaveAttribute(
-        "data-state",
-        "active",
-      );
     });
 
     it("shows the provider reason, dismisses without closing details, and retries successfully", async () => {
@@ -1575,8 +1588,12 @@ describe("Servers", () => {
       authorize.mockRejectedValueOnce(
         new OAuthAuthorizationError("access_denied", "Provider denied the requested scope"),
       );
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
       const dialog = await screen.findByRole("dialog", {
         name: "OAuth authorization failed for Test Server 0",
       });
@@ -1585,8 +1602,8 @@ describe("Servers", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       const panel = screen.getByRole("region", { name: /Test Server 0/i });
       expect(within(panel).getByText("Authorization required")).toBeVisible();
-      expect(screen.getAllByText("Authorization required")).toHaveLength(1);
-      await user.click(within(panel).getAllByRole("button", { name: "Authorize" })[0]);
+      expect(within(panel).getAllByText("Authorization required")).toHaveLength(1);
+      await user.click(within(panel).getByRole("button", { name: "Authorize Test Server 0" }));
       expect(await screen.findByText("Fresh tool")).toBeVisible();
       expect(screen.queryByText("Authorization required")).not.toBeInTheDocument();
       expect(authorize).toHaveBeenCalledTimes(2);
@@ -1596,14 +1613,20 @@ describe("Servers", () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
       await screen.findByRole("dialog");
       await user.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(screen.getByRole("region", { name: /Test Server 0/i })).toBeVisible();
       await waitFor(() =>
-        expect(document.getElementById("oauth-authorize-server-0")).toHaveFocus(),
+        expect(
+          within(details).getByRole("button", { name: "Authorize Test Server 0" }),
+        ).toHaveFocus(),
       );
     });
 
@@ -1616,7 +1639,11 @@ describe("Servers", () => {
       await user.click(
         within(await screen.findByRole("dialog")).getByRole("button", { name: "Try again" }),
       );
-      expect(await screen.findByText("Fresh tool")).toBeVisible();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: "Authorize Test Server 0" }),
+        ).not.toBeInTheDocument(),
+      );
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
@@ -1635,9 +1662,13 @@ describe("Servers", () => {
       const user = userEvent.setup();
       const { authorize, discover } = setupOAuth();
       discover.mockResolvedValueOnce({ success: false, message: "Unavailable" });
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
-      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
+      expect(await within(details).findByText("Active")).toBeVisible();
       await user.click(await screen.findByRole("button", { name: "Retry refresh" }));
       expect(await screen.findByText("Fresh tool")).toBeVisible();
       expect(authorize).toHaveBeenCalledTimes(1);
@@ -1650,7 +1681,11 @@ describe("Servers", () => {
       mockHasPermission.mockImplementation((permission) => permission === "gateways.read");
       renderWithRouter(<Servers />);
       await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
-      expect(await screen.findByText("OAuth authorization successful.")).toBeVisible();
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: "Authorize Test Server 0" }),
+        ).not.toBeInTheDocument(),
+      );
       expect(discover).not.toHaveBeenCalled();
       expect(screen.queryByRole("button", { name: "Refresh components" })).not.toBeInTheDocument();
     });
@@ -1666,6 +1701,7 @@ describe("Servers", () => {
       );
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(discover).not.toHaveBeenCalled();
+      expect(screen.queryByRole("region", { name: /Test Server 0/i })).not.toBeInTheDocument();
       expect(
         screen.getAllByRole("button", { name: "Authorize Test Server 0" }).length,
       ).toBeGreaterThan(0);
@@ -1713,11 +1749,15 @@ describe("Servers", () => {
             finish = () => resolve({ type: "oauth_callback", status: "success" });
           }),
       );
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
       const panel = screen.getByRole("region", { name: /Test Server 0/i });
-      expect(within(panel).getByRole("button", { name: "Authorizing..." })).toBeDisabled();
-      await user.click(within(panel).getByRole("button", { name: "Authorizing..." }));
+      expect(within(panel).getByRole("button", { name: "Authorize Test Server 0" })).toBeDisabled();
+      await user.click(within(panel).getByRole("button", { name: "Authorize Test Server 0" }));
       expect(authorize).toHaveBeenCalledTimes(1);
       await user.click(within(panel).getByRole("button", { name: "Close MCP server details" }));
       await act(async () => finish());
@@ -1742,9 +1782,46 @@ describe("Servers", () => {
       await user.click(await screen.findByRole("menuitem", { name: "View details" }));
       expect(await screen.findByRole("region", { name: /Test Server 1/i })).toBeVisible();
       await act(async () => fail());
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(screen.queryByText("Failure from server 0")).not.toBeInTheDocument();
+      const failure = await screen.findByRole("dialog", {
+        name: "OAuth authorization failed for Test Server 0",
+      });
+      expect(within(failure).getByText("Failure from server 0")).toBeVisible();
+      await user.click(within(failure).getByRole("button", { name: "Dismiss" }));
       expect(screen.getByRole("region", { name: /Test Server 1/i })).toBeVisible();
+    });
+
+    it("keeps Refresh enabled and prevents duplicate authorization while OAuth is pending", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      let cancel!: () => void;
+      authorize.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            cancel = () => reject(new OAuthCancelledError());
+          }),
+      );
+      const refresh = vi.spyOn(serversApi, "refreshTools").mockResolvedValue({
+        success: true,
+        gatewayId: "server-0",
+        durationMs: 1,
+        refreshedAt: "2026-10-27T00:00:00Z",
+      });
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const panel = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      const chip = await within(panel).findByRole("button", { name: "Authorize Test Server 0" });
+      expect(within(panel).getAllByRole("button", { name: /^Authorize/ })).toHaveLength(1);
+      await user.click(chip);
+      expect(chip).toBeDisabled();
+      await user.click(chip);
+      expect(authorize).toHaveBeenCalledTimes(1);
+      const refreshButton = within(panel).getByRole("button", { name: "Refresh components" });
+      expect(refreshButton).toBeEnabled();
+      await user.click(refreshButton);
+      expect(refresh).toHaveBeenCalledWith("server-0");
+      await act(async () => cancel());
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(panel).toBeVisible();
     });
 
     it("refreshes an open component list independently of authorization", async () => {
@@ -1790,22 +1867,18 @@ describe("Servers", () => {
       expect(authorize).not.toHaveBeenCalled();
     });
 
-    it("uses the shared status explanation and preserves compact table labels after failure", async () => {
+    it("restores focus to the row chip and preserves compact labels after failure", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
       renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const chip = await screen.findByRole("button", { name: "Authorize Test Server 0" });
+      await user.click(chip);
       await user.click(
         within(await screen.findByRole("dialog")).getByRole("button", { name: "Dismiss" }),
       );
-      const panel = screen.getByRole("region", { name: /Test Server 0/i });
-      await user.click(within(panel).getByRole("button", { name: /Authorization required/ }));
-      expect(
-        await screen.findByText(
-          "You have not authorized this server. Authorization is per person.",
-        ),
-      ).toBeVisible();
+      await waitFor(() => expect(chip).toHaveFocus());
+      expect(screen.queryByRole("region", { name: /Test Server 0/i })).not.toBeInTheDocument();
       expect(within(screen.getByRole("table")).getAllByText("Auth")).toHaveLength(2);
     });
 
@@ -1813,8 +1886,12 @@ describe("Servers", () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth({ token: "expired" });
       authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
       await user.click(
         within(await screen.findByRole("dialog")).getByRole("button", { name: "Dismiss" }),
       );
@@ -1883,18 +1960,24 @@ describe("Servers", () => {
       expect(screen.queryByText(/Components could not be refreshed/)).not.toBeInTheDocument();
     });
 
-    it("restores focus to the panel close control when a successful retry removes Authorize", async () => {
+    it("restores focus to the status chip when retry changes authorization to Active", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(new OAuthAuthorizationError("access_denied"));
-      renderWithRouter(<Servers />);
-      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      renderWithRouter(<Servers />, "/app/servers?selected=server-0");
+      const details = await screen.findByRole("region", { name: /Test Server 0/i });
+      await user.click(await screen.findByRole("tab", { name: "Components" }));
+      await user.click(
+        await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
+      );
       await user.click(
         within(await screen.findByRole("dialog")).getByRole("button", { name: "Try again" }),
       );
       expect(await screen.findByText("Fresh tool")).toBeVisible();
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Close MCP server details" })).toHaveFocus(),
+        expect(
+          within(details).getByRole("button", { name: /Test Server 0.*Active/ }),
+        ).toHaveFocus(),
       );
     });
   });

@@ -188,7 +188,7 @@ export function ServersTable({
                     <span>{intl.formatMessage({ id: visibility.labelId })}</span>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">
+                <TableCell className="px-4 py-2.5" data-server-status>
                   <ServerStatusIndicator
                     server={server}
                     oauthStatus={oauthStatuses?.[server.id]}
