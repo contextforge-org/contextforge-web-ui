@@ -10,7 +10,7 @@ import {
   type GatewayImpactPreview,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
-import { serversApi } from "@/api/servers";
+import { OAuthCancelledError, serversApi } from "@/api/servers";
 import { useAuth } from "@/auth/useAuth";
 import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
 import { CatalogOAuthForm } from "@/components/server-catalog/CatalogOAuthForm";
@@ -765,6 +765,10 @@ export function ServerCatalog() {
         return true;
       } catch (error) {
         authWindow.close();
+        // Closing the popup is a deliberate user action, not a failure:
+        // stay quiet so the form stays open for a retry (mirroring the MCP
+        // Servers page, which discards the cancellation silently).
+        if (error instanceof OAuthCancelledError) return false;
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
@@ -801,6 +805,11 @@ export function ServerCatalog() {
         setData((current) => setCatalogServerOAuthPending(current, server.id, false));
         void refreshCatalogSilently();
       } catch (error) {
+        // Closing the popup is a deliberate user action, not a failure:
+        // stay quiet instead of flashing a page-level notice for something
+        // that happened on one card (mirroring the MCP Servers page, which
+        // discards the cancellation silently).
+        if (error instanceof OAuthCancelledError) return;
         showRegistrationNotification({
           id: `oauth:${server.id}`,
           type: "info",
