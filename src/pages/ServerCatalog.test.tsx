@@ -11,7 +11,7 @@ import {
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import { getOAuthStatuses } from "@/api/oauth";
-import { serversApi } from "@/api/servers";
+import { OAuthCancelledError, serversApi } from "@/api/servers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
@@ -54,6 +54,14 @@ vi.mock("@/api/oauth", async (importOriginal) => ({
   getOAuthStatuses: vi.fn(),
 }));
 vi.mock("@/api/servers", () => ({
+  // Real error classes so `instanceof` checks in the page keep working
+  // against rejections created from the mocked module surface.
+  OAuthCancelledError: class OAuthCancelledError extends Error {
+    constructor(message = "OAuth authorization was cancelled") {
+      super(message);
+      this.name = "OAuthCancelledError";
+    }
+  },
   serversApi: {
     openOAuthAuthorizationPopup: vi.fn(),
     triggerOAuthAuthorization: vi.fn(),
@@ -481,6 +489,46 @@ describe("ServerCatalog", () => {
     expect(mockGetOAuthStatuses).toHaveBeenCalledTimes(2);
   });
 
+  it("stays quiet on the page when authorization is cancelled from the card actions", async () => {
+    const user = userEvent.setup();
+    const registeredOAuthServer = {
+      ...oauthServer,
+      is_registered: true,
+      gateway_id: "gateway-github",
+    };
+    mockUseQuery.mockReturnValue(
+      queryResult({
+        data: { ...response, servers: [registeredOAuthServer], total: 1 },
+      }),
+    );
+    mockGetOAuthStatuses.mockResolvedValue({
+      statuses: {
+        "gateway-github": {
+          oauth_enabled: true,
+          grant_type: "authorization_code",
+          user_token_status: { status: "missing", authorized: false },
+        },
+      },
+      failures: {},
+    });
+    mockTriggerOAuthAuthorization.mockRejectedValue(new OAuthCancelledError());
+    renderWithRouter(<ServerCatalog />);
+
+    expect(await screen.findByText("Needs authorization")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions for GitHub" }));
+    await user.click(screen.getByRole("menuitem", { name: "Authorize" }));
+
+    await waitFor(() =>
+      expect(mockTriggerOAuthAuthorization).toHaveBeenCalledWith("gateway-github"),
+    );
+    await act(async () => {});
+    // Closing the popup is deliberate: no page-level cancellation notice,
+    // and the success chain (enable toggle, status refetch) is skipped.
+    expect(screen.queryByText(/OAuth authorization was cancelled/)).not.toBeInTheDocument();
+    expect(mockToggleEnabled).not.toHaveBeenCalled();
+    expect(mockGetOAuthStatuses).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes caller OAuth status without gateway mutations when update is forbidden", async () => {
     const user = userEvent.setup();
     const registeredOAuthServer = {
@@ -525,7 +573,7 @@ describe("ServerCatalog", () => {
 
   it("keeps the OAuth form open after a cancelled authorization so it can retry", async () => {
     const user = userEvent.setup();
-    mockTriggerOAuthAuthorization.mockRejectedValue(new Error("OAuth authorization was cancelled"));
+    mockTriggerOAuthAuthorization.mockRejectedValue(new OAuthCancelledError());
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));
@@ -544,7 +592,13 @@ describe("ServerCatalog", () => {
     );
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    expect(await within(form).findByText("OAuth authorization was cancelled")).toBeInTheDocument();
+    await waitFor(() => expect(mockTriggerOAuthAuthorization).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    // Cancelling the popup is a deliberate user action: no cancellation
+    // notice anywhere, and the form stays open so the user can retry.
+    expect(within(form).queryByText("OAuth authorization was cancelled")).not.toBeInTheDocument();
+    expect(screen.queryByText(/OAuth authorization was cancelled/)).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
     expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
     mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
     mockUseQuery.mockImplementation((path) =>
@@ -570,6 +624,33 @@ describe("ServerCatalog", () => {
     expect(mockOpenOAuthAuthorizationPopup).toHaveBeenCalledTimes(2);
     expect(mockTriggerOAuthAuthorization).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("button", { name: "Actions for GitHub" })).toHaveFocus();
+  });
+
+  it("shows the provider's reason in the dialog when authorization fails", async () => {
+    const user = userEvent.setup();
+    mockTriggerOAuthAuthorization.mockRejectedValue(new Error("Provider denied the request"));
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const form = await screen.findByRole("form", { name: "Add GitHub" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(
+      within(form).getByLabelText(/^Authorization URL/i),
+      "https://github.com/login/oauth/authorize",
+    );
+    await user.type(
+      within(form).getByLabelText(/^Token URL/i),
+      "https://github.com/login/oauth/access_token",
+    );
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // Real failures still surface so the user can react; only the
+    // deliberate popup dismissal is silent.
+    expect(await within(form).findByText("Provider denied the request")).toBeVisible();
+    expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
   it("preserves filters, restores focus on cancel, and clears credentials on reopening", async () => {
