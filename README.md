@@ -162,10 +162,10 @@ npm run preview
 TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.1.0, not re-fetched at build time.
 
 ```bash
-npm run generate   # regenerate src/generated/ from ./openapi.json
+npm run api:generate   # regenerate src/generated/ from ./openapi.json
 ```
 
-To bump the API version, replace `openapi.json` with the new spec, update the version note above, then run `npm run generate`.
+To bump the API version, replace `openapi.json` with the new spec, update the version note above, then run `npm run api:generate`.
 
 ## Code Quality
 
@@ -232,10 +232,10 @@ The scan also runs automatically as a **pre-commit hook** (via Husky).
 
 ```bash
 # Run tests in watch mode
-npm run test
+npm run test:watch
 
 # Run tests once (CI mode)
-npm run test:run
+npm run test
 
 # Run tests with UI
 npm run test:ui
@@ -243,6 +243,15 @@ npm run test:ui
 # Generate coverage report
 npm run test:coverage
 ```
+
+Both the root client package and `server/` use `npm test` for a single run and
+`npm run test:watch` for watch mode. Root `npm run lint` runs ESLint across
+`src/`, `server/`, and `e2e/`; `npm run format:check` checks formatting across
+the configured root files and those directories.
+
+Use `npm run typecheck` for the client and Vite configuration, and
+`npm run typecheck --prefix server` for the BFF. Generate client API code with
+`npm run api:generate` before checking types on a clean checkout.
 
 ### Test Structure
 
@@ -339,20 +348,31 @@ See [`e2e/README.md`](./e2e/README.md) for layout, fixtures, and guidelines.
 
 ### GitHub Actions
 
-Tests and linting run automatically on pull requests via [`.github/workflows/client-lint-test.yml`](./.github/workflows/client-lint-test.yml).
-E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/workflows/client-e2e.yml).
+Repository-wide formatting and ESLint checks, followed by client unit tests with coverage, run on pull requests via [`.github/workflows/quality-checks.yml`](./.github/workflows/quality-checks.yml).
+Client builds and typechecking run via [`.github/workflows/client-build.yml`](./.github/workflows/client-build.yml).
+BFF typechecking and unit tests run via [`.github/workflows/bff-checks.yml`](./.github/workflows/bff-checks.yml).
+Mocked API E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/workflows/client-e2e.yml).
 
 **Workflow Steps:**
 
-1. Install dependencies
-2. Run Prettier format check
-3. Run ESLint
-4. Run Vitest tests
+Each workflow checks out the source, sets up Node from `.nvmrc`, and installs
+dependencies with `npm ci` before running its checks:
+
+| Workflow                                 | Steps after dependency installation                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository quality and client unit tests | Generate API code, check formatting with Prettier, run repository-wide ESLint, and run client Vitest tests with coverage.             |
+| Client build and typecheck               | Run `npm run build` to generate API code, typecheck the client and Vite configuration, and bundle the SPA into `server/public/`.      |
+| BFF typecheck and unit tests             | Run the BFF TypeScript check and BFF Vitest tests once, with dependencies and commands scoped to `server/`.                           |
+| Mocked API E2E tests                     | Generate API code, install Chromium and its system dependencies, run Playwright tests, and upload the HTML report and failure traces. |
 
 **Triggers:**
 
-- Push to `main` or `epic/ui-rewrite` branches
-- Pull requests to `main` or `epic/ui-rewrite` branches
+- Pushes to `main`
+- Non-draft pull requests targeting `main` (opened, updated, reopened, or marked ready for review)
+
+The TLS smoke workflow additionally filters by relevant file paths. Docker
+releases run on version tags or manual dispatch; the client build also supports
+manual dispatch.
 
 ## Project Structure
 
@@ -400,30 +420,48 @@ Run from the repo root unless noted. Visit the app on the BFF's port
 (`:3000`) either way — see [Getting Started](#getting-started) for the full
 dev setup.
 
-| Script                       | Description                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| `npm run dev`                | Vite dev server (`:5173`) — not visited directly; the BFF proxies to it for HMR                   |
-| `npm run dev` (in `server/`) | **Start the BFF (`:3000`)** — serves the SPA (or proxies to Vite) and proxies `/api/*` to the API |
-| `npm run dev:all`            | Both of the above together (via `concurrently`), `VITE_DEV_SERVER_URL` already set                |
-| `npm run build`              | Build the SPA into `server/public/`, which the BFF serves directly (no Vite dev server)           |
-| `npm run build:watch`        | Rebuild on change — for iterating without HMR, against the BFF-served build                       |
-| `npm run generate`           | Regenerate API types from `openapi.json`                                                          |
-| `npm run preview`            | Preview production build                                                                          |
-| `npm run lint`               | Check for linting errors                                                                          |
-| `npm run lint:fix`           | Auto-fix linting errors                                                                           |
-| `npm run format`             | Format all files with Prettier                                                                    |
-| `npm run format:check`       | Check formatting without changes                                                                  |
-| `npm run test`               | Run tests in watch mode                                                                           |
-| `npm run test:run`           | Run tests once (CI mode)                                                                          |
-| `npm run test:ui`            | Run tests with UI                                                                                 |
-| `npm run test:coverage`      | Generate coverage report                                                                          |
-| `npm run e2e`                | Run Playwright E2E tests                                                                          |
-| `npm run e2e:ui`             | Playwright UI mode                                                                                |
-| `npm run e2e:debug`          | Playwright Inspector                                                                              |
-| `npm run e2e:install`        | Install Playwright browsers                                                                       |
-| `npm run e2e:report`         | Open last Playwright report                                                                       |
-| `npm run secrets:scan`       | Scan repo for secrets, update `.secrets.baseline`                                                 |
-| `npm run secrets:audit`      | Interactively audit findings in `.secrets.baseline`                                               |
+| Script                              | Description                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `npm run dev`                       | Vite dev server (`:5173`) — not visited directly; the BFF proxies to it for HMR                   |
+| `npm run dev` (in `server/`)        | **Start the BFF (`:3000`)** — serves the SPA (or proxies to Vite) and proxies `/api/*` to the API |
+| `npm run dev:all`                   | Both of the above together (via `concurrently`), `VITE_DEV_SERVER_URL` already set                |
+| `npm run build`                     | Build the SPA into `server/public/`, which the BFF serves directly (no Vite dev server)           |
+| `npm run build:watch`               | Rebuild on change — for iterating without HMR, against the BFF-served build                       |
+| `npm run api:generate`              | Regenerate API types from `openapi.json`                                                          |
+| `npm run preview`                   | Preview production build                                                                          |
+| `npm run typecheck`                 | Typecheck the client and Vite configuration                                                       |
+| `npm run typecheck --prefix server` | Typecheck the BFF                                                                                 |
+| `npm run tls:certs`                 | Generate local self-signed TLS certificates                                                       |
+| `npm run lint`                      | Check for linting errors                                                                          |
+| `npm run lint:fix`                  | Auto-fix linting errors                                                                           |
+| `npm run format`                    | Format all files with Prettier                                                                    |
+| `npm run format:check`              | Check formatting without changes                                                                  |
+| `npm run test:watch`                | Run tests in watch mode                                                                           |
+| `npm run test`                      | Run tests once (CI mode)                                                                          |
+| `npm run test:ui`                   | Run tests with UI                                                                                 |
+| `npm run test:coverage`             | Generate coverage report                                                                          |
+| `npm run e2e`                       | Run Playwright E2E tests                                                                          |
+| `npm run e2e:ui`                    | Playwright UI mode                                                                                |
+| `npm run e2e:debug`                 | Playwright Inspector                                                                              |
+| `npm run e2e:install`               | Install Playwright browsers                                                                       |
+| `npm run e2e:report`                | Open last Playwright report                                                                       |
+| `npm run secrets:scan`              | Scan repo for secrets, update `.secrets.baseline`                                                 |
+| `npm run secrets:audit`             | Interactively audit findings in `.secrets.baseline`                                               |
+
+### Migrating npm commands
+
+The script cleanup changes these contributor commands:
+
+| Previous command                        | Replacement                          |
+| --------------------------------------- | ------------------------------------ |
+| `npm run generate`                      | `npm run api:generate`               |
+| `npm run certs`                         | `npm run tls:certs`                  |
+| `npm run lint --prefix server`          | `npm run typecheck --prefix server`  |
+| `npm run test:run --prefix server`      | `npm test --prefix server`           |
+| `npm test --prefix server` (watch mode) | `npm run test:watch --prefix server` |
+
+`npm test` runs once in both packages. Use `npm run test:watch` for client
+watch mode or `npm run test:watch --prefix server` for BFF watch mode.
 
 ## Internationalization (i18n)
 
@@ -472,6 +510,6 @@ The test setup includes a mock for `window.matchMedia` in `src/test/setup.ts`. I
 
 1. Follow the existing code style (enforced by ESLint and Prettier)
 2. Write tests for new features
-3. Ensure all tests pass: `npm run test:run`
+3. Ensure all tests pass: `npm run test`
 4. Ensure linting passes: `npm run lint`
 5. Ensure formatting is correct: `npm run format:check`
