@@ -355,10 +355,15 @@ Mocked API E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/work
 
 **Workflow Steps:**
 
-1. Install dependencies
-2. Run Prettier format check
-3. Run ESLint
-4. Run Vitest tests
+Each workflow checks out the source, sets up Node from `.nvmrc`, and installs
+dependencies with `npm ci` before running its checks:
+
+| Workflow                                 | Steps after dependency installation                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository quality and client unit tests | Generate API code, check formatting with Prettier, run repository-wide ESLint, and run client Vitest tests with coverage.             |
+| Client build and typecheck               | Run `npm run build` to generate API code, typecheck the client and Vite configuration, and bundle the SPA into `server/public/`.      |
+| BFF typecheck and unit tests             | Run the BFF TypeScript check and BFF Vitest tests once, with dependencies and commands scoped to `server/`.                           |
+| Mocked API E2E tests                     | Generate API code, install Chromium and its system dependencies, run Playwright tests, and upload the HTML report and failure traces. |
 
 **Triggers:**
 
@@ -442,6 +447,21 @@ dev setup.
 | `npm run e2e:report`                | Open last Playwright report                                                                       |
 | `npm run secrets:scan`              | Scan repo for secrets, update `.secrets.baseline`                                                 |
 | `npm run secrets:audit`             | Interactively audit findings in `.secrets.baseline`                                               |
+
+### Migrating npm commands
+
+The script cleanup changes these contributor commands:
+
+| Previous command                        | Replacement                          |
+| --------------------------------------- | ------------------------------------ |
+| `npm run generate`                      | `npm run api:generate`               |
+| `npm run certs`                         | `npm run tls:certs`                  |
+| `npm run lint --prefix server`          | `npm run typecheck --prefix server`  |
+| `npm run test:run --prefix server`      | `npm test --prefix server`           |
+| `npm test --prefix server` (watch mode) | `npm run test:watch --prefix server` |
+
+`npm test` runs once in both packages. Use `npm run test:watch` for client
+watch mode or `npm run test:watch --prefix server` for BFF watch mode.
 
 ## Internationalization (i18n)
 

@@ -1,8 +1,8 @@
 # ===============================================================
-# 🧬 Client Build & Typecheck - validate generated API code
+# 🧬 Client Build & Typecheck - validate the production client build
 # ===============================================================
-#   - regenerates src/generated/ from the committed openapi.json
-#   - verifies types exist, compile, and the app builds
+#   - runs npm run build to generate API code from committed openapi.json,
+#     typecheck the client and Vite configuration, and bundle the SPA
 # ---------------------------------------------------------------
 
 name: Client Build & Typecheck
@@ -45,8 +45,3 @@ jobs:
 
       - name: Generate API code, typecheck, and build client
         run: npm run build
-
-      - name: Verify generated types exist
-        run: |
-          test -d src/generated/types || (echo "ERROR: src/generated/types/ not created" && exit 1)
-          echo "Generated types count: $(find src/generated/types -name '*.ts' | wc -l)"
