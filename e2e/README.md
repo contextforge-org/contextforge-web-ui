@@ -127,8 +127,9 @@ Keep smoke tests:
 ## CI
 
 Runs in
-[`.github/workflows/client-e2e.yml`](../../.github/workflows/client-e2e.yml) on
-PRs and pushes to `main` / `epic/ui-rewrite` that touch `client/**`.
+[`.github/workflows/client-e2e.yml`](../.github/workflows/client-e2e.yml) on
+non-draft PRs targeting `main` and pushes to `main`. The suite uses mocked
+API responses; real API Docker runs are available through the scripts above.
 
 ## Troubleshooting
 

@@ -7,13 +7,13 @@
 #   - triggered on PRs and pushes to main
 # ---------------------------------------------------------------
 
-name: Client E2E (Playwright)
+name: Client E2E (Mocked API)
 
 on:
   push:
     branches: ["main"]
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: ["main"]
 
 concurrency:
@@ -26,7 +26,7 @@ permissions:
 jobs:
   playwright:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    name: Playwright smoke + auth
+    name: Playwright mocked API tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -35,24 +35,24 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
 
     steps:
-      - name: ⬇️ Checkout source
+      - name: Checkout source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: 🟩 Setup Node
+      - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".nvmrc"
 
-      - name: 📥 Install dependencies
+      - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: ⚙️ Generate types with orval
-        run: npm run generate
+      - name: Generate API code
+        run: npm run api:generate
 
-      - name: 🎭 Cache Playwright browsers
+      - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -61,18 +61,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: 🎭 Install Playwright browsers
+      - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: 🎭 Install Playwright system deps (cached browsers)
+      - name: Install Playwright system deps (cached browsers)
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - name: 🧪 Run Playwright tests
+      - name: Run Playwright tests
         run: npm run e2e
 
-      - name: 📦 Upload Playwright HTML report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -81,7 +81,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: 📦 Upload Playwright traces on failure
+      - name: Upload Playwright traces on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

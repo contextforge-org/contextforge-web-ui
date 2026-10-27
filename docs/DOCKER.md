@@ -111,13 +111,13 @@ equivalent — see [`sso-keycloak-setup.md`](./sso-keycloak-setup.md).
 
 ## Local TLS (self-signed certs)
 
-`npm run certs` generates a self-signed cert/key pair for local HTTPS
+`npm run tls:certs` generates a self-signed cert/key pair for local HTTPS
 testing, written to `./certs/cert.pem` and `./certs/key.pem` (gitignored,
 never committed). It's idempotent — safe to re-run, and it refuses to
 overwrite a cert you've placed there yourself.
 
 ```bash
-npm run certs
+npm run tls:certs
 ```
 
 The cert covers `localhost`, `127.0.0.1`, and the internal service names
