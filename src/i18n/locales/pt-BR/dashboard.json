@@ -93,7 +93,7 @@
   "dashboard.home.sparklines.p95": "Latência p95",
   "dashboard.home.sparklines.p99": "Latência p99",
   "dashboard.home.sparklines.error": "Não foi possível carregar as métricas.",
-  "dashboard.home.sparklines.empty": "Nenhuma requisição rastreada. Se ainda não tiver feito isso, defina OBSERVABILITY_ENABLED=true e reinicie o ContextForge.",
+  "dashboard.home.sparklines.empty": "Nenhuma requisição rastreada. Se ainda não tiver feito isso, defina OBSERVABILITY_ENABLED=true no servidor ContextForge e reinicie-o.",
   "dashboard.home.sparklines.empty.disabled": "O rastreamento está desativado. Defina OBSERVABILITY_ENABLED=true no servidor ContextForge e reinicie-o.",
   "dashboard.home.sparklines.empty.noTraffic": "Não há requisições MCP ou A2A neste período.",
   "dashboard.home.sparklines.tooltip.noRequests": "Sem requisições",
