@@ -55,6 +55,7 @@ interface ServersTableProps {
   onToggleEnabled?: (id: string, enabled: boolean) => void;
   onRefresh?: (id: string) => void;
   refreshingServerIds?: Set<string>;
+  authorizingServerIds?: Set<string>;
   oauthStatuses?: Record<string, OAuthStatusEntry>;
   onAuthorize?: (id: string) => Promise<void>;
   onRetryOAuthStatus?: (id: string) => void;
@@ -70,6 +71,7 @@ export function ServersTable({
   onRefresh,
   refreshingServerIds,
   oauthStatuses,
+  authorizingServerIds,
   onAuthorize,
   onRetryOAuthStatus,
 }: ServersTableProps) {
@@ -186,10 +188,11 @@ export function ServersTable({
                     <span>{intl.formatMessage({ id: visibility.labelId })}</span>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">
+                <TableCell className="px-4 py-2.5" data-server-status>
                   <ServerStatusIndicator
                     server={server}
                     oauthStatus={oauthStatuses?.[server.id]}
+                    authorizing={authorizingServerIds?.has(server.id)}
                     onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
                     onRetry={onRetryOAuthStatus && (() => onRetryOAuthStatus(server.id))}
                     compact

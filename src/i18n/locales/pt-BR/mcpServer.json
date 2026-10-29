@@ -381,5 +381,13 @@
   "mcpServer.testConnection.virtualServer.failureCopy.protocol": "O servidor respondeu, mas a negociação do protocolo MCP falhou. Isso pode acontecer quando o servidor virtual está desabilitado ou uma fonte federada retornou uma resposta inesperada.",
   "mcpServer.testConnection.virtualServer.failureCopy.auth": "Falha na autenticação. Verifique as credenciais ou os cabeçalhos enviados.",
   "mcpServer.testConnection.virtualServer.failureCopy.invalidResponse": "O servidor retornou uma resposta que não pôde ser interpretada como um handshake MCP válido.",
-  "mcpServer.testConnection.virtualServer.failureCopy.default": "Verifique as credenciais enviadas e se o servidor virtual está habilitado."
+  "mcpServer.testConnection.virtualServer.failureCopy.default": "Verifique as credenciais enviadas e se o servidor virtual está habilitado.",
+  "mcpServer.oauth.failureTitle": "Falha na autorização OAuth de {name}",
+  "mcpServer.oauth.tryAgain": "Tentar novamente",
+  "mcpServer.oauth.dismiss": "Dispensar",
+  "mcpServer.components.refresh": "Atualizar componentes",
+  "mcpServer.components.refreshing": "Atualizando componentes…",
+  "mcpServer.components.discoveryError": "Não foi possível atualizar os componentes.",
+  "mcpServer.components.retryRefresh": "Tentar atualizar novamente",
+  "mcpServer.components.readError": "Não foi possível carregar as ferramentas, os recursos ou os prompts."
 }

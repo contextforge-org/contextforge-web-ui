@@ -20,6 +20,7 @@ interface ServerStatusIndicatorProps {
   server: ServerAvailabilityInput & { name: string; lastError?: string | null };
   oauthStatus?: OAuthStatusEntry;
   compact?: boolean;
+  authorizing?: boolean;
   /** Disable popover/authorization interaction when nested inside another interactive control. */
   interactive?: boolean;
   onAuthorize?: () => Promise<void>;
@@ -32,6 +33,7 @@ export function ServerStatusIndicator({
   server,
   oauthStatus,
   compact = false,
+  authorizing = false,
   interactive = true,
   onAuthorize,
   onRetry,
@@ -39,7 +41,8 @@ export function ServerStatusIndicator({
   className,
 }: ServerStatusIndicatorProps) {
   const intl = useIntl();
-  const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [localAuthorizing, setIsAuthorizing] = useState(false);
+  const isAuthorizing = authorizing || localAuthorizing;
   const availability = getServerAvailability(server, oauthStatus);
   const presentation = getAvailabilityPresentation(availability);
   const StatusIcon = presentation.Icon;
