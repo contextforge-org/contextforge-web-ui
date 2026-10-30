@@ -10,7 +10,7 @@ import {
   type GatewayImpactPreview,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
-import { OAuthCancelledError, serversApi } from "@/api/servers";
+import { OAuthAuthorizationError, OAuthCancelledError, serversApi } from "@/api/servers";
 import { useAuth } from "@/auth/useAuth";
 import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
 import { CatalogOAuthForm } from "@/components/server-catalog/CatalogOAuthForm";
@@ -715,6 +715,15 @@ export function ServerCatalog() {
     [apiKeyServer, registerServer],
   );
 
+  // Surface the provider's own reason when it sent one; every other failure
+  // (including a provider denial with no details) gets the localized text.
+  const oauthErrorMessage = useCallback(
+    (error: unknown) =>
+      (error instanceof OAuthAuthorizationError && (error.description || error.code)) ||
+      intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+    [intl],
+  );
+
   const handleOAuthSubmit = useCallback(
     async (body: CatalogServerRegisterBody) => {
       if (!oauthServer) return false;
@@ -728,10 +737,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(error),
         });
         return false;
       }
@@ -772,10 +778,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(error),
         });
         return false;
       } finally {
@@ -783,7 +786,7 @@ export function ServerCatalog() {
       }
     },
     [
-      intl,
+      oauthErrorMessage,
       canUpdateServer,
       oauthServer,
       pendingOAuthGatewayId,
@@ -813,10 +816,7 @@ export function ServerCatalog() {
         showRegistrationNotification({
           id: `oauth:${server.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(error),
         });
       } finally {
         endAdding(server.id);
@@ -827,7 +827,7 @@ export function ServerCatalog() {
       canUpdateServer,
       dismissRegistrationNotification,
       endAdding,
-      intl,
+      oauthErrorMessage,
       refreshGatewayData,
       refreshCatalogSilently,
       setData,
