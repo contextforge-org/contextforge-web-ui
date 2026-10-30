@@ -74,7 +74,7 @@ git -C "$API_DIR" pull --ff-only "$REMOTE_NAME" main --quiet
 API_COMMIT="$(git -C "$API_DIR" rev-parse HEAD)"
 API_COMMIT_SHORT="${API_COMMIT:0:6}"
 
-if [[ -f "$API_DIR/.env" ]] && grep -q '__REPLACE_ME__' "$API_DIR/.env"; then
+if [[ -f "$API_DIR/.env" ]] && grep -qE '^[[:space:]]*[^#[:space:]].*__REPLACE_ME__' "$API_DIR/.env"; then
   echo "error: $API_DIR/.env still has unset __REPLACE_ME__ secret placeholders." >&2
   echo "  Run 'python -m mcpgateway.scripts.init_secrets' in that checkout" >&2
   echo "  (or 'make init-secrets-patch-env' to write them into .env), then re-run this script." >&2
