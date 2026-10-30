@@ -136,11 +136,6 @@ async function loginThroughRealKeycloak(page: Page): Promise<void> {
 
 test.describe("Real Keycloak SSO login flow", () => {
   test.skip(!IS_REAL_API, "requires E2E_REAL_API=true against the real Keycloak stack");
-  // TODO(#190): v1.0.11's get_current_user() never dispatches external-IdP
-  // bearer tokens -- every real-login API call 401s. Fixed on
-  // mcp-context-forge main, ships in v1.0.12. Remove this skip once
-  // docker-compose.e2e.yml's gateway image is bumped to v1.0.12+.
-  test.skip(IS_REAL_API, "blocked on mcp-context-forge v1.0.12 (external-IdP token dispatch fix)");
 
   test("logs in through the real Keycloak form and makes a real proxied API call", async ({
     page,
