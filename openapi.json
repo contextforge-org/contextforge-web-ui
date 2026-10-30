@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.1.0+42a06c"
+    "version": "1.1.0+663938"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -340,7 +340,7 @@
           "Tools"
         ],
         "summary": "List Tools",
-        "description": "List all registered tools with team-based filtering and pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor: Pagination cursor for fetching the next set of results\n    include_pagination: Whether to include cursor pagination metadata in the response\n    limit: Maximum number of tools to return. Use 0 for all tools (no limit).\n        If not specified, uses pagination_default_page_size (default: 50).\n    include_inactive: Whether to include inactive tools in the results\n    tags: Comma-separated list of tags to filter by (e.g., \"api,data\")\n    team_id: Optional team ID to filter tools by specific team\n    visibility: Optional visibility filter (private, team, public)\n    gateway_id: Optional gateway ID to filter tools by specific gateway\n    db: Database session\n    apijsonpath: Optional JSON-Path modifier supplied as URL-encoded query parameter.\n                 Example: ?apijsonpath=%7B%22jsonpath%22%3A%22%24.name%22%7D\n                 (decoded: {\"jsonpath\":\"$.name\"})\n                 Use to filter or transform the response via JSONPath expressions.\n    user: Authenticated user with permissions\n\nReturns:\n    List of tools or modified result based on jsonpath\n\nRaises:\n    HTTPException: If JSONPath modifier fails to process the tools list",
+        "description": "List all registered tools with team-based filtering and pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor: Pagination cursor for fetching the next set of results\n    include_pagination: Whether to include cursor pagination metadata in the response\n    limit: Maximum number of tools to return. Use 0 for all tools (no limit).\n        If not specified, uses pagination_default_page_size (default: 50).\n    include_inactive: Whether to include inactive tools in the results\n    tags: Comma-separated list of tags to filter by (e.g., \"api,data\")\n    team_id: Optional team ID to filter tools by specific team\n    visibility: Optional visibility filter (private, team, public)\n    gateway_id: Optional gateway ID to filter tools by specific gateway\n    mcp_server_id: Alias of gateway_id\n    db: Database session\n    apijsonpath: Optional JSON-Path modifier supplied as URL-encoded query parameter.\n                 Example: ?apijsonpath=%7B%22jsonpath%22%3A%22%24.name%22%7D\n                 (decoded: {\"jsonpath\":\"$.name\"})\n                 Use to filter or transform the response via JSONPath expressions.\n    user: Authenticated user with permissions\n\nReturns:\n    List of tools or modified result based on jsonpath\n\nRaises:\n    HTTPException: If JSONPath modifier fails to process the tools list",
         "operationId": "list_tools_v1_tools__get",
         "security": [
           {
@@ -479,6 +479,26 @@
               "title": "Gateway Id"
             },
             "description": "Filter by gateway ID"
+          },
+          {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
           },
           {
             "name": "apijsonpath",
@@ -620,7 +640,7 @@
           "Tools"
         ],
         "summary": "List Tools",
-        "description": "List all registered tools with team-based filtering and pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor: Pagination cursor for fetching the next set of results\n    include_pagination: Whether to include cursor pagination metadata in the response\n    limit: Maximum number of tools to return. Use 0 for all tools (no limit).\n        If not specified, uses pagination_default_page_size (default: 50).\n    include_inactive: Whether to include inactive tools in the results\n    tags: Comma-separated list of tags to filter by (e.g., \"api,data\")\n    team_id: Optional team ID to filter tools by specific team\n    visibility: Optional visibility filter (private, team, public)\n    gateway_id: Optional gateway ID to filter tools by specific gateway\n    db: Database session\n    apijsonpath: Optional JSON-Path modifier supplied as URL-encoded query parameter.\n                 Example: ?apijsonpath=%7B%22jsonpath%22%3A%22%24.name%22%7D\n                 (decoded: {\"jsonpath\":\"$.name\"})\n                 Use to filter or transform the response via JSONPath expressions.\n    user: Authenticated user with permissions\n\nReturns:\n    List of tools or modified result based on jsonpath\n\nRaises:\n    HTTPException: If JSONPath modifier fails to process the tools list",
+        "description": "List all registered tools with team-based filtering and pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor: Pagination cursor for fetching the next set of results\n    include_pagination: Whether to include cursor pagination metadata in the response\n    limit: Maximum number of tools to return. Use 0 for all tools (no limit).\n        If not specified, uses pagination_default_page_size (default: 50).\n    include_inactive: Whether to include inactive tools in the results\n    tags: Comma-separated list of tags to filter by (e.g., \"api,data\")\n    team_id: Optional team ID to filter tools by specific team\n    visibility: Optional visibility filter (private, team, public)\n    gateway_id: Optional gateway ID to filter tools by specific gateway\n    mcp_server_id: Alias of gateway_id\n    db: Database session\n    apijsonpath: Optional JSON-Path modifier supplied as URL-encoded query parameter.\n                 Example: ?apijsonpath=%7B%22jsonpath%22%3A%22%24.name%22%7D\n                 (decoded: {\"jsonpath\":\"$.name\"})\n                 Use to filter or transform the response via JSONPath expressions.\n    user: Authenticated user with permissions\n\nReturns:\n    List of tools or modified result based on jsonpath\n\nRaises:\n    HTTPException: If JSONPath modifier fails to process the tools list",
         "operationId": "list_tools_v1_tools_get",
         "security": [
           {
@@ -759,6 +779,26 @@
               "title": "Gateway Id"
             },
             "description": "Filter by gateway ID"
+          },
+          {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
           },
           {
             "name": "apijsonpath",
@@ -900,7 +940,7 @@
           "Tools"
         ],
         "summary": "Preview Tool",
-        "description": "Validate and resolve a tool invocation without executing it (#5629).\n\nDry-run counterpart to live tool invocation: no REST/MCP/A2A/gRPC call is made, and no\nTOOL_POST_INVOKE hook runs. Shares tool resolution/RBAC with the live invocation path\n(see ``ToolService._resolve_tool_for_invocation``), so the two can never disagree about\nwhether a tool exists or is accessible.\n\nArgs:\n    name: Name of the tool to preview.\n    request: FastAPI request object, used to resolve the caller's visibility scope.\n    body: Candidate arguments to validate against the tool's input schema.\n    db: Database session.\n    user: Authenticated user with permissions.\n\nReturns:\n    ToolPreviewResponse: The dry-run envelope (validation result, target, annotations,\n        plugin pre-hooks that actually ran, and non-fatal warnings).\n\nRaises:\n    HTTPException: 404 if the feature is disabled, or if the tool is not found or not\n        accessible to the caller (same visibility rules as live invocation). 400 if\n        resolution fails for a reason short of not-found -- an ambiguous tool name or a\n        deprecated tool (same as live invocation's own ``ToolInvocationError`` handling).",
+        "description": "Validate and resolve a tool invocation without executing it.\n\nDry-run counterpart to live tool invocation: no REST/MCP/A2A/gRPC call is made, and no\nTOOL_POST_INVOKE hook runs. Shares tool resolution/RBAC with the live invocation path\n(see ``ToolService._resolve_tool_for_invocation``), so the two can never disagree about\nwhether a tool exists or is accessible.\n\nArgs:\n    name: Name of the tool to preview.\n    request: FastAPI request object, used to resolve the caller's visibility scope.\n    body: Candidate arguments and optional server_id for scoped resolution.\n    db: Database session.\n    user: Authenticated user with permissions.\n\nReturns:\n    ToolPreviewResponse: The dry-run envelope (validation result, target, annotations,\n        plugin pre-hooks that actually ran, and non-fatal warnings).\n\nRaises:\n    HTTPException: 404 if the feature is disabled, or if the tool/server is not found or not\n        accessible to the caller (same visibility rules as live invocation). 403 if the\n        server_id is provided but the token is not authorized for that server. 400 if\n        resolution fails for a reason short of not-found -- an ambiguous tool name or a\n        deprecated tool (same as live invocation's own ``ToolInvocationError`` handling).",
         "operationId": "preview_tool_v1_tools_preview__name__post",
         "security": [
           {
@@ -1626,7 +1666,7 @@
           "Resources"
         ],
         "summary": "List Resources",
-        "description": "Retrieve a list of resources accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of resources to return.\n    include_inactive (bool): Whether to include inactive resources.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    gateway_id (Optional[str]): Filter by gateway ID. Use 'null' for resources without a gateway.\n    db (Session): Database session.\n    user (str): Authenticated user.\n\nReturns:\n    Union[List[ResourceRead], Dict[str, Any]]: List of resources or paginated response with nextCursor.",
+        "description": "Retrieve a list of resources accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of resources to return.\n    include_inactive (bool): Whether to include inactive resources.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    gateway_id (Optional[str]): Filter by gateway ID. Use 'null' for resources without a gateway.\n    mcp_server_id (Optional[str]): Alias of gateway_id.\n    db (Session): Database session.\n    user (str): Authenticated user.\n\nReturns:\n    Union[List[ResourceRead], Dict[str, Any]]: List of resources or paginated response with nextCursor.",
         "operationId": "list_resources_v1_resources__get",
         "security": [
           {
@@ -1764,6 +1804,26 @@
             "description": "Filter by gateway ID"
           },
           {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
+          },
+          {
             "name": "jwt_token",
             "in": "cookie",
             "required": false,
@@ -1884,7 +1944,7 @@
           "Resources"
         ],
         "summary": "List Resources",
-        "description": "Retrieve a list of resources accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of resources to return.\n    include_inactive (bool): Whether to include inactive resources.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    gateway_id (Optional[str]): Filter by gateway ID. Use 'null' for resources without a gateway.\n    db (Session): Database session.\n    user (str): Authenticated user.\n\nReturns:\n    Union[List[ResourceRead], Dict[str, Any]]: List of resources or paginated response with nextCursor.",
+        "description": "Retrieve a list of resources accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of resources to return.\n    include_inactive (bool): Whether to include inactive resources.\n    tags (Optional[str]): Comma-separated list of tags to filter by.\n    team_id (Optional[str]): Filter by specific team ID.\n    visibility (Optional[str]): Filter by visibility (private, team, public).\n    gateway_id (Optional[str]): Filter by gateway ID. Use 'null' for resources without a gateway.\n    mcp_server_id (Optional[str]): Alias of gateway_id.\n    db (Session): Database session.\n    user (str): Authenticated user.\n\nReturns:\n    Union[List[ResourceRead], Dict[str, Any]]: List of resources or paginated response with nextCursor.",
         "operationId": "list_resources_v1_resources_get",
         "security": [
           {
@@ -2020,6 +2080,26 @@
               "title": "Gateway Id"
             },
             "description": "Filter by gateway ID"
+          },
+          {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
           },
           {
             "name": "jwt_token",
@@ -2704,7 +2784,7 @@
           "Prompts"
         ],
         "summary": "List Prompts",
-        "description": "List prompts accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of prompts to return.\n    include_inactive: Include inactive prompts.\n    tags: Comma-separated list of tags to filter by.\n    team_id: Filter by specific team ID.\n    visibility: Filter by visibility (private, team, public).\n    gateway_id: Filter by gateway ID. Use 'null' for prompts without a gateway.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[Dict[str, Any]], Dict[str, Any]]: List of prompt records or paginated response with nextCursor.",
+        "description": "List prompts accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of prompts to return.\n    include_inactive: Include inactive prompts.\n    tags: Comma-separated list of tags to filter by.\n    team_id: Filter by specific team ID.\n    visibility: Filter by visibility (private, team, public).\n    gateway_id: Filter by gateway ID. Use 'null' for prompts without a gateway.\n    mcp_server_id: Alias of gateway_id.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[Dict[str, Any]], Dict[str, Any]]: List of prompt records or paginated response with nextCursor.",
         "operationId": "list_prompts_v1_prompts__get",
         "security": [
           {
@@ -2842,6 +2922,26 @@
             "description": "Filter by gateway ID"
           },
           {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
+          },
+          {
             "name": "jwt_token",
             "in": "cookie",
             "required": false,
@@ -2962,7 +3062,7 @@
           "Prompts"
         ],
         "summary": "List Prompts",
-        "description": "List prompts accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of prompts to return.\n    include_inactive: Include inactive prompts.\n    tags: Comma-separated list of tags to filter by.\n    team_id: Filter by specific team ID.\n    visibility: Filter by visibility (private, team, public).\n    gateway_id: Filter by gateway ID. Use 'null' for prompts without a gateway.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[Dict[str, Any]], Dict[str, Any]]: List of prompt records or paginated response with nextCursor.",
+        "description": "List prompts accessible to the user, with team filtering and cursor pagination support.\n\nArgs:\n    request (Request): The FastAPI request object for team_id retrieval\n    cursor (Optional[str]): Cursor for pagination.\n    include_pagination (bool): Include cursor pagination metadata in response.\n    limit (Optional[int]): Maximum number of prompts to return.\n    include_inactive: Include inactive prompts.\n    tags: Comma-separated list of tags to filter by.\n    team_id: Filter by specific team ID.\n    visibility: Filter by visibility (private, team, public).\n    gateway_id: Filter by gateway ID. Use 'null' for prompts without a gateway.\n    mcp_server_id: Alias of gateway_id.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Union[List[Dict[str, Any]], Dict[str, Any]]: List of prompt records or paginated response with nextCursor.",
         "operationId": "list_prompts_v1_prompts_get",
         "security": [
           {
@@ -3098,6 +3198,26 @@
               "title": "Gateway Id"
             },
             "description": "Filter by gateway ID"
+          },
+          {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[a-zA-Z0-9_-]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID"
           },
           {
             "name": "jwt_token",
@@ -5232,7 +5352,7 @@
           "Servers"
         ],
         "summary": "Create Server",
-        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "description": "Creates a new server.\n\nArgs:\n    payload (ServerCreateRequest): The request body: the new server's data under\n        ``server`` (or its product-terminology alias ``virtual_server``), plus the\n        sibling ``team_id`` and ``visibility`` fields. See ``ServerCreateRequest``.\n    request (Request): The incoming request object for extracting metadata.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
         "operationId": "create_server_v1_servers__post",
         "security": [
           {
@@ -5262,7 +5382,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_create_server_v1_servers__post"
+                "$ref": "#/components/schemas/ServerCreateRequest"
               }
             }
           }
@@ -5480,7 +5600,7 @@
           "Servers"
         ],
         "summary": "Create Server",
-        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "description": "Creates a new server.\n\nArgs:\n    payload (ServerCreateRequest): The request body: the new server's data under\n        ``server`` (or its product-terminology alias ``virtual_server``), plus the\n        sibling ``team_id`` and ``visibility`` fields. See ``ServerCreateRequest``.\n    request (Request): The incoming request object for extracting metadata.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
         "operationId": "create_server_v1_servers_post",
         "security": [
           {
@@ -5510,7 +5630,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_create_server_v1_servers_post"
+                "$ref": "#/components/schemas/ServerCreateRequest"
               }
             }
           }
@@ -7335,7 +7455,7 @@
           "Search"
         ],
         "summary": "Unified Search",
-        "description": "Unified search across primary entities (versioned, non-admin route).\n\nSame behavior and response shape as ``GET /admin/search`` without the\n``admin.dashboard`` gate; delegates to\n:func:`mcpgateway.admin.perform_unified_search`.\n\nArgs:\n    request: Current request object.\n    q (str): Free-text search query.\n    tags (Optional[str]): Tag filter expression (comma=OR, plus=AND).\n    entity_types (Optional[str]): Optional comma-separated entity type list.\n        Supported values: servers, gateways, tools, resources, prompts,\n        agents, teams, users, roots, catalog. Catalog must be explicitly requested.\n    include_inactive (bool): Whether to include inactive entities.\n    limit (int): Default per-entity limit for returned items.\n    limit_per_type (Optional[int]): Optional alias overriding ``limit``.\n    gateway_id (Optional[str]): Gateway filter for tools/resources/prompts.\n    team_id (Optional[str]): Team scope filter.\n    db (Session): Database session.\n    user: Authenticated user context.\n\nReturns:\n    dict[str, Any]: Grouped and flattened search results with metadata.",
+        "description": "Unified search across primary entities (versioned, non-admin route).\n\nSame behavior and response shape as ``GET /admin/search`` without the\n``admin.dashboard`` gate; delegates to\n:func:`mcpgateway.admin.perform_unified_search`.\n\nArgs:\n    request: Current request object.\n    q (str): Free-text search query.\n    tags (Optional[str]): Tag filter expression (comma=OR, plus=AND).\n    entity_types (Optional[str]): Optional comma-separated entity type list.\n        Supported values: servers, gateways, tools, resources, prompts,\n        agents, teams, users, roots, catalog. Catalog must be explicitly requested.\n    include_inactive (bool): Whether to include inactive entities.\n    limit (int): Default per-entity limit for returned items.\n    limit_per_type (Optional[int]): Optional alias overriding ``limit``.\n    gateway_id (Optional[str]): Gateway filter for tools/resources/prompts.\n    mcp_server_id (Optional[str]): Alias of ``gateway_id``.\n    team_id (Optional[str]): Team scope filter.\n    db (Session): Database session.\n    user: Authenticated user context.\n\nReturns:\n    dict[str, Any]: Grouped and flattened search results with metadata.",
         "operationId": "unified_search_v1_search_get",
         "security": [
           {
@@ -7459,6 +7579,26 @@
               "title": "Gateway Id"
             },
             "description": "Filter by gateway ID(s), comma-separated"
+          },
+          {
+            "name": "mcp_server_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000,
+                  "pattern": "^[a-zA-Z0-9_,-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Alias of gateway_id: filter by MCP server ID(s), comma-separated",
+              "title": "Mcp Server Id"
+            },
+            "description": "Alias of gateway_id: filter by MCP server ID(s), comma-separated"
           },
           {
             "name": "team_id",
@@ -10521,710 +10661,6 @@
             "ConfigurableHTTPBearer": []
           }
         ]
-      }
-    },
-    "/v1/auth/sso/providers": {
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "List Sso Providers",
-        "description": "List available SSO providers for login.\n\nArgs:\n    db: Database session\n\nReturns:\n    List of enabled SSO providers with basic information.\n\nRaises:\n    HTTPException: If SSO authentication is disabled\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_sso_providers)\n    True",
-        "operationId": "list_sso_providers_v1_auth_sso_providers_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SSOProviderResponse"
-                  },
-                  "type": "array",
-                  "title": "Response List Sso Providers V1 Auth Sso Providers Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/login/{provider_id}": {
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Initiate Sso Login",
-        "description": "Initiate SSO authentication flow.\n\nValidates the redirect_uri against a server-side allowlist to prevent open redirect attacks.\nOnly allows relative URIs, URIs matching app_domain, or URIs from configured allowed_origins.\nDoes NOT trust the Host header for validation.\n\nArgs:\n    provider_id: SSO provider identifier (e.g., 'github', 'google')\n    request: FastAPI request object\n    response: FastAPI response object used to set session-binding cookie\n    redirect_uri: Callback URI after successful authentication\n    scopes: Optional custom OAuth scopes (space-separated)\n    db: Database session\n\nReturns:\n    Authorization URL and state parameter for redirect.\n\nRaises:\n    HTTPException: If SSO is disabled, provider not found, or redirect_uri is invalid\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(initiate_sso_login)\n    True",
-        "operationId": "initiate_sso_login_v1_auth_sso_login__provider_id__get",
-        "parameters": [
-          {
-            "name": "provider_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Provider Id"
-            }
-          },
-          {
-            "name": "redirect_uri",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 2048,
-              "description": "Callback URI after authentication",
-              "title": "Redirect Uri"
-            },
-            "description": "Callback URI after authentication"
-          },
-          {
-            "name": "scopes",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 500
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Space-separated OAuth scopes",
-              "title": "Scopes"
-            },
-            "description": "Space-separated OAuth scopes"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SSOLoginResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/callback/{provider_id}": {
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Handle Sso Callback",
-        "description": "Handle SSO authentication callback.\n\nArgs:\n    provider_id: SSO provider identifier\n    code: Authorization code from provider (present on success)\n    state: CSRF state parameter for validation\n    error: OAuth error code (present on failure)\n    error_description: OAuth error description (present on failure)\n    request: FastAPI request object\n    response: FastAPI response object\n    db: Database session\n\nReturns:\n    JWT access token and user information, or redirect to login with error.\n\nRaises:\n    HTTPException: If SSO is disabled or authentication fails\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(handle_sso_callback)\n    True",
-        "operationId": "handle_sso_callback_v1_auth_sso_callback__provider_id__get",
-        "parameters": [
-          {
-            "name": "provider_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Provider Id"
-            }
-          },
-          {
-            "name": "code",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 4096
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Authorization code from SSO provider",
-              "title": "Code"
-            },
-            "description": "Authorization code from SSO provider"
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 128
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "CSRF state parameter",
-              "title": "State"
-            },
-            "description": "CSRF state parameter"
-          },
-          {
-            "name": "error",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 100,
-                  "pattern": "^[a-zA-Z0-9_]+$"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OAuth error code",
-              "title": "Error"
-            },
-            "description": "OAuth error code"
-          },
-          {
-            "name": "error_description",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 500
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "OAuth error description",
-              "title": "Error Description"
-            },
-            "description": "OAuth error description"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/admin/providers": {
-      "post": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Create Sso Provider",
-        "description": "Create new SSO provider configuration (Admin only).\n\nArgs:\n    provider_data: SSO provider configuration\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Created provider information.\n\nRaises:\n    HTTPException: If provider already exists or creation fails",
-        "operationId": "create_sso_provider_v1_auth_sso_admin_providers_post",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SSOProviderCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Sso Provider V1 Auth Sso Admin Providers Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "List All Sso Providers",
-        "description": "List all SSO providers including disabled ones (Admin only).\n\nArgs:\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    List of all SSO providers with configuration details.",
-        "operationId": "list_all_sso_providers_v1_auth_sso_admin_providers_get",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  "title": "Response List All Sso Providers V1 Auth Sso Admin Providers Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/admin/providers/{provider_id}": {
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Get Sso Provider",
-        "description": "Get SSO provider details (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Provider configuration details.\n\nRaises:\n    HTTPException: If provider not found",
-        "operationId": "get_sso_provider_v1_auth_sso_admin_providers__provider_id__get",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Provider Id"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Sso Provider V1 Auth Sso Admin Providers  Provider Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Update Sso Provider",
-        "description": "Update SSO provider configuration (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    provider_data: Updated provider configuration\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Updated provider information.\n\nRaises:\n    HTTPException: If provider not found or update fails",
-        "operationId": "update_sso_provider_v1_auth_sso_admin_providers__provider_id__put",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Provider Id"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SSOProviderUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Sso Provider V1 Auth Sso Admin Providers  Provider Id  Put"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Delete Sso Provider",
-        "description": "Delete SSO provider configuration (Admin only).\n\nArgs:\n    provider_id: Provider identifier\n    db: Database session\n    user: Current authenticated user\n\nReturns:\n    Deletion confirmation.\n\nRaises:\n    HTTPException: If provider not found",
-        "operationId": "delete_sso_provider_v1_auth_sso_admin_providers__provider_id__delete",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Provider Id"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Sso Provider V1 Auth Sso Admin Providers  Provider Id  Delete"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/pending-approvals": {
-      "get": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "List Pending Approvals",
-        "description": "List pending SSO user approval requests (Admin only).\n\nArgs:\n    include_expired: Whether to include expired requests\n    db: Database session\n    user: Current authenticated admin user\n\nReturns:\n    List of pending approval requests",
-        "operationId": "list_pending_approvals_v1_auth_sso_pending_approvals_get",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "include_expired",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Include expired approval requests",
-              "default": false,
-              "title": "Include Expired"
-            },
-            "description": "Include expired approval requests"
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PendingUserApprovalResponse"
-                  },
-                  "title": "Response List Pending Approvals V1 Auth Sso Pending Approvals Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/auth/sso/pending-approvals/{approval_id}/action": {
-      "post": {
-        "tags": [
-          "SSO Authentication",
-          "SSO Authentication"
-        ],
-        "summary": "Handle Approval Request",
-        "description": "Approve or reject a pending SSO user registration (Admin only).\n\nArgs:\n    approval_id: ID of the approval request\n    request: Approval action (approve/reject) with optional reason/notes\n    db: Database session\n    user: Current authenticated admin user\n\nReturns:\n    Action confirmation message\n\nRaises:\n    HTTPException: If approval not found or invalid action",
-        "operationId": "handle_approval_request_v1_auth_sso_pending_approvals__approval_id__action_post",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "approval_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Approval Id"
-            }
-          },
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApprovalActionRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Handle Approval Request V1 Auth Sso Pending Approvals  Approval Id  Action Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v1/teams/": {
@@ -34368,7 +33804,7 @@
           "Servers"
         ],
         "summary": "Create Server",
-        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "description": "Creates a new server.\n\nArgs:\n    payload (ServerCreateRequest): The request body: the new server's data under\n        ``server`` (or its product-terminology alias ``virtual_server``), plus the\n        sibling ``team_id`` and ``visibility`` fields. See ``ServerCreateRequest``.\n    request (Request): The incoming request object for extracting metadata.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
         "operationId": "create_server_v1_virtual_servers__post",
         "security": [
           {
@@ -34398,7 +33834,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_create_server_v1_virtual_servers__post"
+                "$ref": "#/components/schemas/ServerCreateRequest"
               }
             }
           }
@@ -34616,7 +34052,7 @@
           "Servers"
         ],
         "summary": "Create Server",
-        "description": "Creates a new server.\n\nArgs:\n    server (ServerCreate): The data for the new server.\n    request (Request): The incoming request object for extracting metadata.\n    team_id (Optional[str]): Team ID to assign the server to.\n    visibility (str): Server visibility level (private, team, public).\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
+        "description": "Creates a new server.\n\nArgs:\n    payload (ServerCreateRequest): The request body: the new server's data under\n        ``server`` (or its product-terminology alias ``virtual_server``), plus the\n        sibling ``team_id`` and ``visibility`` fields. See ``ServerCreateRequest``.\n    request (Request): The incoming request object for extracting metadata.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    ServerRead: The created server object.\n\nRaises:\n    HTTPException: If there is a conflict with the server name or other errors.",
         "operationId": "create_server_v1_virtual_servers_post",
         "security": [
           {
@@ -34646,7 +34082,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_create_server_v1_virtual_servers_post"
+                "$ref": "#/components/schemas/ServerCreateRequest"
               }
             }
           }
@@ -35871,116 +35307,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/admin/users/sso": {
-      "post": {
-        "tags": [
-          "SSO User Provisioning"
-        ],
-        "summary": "Create Sso User",
-        "description": "Provision a passwordless user using an enabled, configured SSO provider.\n\nArgs:\n    request: JSON request, parsed after authentication and authorization.\n    current_user_ctx: Authenticated caller context.\n    db: Request-scoped database session.\n\nReturns:\n    The created user's public details.\n\nRaises:\n    HTTPException: Unsupported media type, malformed JSON, password input,\n        invalid provider/email, duplicate user, or unexpected service failure.\n    RequestValidationError: JSON does not match the request schema.",
-        "operationId": "create_sso_user_v1_admin_users_sso_post",
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "jwt_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Jwt Token"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmailUserResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": false,
-                "description": "Administrator-driven passwordless SSO user creation request.\n\nProviders are validated against enabled provider rows by the service. The\nendpoint rejects a password key before validating this schema.",
-                "properties": {
-                  "email": {
-                    "description": "User's email address",
-                    "format": "email",
-                    "title": "Email",
-                    "type": "string"
-                  },
-                  "auth_provider": {
-                    "description": "Configured SSO provider ID; azure-ad is an alias for entra",
-                    "title": "Auth Provider",
-                    "type": "string"
-                  },
-                  "full_name": {
-                    "anyOf": [
-                      {
-                        "maxLength": 255,
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "User's full name",
-                    "title": "Full Name"
-                  },
-                  "is_admin": {
-                    "default": false,
-                    "description": "Grant admin privileges to user",
-                    "title": "Is Admin",
-                    "type": "boolean"
-                  },
-                  "is_active": {
-                    "default": true,
-                    "description": "Whether user account is active",
-                    "title": "Is Active",
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "email",
-                  "auth_provider"
-                ],
-                "title": "AdminCreateSSOUserRequest",
-                "type": "object"
               }
             }
           }
@@ -37341,7 +36667,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal A2A Agent Card",
-        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.",
+        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.\nThe sidecar forwards the caller's ``A2A-Version`` header, and a pre-1.0\nvalue keeps the legacy card shape.",
         "operationId": "handle_internal_a2a_agent_card__internal_a2a_agents__agent_name__card_post",
         "parameters": [
           {
@@ -37382,7 +36708,7 @@
           "Utilities"
         ],
         "summary": "Handle Internal A2A Agent Card",
-        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.",
+        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.\nThe sidecar forwards the caller's ``A2A-Version`` header, and a pre-1.0\nvalue keeps the legacy card shape.",
         "operationId": "handle_internal_a2a_agent_card__internal_a2a_agents__agent_name__card__post",
         "parameters": [
           {
@@ -38502,7 +37828,7 @@
           "oauth"
         ],
         "summary": "Oauth Callback",
-        "description": "Handle the OAuth callback and complete the authorization process.\n\nThis endpoint is called by the OAuth provider after the user authorizes access.\nIt receives the authorization code and state parameters, verifies the state,\nretrieves the corresponding gateway configuration, and exchanges the code for an access token.\n\nArgs:\n    code (str): The authorization code returned by the OAuth provider.\n    state (str): The state parameter for CSRF protection, which encodes the gateway ID.\n    error (str): OAuth provider error code from error callback (RFC 6749 Section 4.1.2.1).\n    error_description (str): OAuth provider error description.\n    request (Request): The incoming HTTP request object.\n    db (Session): The database session dependency.\n\nReturns:\n    HTMLResponse: An HTML response indicating the result of the OAuth authorization process.\n\nRaises:\n    ValueError: Raised internally when state parameter is missing gateway_id (caught and handled).\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(oauth_callback)\n    True",
+        "description": "Handle the OAuth callback and complete the authorization process.\n\nThis endpoint is called by the OAuth provider after the user authorizes access.\nIt receives the authorization code and state parameters, verifies the state,\nretrieves the corresponding gateway configuration, and exchanges the code for an access token.\n\nArgs:\n    code (str): The authorization code returned by the OAuth provider.\n    state (str): The state parameter for CSRF protection, which encodes the gateway ID.\n    error (str): OAuth provider error code from error callback (RFC 6749 Section 4.1.2.1).\n    error_description (str): OAuth provider error description.\n    iss (str): Issuer identifier sent by the authorization server (RFC 9207); checked\n        against the gateway's issuer before the code is redeemed or an error is shown.\n    request (Request): The incoming HTTP request object.\n    db (Session): The database session dependency.\n\nReturns:\n    HTMLResponse: An HTML response indicating the result of the OAuth authorization process.\n\nRaises:\n    ValueError: Raised internally when state parameter is missing gateway_id (caught and handled).\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(oauth_callback)\n    True",
         "operationId": "oauth_callback_oauth_callback_get",
         "parameters": [
           {
@@ -38581,6 +37907,25 @@
               "title": "Error Description"
             },
             "description": "OAuth provider error description"
+          },
+          {
+            "name": "iss",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Authorization server issuer identifier (RFC 9207)",
+              "title": "Iss"
+            },
+            "description": "Authorization server issuer identifier (RFC 9207)"
           }
         ],
         "responses": {
@@ -42394,42 +41739,6 @@
         "title": "Annotations",
         "description": "Optional annotations for client rendering hints (MCP spec-compliant).\n\nAttributes:\n    audience (Optional[List[Role]]): Describes who the intended customer of this\n                                    object or data is. Can include multiple entries\n                                    (e.g., [\"user\", \"assistant\"]).\n    priority (Optional[float]): Describes how important this data is for operating\n                               the server. 1 = most important (effectively required),\n                               0 = least important (entirely optional).\n    last_modified (Optional[str]): ISO 8601 timestamp of last modification.\n                                  Serialized as 'lastModified' in JSON."
       },
-      "ApprovalActionRequest": {
-        "properties": {
-          "action": {
-            "type": "string",
-            "title": "Action"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "action"
-        ],
-        "title": "ApprovalActionRequest",
-        "description": "Request model for approval actions."
-      },
       "AuditTrailResponse": {
         "properties": {
           "id": {
@@ -42850,8 +42159,7 @@
               }
             ],
             "title": "Visibility",
-            "description": "Prompt visibility: private, team, public",
-            "default": "public"
+            "description": "Prompt visibility: private, team, public"
           }
         },
         "type": "object",
@@ -42887,8 +42195,7 @@
               }
             ],
             "title": "Visibility",
-            "description": "Prompt visibility: private, team, public",
-            "default": "public"
+            "description": "Prompt visibility: private, team, public"
           }
         },
         "type": "object",
@@ -42924,8 +42231,7 @@
               }
             ],
             "title": "Visibility",
-            "description": "Resource visibility: private, team, public",
-            "default": "public"
+            "description": "Resource visibility: private, team, public"
           }
         },
         "type": "object",
@@ -42961,8 +42267,7 @@
               }
             ],
             "title": "Visibility",
-            "description": "Resource visibility: private, team, public",
-            "default": "public"
+            "description": "Resource visibility: private, team, public"
           }
         },
         "type": "object",
@@ -42970,150 +42275,6 @@
           "resource"
         ],
         "title": "Body_create_resource_v1_resources_post"
-      },
-      "Body_create_server_v1_servers__post": {
-        "properties": {
-          "server": {
-            "$ref": "#/components/schemas/ServerCreate"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id",
-            "description": "Team ID to assign server to"
-          },
-          "visibility": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visibility",
-            "description": "Server visibility: private, team, public"
-          }
-        },
-        "type": "object",
-        "required": [
-          "server"
-        ],
-        "title": "Body_create_server_v1_servers__post"
-      },
-      "Body_create_server_v1_servers_post": {
-        "properties": {
-          "server": {
-            "$ref": "#/components/schemas/ServerCreate"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id",
-            "description": "Team ID to assign server to"
-          },
-          "visibility": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visibility",
-            "description": "Server visibility: private, team, public"
-          }
-        },
-        "type": "object",
-        "required": [
-          "server"
-        ],
-        "title": "Body_create_server_v1_servers_post"
-      },
-      "Body_create_server_v1_virtual_servers__post": {
-        "properties": {
-          "server": {
-            "$ref": "#/components/schemas/ServerCreate"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id",
-            "description": "Team ID to assign server to"
-          },
-          "visibility": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visibility",
-            "description": "Server visibility: private, team, public"
-          }
-        },
-        "type": "object",
-        "required": [
-          "server"
-        ],
-        "title": "Body_create_server_v1_virtual_servers__post"
-      },
-      "Body_create_server_v1_virtual_servers_post": {
-        "properties": {
-          "server": {
-            "$ref": "#/components/schemas/ServerCreate"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id",
-            "description": "Team ID to assign server to"
-          },
-          "visibility": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Visibility",
-            "description": "Server visibility: private, team, public"
-          }
-        },
-        "type": "object",
-        "required": [
-          "server"
-        ],
-        "title": "Body_create_server_v1_virtual_servers_post"
       },
       "Body_create_tool_v1_tools__post": {
         "properties": {
@@ -45615,7 +44776,7 @@
               }
             ],
             "title": "Gatewayid",
-            "description": "Exact registered gateway to use for transport, TLS, and stored-credential settings; combined with credential_mode to control whether stored credentials are applied"
+            "description": "Exact registered gateway to use for transport, TLS, and stored-credential settings; combined with credential_mode to control whether stored credentials are applied. Also accepted as mcp_server_id"
           },
           "credentialMode": {
             "type": "string",
@@ -49676,62 +48837,6 @@
         "title": "PasswordResetTokenValidationResponse",
         "description": "Response schema for reset-token validation."
       },
-      "PendingUserApprovalResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email"
-          },
-          "full_name": {
-            "type": "string",
-            "title": "Full Name"
-          },
-          "auth_provider": {
-            "type": "string",
-            "title": "Auth Provider"
-          },
-          "requested_at": {
-            "type": "string",
-            "title": "Requested At"
-          },
-          "expires_at": {
-            "type": "string",
-            "title": "Expires At"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "sso_metadata": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sso Metadata"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "email",
-          "full_name",
-          "auth_provider",
-          "requested_at",
-          "expires_at",
-          "status"
-        ],
-        "title": "PendingUserApprovalResponse",
-        "description": "Response model for pending user approval."
-      },
       "PercentilesResponse": {
         "properties": {
           "buckets": {
@@ -50648,7 +49753,7 @@
               }
             ],
             "title": "Gatewayid",
-            "description": "ID of the gateway for the prompt"
+            "description": "ID of the gateway for the prompt; also accepted as mcp_server_id"
           }
         },
         "type": "object",
@@ -51532,7 +50637,7 @@
               }
             ],
             "title": "Gateway Id",
-            "description": "ID of the gateway for the resource"
+            "description": "ID of the gateway for the resource; also accepted as mcp_server_id"
           }
         },
         "type": "object",
@@ -52762,392 +51867,6 @@
         "description": "Management-only schema for root updates.",
         "nullable": true
       },
-      "SSOLoginResponse": {
-        "properties": {
-          "authorization_url": {
-            "type": "string",
-            "title": "Authorization Url"
-          },
-          "state": {
-            "type": "string",
-            "title": "State"
-          }
-        },
-        "type": "object",
-        "required": [
-          "authorization_url",
-          "state"
-        ],
-        "title": "SSOLoginResponse",
-        "description": "SSO login initiation response."
-      },
-      "SSOProviderCreateRequest": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "provider_type": {
-            "type": "string",
-            "title": "Provider Type"
-          },
-          "client_id": {
-            "type": "string",
-            "title": "Client Id"
-          },
-          "client_secret": {
-            "type": "string",
-            "title": "Client Secret"
-          },
-          "authorization_url": {
-            "type": "string",
-            "title": "Authorization Url"
-          },
-          "token_url": {
-            "type": "string",
-            "title": "Token Url"
-          },
-          "userinfo_url": {
-            "type": "string",
-            "title": "Userinfo Url"
-          },
-          "issuer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Issuer"
-          },
-          "jwks_uri": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Jwks Uri"
-          },
-          "scope": {
-            "type": "string",
-            "title": "Scope",
-            "default": "openid profile email"
-          },
-          "trusted_domains": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Trusted Domains",
-            "default": []
-          },
-          "auto_create_users": {
-            "type": "boolean",
-            "title": "Auto Create Users",
-            "default": true
-          },
-          "team_mapping": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Team Mapping",
-            "default": {}
-          },
-          "provider_metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Provider Metadata",
-            "default": {}
-          },
-          "trusted_for_api_auth": {
-            "type": "boolean",
-            "title": "Trusted For Api Auth",
-            "default": false
-          },
-          "api_audience": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Audience"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "display_name",
-          "provider_type",
-          "client_id",
-          "client_secret",
-          "authorization_url",
-          "token_url",
-          "userinfo_url"
-        ],
-        "title": "SSOProviderCreateRequest",
-        "description": "Request to create SSO provider."
-      },
-      "SSOProviderResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "authorization_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authorization Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "display_name"
-        ],
-        "title": "SSOProviderResponse",
-        "description": "SSO provider information for client."
-      },
-      "SSOProviderUpdateRequest": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
-          "provider_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Type"
-          },
-          "client_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Id"
-          },
-          "client_secret": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Client Secret"
-          },
-          "authorization_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Authorization Url"
-          },
-          "token_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token Url"
-          },
-          "userinfo_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Userinfo Url"
-          },
-          "issuer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Issuer"
-          },
-          "jwks_uri": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Jwks Uri"
-          },
-          "scope": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scope"
-          },
-          "trusted_domains": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trusted Domains"
-          },
-          "auto_create_users": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Auto Create Users"
-          },
-          "team_mapping": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Mapping"
-          },
-          "provider_metadata": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Metadata"
-          },
-          "is_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Enabled"
-          },
-          "trusted_for_api_auth": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trusted For Api Auth"
-          },
-          "api_audience": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Audience"
-          }
-        },
-        "type": "object",
-        "title": "SSOProviderUpdateRequest",
-        "description": "Request to update SSO provider."
-      },
       "SecurityEventResponse": {
         "properties": {
           "id": {
@@ -53568,6 +52287,18 @@
             ],
             "title": "Oauth Config",
             "description": "OAuth 2.0 configuration (authorization_server, scopes_supported, etc.)"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions",
+            "description": "Instructions text sent to MCP clients. Empty string: send no instructions. Absent: use the upstream server's text when there is one"
           }
         },
         "type": "object",
@@ -53576,6 +52307,57 @@
         ],
         "title": "ServerCreate",
         "description": "Schema for creating a new server.\n\nAttributes:\n    model_config (ConfigDict): Configuration for the model, such as stripping whitespace from strings.\n    name (str): The server's name.\n    description (Optional[str]): Optional description of the server.\n    icon (Optional[str]): Optional URL for the server's icon.\n    associated_tools (Optional[List[str]]): Optional list of associated tool IDs.\n    associated_resources (Optional[List[str]]): Optional list of associated resource IDs.\n    associated_prompts (Optional[List[str]]): Optional list of associated prompt IDs."
+      },
+      "ServerCreateRequest": {
+        "anyOf": [
+          {
+            "required": [
+              "server"
+            ]
+          },
+          {
+            "required": [
+              "virtual_server"
+            ]
+          }
+        ],
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/ServerCreate",
+            "description": "The data for the new virtual server; also accepted as virtual_server"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id",
+            "description": "Team ID to assign server to"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility",
+            "description": "Server visibility: private, team, public"
+          },
+          "virtual_server": {
+            "$ref": "#/components/schemas/ServerCreate",
+            "description": "Product-terminology alias of server"
+          }
+        },
+        "type": "object",
+        "title": "ServerCreateRequest",
+        "description": "Request body for ``POST /servers`` and ``POST /v1/virtual-servers``.\n\nBinds the new server's data and the sibling ``team_id`` and ``visibility``\nfields in one model. The server data may arrive under ``server`` or the\nalias ``virtual_server``."
       },
       "ServerHandshakeRequest": {
         "properties": {
@@ -54049,6 +52831,18 @@
             ],
             "title": "Oauthconfig",
             "description": "OAuth 2.0 configuration (authorization_server, scopes_supported, etc.)"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions",
+            "description": "Operator-set instructions text. Null: not set. Empty string: send no instructions"
           }
         },
         "type": "object",
@@ -54205,6 +52999,18 @@
             ],
             "title": "Oauthconfig",
             "description": "OAuth 2.0 configuration (authorization_server, scopes_supported, etc.)"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions",
+            "description": "Instructions text sent to MCP clients. Null clears the text. Empty string: send no instructions. Absent: no change"
           },
           "associatedTools": {
             "anyOf": [
@@ -56295,7 +55101,7 @@
               }
             ],
             "title": "Gateway Id",
-            "description": "id of gateway for the tool"
+            "description": "id of gateway for the tool; also accepted as mcp_server_id"
           },
           "tags": {
             "anyOf": [
@@ -56759,11 +55565,25 @@
             "type": "object",
             "title": "Arguments",
             "description": "Arguments to validate against the tool's input schema"
+          },
+          "serverId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serverid",
+            "description": "Optional virtual server ID for server-scoped tool resolution"
           }
         },
         "type": "object",
         "title": "ToolPreviewRequest",
-        "description": "Schema for tool preview (dry-run) requests.\n\nCompanion to :class:`ToolInvocation`, minus the ``name`` field (the tool\nname is a path parameter on the preview route, not part of the body).\nSee #5629.\n\nAttributes:\n    arguments (Dict[str, Any]): Arguments to validate against the tool's input schema.\n                               Not executed against the tool; see :class:`ToolPreviewResponse`.\n\nExamples:\n    >>> ToolPreviewRequest().arguments\n    {}\n    >>> ToolPreviewRequest(arguments={}).arguments\n    {}\n    >>> # An explicit JSON null for \"arguments\" is as good as omitting the key entirely --\n    >>> # a client that always serializes the field shouldn't 422 for doing so (#5629).\n    >>> ToolPreviewRequest(arguments=None).arguments\n    {}",
+        "description": "Schema for tool preview (dry-run) requests.\n\nCompanion to :class:`ToolInvocation`, minus the ``name`` field (the tool\nname is a path parameter on the preview route, not part of the body).\nSee #5629.\n\nAttributes:\n    arguments (Dict[str, Any]): Arguments to validate against the tool's input schema.\n                               Not executed against the tool; see :class:`ToolPreviewResponse`.\n    server_id (Optional[str]): Optional virtual server ID for server-scoped tool resolution.\n                               When provided, only tools attached to this server are considered.\n                               Missing or null preserves global preview behavior.\n\nExamples:\n    >>> ToolPreviewRequest().arguments\n    {}\n    >>> ToolPreviewRequest(arguments={}).arguments\n    {}\n    >>> # An explicit JSON null for \"arguments\" is as good as omitting the key entirely --\n    >>> # a client that always serializes the field shouldn't 422 for doing so (#5629).\n    >>> ToolPreviewRequest(arguments=None).arguments\n    {}",
         "nullable": true
       },
       "ToolPreviewResponse": {
@@ -57710,7 +56530,7 @@
               }
             ],
             "title": "Gatewayid",
-            "description": "id of gateway for the tool"
+            "description": "id of gateway for the tool; also accepted as mcp_server_id"
           },
           "tags": {
             "anyOf": [
