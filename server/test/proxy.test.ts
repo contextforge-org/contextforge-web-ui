@@ -12,6 +12,9 @@ import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+const MIB = 1024 * 1024;
+const IMPORT_LIMIT = 2 * MIB;
+
 let upstream: Server;
 let upstreamOrigin: string;
 let lastRequest:
@@ -64,6 +67,8 @@ beforeAll(async () => {
   const { port } = upstream.address() as AddressInfo;
   upstreamOrigin = `http://127.0.0.1:${port}`;
   process.env.CONTEXTFORGE_URL = upstreamOrigin;
+  // Small enough to exceed cheaply in tests, still above the 1 MiB default.
+  process.env.IMPORT_BODY_LIMIT_BYTES = String(IMPORT_LIMIT);
 });
 
 afterAll(() => new Promise<void>((resolve) => upstream.close(() => resolve())));
@@ -281,5 +286,100 @@ describe("ALL /api/*", () => {
       headers: { cookie },
     });
     expect(followUp.json().authenticated).toBe(true);
+  });
+});
+
+describe("POST /api/v1/import, /api/v1/admin/import/preview", () => {
+  // JSON payload of roughly `bytes` size.
+  const payloadOf = (bytes: number) => ({ import_data: { blob: "x".repeat(bytes) } });
+
+  it.each([["/api/v1/import"], ["/api/v1/admin/import/preview"]])(
+    "forwards %s with a body over the 1 MiB default",
+    async (url) => {
+      const app = await buildApp();
+      const { cookie, csrfToken } = await seedSession(app);
+
+      const response = await app.fastify.inject({
+        method: "POST",
+        url,
+        headers: { cookie, "x-csrf-token": csrfToken },
+        payload: payloadOf(1.5 * MIB),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(lastRequest?.path).toBe(url.slice("/api".length));
+      expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
+      expect(JSON.parse(lastRequest!.body).import_data.blob).toHaveLength(1.5 * MIB);
+    },
+  );
+
+  it("keeps the 1 MiB default on every other /api/* route", async () => {
+    const app = await buildApp();
+    const { cookie, csrfToken } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/api/tools",
+      headers: { cookie, "x-csrf-token": csrfToken },
+      payload: payloadOf(1.5 * MIB),
+    });
+
+    expect(response.statusCode).toBe(413);
+  });
+
+  it("413s an import body over IMPORT_BODY_LIMIT_BYTES", async () => {
+    const app = await buildApp();
+    const { cookie, csrfToken } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/api/v1/import",
+      headers: { cookie, "x-csrf-token": csrfToken },
+      payload: payloadOf(IMPORT_LIMIT + MIB),
+    });
+
+    expect(response.statusCode).toBe(413);
+  });
+
+  it("401s without a session cookie", async () => {
+    const app = await buildApp();
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/api/v1/import",
+      payload: payloadOf(10),
+    });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("rejects an import without a CSRF token", async () => {
+    const app = await buildApp();
+    const { cookie } = await seedSession(app);
+
+    const response = await app.fastify.inject({
+      method: "POST",
+      url: "/api/v1/import",
+      headers: { cookie },
+      payload: payloadOf(10),
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("never lets the browser override the injected Authorization header", async () => {
+    const app = await buildApp();
+    const { cookie, csrfToken } = await seedSession(app);
+
+    await app.fastify.inject({
+      method: "POST",
+      url: "/api/v1/import",
+      headers: {
+        cookie,
+        "x-csrf-token": csrfToken,
+        authorization: "Bearer attacker-supplied-token", // pragma: allowlist secret
+      },
+      payload: payloadOf(10),
+    });
+
+    expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
   });
 });
