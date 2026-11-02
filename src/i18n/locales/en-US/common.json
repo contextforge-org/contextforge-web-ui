@@ -68,5 +68,14 @@
   "common.required": "*",
   "common.team.label": "Team",
   "common.team.placeholder": "Select a team",
-  "importExport.export.failed": "Export failed"
+  "importExport.export.failed": "Export failed",
+  "importExport.import.success": "Import complete: {created} created, {updated} updated, {skipped} skipped, {failed} failed",
+  "importExport.import.failed": "Import failed",
+  "importExport.import.invalidJson": "The selected file is not valid JSON",
+  "importExport.import.invalidShape": "The selected file is not a ContextForge export",
+  "importExport.import.tooLarge": "The file is too large to import",
+  "importExport.import.conflict": "Import stopped: some items already exist",
+  "importExport.import.validationFailed": "The file failed import validation",
+  "importExport.import.forbidden": "You don't have permission to import this configuration",
+  "importExport.preview.failed": "Could not preview the import"
 }
