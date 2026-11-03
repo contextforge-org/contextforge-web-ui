@@ -142,6 +142,7 @@ export function MCPServerDetailsPanel({
   onAuthorize,
   onRetryOAuthStatus,
   oauthAttempt,
+  oauthValidation,
   componentRefreshRevision = 0,
   componentRefreshError,
   isRefreshing = false,
@@ -164,6 +165,7 @@ export function MCPServerDetailsPanel({
   onAuthorize?: () => Promise<void>;
   onRetryOAuthStatus?: () => void;
   oauthAttempt?: OAuthAttempt;
+  oauthValidation?: React.ReactNode;
   componentRefreshRevision?: number;
   componentRefreshError?: { reason?: string };
   isRefreshing?: boolean;
@@ -635,6 +637,7 @@ export function MCPServerDetailsPanel({
                 </TabsContent>
 
                 <TabsContent value="tryit" className="mt-8">
+                  {oauthValidation && <div className="mb-6">{oauthValidation}</div>}
                   <TestConnectionPanel key={server.id} serverUrl={server.url} />
                 </TabsContent>
               </Tabs>

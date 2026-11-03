@@ -132,7 +132,9 @@ for (const fromDetails of [false, true]) {
     const dialog = page.getByRole("dialog", {
       name: "OAuth authorization failed for OAuth outcomes server",
     });
-    await expect(dialog.getByText("Provider denied the requested scope")).toBeVisible();
+    await expect(
+      dialog.getByText("The provider denied authorization. Authorize this server again."),
+    ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     if (fromDetails) await expect(panel).toBeVisible();

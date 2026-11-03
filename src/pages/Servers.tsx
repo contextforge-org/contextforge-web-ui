@@ -21,14 +21,17 @@ import { InlineNotification } from "@/components/ui/inline-notification";
 import { useIntl } from "react-intl";
 import type { OAuthAttempt } from "@/api/oauth";
 import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
+import { useOAuthConnectionValidation } from "@/hooks/useOAuthConnectionValidation";
+import { OAuthConnectionValidationPanel } from "@/components/servers/OAuthConnectionValidationPanel";
+import {
+  canValidateOAuthConnection,
+  oauthConfigurationKey,
+  oauthErrorMessage,
+} from "@/lib/oauthConnectionValidation";
 import { isOAuthServer } from "@/lib/serverStatus";
 
 // Pagination constants
 const DEFAULT_PAGE_SIZE = 10;
-
-function oauthFailureReason(error: unknown): string {
-  return error instanceof OAuthAuthorizationError ? error.message : sanitizeError(error);
-}
 
 export function Servers() {
   const intl = useIntl();
@@ -98,6 +101,7 @@ export function Servers() {
     data: detailsServer,
     error: detailsQueryError,
     setData: setDetailsServer,
+    refetch: refetchDetails,
   } = useQuery<MCPServer>(detailsQueryPath, {
     enabled: Boolean(selectedServerIdForDetails),
   });
@@ -139,6 +143,18 @@ export function Servers() {
     retry: retryOAuthStatus,
   } = useOAuthStatuses(oauthServerIds, { enabled: canReadServers });
 
+  const validationTargets = Object.fromEntries(
+    [...servers, ...(panelServer ? [panelServer] : [])].map((server) => [
+      server.id,
+      oauthConfigurationKey(server),
+    ]),
+  );
+  const {
+    entries: validationEntries,
+    test: testOAuthConnection,
+    reset: resetValidation,
+  } = useOAuthConnectionValidation(canReadServers && canUpdateServer, validationTargets);
+
   const getServerText = useCallback(
     (server: MCPServer) => `${server.name} ${server.description ?? ""} ${server.id}`,
     [],
@@ -155,6 +171,7 @@ export function Servers() {
   const patchServer = useCallback(
     (updated: MCPServer) => {
       setAllServers((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setDetailsServer((previous) => (previous?.id === updated.id ? updated : previous));
       // Keep the query cache aligned so the refetch useEffect doesn't restore
       // the pre-mutation row.
       setQueryData((prev) =>
@@ -163,7 +180,7 @@ export function Servers() {
           : prev,
       );
     },
-    [setQueryData],
+    [setQueryData, setDetailsServer],
   );
 
   const handleEdit = (id: string) => {
@@ -180,6 +197,7 @@ export function Servers() {
     if (!selectedServerId) return;
 
     const idToDelete = selectedServerId;
+    resetValidation(idToDelete);
     const previousServers = allServers;
     const serverToDelete = allServers.find((s) => s.id === idToDelete);
 
@@ -227,6 +245,7 @@ export function Servers() {
     }
   }, [
     allServers,
+    resetValidation,
     selectedServerId,
     selectedServerIdForDetails,
     isDetailsDrawerOpen,
@@ -237,6 +256,7 @@ export function Servers() {
 
   const handleToggleEnabled = useCallback(
     async (id: string, enabled: boolean) => {
+      resetValidation(id);
       setToggleError(null);
       try {
         await serversApi.toggleEnabled(id, enabled);
@@ -255,7 +275,7 @@ export function Servers() {
         console.error("Failed to toggle server state:", errorMsg);
       }
     },
-    [patchServer],
+    [patchServer, resetValidation],
   );
 
   const discoverOAuthComponents = useCallback(
@@ -286,6 +306,7 @@ export function Servers() {
   const handleAuthorize = useCallback(
     async (id: string) => {
       if (!canReadServers || pendingAuthorizationIds.current.has(id)) return;
+      resetValidation(id);
       pendingAuthorizationIds.current.add(id);
       if (
         !document.activeElement?.closest('[role="dialog"]') ||
@@ -306,7 +327,22 @@ export function Servers() {
         setOAuthAttempts((prev) => {
           const next = { ...prev };
           if (err instanceof OAuthCancelledError) delete next[id];
-          else next[id] = { state: "failed", reason: oauthFailureReason(err), dialogOpen: true };
+          else
+            next[id] = {
+              state: "failed",
+              dialogOpen: true,
+              reason:
+                err instanceof OAuthAuthorizationError
+                  ? oauthErrorMessage(intl, err.errorCode)
+                  : sanitizeError(err),
+              ...(err instanceof OAuthAuthorizationError
+                ? {
+                    errorCode: err.errorCode,
+                    failedStage: err.failedStage,
+                    reauthorizationRequired: err.reauthorizationRequired,
+                  }
+                : {}),
+            };
           return next;
         });
         return;
@@ -326,6 +362,8 @@ export function Servers() {
     },
     [
       canReadServers,
+      intl,
+      resetValidation,
       reloadOAuthStatuses,
       discoverOAuthComponents,
       allServers,
@@ -334,6 +372,34 @@ export function Servers() {
       setDetailsServer,
     ],
   );
+
+  const renderOAuthValidation = (
+    server: MCPServer,
+    variant: "actions" | "result" | "full" = "full",
+  ) => {
+    if (
+      !canReadServers ||
+      !canUpdateServer ||
+      pendingAuthorizationIds.current.has(server.id) ||
+      !canValidateOAuthConnection(server, oauthStatuses[server.id])
+    )
+      return null;
+    const entry = validationEntries[server.id];
+    if (variant === "result" && !entry) return null;
+    return (
+      <OAuthConnectionValidationPanel
+        name={server.name}
+        entry={entry}
+        actionsOnly={variant === "actions"}
+        resultOnly={variant === "result"}
+        onTest={() =>
+          void testOAuthConnection(server.id, { gatewayId: server.id, baseUrl: server.url })
+        }
+        onCancel={() => resetValidation(server.id)}
+        onAuthorize={() => void handleAuthorize(server.id)}
+      />
+    );
+  };
 
   const dismissOAuthFailure = () => {
     if (!oauthDialogServerId) return;
@@ -542,6 +608,11 @@ export function Servers() {
           }}
           serverId={updateServerId || undefined}
           onSuccess={() => {
+            if (updateServerId) {
+              resetValidation(updateServerId);
+              serversApi.invalidateGetCache(updateServerId);
+              if (selectedServerIdForDetails === updateServerId) void refetchDetails();
+            }
             setIsFormOpen(false);
             setUpdateServerId(null);
             refetch();
@@ -615,6 +686,7 @@ export function Servers() {
               <ServersTable
                 servers={filteredServers}
                 isLoading={isLoading}
+                renderOAuthValidation={renderOAuthValidation}
                 onEdit={canUpdateServer ? handleEdit : undefined}
                 onDelete={canDeleteServer ? handleDelete : undefined}
                 onViewDetails={handleViewDetails}
@@ -724,6 +796,7 @@ export function Servers() {
         key={selectedServerIdForDetails ?? "none"}
         server={panelServer}
         oauthAttempt={panelAttempt}
+        oauthValidation={panelServer ? renderOAuthValidation(panelServer) : undefined}
         componentRefreshRevision={panelServer ? (componentRevisions[panelServer.id] ?? 0) : 0}
         componentRefreshError={panelServer ? componentRefreshErrors[panelServer.id] : undefined}
         isRefreshing={panelServer ? refreshingServerIds.has(panelServer.id) : false}
