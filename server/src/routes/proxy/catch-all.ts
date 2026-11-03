@@ -32,6 +32,9 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 // Verified against mcpgateway: /api/logs is the only such router.
 const UPSTREAM_API_PREFIXES = ["logs/"];
 
+// POST-only upstream routes that take a whole config export as the body.
+const IMPORT_PATHS = ["v1/import", "v1/admin/import/preview"];
+
 /** Browser `/api/<wildcard>` -> the path FastAPI actually serves. */
 function toUpstreamPath(wildcard: string): string {
   return UPSTREAM_API_PREFIXES.some((prefix) => wildcard.startsWith(prefix))
@@ -141,51 +144,60 @@ export default async function catchAllProxyRoute(fastify: FastifyInstance): Prom
     }
   });
 
-  fastify.all(
-    "/api/*",
-    { preHandler: [fastify.sessionAuth, csrfIfUnsafe] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      // Wildcard capture excludes the leading '/api/'; see toUpstreamPath.
-      const wildcard = (request.params as Record<string, string>)["*"] ?? "";
-      const upstreamPath = toUpstreamPath(wildcard);
-      const bearerToken = request.session!.bearerToken;
+  // `wildcard` is the path after '/api/'; see toUpstreamPath.
+  const proxyToUpstream = (request: FastifyRequest, reply: FastifyReply, wildcard: string) => {
+    const upstreamPath = toUpstreamPath(wildcard);
+    const bearerToken = request.session!.bearerToken;
 
-      const sessionId = request.session!.sessionId;
+    const sessionId = request.session!.sessionId;
 
-      return reply.from(upstreamPath, {
-        rewriteRequestHeaders: (_req, headers) => {
-          // See STRIPPED_INBOUND_HEADERS above — drop every inbound
-          // infra/auth header before injecting the BFF-owned bearer and IP
-          // headers, rather than only overwriting the ones we set below.
-          const forwarded = stripInboundHeaders(headers);
-          return {
-            ...forwarded,
-            ...upstreamAuthHeader(bearerToken),
-            // Preserve real client IP for upstream audit logging.
-            "x-forwarded-for": request.ip,
-            "x-real-ip": request.ip,
-          };
-        },
-        rewriteHeaders: rewriteUpstreamLocation,
-        onResponse: (req, res, upstreamResponse) => {
-          // 401 from upstream means the bearer token itself is dead
-          // (expired/invalid) — not a permissions problem (that's 403,
-          // left alone; a valid session can still get 403s). Drop the BFF
-          // session and clear cookies now rather than let the browser keep
-          // retrying with a token that will never become valid again;
-          // its next call 401s from sessionAuth and the SPA's existing
-          // redirect-to-login handles the rest.
-          if (upstreamResponse.statusCode === 401) {
-            deleteSession(fastify.redis, sessionId).catch((err) =>
-              req.log.warn({ err, sessionId }, "failed to revoke session after upstream 401"),
-            );
-            // reply-from's onResponse types `res` generically enough (HTTP/2 union)
-            // to not structurally match FastifyReply; this app never runs HTTP/2.
-            clearSessionCookie(res as unknown as FastifyReply);
-          }
-          res.send(upstreamResponse.stream);
-        },
-      });
-    },
+    return reply.from(upstreamPath, {
+      rewriteRequestHeaders: (_req, headers) => {
+        // See STRIPPED_INBOUND_HEADERS above — drop every inbound
+        // infra/auth header before injecting the BFF-owned bearer and IP
+        // headers, rather than only overwriting the ones we set below.
+        const forwarded = stripInboundHeaders(headers);
+        return {
+          ...forwarded,
+          ...upstreamAuthHeader(bearerToken),
+          // Preserve real client IP for upstream audit logging.
+          "x-forwarded-for": request.ip,
+          "x-real-ip": request.ip,
+        };
+      },
+      rewriteHeaders: rewriteUpstreamLocation,
+      onResponse: (req, res, upstreamResponse) => {
+        // 401 from upstream means the bearer token itself is dead
+        // (expired/invalid) — not a permissions problem (that's 403,
+        // left alone; a valid session can still get 403s). Drop the BFF
+        // session and clear cookies now rather than let the browser keep
+        // retrying with a token that will never become valid again;
+        // its next call 401s from sessionAuth and the SPA's existing
+        // redirect-to-login handles the rest.
+        if (upstreamResponse.statusCode === 401) {
+          deleteSession(fastify.redis, sessionId).catch((err) =>
+            req.log.warn({ err, sessionId }, "failed to revoke session after upstream 401"),
+          );
+          // reply-from's onResponse types `res` generically enough (HTTP/2 union)
+          // to not structurally match FastifyReply; this app never runs HTTP/2.
+          clearSessionCookie(res as unknown as FastifyReply);
+        }
+        res.send(upstreamResponse.stream);
+      },
+    });
+  };
+
+  // Config import bodies (full exports) outgrow the 1 MiB default; raise the
+  // limit on these routes only. Static paths win over the wildcard below.
+  for (const path of IMPORT_PATHS) {
+    fastify.post(
+      `/api/${path}`,
+      { bodyLimit: config.importBodyLimitBytes, preHandler: [fastify.sessionAuth, csrfIfUnsafe] },
+      (request, reply) => proxyToUpstream(request, reply, path),
+    );
+  }
+
+  fastify.all("/api/*", { preHandler: [fastify.sessionAuth, csrfIfUnsafe] }, (request, reply) =>
+    proxyToUpstream(request, reply, (request.params as Record<string, string>)["*"] ?? ""),
   );
 }
