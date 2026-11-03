@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook as rtlRenderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { IntlProvider } from "react-intl";
-import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
 import { importExportApi, type ConfigExport } from "@/api/importExport";
@@ -14,7 +13,6 @@ import { useExportConfig } from "./useExportConfig";
 
 vi.mock("@/auth/useAuth", () => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/download", () => ({ downloadJson: vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/api/importExport", () => ({
   importExportApi: { exportConfig: vi.fn(), exportSelective: vi.fn() },
 }));
@@ -69,14 +67,18 @@ describe("useExportConfig", () => {
     mockExportConfig.mockResolvedValueOnce(EXPORT);
     const { result } = renderHook();
 
-    await act(() => result.current.exportAll({ types: ["tools"] }));
+    let returned!: boolean;
+    await act(async () => {
+      returned = await result.current.exportAll({ types: ["tools"] });
+    });
+
+    expect(returned).toBe(true);
 
     expect(mockExportConfig).toHaveBeenCalledWith({ types: ["tools"] }, expect.any(AbortSignal));
     expect(mockDownloadJson).toHaveBeenCalledWith(
       EXPORT,
       "contextforge-export-2026-11-02T10-00-00-000Z.json",
     );
-    expect(toast.success).toHaveBeenCalledWith("Configuration exported");
     expect(result.current.isExporting).toBe(false);
     expect(result.current.error).toBeNull();
   });
@@ -101,7 +103,7 @@ describe("useExportConfig", () => {
     mockExportConfig.mockReturnValueOnce(new Promise((r) => (resolve = r)));
     const { result } = renderHook();
 
-    let pending!: Promise<void>;
+    let pending!: Promise<boolean>;
     act(() => {
       pending = result.current.exportAll();
     });
@@ -120,10 +122,13 @@ describe("useExportConfig", () => {
     );
     const { result } = renderHook();
 
-    await act(() => result.current.exportAll());
+    let returned!: boolean;
+    await act(async () => {
+      returned = await result.current.exportAll();
+    });
 
+    expect(returned).toBe(false);
     expect(result.current.error).toBe("Insufficient permissions");
-    expect(toast.error).toHaveBeenCalledWith("Insufficient permissions");
     expect(mockDownloadJson).not.toHaveBeenCalled();
     expect(result.current.isExporting).toBe(false);
   });
@@ -142,7 +147,7 @@ describe("useExportConfig", () => {
     mockExportConfig.mockReturnValueOnce(new Promise((r) => (resolve = r)));
     const { result, unmount } = renderHook();
 
-    let pending!: Promise<void>;
+    let pending!: Promise<boolean>;
     act(() => {
       pending = result.current.exportAll();
     });
@@ -151,7 +156,7 @@ describe("useExportConfig", () => {
     expect(signal.aborted).toBe(true);
 
     resolve(EXPORT);
-    await pending;
+    expect(await pending).toBe(false);
     expect(mockDownloadJson).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { toast } from "sonner";
 
 import {
   importExportApi,
@@ -12,14 +11,19 @@ import { useAuth } from "@/auth/useAuth";
 import { downloadJson } from "@/lib/download";
 import { parseApiError } from "@/lib/errorUtils";
 
+/**
+ * Requests + state only. Actions resolve true once the file is downloaded,
+ * false on failure (`error` set) or abort; feedback (toasts etc.) is the
+ * caller's job.
+ */
 export interface ExportConfigState {
   /** Full export, optionally filtered; downloads the result as JSON. */
-  exportAll: (filters?: ExportFilters) => Promise<void>;
+  exportAll: (filters?: ExportFilters) => Promise<boolean>;
   /** Export only the picked entities; downloads the result as JSON. */
   exportSelected: (
     selection: EntitySelection,
     opts?: { includeDependencies?: boolean },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   isExporting: boolean;
   error: string | null;
   canExport: boolean;
@@ -39,7 +43,7 @@ export function useExportConfig(): ExportConfigState {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const run = useCallback(
-    async (fetchExport: (signal: AbortSignal) => Promise<ConfigExport>) => {
+    async (fetchExport: (signal: AbortSignal) => Promise<ConfigExport>): Promise<boolean> => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -47,17 +51,14 @@ export function useExportConfig(): ExportConfigState {
       setError(null);
       try {
         const data = await fetchExport(controller.signal);
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return false;
         downloadJson(data, exportFilename());
-        toast.success(intl.formatMessage({ id: "importExport.export.success" }));
+        return true;
       } catch (err) {
-        if (controller.signal.aborted) return;
-        const message = parseApiError(
-          err,
-          intl.formatMessage({ id: "importExport.export.failed" }),
-        );
-        setError(message);
-        toast.error(message);
+        if (!controller.signal.aborted) {
+          setError(parseApiError(err, intl.formatMessage({ id: "importExport.export.failed" })));
+        }
+        return false;
       } finally {
         // A superseding call owns the loading state from here on.
         if (abortRef.current === controller) {
