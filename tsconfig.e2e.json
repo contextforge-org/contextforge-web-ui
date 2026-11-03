@@ -4,7 +4,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["@playwright/test", "node"],
+    "types": ["@playwright/test", "node", "vite/client"],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
