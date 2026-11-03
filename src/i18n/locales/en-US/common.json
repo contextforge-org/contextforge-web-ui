@@ -77,5 +77,6 @@
   "importExport.import.conflict": "Import stopped: some items already exist",
   "importExport.import.validationFailed": "The file failed import validation",
   "importExport.import.forbidden": "You don't have permission to import this configuration",
-  "importExport.preview.failed": "Could not preview the import"
+  "importExport.import.partial": "Import partially applied: {created} created, {updated} updated, {skipped} skipped, {failed} failed",
+  "importExport.import.allFailed": "Import failed: none of the {failed} items could be applied"
 }

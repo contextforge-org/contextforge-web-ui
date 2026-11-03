@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl, type IntlShape } from "react-intl";
-import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
 import {
@@ -9,7 +8,6 @@ import {
   parseImportFile,
   type ConfigExport,
   type ImportOptions,
-  type ImportPreview,
   type ImportResult,
 } from "@/api/importExport";
 import { useAuth } from "@/auth/useAuth";
@@ -18,23 +16,36 @@ import { parseApiError } from "@/lib/errorUtils";
 /** Everything but the file content, which the hook holds itself. */
 export type ImportRunOptions = Omit<ImportOptions, "data" | "dryRun">;
 
+/**
+ * Requests + state only. Actions resolve with their result, or null on failure
+ * (`error` set), abort, or a skipped call; feedback (toasts etc.) is the
+ * caller's job. Use `importOutcome` to judge an import result.
+ */
 export interface ImportConfigState {
   /** Reads + shape-checks a file; resolves false (with `error` set) when it's unusable. */
   loadFile: (file: File) => Promise<boolean>;
-  /** Per-item preview with conflicts; no-op without a file or `canPreview`. */
-  preview: () => Promise<void>;
   /** Validates the import server-side without writing anything. */
-  dryRun: (opts?: ImportRunOptions) => Promise<void>;
-  runImport: (opts?: ImportRunOptions) => Promise<void>;
+  dryRun: (opts?: ImportRunOptions) => Promise<ImportResult | null>;
+  runImport: (opts?: ImportRunOptions) => Promise<ImportResult | null>;
   reset: () => void;
   data: ConfigExport | null;
-  previewResult: ImportPreview | null;
   dryRunResult: ImportResult | null;
   result: ImportResult | null;
   isLoading: boolean;
   error: string | null;
   canImport: boolean;
-  canPreview: boolean;
+}
+
+export type ImportOutcome = "success" | "partial" | "failed";
+
+/**
+ * The backend reports `completed` even when entities fail, so judge by counts.
+ * Works for dry-run results too.
+ */
+export function importOutcome(result: ImportResult): ImportOutcome {
+  const { failed, total } = result.progress;
+  if (result.status === "failed" || (total > 0 && failed >= total)) return "failed";
+  return failed > 0 ? "partial" : "success";
 }
 
 // Backend details for these are generic English; prefer our own copy.
@@ -45,20 +56,18 @@ const STATUS_MESSAGE_IDS: Record<number, string> = {
   422: "importExport.import.validationFailed",
 };
 
-function importErrorMessage(err: unknown, intl: IntlShape, fallbackId: string): string {
+function importErrorMessage(err: unknown, intl: IntlShape): string {
   const id = err instanceof ApiError ? STATUS_MESSAGE_IDS[err.status] : undefined;
   return id
     ? intl.formatMessage({ id })
-    : parseApiError(err, intl.formatMessage({ id: fallbackId }));
+    : parseApiError(err, intl.formatMessage({ id: "importExport.import.failed" }));
 }
 
 export function useImportConfig(): ImportConfigState {
   const intl = useIntl();
   const { hasPermission } = useAuth();
   const canImport = hasPermission("admin.import");
-  const canPreview = hasPermission("admin.system_config");
   const [data, setData] = useState<ConfigExport | null>(null);
-  const [previewResult, setPreviewResult] = useState<ImportPreview | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ImportResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [isLoading, setLoading] = useState(false);
@@ -73,25 +82,26 @@ export function useImportConfig(): ImportConfigState {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const run = useCallback(
-    async <T>(
-      request: (signal: AbortSignal) => Promise<T>,
-      onSuccess: (value: T) => void,
-      fallbackId: string,
-    ) => {
+  // Shared by dryRun and runImport; only the flag and the result slot differ.
+  const submit = useCallback(
+    async (opts: ImportRunOptions, dryRun: boolean): Promise<ImportResult | null> => {
+      if (!data) return null;
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       setLoading(true);
       setError(null);
       try {
-        const value = await request(controller.signal);
-        if (!controller.signal.aborted) onSuccess(value);
+        const value = await importExportApi.importConfig(
+          { ...opts, data, dryRun },
+          controller.signal,
+        );
+        if (controller.signal.aborted) return null;
+        (dryRun ? setDryRunResult : setResult)(value);
+        return value;
       } catch (err) {
-        if (controller.signal.aborted) return;
-        const message = importErrorMessage(err, intl, fallbackId);
-        setError(message);
-        toast.error(message);
+        if (!controller.signal.aborted) setError(importErrorMessage(err, intl));
+        return null;
       } finally {
         // A superseding call owns the loading state from here on.
         if (abortRef.current === controller) {
@@ -100,13 +110,12 @@ export function useImportConfig(): ImportConfigState {
         }
       }
     },
-    [intl],
+    [data, intl],
   );
 
   const reset = useCallback(() => {
     abortCurrent();
     setData(null);
-    setPreviewResult(null);
     setDryRunResult(null);
     setResult(null);
     setError(null);
@@ -132,55 +141,19 @@ export function useImportConfig(): ImportConfigState {
     [intl, reset],
   );
 
-  const preview = useCallback(async () => {
-    if (!data || !canPreview) return;
-    await run(
-      (signal) => importExportApi.previewImport(data, signal),
-      setPreviewResult,
-      "importExport.preview.failed",
-    );
-  }, [canPreview, data, run]);
-
-  const dryRun = useCallback(
-    async (opts: ImportRunOptions = {}) => {
-      if (!data) return;
-      await run(
-        (signal) => importExportApi.importConfig({ ...opts, data, dryRun: true }, signal),
-        setDryRunResult,
-        "importExport.import.failed",
-      );
-    },
-    [data, run],
-  );
-
-  const runImport = useCallback(
-    async (opts: ImportRunOptions = {}) => {
-      if (!data) return;
-      await run(
-        (signal) => importExportApi.importConfig({ ...opts, data, dryRun: false }, signal),
-        (value) => {
-          setResult(value);
-          toast.success(intl.formatMessage({ id: "importExport.import.success" }, value.progress));
-        },
-        "importExport.import.failed",
-      );
-    },
-    [data, intl, run],
-  );
+  const dryRun = useCallback((opts: ImportRunOptions = {}) => submit(opts, true), [submit]);
+  const runImport = useCallback((opts: ImportRunOptions = {}) => submit(opts, false), [submit]);
 
   return {
     loadFile,
-    preview,
     dryRun,
     runImport,
     reset,
     data,
-    previewResult,
     dryRunResult,
     result,
     isLoading,
     error,
     canImport,
-    canPreview,
   };
 }

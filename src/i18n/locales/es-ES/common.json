@@ -77,5 +77,6 @@
   "importExport.import.conflict": "Importación detenida: algunos elementos ya existen",
   "importExport.import.validationFailed": "El archivo no superó la validación de importación",
   "importExport.import.forbidden": "No tiene permiso para importar esta configuración",
-  "importExport.preview.failed": "No se pudo previsualizar la importación"
+  "importExport.import.partial": "Importación aplicada parcialmente: {created} creados, {updated} actualizados, {skipped} omitidos, {failed} con error",
+  "importExport.import.allFailed": "Error al importar: no se pudo aplicar ninguno de los {failed} elementos"
 }

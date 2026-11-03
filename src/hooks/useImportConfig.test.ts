@@ -2,31 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook as rtlRenderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { IntlProvider } from "react-intl";
-import { toast } from "sonner";
 
 import { ApiError } from "@/api/client";
-import {
-  importExportApi,
-  type ConfigExport,
-  type ImportPreview,
-  type ImportResult,
-} from "@/api/importExport";
+import { importExportApi, type ConfigExport, type ImportResult } from "@/api/importExport";
 import { useAuth } from "@/auth/useAuth";
 import enMessages from "@/i18n/locales/en-US";
 
-import { useImportConfig } from "./useImportConfig";
+import { importOutcome, useImportConfig } from "./useImportConfig";
 
 vi.mock("@/auth/useAuth", () => ({ useAuth: vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // Keep parseImportFile/ImportFileError real; stub only the network calls.
 vi.mock("@/api/importExport", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/importExport")>();
-  return { ...actual, importExportApi: { importConfig: vi.fn(), previewImport: vi.fn() } };
+  return { ...actual, importExportApi: { importConfig: vi.fn() } };
 });
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockImportConfig = vi.mocked(importExportApi.importConfig);
-const mockPreviewImport = vi.mocked(importExportApi.previewImport);
 
 const EXPORT: ConfigExport = {
   version: "2025-06-18",
@@ -43,14 +35,6 @@ const RESULT: ImportResult = {
   warnings: [],
   started_at: "2026-11-02T10:00:00Z",
   completed_at: "2026-11-02T10:00:01Z",
-};
-
-const PREVIEW: ImportPreview = {
-  summary: { total_items: 1, by_type: { tools: 1 } },
-  items: {},
-  bundles: {},
-  dependencies: {},
-  conflicts: {},
 };
 
 // jsdom's File has no .text(); parseImportFile only needs that.
@@ -81,14 +65,14 @@ async function loaded() {
 describe("useImportConfig", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    grant("admin.import", "admin.system_config");
+    grant("admin.import");
   });
 
-  it("derives canImport and canPreview from separate permissions", () => {
-    expect(renderHook().result.current).toMatchObject({ canImport: true, canPreview: true });
+  it("canImport follows the admin.import permission", () => {
+    expect(renderHook().result.current.canImport).toBe(true);
 
-    grant("admin.import");
-    expect(renderHook().result.current).toMatchObject({ canImport: true, canPreview: false });
+    grant();
+    expect(renderHook().result.current.canImport).toBe(false);
   });
 
   describe("loadFile", () => {
@@ -146,43 +130,47 @@ describe("useImportConfig", () => {
   it("does nothing before a file is loaded", async () => {
     const { result } = renderHook();
 
-    await act(() => result.current.dryRun());
-    await act(() => result.current.runImport());
-    await act(() => result.current.preview());
+    await act(async () => {
+      expect(await result.current.dryRun()).toBeNull();
+      expect(await result.current.runImport()).toBeNull();
+    });
 
     expect(mockImportConfig).not.toHaveBeenCalled();
-    expect(mockPreviewImport).not.toHaveBeenCalled();
   });
 
   it("dryRun sends dryRun: true and stores the result separately", async () => {
     mockImportConfig.mockResolvedValueOnce(RESULT);
     const { result } = await loaded();
 
-    await act(() => result.current.dryRun({ conflictStrategy: "skip" }));
+    let returned!: ImportResult | null;
+    await act(async () => {
+      returned = await result.current.dryRun({ conflictStrategy: "skip" });
+    });
 
     expect(mockImportConfig).toHaveBeenCalledWith(
       { conflictStrategy: "skip", data: EXPORT, dryRun: true },
       expect.any(AbortSignal),
     );
+    expect(returned).toEqual(RESULT);
     expect(result.current.dryRunResult).toEqual(RESULT);
     expect(result.current.result).toBeNull();
-    expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it("runImport sends dryRun: false and toasts the counts", async () => {
+  it("runImport sends dryRun: false and resolves with the result", async () => {
     mockImportConfig.mockResolvedValueOnce(RESULT);
     const { result } = await loaded();
 
-    await act(() => result.current.runImport({ selectedEntities: { tools: ["t1"] } }));
+    let returned!: ImportResult | null;
+    await act(async () => {
+      returned = await result.current.runImport({ selectedEntities: { tools: ["t1"] } });
+    });
 
     expect(mockImportConfig).toHaveBeenCalledWith(
       { selectedEntities: { tools: ["t1"] }, data: EXPORT, dryRun: false },
       expect.any(AbortSignal),
     );
+    expect(returned).toEqual(RESULT);
     expect(result.current.result).toEqual(RESULT);
-    expect(toast.success).toHaveBeenCalledWith(
-      "Import complete: 1 created, 2 updated, 1 skipped, 0 failed",
-    );
   });
 
   it.each([
@@ -196,10 +184,13 @@ describe("useImportConfig", () => {
     );
     const { result } = await loaded();
 
-    await act(() => result.current.runImport());
+    let returned: ImportResult | null | undefined;
+    await act(async () => {
+      returned = await result.current.runImport();
+    });
 
+    expect(returned).toBeNull();
     expect(result.current.error).toBe(message);
-    expect(toast.error).toHaveBeenCalledWith(message);
     expect(result.current.isLoading).toBe(false);
   });
 
@@ -214,34 +205,13 @@ describe("useImportConfig", () => {
     expect(result.current.error).toBe("Invalid conflict strategy");
   });
 
-  describe("preview", () => {
-    it("stores the preview when allowed", async () => {
-      mockPreviewImport.mockResolvedValueOnce(PREVIEW);
-      const { result } = await loaded();
+  it("falls back to the localized message when the error has no detail", async () => {
+    mockImportConfig.mockRejectedValueOnce(new Error("network"));
+    const { result } = await loaded();
 
-      await act(() => result.current.preview());
+    await act(() => result.current.runImport());
 
-      expect(mockPreviewImport).toHaveBeenCalledWith(EXPORT, expect.any(AbortSignal));
-      expect(result.current.previewResult).toEqual(PREVIEW);
-    });
-
-    it("is skipped without admin.system_config", async () => {
-      grant("admin.import");
-      const { result } = await loaded();
-
-      await act(() => result.current.preview());
-
-      expect(mockPreviewImport).not.toHaveBeenCalled();
-    });
-
-    it("falls back to the preview message", async () => {
-      mockPreviewImport.mockRejectedValueOnce(new Error("network"));
-      const { result } = await loaded();
-
-      await act(() => result.current.preview());
-
-      expect(result.current.error).toBe("Could not preview the import");
-    });
+    expect(result.current.error).toBe("Import failed");
   });
 
   it("reset aborts the request and clears all state", async () => {
@@ -260,6 +230,27 @@ describe("useImportConfig", () => {
     expect(result.current).toMatchObject({ data: null, isLoading: false, error: null });
   });
 
+  it("resolves null and keeps state clear when a reset request answers late", async () => {
+    let resolve!: (value: ImportResult) => void;
+    mockImportConfig.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    const { result } = await loaded();
+
+    let pending!: Promise<ImportResult | null>;
+    act(() => {
+      pending = result.current.runImport();
+    });
+    act(() => result.current.reset());
+
+    let returned: ImportResult | null | undefined;
+    await act(async () => {
+      resolve(RESULT);
+      returned = await pending;
+    });
+
+    expect(returned).toBeNull();
+    expect(result.current.result).toBeNull();
+  });
+
   it("aborts the in-flight request on unmount", async () => {
     mockImportConfig.mockReturnValueOnce(new Promise(() => {}));
     const { result, unmount } = await loaded();
@@ -271,5 +262,23 @@ describe("useImportConfig", () => {
     unmount();
 
     expect(signal.aborted).toBe(true);
+  });
+});
+
+describe("importOutcome", () => {
+  const withProgress = (
+    failed: number,
+    total: number,
+    status: ImportResult["status"] = "completed",
+  ) => ({ ...RESULT, status, progress: { ...RESULT.progress, failed, total } }) as ImportResult;
+
+  it.each([
+    ["no failures", withProgress(0, 4), "success"],
+    ["an empty import", withProgress(0, 0), "success"],
+    ["some failures", withProgress(1, 4), "partial"],
+    ["every entity failed", withProgress(4, 4), "failed"],
+    ["a failed status", withProgress(0, 4, "failed"), "failed"],
+  ])("classifies %s", (_label, result, outcome) => {
+    expect(importOutcome(result)).toBe(outcome);
   });
 });

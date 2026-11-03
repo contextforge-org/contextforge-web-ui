@@ -77,5 +77,6 @@
   "importExport.import.conflict": "Importação interrompida: alguns itens já existem",
   "importExport.import.validationFailed": "O arquivo não passou na validação de importação",
   "importExport.import.forbidden": "Você não tem permissão para importar esta configuração",
-  "importExport.preview.failed": "Não foi possível pré-visualizar a importação"
+  "importExport.import.partial": "Importação aplicada parcialmente: {created} criados, {updated} atualizados, {skipped} ignorados, {failed} com falha",
+  "importExport.import.allFailed": "Falha ao importar: nenhum dos {failed} itens pôde ser aplicado"
 }
