@@ -52,6 +52,14 @@ export class OAuthCancelledError extends Error {
   }
 }
 
+/** The browser refused to open the OAuth popup. Retrying won't help until the setting changes. */
+export class OAuthPopupBlockedError extends Error {
+  constructor() {
+    super("Failed to open OAuth authorization window. Please check your popup blocker settings.");
+    this.name = "OAuthPopupBlockedError";
+  }
+}
+
 function openOAuthAuthorizationPopup(): Window {
   const width = 600;
   const height = 700;
@@ -64,9 +72,7 @@ function openOAuthAuthorizationPopup(): Window {
   );
 
   if (!authWindow) {
-    throw new Error(
-      "Failed to open OAuth authorization window. Please check your popup blocker settings.",
-    );
+    throw new OAuthPopupBlockedError();
   }
 
   return authWindow;

@@ -11,7 +11,12 @@ import {
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
 import { getOAuthStatuses } from "@/api/oauth";
-import { OAuthAuthorizationError, OAuthCancelledError, serversApi } from "@/api/servers";
+import {
+  OAuthAuthorizationError,
+  OAuthCancelledError,
+  OAuthPopupBlockedError,
+  serversApi,
+} from "@/api/servers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { CatalogListResponse, CatalogServer } from "@/generated/types";
 import { useQuery } from "@/hooks/useQuery";
@@ -70,6 +75,12 @@ vi.mock("@/api/servers", () => ({
     constructor(message = "OAuth authorization was cancelled") {
       super(message);
       this.name = "OAuthCancelledError";
+    }
+  },
+  OAuthPopupBlockedError: class OAuthPopupBlockedError extends Error {
+    constructor() {
+      super("Failed to open OAuth authorization window");
+      this.name = "OAuthPopupBlockedError";
     }
   },
   serversApi: {
@@ -435,7 +446,7 @@ describe("ServerCatalog", () => {
   it("does not register OAuth credentials when popup creation is blocked", async () => {
     const user = userEvent.setup();
     mockOpenOAuthAuthorizationPopup.mockImplementation(() => {
-      throw new Error("Failed to open OAuth authorization window");
+      throw new OAuthPopupBlockedError();
     });
     renderWithRouter(<ServerCatalog />);
 
@@ -455,9 +466,8 @@ describe("ServerCatalog", () => {
     );
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    expect(
-      await within(form).findByText("OAuth authorization could not be completed. Try again."),
-    ).toBeVisible();
+    expect(await within(form).findByText(/blocked by your browser/i)).toBeVisible();
+    expect(within(form).queryByText(/Try again\.$/)).not.toBeInTheDocument();
     expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
   });
 
@@ -668,6 +678,34 @@ describe("ServerCatalog", () => {
   it("falls back to the localized message when the provider sends no details", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(new OAuthAuthorizationError());
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add GitHub" }));
+    const form = await screen.findByRole("form", { name: "Add GitHub" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo");
+    await user.type(within(form).getByLabelText(/^Client ID/i), "github-client");
+    await user.type(within(form).getByLabelText(/^Client Secret/i), "github-secret");
+    await user.type(
+      within(form).getByLabelText(/^Authorization URL/i),
+      "https://github.com/login/oauth/authorize",
+    );
+    await user.type(
+      within(form).getByLabelText(/^Token URL/i),
+      "https://github.com/login/oauth/access_token",
+    );
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    expect(
+      await within(form).findByText("OAuth authorization could not be completed. Try again."),
+    ).toBeVisible();
+    expect(within(form).queryByText("OAuth authorization failed")).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+
+  it("does not show a raw OAuth error code when the provider sends no description", async () => {
+    const user = userEvent.setup();
+    mockTriggerOAuthAuthorization.mockRejectedValue(new OAuthAuthorizationError("access_denied"));
     renderWithRouter(<ServerCatalog />);
 
     await user.click(screen.getByRole("button", { name: "Add GitHub" }));

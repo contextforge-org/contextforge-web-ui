@@ -10,7 +10,12 @@ import {
   type GatewayImpactPreview,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
-import { OAuthAuthorizationError, OAuthCancelledError, serversApi } from "@/api/servers";
+import {
+  OAuthAuthorizationError,
+  OAuthCancelledError,
+  OAuthPopupBlockedError,
+  serversApi,
+} from "@/api/servers";
 import { useAuth } from "@/auth/useAuth";
 import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
 import { CatalogOAuthForm } from "@/components/server-catalog/CatalogOAuthForm";
@@ -353,11 +358,15 @@ function CatalogPageLayout({
   );
 }
 
-// Surface the provider's own reason when it sent one; every other failure
-// (including a provider denial with no details) gets the localized text.
+// Surface the provider's own description when it sent one. A blocked popup
+// gets its own message (retrying won't help). Everything else, including a
+// provider denial with only a raw error code, gets the localized text.
 function oauthErrorMessage(intl: IntlShape, error: unknown): string {
+  if (error instanceof OAuthPopupBlockedError) {
+    return intl.formatMessage({ id: "mcpServer.catalog.oauth.popupBlocked" });
+  }
   return (
-    (error instanceof OAuthAuthorizationError && (error.description || error.code)) ||
+    (error instanceof OAuthAuthorizationError && error.description) ||
     intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" })
   );
 }
