@@ -136,25 +136,6 @@ describe("importExportApi", () => {
       });
     });
   });
-
-  describe("previewImport", () => {
-    it("wraps the data in { data } and unwraps .preview", async () => {
-      const preview = {
-        summary: { total_items: 1, by_type: { tools: 1 } },
-        items: { tools: [{ id: "t1", name: "t1", type: "tools" }] },
-        bundles: {},
-        dependencies: {},
-        conflicts: {},
-      };
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: true, preview, message: "ok" }));
-
-      const result = await importExportApi.previewImport(EXPORT);
-
-      expect(lastUrl().pathname).toBe("/api/v1/admin/import/preview");
-      expect(lastBody()).toEqual({ data: EXPORT });
-      expect(result).toEqual(preview);
-    });
-  });
 });
 
 describe("parseImportFile", () => {

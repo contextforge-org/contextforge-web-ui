@@ -1,11 +1,11 @@
 /**
  * Configuration import/export service.
  *
- * Wraps `/v1/export`, `/v1/export/selective`, `/v1/import` and the admin
- * import preview. Export needs `admin.export`; import needs `admin.import`;
- * preview needs `admin.system_config`. The backend enforces all three.
+ * Wraps `/v1/export`, `/v1/export/selective` and `/v1/import`. Export needs
+ * `admin.export`; import needs `admin.import`. The backend enforces both.
+ * No import preview: its only route lives on the deprecated `/v1/admin` router.
  *
- * Import bodies go through dedicated BFF routes with a larger body limit
+ * Import bodies go through a dedicated BFF route with a larger body limit
  * (see server/src/routes/proxy/catch-all.ts).
  */
 
@@ -78,31 +78,6 @@ export interface ImportResult {
   warnings: string[];
   started_at: string;
   completed_at: string | null;
-}
-
-export interface ImportPreviewItem {
-  id: string;
-  name: string;
-  type: ExportEntityType;
-  description: string;
-  is_gateway_item: boolean;
-  is_custom: boolean;
-  conflicts_with?: boolean;
-  [key: string]: unknown;
-}
-
-export interface ImportPreview {
-  summary: { total_items: number; by_type: Partial<Record<ExportEntityType, number>> };
-  items: Partial<Record<ExportEntityType, ImportPreviewItem[]>>;
-  bundles: Record<string, unknown>;
-  dependencies: Record<string, unknown>;
-  conflicts: Record<string, unknown>;
-}
-
-interface ImportPreviewResponse {
-  success: boolean;
-  preview: ImportPreview;
-  message: string;
 }
 
 export class ImportFileError extends Error {
@@ -199,15 +174,5 @@ export const importExportApi = {
       selected_entities: opts.selectedEntities,
     };
     return api.post<ImportResult>("/v1/import", body, { signal });
-  },
-
-  /** Per-item preview with conflicts; needs `admin.system_config`. */
-  previewImport: async (data: ConfigExport, signal?: AbortSignal): Promise<ImportPreview> => {
-    const response = await api.post<ImportPreviewResponse>(
-      "/v1/admin/import/preview",
-      { data },
-      { signal },
-    );
-    return response.preview;
   },
 };
