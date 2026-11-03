@@ -460,7 +460,7 @@ test.describe("Tools page", () => {
         arguments: { query: "cloudflare", limit: 5 },
       },
     });
-    expect(rpcBody?.params).not.toHaveProperty("server_id");
+    expect(rpcBody).not.toHaveProperty("params.server_id");
     expect(rpcHeaders["x-tenant-id"]).toBe("team-a");
     // Real mode gets a real, randomly-generated token from the real login.
     expect(rpcHeaders["x-csrf-token"]).toBe((await apiMock.getRealCsrfToken()) ?? MOCK_CSRF_TOKEN);

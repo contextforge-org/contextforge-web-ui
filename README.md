@@ -159,7 +159,7 @@ npm run preview
 
 ## API Types
 
-TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.1.0, not re-fetched at build time.
+TypeScript types and fetch clients under `src/generated/` come from [`openapi.json`](./openapi.json) via [Orval](./orval.config.ts). That file is committed and pinned to API v1.1.0 at [backend revision d2da38b](https://github.com/IBM/mcp-context-forge/commit/d2da38b56be5e8e4bdf51db9b2c43d4c96036b62), which includes the post-authorization validation contract from [PR #7343](https://github.com/IBM/mcp-context-forge/pull/7343). It is not re-fetched at build time.
 
 ```bash
 npm run api:generate   # regenerate src/generated/ from ./openapi.json

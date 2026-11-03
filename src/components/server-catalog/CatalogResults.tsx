@@ -118,6 +118,9 @@ function CatalogCard({
   onView,
   onAdd,
   onTest,
+  canTestOAuthServer,
+  canTestOAuth = true,
+  renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   isAdding,
@@ -134,6 +137,9 @@ function CatalogCard({
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
   onTest: () => void;
+  canTestOAuthServer?: (server: CatalogServer) => boolean;
+  canTestOAuth?: boolean;
+  renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: () => void;
   onDisconnect: () => void;
   isAdding: boolean;
@@ -279,19 +285,32 @@ function CatalogCard({
                       >
                         {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
                       </DropdownMenuItem>
-                      {canTest && (
-                        <DropdownMenuItem
-                          disabled={!oauthUsable || isAdding || isTesting || isDisconnecting}
-                          onSelect={onTest}
-                          title={
-                            !oauthUsable
-                              ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
-                              : undefined
-                          }
-                        >
-                          {intl.formatMessage({ id: "mcpServer.catalog.test" })}
-                        </DropdownMenuItem>
-                      )}
+                      {canTest &&
+                        (!isCatalogOAuthServer(server) ||
+                          oauthStatuses?.[server.gateway_id ?? ""]?.state === "not_applicable" ||
+                          canTestOAuth) && (
+                          <DropdownMenuItem
+                            disabled={
+                              !oauthUsable ||
+                              isAdding ||
+                              isTesting ||
+                              isDisconnecting ||
+                              (isCatalogOAuthServer(server) &&
+                                oauthStatuses?.[server.gateway_id ?? ""]?.state !==
+                                  "not_applicable" &&
+                                !!canTestOAuthServer &&
+                                !canTestOAuthServer(server))
+                            }
+                            onSelect={onTest}
+                            title={
+                              !oauthUsable
+                                ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
+                                : undefined
+                            }
+                          >
+                            {intl.formatMessage({ id: "mcpServer.catalog.test" })}
+                          </DropdownMenuItem>
+                        )}
                       {oauthState.canAuthorize && server.gateway_id && (
                         <DropdownMenuItem
                           disabled={isAdding || isDisconnecting}
@@ -389,6 +408,7 @@ function CatalogCard({
                 </StatusIndicator>
               )}
             </div>
+            {renderOAuthValidation?.(server)}
           </CardContent>
         </article>
       </Card>
@@ -481,6 +501,9 @@ export function CatalogResults({
   onAdd,
   addingServerIds,
   onTest,
+  canTestOAuthServer,
+  canTestOAuth = true,
+  renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   testingServerIds = EMPTY_PENDING_IDS,
@@ -498,6 +521,9 @@ export function CatalogResults({
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
   onTest: (server: CatalogServer) => void;
+  canTestOAuthServer?: (server: CatalogServer) => boolean;
+  canTestOAuth?: boolean;
+  renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: (server: CatalogServer) => void;
   onDisconnect: (server: CatalogServer) => void;
   testingServerIds?: ReadonlySet<string>;
@@ -529,6 +555,9 @@ export function CatalogResults({
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
               onTest={() => onTest(server)}
+              canTestOAuthServer={canTestOAuthServer}
+              canTestOAuth={canTestOAuth}
+              renderOAuthValidation={renderOAuthValidation}
               onAuthorize={() => onAuthorize(server)}
               onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}

@@ -1553,6 +1553,61 @@ describe("Servers", () => {
       };
     }
 
+    it("offers an explicit test after authorization and shares its result with details", async () => {
+      const user = userEvent.setup();
+      setupOAuth();
+      const testConnection = vi.spyOn(serversApi, "testOAuthConnection");
+      testConnection.mockResolvedValue({
+        success: true,
+        latencyMs: 5,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+        componentCounts: { tools: 0 },
+      });
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const row = screen.getByRole("row", { name: /Test Server 0/ });
+      const button = await within(row).findByRole("button", { name: "Test connection" });
+      expect(testConnection).not.toHaveBeenCalled();
+      await user.click(button);
+      expect(await screen.findByText("Stored authorization verified")).toBeVisible();
+      expect(testConnection).toHaveBeenCalledExactlyOnceWith(
+        { gatewayId: "server-0", baseUrl: mockServerDetails.url },
+        expect.any(AbortSignal),
+      );
+      await user.click(within(row).getByRole("button", { name: "Actions for Test Server 0" }));
+      await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+      const panel = screen.getByRole("region", { name: /MCP Server details: Test Server 0/ });
+      expect(within(panel).getByText("Stored authorization verified")).toBeVisible();
+      expect(within(panel).getByText("0 tools")).toBeVisible();
+    });
+
+    it("does not offer strict validation to a read-only caller", async () => {
+      setupOAuth({ token: "valid" });
+      mockHasPermission.mockImplementation((permission) => permission === "gateways.read");
+      renderWithRouter(<Servers />);
+      await screen.findByText("Test Server 0");
+      expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
+    });
+
+    it("clears a failed validation when reauthorization starts", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth({ token: "valid" });
+      vi.spyOn(serversApi, "testOAuthConnection").mockResolvedValue({
+        success: false,
+        latencyMs: 5,
+        stages: { token: "ok", negotiation: "ok", tools_list: "failed" },
+        errorCode: "insufficient_scope",
+        reauthorizationRequired: true,
+      });
+      renderWithRouter(<Servers />);
+      const row = await screen.findByRole("row", { name: /Test Server 0/ });
+      await user.click(await within(row).findByRole("button", { name: "Test connection" }));
+      expect(await screen.findByText(/stored token lacks the required scope/)).toBeVisible();
+      authorize.mockImplementationOnce(() => new Promise(() => {}));
+      await user.click(within(row).getByRole("button", { name: "Authorize again" }));
+      expect(screen.queryByText("Connection validation failed")).not.toBeInTheDocument();
+    });
+
     it("authorizes from the row without opening details or reloading the table", async () => {
       const user = userEvent.setup();
       const { discover } = setupOAuth();
@@ -1586,7 +1641,10 @@ describe("Servers", () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(
-        new OAuthAuthorizationError("access_denied", "Provider denied the requested scope"),
+        new OAuthAuthorizationError(
+          "access_denied",
+          "The provider denied authorization. Authorize this server again.",
+        ),
       );
       renderWithRouter(<Servers />, "/app/servers?selected=server-0");
       const details = await screen.findByRole("region", { name: /Test Server 0/i });
@@ -1597,7 +1655,9 @@ describe("Servers", () => {
       const dialog = await screen.findByRole("dialog", {
         name: "OAuth authorization failed for Test Server 0",
       });
-      expect(within(dialog).getByText("Provider denied the requested scope")).toBeVisible();
+      expect(
+        within(dialog).getByText("The provider denied authorization. Authorize this server again."),
+      ).toBeVisible();
       await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       const panel = screen.getByRole("region", { name: /Test Server 0/i });
@@ -1773,7 +1833,12 @@ describe("Servers", () => {
         () =>
           new Promise((_, reject) => {
             fail = () =>
-              reject(new OAuthAuthorizationError("access_denied", "Failure from server 0"));
+              reject(
+                new OAuthAuthorizationError(
+                  "access_denied",
+                  "The provider denied authorization. Authorize this server again.",
+                ),
+              );
           }),
       );
       renderWithRouter(<Servers />);
@@ -1785,7 +1850,11 @@ describe("Servers", () => {
       const failure = await screen.findByRole("dialog", {
         name: "OAuth authorization failed for Test Server 0",
       });
-      expect(within(failure).getByText("Failure from server 0")).toBeVisible();
+      expect(
+        within(failure).getByText(
+          "The provider denied authorization. Authorize this server again.",
+        ),
+      ).toBeVisible();
       await user.click(within(failure).getByRole("button", { name: "Dismiss" }));
       expect(screen.getByRole("region", { name: /Test Server 1/i })).toBeVisible();
     });

@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -9,7 +9,7 @@ import {
   registerCatalogServer,
   testCatalogServer,
 } from "@/api/catalog";
-import { ApiError } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { getOAuthStatuses } from "@/api/oauth";
 import { OAuthCancelledError, serversApi } from "@/api/servers";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,7 +53,8 @@ vi.mock("@/api/oauth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/oauth")>()),
   getOAuthStatuses: vi.fn(),
 }));
-vi.mock("@/api/servers", () => ({
+vi.mock("@/api/servers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/servers")>()),
   // Real error classes so `instanceof` checks in the page keep working
   // against rejections created from the mocked module surface.
   OAuthCancelledError: class OAuthCancelledError extends Error {
@@ -63,6 +64,7 @@ vi.mock("@/api/servers", () => ({
     }
   },
   serversApi: {
+    testOAuthConnection: vi.fn(),
     openOAuthAuthorizationPopup: vi.fn(),
     triggerOAuthAuthorization: vi.fn(),
     toggleEnabled: vi.fn(),
@@ -196,6 +198,7 @@ function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
 }
 
 describe("ServerCatalog", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
     mockUseQuery.mockImplementation((path) =>
@@ -233,6 +236,72 @@ describe("ServerCatalog", () => {
     mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
     mockToggleEnabled.mockResolvedValue({ status: "success", message: "Activated" });
     mockFetchToolsAfterOAuth.mockResolvedValue({ success: true, message: "Tools fetched" });
+  });
+
+  it("validates the current saved OAuth gateway URL on explicit Test only", async () => {
+    const user = userEvent.setup();
+    const catalogServer = {
+      ...oauthServer,
+      is_registered: true,
+      gateway_id: "gateway-github",
+      requires_oauth_config: false,
+    };
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [catalogServer], total: 1 } }),
+    );
+    mockGetOAuthStatuses.mockResolvedValue({
+      statuses: {
+        "gateway-github": {
+          oauth_enabled: true,
+          grant_type: "authorization_code",
+          user_token_status: { status: "valid", authorized: true },
+        },
+      },
+      failures: {},
+    });
+    const gateway = {
+      id: "gateway-github",
+      name: "GitHub",
+      url: "https://saved.example/mcp",
+      enabled: true,
+      authType: "oauth",
+      oauthConfig: { grant_type: "authorization_code" },
+    };
+    const get = vi.spyOn(api, "get").mockResolvedValue(gateway);
+    const testConnection = vi.spyOn(serversApi, "testOAuthConnection");
+    testConnection.mockResolvedValue({
+      success: true,
+      latencyMs: 1,
+      stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+      componentCounts: { tools: 0 },
+    });
+    renderWithRouter(<ServerCatalog />);
+    const button = await screen.findByRole("button", { name: "Test connection" });
+    expect(testConnection).not.toHaveBeenCalled();
+    await user.click(button);
+    expect(await screen.findByText("Stored authorization verified")).toBeVisible();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(testConnection).toHaveBeenCalledExactlyOnceWith(
+      { gatewayId: "gateway-github", baseUrl: gateway.url },
+      expect.any(AbortSignal),
+    );
+    expect(mockFetchToolsAfterOAuth).not.toHaveBeenCalled();
+    expect(mockToggleEnabled).not.toHaveBeenCalled();
+    expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
+    expect(mockTestCatalogServer).not.toHaveBeenCalled();
+  });
+
+  it("does not expose OAuth Test to read-only callers", async () => {
+    const user = userEvent.setup();
+    const catalogServer = { ...oauthServer, is_registered: true, gateway_id: "gateway-github" };
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [catalogServer], total: 1 } }),
+    );
+    authState.hasPermission.mockImplementation((permission) => permission === "gateways.read");
+    renderWithRouter(<ServerCatalog />);
+    await user.click(await screen.findByRole("button", { name: "Actions for GitHub" }));
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {

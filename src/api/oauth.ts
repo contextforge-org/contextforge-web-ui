@@ -106,4 +106,11 @@ export async function getOAuthStatuses(
 export type OAuthAttempt =
   | { state: "pending" }
   | { state: "succeeded" }
-  | { state: "failed"; reason: string; dialogOpen: boolean };
+  | {
+      state: "failed";
+      reason: string;
+      dialogOpen: boolean;
+      errorCode?: string;
+      failedStage?: string;
+      reauthorizationRequired?: boolean;
+    };
