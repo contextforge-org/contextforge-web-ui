@@ -15,7 +15,16 @@ import type {
   ExportConfigurationV1ExportGetParams,
 } from "@/generated/types";
 
-export type ExportEntityType = "tools" | "gateways" | "servers" | "prompts" | "resources" | "roots";
+const EXPORT_ENTITY_TYPES = [
+  "tools",
+  "gateways",
+  "servers",
+  "prompts",
+  "resources",
+  "roots",
+] as const;
+
+export type ExportEntityType = (typeof EXPORT_ENTITY_TYPES)[number];
 
 /** Entity type -> IDs/names, used by selective export and selective import. */
 export type EntitySelection = Partial<Record<ExportEntityType, string[]>>;
@@ -27,7 +36,8 @@ export type EntitySelection = Partial<Record<ExportEntityType, string[]>>;
 export interface ConfigExport {
   version: string;
   exported_at: string;
-  exported_by: string;
+  /** Not required by the backend's import validation, so files may omit it. */
+  exported_by?: string;
   entities: Partial<Record<ExportEntityType, Record<string, unknown>[]>>;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
@@ -117,10 +127,30 @@ export async function parseImportFile(file: File): Promise<ConfigExport> {
   } catch {
     throw new ImportFileError("invalid_json", "File is not valid JSON");
   }
-  if (!isPlainObject(parsed) || !isPlainObject(parsed.entities)) {
-    throw new ImportFileError("invalid_shape", "File is not a ContextForge export");
-  }
+  const reason = exportShapeError(parsed);
+  if (reason)
+    throw new ImportFileError("invalid_shape", `File is not a ContextForge export: ${reason}`);
   return parsed as ConfigExport;
+}
+
+/**
+ * Structural checks from the backend's `validate_import_data`; per-entity
+ * required fields are left to the backend. Returns the first problem, if any.
+ */
+function exportShapeError(value: unknown): string | null {
+  if (!isPlainObject(value)) return "not an object";
+  if (typeof value.version !== "string" || !value.version) return "missing version";
+  if (typeof value.exported_at !== "string") return "missing exported_at";
+  if (!isPlainObject(value.entities)) return "entities must be an object";
+  for (const [type, list] of Object.entries(value.entities)) {
+    if (!(EXPORT_ENTITY_TYPES as readonly string[]).includes(type)) {
+      return `unknown entity type "${type}"`;
+    }
+    if (!Array.isArray(list) || !list.every(isPlainObject)) {
+      return `"${type}" must be a list of objects`;
+    }
+  }
+  return null;
 }
 
 function exportQuery(filters: ExportFilters): string {

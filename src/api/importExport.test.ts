@@ -172,14 +172,44 @@ describe("parseImportFile", () => {
     });
   });
 
+  it("accepts an export with no entities (e.g. a filter that matched nothing)", async () => {
+    const empty = { ...EXPORT, entities: {} };
+    await expect(parseImportFile(fileOf(JSON.stringify(empty)))).resolves.toEqual(empty);
+  });
+
+  const envelope = { version: "2025-06-18", exported_at: "2026-11-02T10:00:00Z" };
+
   it.each([
-    ["an array", "[]"],
-    ["a primitive", "42"],
-    ["missing entities", JSON.stringify({ version: "x" })],
-    ["array entities", JSON.stringify({ entities: [] })],
-  ])("rejects %s with invalid_shape", async (_label, content) => {
+    ["an array", "[]", "not an object"],
+    ["a primitive", "42", "not an object"],
+    ["entities without an envelope", JSON.stringify({ entities: {} }), "missing version"],
+    [
+      "an empty version",
+      JSON.stringify({ ...envelope, version: "", entities: {} }),
+      "missing version",
+    ],
+    ["missing exported_at", JSON.stringify({ version: "x", entities: {} }), "missing exported_at"],
+    ["missing entities", JSON.stringify(envelope), "entities must be an object"],
+    ["array entities", JSON.stringify({ ...envelope, entities: [] }), "entities must be an object"],
+    [
+      "an unknown entity type",
+      JSON.stringify({ ...envelope, entities: { widgets: [] } }),
+      'unknown entity type "widgets"',
+    ],
+    [
+      "a null entity list",
+      JSON.stringify({ ...envelope, entities: { tools: null } }),
+      '"tools" must be a list of objects',
+    ],
+    [
+      "a non-object entity",
+      JSON.stringify({ ...envelope, entities: { tools: [{ name: "t1" }, "t2"] } }),
+      '"tools" must be a list of objects',
+    ],
+  ])("rejects %s with invalid_shape", async (_label, content, reason) => {
     const error = await parseImportFile(fileOf(content)).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ImportFileError);
     expect((error as ImportFileError).code).toBe("invalid_shape");
+    expect((error as ImportFileError).message).toContain(reason);
   });
 });
