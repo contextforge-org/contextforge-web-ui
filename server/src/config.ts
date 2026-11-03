@@ -66,6 +66,10 @@ export const config = {
   // headroom than a plain API call needs.
   oauthProxyTimeoutMs: Number(optional("OAUTH_PROXY_TIMEOUT_MS", "30000")),
 
+  // Body limit for the config-import proxy routes only (routes/proxy/catch-all.ts);
+  // full exports outgrow Fastify's 1 MiB default, every other /api/* route keeps it.
+  importBodyLimitBytes: Number(optional("IMPORT_BODY_LIMIT_BYTES", "10485760")),
+
   // TTL for the one-time nonce minted by POST /oauth/authorize-nonce and
   // required by GET /oauth/authorize/:gatewayId (see
   // lib/oauth-authorize-nonce.ts). Short-lived on purpose: the SPA consumes
@@ -183,6 +187,10 @@ if (
 
 if (!Number.isSafeInteger(config.oauthProxyTimeoutMs) || config.oauthProxyTimeoutMs <= 0) {
   throw new Error("OAUTH_PROXY_TIMEOUT_MS must be a positive integer");
+}
+
+if (!Number.isSafeInteger(config.importBodyLimitBytes) || config.importBodyLimitBytes <= 0) {
+  throw new Error("IMPORT_BODY_LIMIT_BYTES must be a positive integer");
 }
 
 if (

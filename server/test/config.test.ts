@@ -15,6 +15,7 @@ const ENV_KEYS = [
   "PUBLIC_ORIGIN",
   "TRUST_PROXY",
   "PASSWORD_RESET_REQUEST_TIMEOUT_MS",
+  "IMPORT_BODY_LIMIT_BYTES",
   "SSO_ENABLED",
   "SSO_KEYCLOAK_BASE_URL",
   "SSO_KEYCLOAK_PUBLIC_BASE_URL",
@@ -150,6 +151,26 @@ describe("config validation", () => {
     );
     resetModules();
   });
+
+  it("defaults the import body limit to 10 MiB", async () => {
+    delete process.env.IMPORT_BODY_LIMIT_BYTES;
+
+    const { resetModules, run } = await freshImport();
+    const loaded = (await run()) as { importBodyLimitBytes: number };
+    expect(loaded.importBodyLimitBytes).toBe(10 * 1024 * 1024);
+    resetModules();
+  });
+
+  it.each([["0"], ["-1"], ["abc"], ["1.5"]])(
+    "rejects IMPORT_BODY_LIMIT_BYTES=%s",
+    async (value) => {
+      process.env.IMPORT_BODY_LIMIT_BYTES = value;
+
+      const { resetModules, run } = await freshImport();
+      await expect(run()).rejects.toThrow("IMPORT_BODY_LIMIT_BYTES must be a positive integer");
+      resetModules();
+    },
+  );
 
   it("boots with SSO_ENABLED unset (default false), no Keycloak vars required", async () => {
     delete process.env.SSO_ENABLED;
