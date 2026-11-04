@@ -325,6 +325,19 @@ export function Servers() {
         await serversApi.triggerOAuthAuthorization(id);
       } catch (err) {
         if (!(err instanceof OAuthCancelledError)) setOAuthDialogServerId(id);
+        let reason: string;
+        if (err instanceof OAuthAuthorizationError) {
+          const guidance = oauthErrorMessage(intl, err.errorCode);
+          reason =
+            err.description && err.description !== guidance
+              ? intl.formatMessage(
+                  { id: "mcpServer.oauthValidation.providerError" },
+                  { guidance, description: err.description },
+                )
+              : guidance;
+        } else {
+          reason = err instanceof OAuthCancelledError ? "" : sanitizeError(err);
+        }
         setOAuthAttempts((prev) => {
           const next = { ...prev };
           if (err instanceof OAuthCancelledError) delete next[id];
@@ -332,10 +345,7 @@ export function Servers() {
             next[id] = {
               state: "failed",
               dialogOpen: true,
-              reason:
-                err instanceof OAuthAuthorizationError
-                  ? oauthErrorMessage(intl, err.errorCode)
-                  : sanitizeError(err),
+              reason,
               ...(err instanceof OAuthAuthorizationError
                 ? {
                     errorCode: err.errorCode,
@@ -381,7 +391,7 @@ export function Servers() {
     if (
       !canReadServers ||
       !canUpdateServer ||
-      pendingAuthorizationIds.current.has(server.id) ||
+      oauthAttempts[server.id]?.state === "pending" ||
       !canValidateOAuthConnection(server, oauthStatuses[server.id])
     )
       return null;

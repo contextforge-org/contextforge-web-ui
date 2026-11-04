@@ -21,15 +21,16 @@ describe("OAuthConnectionValidationPanel", () => {
   it("waits for a click before testing", async () => {
     render(<OAuthConnectionValidationPanel {...props} />);
     expect(screen.queryByRole("status", { busy: true })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Test connection" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test connection Example" }));
     expect(props.onTest).toHaveBeenCalledOnce();
   });
 
   it("keeps Test focused while running and returns focus from Cancel on completion", async () => {
     const { rerender } = render(<OAuthConnectionValidationPanel {...props} />);
-    const button = screen.getByRole("button", { name: "Test connection" });
+    const button = screen.getByRole("button", { name: "Test connection Example" });
     button.focus();
     rerender(<OAuthConnectionValidationPanel {...props} entry={{ state: "running" }} />);
+    expect(button).toHaveAccessibleName("Testing stored authorization… Example");
     expect(button).toHaveFocus();
     expect(button).toHaveAttribute("aria-disabled", "true");
     const before = props.onTest.mock.calls.length;
@@ -37,7 +38,7 @@ describe("OAuthConnectionValidationPanel", () => {
     expect(props.onTest).toHaveBeenCalledTimes(before);
     screen.getByRole("button", { name: "Cancel" }).focus();
     rerender(<OAuthConnectionValidationPanel {...props} entry={success} />);
-    expect(screen.getByRole("button", { name: "Retest" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Retest Example" })).toHaveFocus();
   });
 
   it("returns focus from Cancel when validation is reset", () => {
@@ -46,7 +47,7 @@ describe("OAuthConnectionValidationPanel", () => {
     );
     screen.getByRole("button", { name: "Cancel" }).focus();
     rerender(<OAuthConnectionValidationPanel {...props} />);
-    expect(screen.getByRole("button", { name: "Test connection" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Test connection Example" })).toHaveFocus();
   });
 
   it("hides unknown stage values instead of constructing missing translation keys", () => {
@@ -74,7 +75,7 @@ describe("OAuthConnectionValidationPanel", () => {
     expect(screen.getByText("MCP negotiation: Passed")).toBeVisible();
     expect(screen.getByText("Tools access: Passed")).toBeVisible();
     expect(screen.getByText(/Tested at/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "Retest" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Retest Example" })).toBeEnabled();
   });
 
   it("preserves first-page lower bounds", () => {

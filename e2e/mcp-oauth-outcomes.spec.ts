@@ -133,9 +133,10 @@ for (const fromDetails of [false, true]) {
       name: "OAuth authorization failed for OAuth outcomes server",
     });
     await expect(
-      dialog.getByText("The provider denied authorization. Authorize this server again."),
+      dialog.getByText(
+        "The provider denied authorization. Authorize this server again. Provider message: Provider denied the requested scope",
+      ),
     ).toBeVisible();
-    await expect(dialog.getByText("Provider denied the requested scope")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     if (fromDetails) await expect(panel).toBeVisible();

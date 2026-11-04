@@ -133,6 +133,7 @@ export function ServersTable({
             const lastSeen = getLastSeenValue(server);
             const visibility = getVisibilityConfig(server.visibility);
             const VisibilityIcon = visibility.Icon;
+            const validationResult = renderOAuthValidation?.(server, "result");
 
             return (
               <Fragment key={server.id}>
@@ -219,10 +220,10 @@ export function ServersTable({
                     />
                   </TableCell>
                 </TableRow>
-                {renderOAuthValidation?.(server, "result") && (
+                {validationResult && (
                   <TableRow>
                     <TableCell colSpan={7} className="bg-muted/30 px-4 py-3">
-                      {renderOAuthValidation(server, "result")}
+                      {validationResult}
                     </TableCell>
                   </TableRow>
                 )}

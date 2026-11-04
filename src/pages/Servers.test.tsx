@@ -1566,7 +1566,9 @@ describe("Servers", () => {
       renderWithRouter(<Servers />);
       await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
       const row = screen.getByRole("row", { name: /Test Server 0/ });
-      const button = await within(row).findByRole("button", { name: "Test connection" });
+      const button = await within(row).findByRole("button", {
+        name: "Test connection Test Server 0",
+      });
       expect(testConnection).not.toHaveBeenCalled();
       await user.click(button);
       expect(await screen.findByText("Stored authorization verified")).toBeVisible();
@@ -1612,7 +1614,9 @@ describe("Servers", () => {
       });
       renderWithRouter(<Servers />);
       const row = await screen.findByRole("row", { name: /Test Server 0/ });
-      await user.click(await within(row).findByRole("button", { name: "Test connection" }));
+      await user.click(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      );
       await waitFor(() =>
         expect(validate).toHaveBeenCalledWith(
           { gatewayId: "server-0", baseUrl: "https://updated.example/mcp" },
@@ -1627,7 +1631,9 @@ describe("Servers", () => {
       renderWithRouter(<Servers />);
       await screen.findByText("Test Server 0");
       await screen.findByRole("button", { name: "Test Server 0 status: Active. Show details" });
-      expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Test connection Test Server 0" }),
+      ).not.toBeInTheDocument();
     });
 
     it("clears a failed validation when reauthorization starts", async () => {
@@ -1642,11 +1648,26 @@ describe("Servers", () => {
       });
       renderWithRouter(<Servers />);
       const row = await screen.findByRole("row", { name: /Test Server 0/ });
-      await user.click(await within(row).findByRole("button", { name: "Test connection" }));
+      await user.click(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      );
       expect(await screen.findByText(/stored token lacks the required scope/)).toBeVisible();
-      authorize.mockImplementationOnce(() => new Promise(() => {}));
+      let finish!: () => void;
+      authorize.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve({ type: "oauth_callback", status: "success" });
+          }),
+      );
       await user.click(within(row).getByRole("button", { name: "Authorize again" }));
       expect(screen.queryByText("Connection validation failed")).not.toBeInTheDocument();
+      expect(
+        within(row).queryByRole("button", { name: "Test connection Test Server 0" }),
+      ).not.toBeInTheDocument();
+      await act(async () => finish());
+      expect(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      ).toBeVisible();
     });
 
     it("authorizes from the row without opening details or reloading the table", async () => {
@@ -1678,7 +1699,7 @@ describe("Servers", () => {
       expect(await screen.findByText("Fresh prompt")).toBeVisible();
     });
 
-    it("shows localized guidance, hides provider details, and retries successfully", async () => {
+    it("shows localized guidance with provider details and retries successfully", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(
@@ -1694,11 +1715,10 @@ describe("Servers", () => {
         name: "OAuth authorization failed for Test Server 0",
       });
       expect(
-        within(dialog).getByText("The provider denied authorization. Authorize this server again."),
+        within(dialog).getByText(
+          "The provider denied authorization. Authorize this server again. Provider message: Provider denied the requested scope",
+        ),
       ).toBeVisible();
-      expect(
-        within(dialog).queryByText("Provider denied the requested scope"),
-      ).not.toBeInTheDocument();
       await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       // Radix lifts the modal's body pointer-events lock after unmount.
@@ -1712,6 +1732,30 @@ describe("Servers", () => {
       expect(authorize).toHaveBeenCalledTimes(2);
     });
 
+    it.each([
+      [
+        "invalid_grant",
+        "The authorization code expired",
+        "The authorization grant is invalid or expired. Authorize this server again.",
+      ],
+      [
+        "provider_specific_error",
+        '<img src=x onerror="alert(1)">',
+        "OAuth connection failed. Check the configuration and try again.",
+      ],
+    ])("preserves provider details as plain text for %s", async (code, description, guidance) => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(new OAuthAuthorizationError(code, description));
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByText(`${guidance} Provider message: ${description}`),
+      ).toBeVisible();
+      expect(dialog.querySelector("img")).toBeNull();
+    });
+
     it("dismisses only the failure dialog with Escape and restores focus to Authorize", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
@@ -1722,7 +1766,11 @@ describe("Servers", () => {
       await user.click(
         await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
       );
-      await screen.findByRole("dialog");
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByText("The provider denied authorization. Authorize this server again."),
+      ).toBeVisible();
+      expect(within(dialog).queryByText(/Provider message:/)).not.toBeInTheDocument();
       await user.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(screen.getByRole("region", { name: /Test Server 0/i })).toBeVisible();

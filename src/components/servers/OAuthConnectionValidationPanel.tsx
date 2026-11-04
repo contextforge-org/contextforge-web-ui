@@ -54,6 +54,10 @@ export function OAuthConnectionValidationPanel({
             variant="outline"
             size="xs"
             ref={testButton}
+            aria-label={intl.formatMessage(
+              { id: "mcpServer.oauthValidation.actionLabel" },
+              { action: message(running ? "testing" : entry ? "retest" : "test"), name },
+            )}
             aria-disabled={running}
             onClick={running ? undefined : onTest}
           >

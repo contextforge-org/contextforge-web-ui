@@ -450,5 +450,7 @@
   "mcpServer.oauthValidation.error.rate_limited": "Muitos testes de conexão. Aguarde antes de testar novamente.",
   "mcpServer.oauthValidation.error.network": "O teste não conseguiu acessar o backend. Verifique sua conexão e tente novamente.",
   "mcpServer.oauthValidation.error.unauthenticated": "Sua sessão expirou. Entre novamente.",
-  "mcpServer.oauthValidation.genericTest": "Executar teste de conexão personalizado"
+  "mcpServer.oauthValidation.genericTest": "Executar teste de conexão personalizado",
+  "mcpServer.oauthValidation.providerError": "{guidance} Mensagem do provedor: {description}",
+  "mcpServer.oauthValidation.actionLabel": "{action} {name}"
 }

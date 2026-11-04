@@ -83,7 +83,9 @@ test.describe("Servers post-authorization connection validation", () => {
       window.opener.postMessage({ type: "oauth_callback", status: "success" }, "*");
       window.close();
     });
-    const button = page.getByRole("button", { name: "Test connection", exact: true });
+    const button = page.getByRole("button", {
+      name: /^(Test connection|Retest) Validation server$/,
+    });
     await expect(button).toBeVisible();
     expect(tests).toBe(0);
     await expect.poll(() => imports).toBe(1);
@@ -150,7 +152,9 @@ test.describe("Servers post-authorization connection validation", () => {
     await expect(
       page.getByRole("button", { name: `${gateway.name} status: Active. Show details` }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Test connection", exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Test connection Read only OAuth", exact: true }),
+    ).toHaveCount(0);
   });
 });
 

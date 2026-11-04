@@ -450,5 +450,7 @@
   "mcpServer.oauthValidation.error.rate_limited": "Demasiadas pruebas de conexión. Espera antes de volver a probar.",
   "mcpServer.oauthValidation.error.network": "La prueba no pudo acceder al backend. Revisa tu conexión e inténtalo de nuevo.",
   "mcpServer.oauthValidation.error.unauthenticated": "Tu sesión ha caducado. Inicia sesión de nuevo.",
-  "mcpServer.oauthValidation.genericTest": "Ejecutar prueba de conexión personalizada"
+  "mcpServer.oauthValidation.genericTest": "Ejecutar prueba de conexión personalizada",
+  "mcpServer.oauthValidation.providerError": "{guidance} Mensaje del proveedor: {description}",
+  "mcpServer.oauthValidation.actionLabel": "{action} {name}"
 }
