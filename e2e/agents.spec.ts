@@ -79,19 +79,6 @@ test.describe("Agents page", () => {
     });
   });
 
-  test.describe("navigation", () => {
-    test("Agents is listed in the sidebar and marked active on its page", async ({ page }) => {
-      await mockAgentList(page, []);
-
-      await page.goto(APP.AGENTS);
-
-      const navItem = page.getByRole("button", { name: "Agents" });
-      await expect(navItem).toBeVisible();
-      await expect(navItem).toHaveAttribute("data-active", "true");
-      await expect(page.getByRole("heading", { name: "Agents", level: 1 })).toBeVisible();
-    });
-  });
-
   test.describe("connect agent card", () => {
     test("shows only the Connect agent card when nothing is connected", async ({ page }) => {
       await mockAgentList(page, []);

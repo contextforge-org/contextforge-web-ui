@@ -50,7 +50,7 @@ const MAIN_NAV_ITEMS: NavItem[] = [
 
 const COMPONENTS_NAV_ITEMS: NavItem[] = [
   { labelKey: "navigation.servers", path: "/app/servers", icon: MCPIcon },
-  { labelKey: "navigation.agents", path: "/app/agents", icon: AgentIcon },
+  { labelKey: "navigation.agents", path: "/app/agents", icon: AgentIcon, hidden: true },
   { labelKey: "navigation.restApi", path: "/app/rest-api", icon: Code, hidden: true },
   { labelKey: "navigation.grpc", path: "/app/grpc", icon: Unplug, hidden: true },
   { labelKey: "navigation.tools", path: "/app/tools", icon: Wrench },

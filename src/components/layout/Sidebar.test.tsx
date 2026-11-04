@@ -130,7 +130,7 @@ describe("AppSidebar", () => {
     expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("data-active", "true");
   });
 
-  it("does not render hidden nav items (Playground, REST API, gRPC)", () => {
+  it("does not render hidden nav items (Playground, Agents, REST API, gRPC)", () => {
     mockUseRouter.mockReturnValue({
       path: "/app/",
       params: {},
@@ -140,17 +140,9 @@ describe("AppSidebar", () => {
     renderSidebar();
 
     expect(screen.queryByRole("button", { name: "Playground" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Agents" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "REST API" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "gRPC" })).not.toBeInTheDocument();
-  });
-
-  it("renders the Agents nav item and navigates to it", async () => {
-    mockUseRouter.mockReturnValue({ path: "/app/", params: {}, navigate: mockNavigate });
-
-    renderSidebar();
-    await userEvent.click(screen.getByRole("button", { name: "Agents" }));
-
-    expect(mockNavigate).toHaveBeenCalledWith("/app/agents");
   });
 
   it("does not render the Administration section for platform admin users", () => {
