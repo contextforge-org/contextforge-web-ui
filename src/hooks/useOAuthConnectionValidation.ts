@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import { serversApi } from "@/api/servers";
 import type { OAuthConnectionValidationResponse } from "@/api/contracts/oauthConnectionValidation";
-import { hasValidationStages, validationSucceeded } from "@/lib/oauthConnectionValidation";
+import {
+  hasValidationStages,
+  validationSucceeded,
+  VALIDATION_STAGES,
+} from "@/lib/oauthConnectionValidation";
 
 export interface OAuthConnectionValidationState {
   state: "running" | "success" | "failure";
@@ -59,20 +63,32 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
       requests.current.set(id, controller);
       const isCurrent = () => !controller.signal.aborted && requests.current.get(id) === controller;
       setEntries((previous) => ({ ...previous, [id]: { ...previous[id], state: "running" } }));
+      let resolvingTarget = true;
       try {
         const resolved = typeof target === "function" ? await target(controller.signal) : target;
         if (!isCurrent()) return;
         if (resolved.gatewayId !== id) throw new ApiError(422, null, "Gateway mismatch");
+        resolvingTarget = false;
         const result = await serversApi.testOAuthConnection(resolved, controller.signal);
         if (!isCurrent()) return;
+        const incompleteStage = VALIDATION_STAGES.find((stage) => result?.stages?.[stage] !== "ok");
+        const stageErrorCode = incompleteStage
+          ? {
+              token: "token_validation_failed",
+              negotiation: "mcp_handshake_failed",
+              tools_list:
+                result?.stages?.tools_list === "unsupported"
+                  ? "tools_unsupported"
+                  : "tools_list_failed",
+            }[incompleteStage]
+          : undefined;
         setEntries((previous) => ({
           ...previous,
           [id]: {
             state: validationSucceeded(result) ? "success" : "failure",
             result,
             errorCode: hasValidationStages(result)
-              ? (result?.errorCode ??
-                (result?.stages?.tools_list === "unsupported" ? "tools_unsupported" : undefined))
+              ? result?.errorCode || stageErrorCode
               : "incompatible",
             testedAt: Date.now(),
           },
@@ -90,7 +106,9 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
                   404: "gateway_unavailable",
                 } as Record<number, string>
               )[error.status] ?? "generic")
-            : "network";
+            : resolvingTarget
+              ? "gateway_unavailable"
+              : "network";
         setEntries((previous) => ({
           ...previous,
           [id]: { state: "failure", errorCode, testedAt: Date.now() },
