@@ -1,13 +1,27 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
+import { EllipsisVertical, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
+import { agentsApi } from "@/api/agents";
+import { ApiError } from "@/api/client";
+import { extractApiErrorDetail } from "@/utils/errors";
 import { getTagLabels } from "@/utils/tags";
 import type { Agent } from "@/types/agent";
 import type { A2AAgentRead } from "@/generated/types";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { CardTag } from "@/components/ui/card-tag";
 import { Typography } from "@/components/ui/typography";
 import { AgentIcon } from "@/components/icons/AgentIcon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 
 // Only the fields the card actually renders — `Agent` also carries credential
 // fields (authToken, authPassword, ...) that must never reach the UI. Typing
@@ -18,7 +32,14 @@ type AgentCardFields = Pick<
   "id" | "name" | "description" | "enabled" | "reachable" | "tags"
 >;
 
-function AgentCard({ agent }: { agent: AgentCardFields }) {
+interface AgentCardProps {
+  agent: AgentCardFields;
+  /** Omit to hide the action; the caller decides from the user's permissions. */
+  onToggle?: (id: string, currentEnabled: boolean) => void;
+  onDelete?: (id: string) => void;
+}
+
+function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
   const intl = useIntl();
   const MAX_VISIBLE_TAGS = 8;
   const isActive = agent.enabled && agent.reachable;
@@ -49,6 +70,43 @@ function AgentCard({ agent }: { agent: AgentCardFields }) {
               className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${isActive ? "bg-tool-status-active" : "bg-tool-status-inactive"}`}
             />
           </div>
+
+          {agent.id && (onToggle || onDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 flex-shrink-0 p-0"
+                  aria-label={intl.formatMessage(
+                    { id: "agents.card.actions.label" },
+                    { name: agent.name },
+                  )}
+                >
+                  <EllipsisVertical className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onToggle && (
+                  <DropdownMenuItem onClick={() => onToggle(agent.id as string, agent.enabled)}>
+                    {intl.formatMessage({
+                      id: agent.enabled
+                        ? "agents.card.actions.disable"
+                        : "agents.card.actions.enable",
+                    })}
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem
+                    onClick={() => onDelete(agent.id as string)}
+                    className="text-red-600 dark:text-red-400"
+                  >
+                    {intl.formatMessage({ id: "agents.card.actions.delete" })}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
 
@@ -73,13 +131,46 @@ function AgentCard({ agent }: { agent: AgentCardFields }) {
   );
 }
 
+// Styled like the Tools page's "Add tools" card. The connect form isn't built
+// yet, so the card is shown but not actionable.
+function ConnectAgentCard() {
+  const intl = useIntl();
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
+            <Plus className="h-3.5 w-3.5 text-tool-add-icon-fg" aria-hidden="true" />
+          </div>
+          <span className="text-sm font-semibold text-foreground">
+            {intl.formatMessage({ id: "agents.connect.title" })}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {intl.formatMessage({ id: "agents.connect.description" })}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Agents() {
   const intl = useIntl();
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canUpdate = !permissionsLoading && hasPermission("a2a.update");
+  const canDelete = !permissionsLoading && hasPermission("a2a.delete");
+  const canCreate = !permissionsLoading && hasPermission("a2a.create");
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const {
     data: agentsData,
     error,
     isLoading,
-  } = useQuery<A2AAgentRead[]>("/a2a?limit=0&include_inactive=true");
+    setData: setAgentsData,
+  } = useQuery<A2AAgentRead[]>("/v1/a2a?limit=0&include_inactive=true");
 
   const agents = useMemo(
     () =>
@@ -89,11 +180,80 @@ export function Agents() {
     [agentsData],
   );
 
+  // Tracks agent IDs with an in-flight toggle so a repeated click can't fire a
+  // second mutation against a stale state before the first settles.
+  const pendingToggleIds = useRef<Set<string>>(new Set());
+
+  const handleToggle = useCallback(
+    async (id: string, currentEnabled: boolean) => {
+      if (pendingToggleIds.current.has(id)) return;
+      pendingToggleIds.current.add(id);
+
+      const nextEnabled = !currentEnabled;
+      const name = agents.find((a) => a.id === id)?.name ?? id;
+      setAgentsData((prev) =>
+        prev?.map((a) => (a?.id === id ? { ...a, enabled: nextEnabled } : a)),
+      );
+
+      try {
+        const updated = await agentsApi.setState(id, nextEnabled);
+        setAgentsData((prev) => prev?.map((a) => (a?.id === id ? { ...a, ...updated } : a)));
+        toast.success(
+          intl.formatMessage(
+            { id: nextEnabled ? "agents.toast.enableSuccess" : "agents.toast.disableSuccess" },
+            { name },
+          ),
+        );
+      } catch (err) {
+        setAgentsData((prev) =>
+          prev?.map((a) => (a?.id === id ? { ...a, enabled: currentEnabled } : a)),
+        );
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        toast.error(
+          detail ||
+            intl.formatMessage({
+              id: nextEnabled ? "agents.toast.enableError" : "agents.toast.disableError",
+            }),
+        );
+      } finally {
+        pendingToggleIds.current.delete(id);
+      }
+    },
+    [agents, setAgentsData, intl],
+  );
+
+  const handleDeleteRequest = useCallback(
+    (id: string) => {
+      setDeleteTarget({ id, name: agents.find((a) => a.id === id)?.name ?? id });
+    },
+    [agents],
+  );
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const { id, name } = deleteTarget;
+    setIsDeleting(true);
+    try {
+      await agentsApi.delete(id);
+      setAgentsData((prev) => prev?.filter((a) => a?.id !== id));
+      toast.success(intl.formatMessage({ id: "agents.delete.success" }, { name }));
+      setDeleteTarget(null);
+      // The card that held focus is gone; keep keyboard users anchored.
+      headingRef.current?.focus();
+    } catch (err) {
+      const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+      toast.error(detail || intl.formatMessage({ id: "agents.delete.error" }, { name }));
+      setDeleteTarget(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget, setAgentsData, intl]);
+
   return (
     <div className="p-6">
-      <Typography variant="heading3" as="h1" className="mb-6">
+      <h1 ref={headingRef} tabIndex={-1} className="mb-6 text-base font-semibold text-foreground">
         {intl.formatMessage({ id: "agents.title" })}
-      </Typography>
+      </h1>
 
       {isLoading && (
         <div
@@ -120,7 +280,7 @@ export function Agents() {
         </div>
       )}
 
-      {!isLoading && !error && agents.length === 0 && (
+      {!isLoading && !error && agents.length === 0 && !canCreate && (
         <div className="flex flex-col items-center justify-center gap-1 p-12 text-center">
           <Typography variant="heading3" as="p">
             {intl.formatMessage({ id: "agents.empty.title" })}
@@ -131,15 +291,39 @@ export function Agents() {
         </div>
       )}
 
-      {!isLoading && !error && agents.length > 0 && (
+      {!isLoading && !error && (agents.length > 0 || canCreate) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+          {canCreate && <ConnectAgentCard />}
           {agents.map((agent, index) => (
             // `A2AAgentRead.id` types as string | null | undefined; fall back
             // to index so a null/missing id can't collide with another card.
-            <AgentCard key={agent.id ?? index} agent={agent} />
+            <AgentCard
+              key={agent.id ?? index}
+              agent={agent}
+              onToggle={canUpdate ? handleToggle : undefined}
+              onDelete={canDelete ? handleDeleteRequest : undefined}
+            />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        onConfirm={confirmDelete}
+        title={intl.formatMessage({ id: "agents.delete.confirm.title" })}
+        description={intl.formatMessage(
+          { id: "agents.delete.confirm.description" },
+          { name: deleteTarget?.name },
+        )}
+        confirmLabel={intl.formatMessage({ id: "agents.delete.confirm.button" })}
+        variant="destructive"
+        role="alertdialog"
+        closeOnConfirm={false}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
