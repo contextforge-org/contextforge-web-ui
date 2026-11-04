@@ -58,11 +58,11 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
       const controller = new AbortController();
       requests.current.set(id, controller);
       const isCurrent = () => !controller.signal.aborted && requests.current.get(id) === controller;
-      setEntries((previous) => ({ ...previous, [id]: { state: "running" } }));
+      setEntries((previous) => ({ ...previous, [id]: { ...previous[id], state: "running" } }));
       try {
         const resolved = typeof target === "function" ? await target(controller.signal) : target;
         if (!isCurrent()) return;
-        if (resolved.gatewayId !== id) throw new Error("Gateway mismatch");
+        if (resolved.gatewayId !== id) throw new ApiError(422, null, "Gateway mismatch");
         const result = await serversApi.testOAuthConnection(resolved, controller.signal);
         if (!isCurrent()) return;
         setEntries((previous) => ({
@@ -71,7 +71,8 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
             state: validationSucceeded(result) ? "success" : "failure",
             result,
             errorCode: hasValidationStages(result)
-              ? (result?.errorCode ?? undefined)
+              ? (result?.errorCode ??
+                (result?.stages?.tools_list === "unsupported" ? "tools_unsupported" : undefined))
               : "incompatible",
             testedAt: Date.now(),
           },

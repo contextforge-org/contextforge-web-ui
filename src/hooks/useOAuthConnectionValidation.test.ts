@@ -54,7 +54,7 @@ describe("useOAuthConnectionValidation", () => {
     "does not report success for a %s listing",
     async (status) => {
       mockTest.mockResolvedValue({
-        ...success!,
+        ...success,
         stages: { token: "ok", negotiation: "ok", tools_list: status },
       });
       const { result } = renderHook(() => useOAuthConnectionValidation());
@@ -65,7 +65,7 @@ describe("useOAuthConnectionValidation", () => {
 
   it("preserves HTTP-200 validation failures and reauthorization guidance", async () => {
     const response: OAuthConnectionValidationResponse = {
-      ...success!,
+      ...success,
       success: false,
       stages: { token: "ok", negotiation: "ok", tools_list: "failed" },
       errorCode: "insufficient_scope",
@@ -148,6 +148,35 @@ describe("useOAuthConnectionValidation", () => {
     });
     unmount();
     expect(mockTest.mock.calls[2][1]?.aborted).toBe(true);
+  });
+
+  it("classifies gateway identity mismatches without sending a test", async () => {
+    const { result } = renderHook(() => useOAuthConnectionValidation());
+    await act(() => result.current.test("gw-1", { ...target, gatewayId: "other" }));
+    expect(result.current.entries["gw-1"].errorCode).toBe("request_invalid");
+    expect(mockTest).not.toHaveBeenCalled();
+  });
+
+  it("explains unsupported tools without inventing a scope failure", async () => {
+    mockTest.mockResolvedValue({
+      ...success,
+      stages: { token: "ok", negotiation: "ok", tools_list: "unsupported" },
+    });
+    const { result } = renderHook(() => useOAuthConnectionValidation());
+    await act(() => result.current.test("gw-1", target));
+    expect(result.current.entries["gw-1"].errorCode).toBe("tools_unsupported");
+  });
+
+  it("retains the previous result and time during a retest", async () => {
+    mockTest.mockResolvedValueOnce(success).mockImplementationOnce(() => new Promise(() => {}));
+    const { result, unmount } = renderHook(() => useOAuthConnectionValidation());
+    await act(() => result.current.test("gw-1", target));
+    const completed = result.current.entries["gw-1"];
+    act(() => {
+      void result.current.test("gw-1", target);
+    });
+    expect(result.current.entries["gw-1"]).toEqual({ ...completed, state: "running" });
+    unmount();
   });
 
   it("cancels while resolving the saved gateway before any handshake request", async () => {

@@ -73,7 +73,7 @@ async function buildApp() {
 }
 
 describe("GET /oauth/callback", () => {
-  it("preserves safe structured backend callback errors", async () => {
+  it("forwards structured backend callback error fields", async () => {
     const app = await buildApp();
     const response = await app.fastify.inject({
       method: "GET",
