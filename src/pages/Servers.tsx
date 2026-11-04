@@ -143,8 +143,9 @@ export function Servers() {
     retry: retryOAuthStatus,
   } = useOAuthStatuses(oauthServerIds, { enabled: canReadServers });
 
+  // Prefer the list record so opening details cannot change the validation fingerprint.
   const validationTargets = Object.fromEntries(
-    [...servers, ...(panelServer ? [panelServer] : [])].map((server) => [
+    [...(panelServer ? [panelServer] : []), ...servers].map((server) => [
       server.id,
       oauthConfigurationKey(server),
     ]),
@@ -393,7 +394,17 @@ export function Servers() {
         actionsOnly={variant === "actions"}
         resultOnly={variant === "result"}
         onTest={() =>
-          void testOAuthConnection(server.id, { gatewayId: server.id, baseUrl: server.url })
+          void testOAuthConnection(server.id, async (signal) => {
+            const saved = await api.get<MCPServer>(
+              `/v1/mcp-servers/${server.id}`,
+              undefined,
+              signal,
+            );
+            if (!canValidateOAuthConnection(saved, oauthStatuses[server.id])) {
+              throw new ApiError(422, null, "Gateway is no longer eligible for OAuth validation");
+            }
+            return { gatewayId: saved.id, baseUrl: saved.url };
+          })
         }
         onCancel={() => resetValidation(server.id)}
         onAuthorize={() => void handleAuthorize(server.id)}

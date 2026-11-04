@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 interface TestConnectionPanelProps {
   serverUrl: string;
+  actionLabel?: string;
 }
 
 type TestStatus = "idle" | "testing" | "success" | "error";
@@ -162,7 +163,7 @@ function validateBody(value: string, method: string, contentType: string): strin
   return undefined;
 }
 
-export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
+export function TestConnectionPanel({ serverUrl, actionLabel }: TestConnectionPanelProps) {
   const intl = useIntl();
   const [status, setStatus] = useState<TestStatus>("idle");
   const [mode, setMode] = useState<TestMode>("http");
@@ -536,7 +537,7 @@ export function TestConnectionPanel({ serverUrl }: TestConnectionPanelProps) {
             ) : hasResult ? (
               "Re-test connection"
             ) : (
-              "Test connection"
+              (actionLabel ?? "Test connection")
             )}
           </Button>
         </div>

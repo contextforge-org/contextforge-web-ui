@@ -135,6 +135,7 @@ for (const fromDetails of [false, true]) {
     await expect(
       dialog.getByText("The provider denied authorization. Authorize this server again."),
     ).toBeVisible();
+    await expect(dialog.getByText("Provider denied the requested scope")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
     if (fromDetails) await expect(panel).toBeVisible();

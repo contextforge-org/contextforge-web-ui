@@ -1574,6 +1574,16 @@ describe("Servers", () => {
         { gatewayId: "server-0", baseUrl: mockServerDetails.url },
         expect.any(AbortSignal),
       );
+      const get = vi.mocked(api.get).getMockImplementation()!;
+      vi.mocked(api.get).mockImplementation((...args) =>
+        args[0] === "/v1/mcp-servers/server-0"
+          ? Promise.resolve({
+              ...mockServerDetails,
+              authType: "oauth",
+              oauthConfig: { grant_type: "authorization_code", scope: "read" },
+            } as never)
+          : get(...args),
+      );
       await user.click(within(row).getByRole("button", { name: "Actions for Test Server 0" }));
       await user.click(await screen.findByRole("menuitem", { name: "View details" }));
       const panel = screen.getByRole("region", { name: /MCP Server details: Test Server 0/ });
@@ -1581,11 +1591,42 @@ describe("Servers", () => {
       expect(within(panel).getByText("0 tools")).toBeVisible();
     });
 
+    it("resolves the latest saved URL before sending validation", async () => {
+      const user = userEvent.setup();
+      setupOAuth({ token: "valid" });
+      const get = vi.mocked(api.get).getMockImplementation()!;
+      vi.mocked(api.get).mockImplementation((...args) => {
+        if (args[0] === "/v1/mcp-servers/server-0")
+          return Promise.resolve({
+            ...mockServerDetails,
+            url: "https://updated.example/mcp",
+            authType: "oauth",
+            oauthConfig: { grant_type: "authorization_code" },
+          } as never);
+        return get(...args);
+      });
+      const validate = vi.spyOn(serversApi, "testOAuthConnection").mockResolvedValue({
+        latencyMs: 1,
+        success: true,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+      });
+      renderWithRouter(<Servers />);
+      const row = await screen.findByRole("row", { name: /Test Server 0/ });
+      await user.click(await within(row).findByRole("button", { name: "Test connection" }));
+      await waitFor(() =>
+        expect(validate).toHaveBeenCalledWith(
+          { gatewayId: "server-0", baseUrl: "https://updated.example/mcp" },
+          expect.any(AbortSignal),
+        ),
+      );
+    });
+
     it("does not offer strict validation to a read-only caller", async () => {
       setupOAuth({ token: "valid" });
       mockHasPermission.mockImplementation((permission) => permission === "gateways.read");
       renderWithRouter(<Servers />);
       await screen.findByText("Test Server 0");
+      await screen.findByRole("button", { name: "Test Server 0 status: Active. Show details" });
       expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
     });
 
@@ -1637,14 +1678,11 @@ describe("Servers", () => {
       expect(await screen.findByText("Fresh prompt")).toBeVisible();
     });
 
-    it("shows the provider reason, dismisses without closing details, and retries successfully", async () => {
+    it("shows localized guidance, hides provider details, and retries successfully", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(
-        new OAuthAuthorizationError(
-          "access_denied",
-          "The provider denied authorization. Authorize this server again.",
-        ),
+        new OAuthAuthorizationError("access_denied", "Provider denied the requested scope"),
       );
       renderWithRouter(<Servers />, "/app/servers?selected=server-0");
       const details = await screen.findByRole("region", { name: /Test Server 0/i });
@@ -1658,6 +1696,9 @@ describe("Servers", () => {
       expect(
         within(dialog).getByText("The provider denied authorization. Authorize this server again."),
       ).toBeVisible();
+      expect(
+        within(dialog).queryByText("Provider denied the requested scope"),
+      ).not.toBeInTheDocument();
       await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       // Radix lifts the modal's body pointer-events lock after unmount.

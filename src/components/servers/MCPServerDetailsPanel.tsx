@@ -638,7 +638,15 @@ export function MCPServerDetailsPanel({
 
                 <TabsContent value="tryit" className="mt-8">
                   {oauthValidation && <div className="mb-6">{oauthValidation}</div>}
-                  <TestConnectionPanel key={server.id} serverUrl={server.url} />
+                  <TestConnectionPanel
+                    key={server.id}
+                    serverUrl={server.url}
+                    actionLabel={
+                      oauthValidation
+                        ? intl.formatMessage({ id: "mcpServer.oauthValidation.genericTest" })
+                        : undefined
+                    }
+                  />
                 </TabsContent>
               </Tabs>
             </div>
