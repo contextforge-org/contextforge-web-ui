@@ -66,12 +66,25 @@ export function canValidateOAuthConnection(server: MCPServer, status?: OAuthStat
   );
 }
 
+// Sort nested object keys while preserving array order (for example, scope lists).
+function canonicalConfiguration(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalConfiguration);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonicalConfiguration(item)]),
+    );
+  }
+  return value;
+}
+
 export function oauthConfigurationKey(server: MCPServer): string {
   return JSON.stringify([
     server.url,
     server.transport,
     server.enabled,
     server.authType,
-    server.oauthConfig,
+    canonicalConfiguration(server.oauthConfig),
   ]);
 }

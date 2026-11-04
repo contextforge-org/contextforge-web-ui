@@ -1,8 +1,14 @@
-import { CheckCircle2, CircleMinus, CircleX, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
+import { STATUS_ICON, STATUS_TONE_CLASS } from "@/lib/status";
 import { useIntl } from "react-intl";
 import { Button } from "@/components/ui/button";
 import type { OAuthConnectionValidationState } from "@/hooks/useOAuthConnectionValidation";
-import { oauthErrorMessage, VALIDATION_STAGES } from "@/lib/oauthConnectionValidation";
+import {
+  hasValidationStages,
+  oauthErrorMessage,
+  VALIDATION_STAGES,
+} from "@/lib/oauthConnectionValidation";
 
 export interface OAuthConnectionValidationPanelProps {
   name: string;
@@ -27,6 +33,14 @@ export function OAuthConnectionValidationPanel({
   const message = (key: string) => intl.formatMessage({ id: `mcpServer.oauthValidation.${key}` });
   const running = entry?.state === "running";
   const result = entry?.result;
+  const testButton = useRef<HTMLButtonElement>(null);
+  const cancelFocused = useRef(false);
+  useLayoutEffect(() => {
+    if (!running && cancelFocused.current) {
+      testButton.current?.focus();
+      cancelFocused.current = false;
+    }
+  }, [running]);
   return (
     <section
       role="group"
@@ -35,12 +49,30 @@ export function OAuthConnectionValidationPanel({
     >
       {!resultOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="xs" disabled={running} onClick={onTest}>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            ref={testButton}
+            aria-disabled={running}
+            onClick={running ? undefined : onTest}
+          >
             {running && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
             {message(running ? "testing" : entry ? "retest" : "test")}
           </Button>
           {running && (
-            <Button type="button" variant="ghost" size="xs" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={onCancel}
+              onFocus={() => {
+                cancelFocused.current = true;
+              }}
+              onBlur={() => {
+                cancelFocused.current = false;
+              }}
+            >
               {message("cancel")}
             </Button>
           )}
@@ -62,18 +94,16 @@ export function OAuthConnectionValidationPanel({
           <p className="font-medium">
             {message(running ? "testing" : entry.state === "success" ? "success" : "failure")}
           </p>
-          {result?.stages && (
+          {hasValidationStages(result ?? null) && (
             <ul className="flex flex-wrap gap-x-6 gap-y-2">
               {VALIDATION_STAGES.map((stage) => {
-                const status = result.stages?.[stage] ?? "skipped";
-                const Icon =
-                  status === "ok" ? CheckCircle2 : status === "failed" ? CircleX : CircleMinus;
+                const status = result?.stages?.[stage] ?? "skipped";
+                const severity =
+                  status === "ok" ? "success" : status === "failed" ? "error" : "info";
+                const Icon = STATUS_ICON[severity];
                 return (
                   <li key={stage} className="flex items-center gap-1.5">
-                    <Icon
-                      className={`size-4 ${status === "ok" ? "text-success" : status === "failed" ? "text-destructive" : "text-muted-foreground"}`}
-                      aria-hidden="true"
-                    />
+                    <Icon className={`size-4 ${STATUS_TONE_CLASS[severity]}`} aria-hidden="true" />
                     {message(`stage.${stage}`)}: {message(`outcome.${status}`)}
                   </li>
                 );

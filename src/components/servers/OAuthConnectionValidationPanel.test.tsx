@@ -25,6 +25,48 @@ describe("OAuthConnectionValidationPanel", () => {
     expect(props.onTest).toHaveBeenCalledOnce();
   });
 
+  it("keeps Test focused while running and returns focus from Cancel on completion", async () => {
+    const { rerender } = render(<OAuthConnectionValidationPanel {...props} />);
+    const button = screen.getByRole("button", { name: "Test connection" });
+    button.focus();
+    rerender(<OAuthConnectionValidationPanel {...props} entry={{ state: "running" }} />);
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    const before = props.onTest.mock.calls.length;
+    await userEvent.click(button);
+    expect(props.onTest).toHaveBeenCalledTimes(before);
+    screen.getByRole("button", { name: "Cancel" }).focus();
+    rerender(<OAuthConnectionValidationPanel {...props} entry={success} />);
+    expect(screen.getByRole("button", { name: "Retest" })).toHaveFocus();
+  });
+
+  it("returns focus from Cancel when validation is reset", () => {
+    const { rerender } = render(
+      <OAuthConnectionValidationPanel {...props} entry={{ state: "running" }} />,
+    );
+    screen.getByRole("button", { name: "Cancel" }).focus();
+    rerender(<OAuthConnectionValidationPanel {...props} />);
+    expect(screen.getByRole("button", { name: "Test connection" })).toHaveFocus();
+  });
+
+  it("hides unknown stage values instead of constructing missing translation keys", () => {
+    render(
+      <OAuthConnectionValidationPanel
+        {...props}
+        entry={{
+          state: "failure",
+          errorCode: "incompatible",
+          result: {
+            success: false,
+            stages: { token: "unexpected", negotiation: "ok", tools_list: "ok" },
+          } as unknown as OAuthConnectionValidationState["result"],
+        }}
+      />,
+    );
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.queryByText(/outcome.unexpected/)).not.toBeInTheDocument();
+  });
+
   it("renders zero tools, stage text, test time and Retest", () => {
     render(<OAuthConnectionValidationPanel {...props} entry={success} />);
     expect(screen.getByText("0 tools")).toBeVisible();
