@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, Ref } from "react";
-import { useIntl } from "react-intl";
+import { useIntl, type IntlShape } from "react-intl";
 
 import {
   disconnectCatalogGateway,
@@ -10,7 +10,12 @@ import {
   type GatewayImpactPreview,
 } from "@/api/catalog";
 import { ApiError } from "@/api/client";
-import { OAuthCancelledError, serversApi } from "@/api/servers";
+import {
+  OAuthAuthorizationError,
+  OAuthCancelledError,
+  OAuthPopupBlockedError,
+  serversApi,
+} from "@/api/servers";
 import { useAuth } from "@/auth/useAuth";
 import { CatalogApiKeyDialog } from "@/components/server-catalog/CatalogApiKeyDialog";
 import { CatalogOAuthForm } from "@/components/server-catalog/CatalogOAuthForm";
@@ -350,6 +355,19 @@ function CatalogPageLayout({
       </h1>
       {children}
     </section>
+  );
+}
+
+// Surface the provider's own description when it sent one. A blocked popup
+// gets its own message (retrying won't help). Everything else, including a
+// provider denial with only a raw error code, gets the localized text.
+function oauthErrorMessage(intl: IntlShape, error: unknown): string {
+  if (error instanceof OAuthPopupBlockedError) {
+    return intl.formatMessage({ id: "mcpServer.catalog.oauth.popupBlocked" });
+  }
+  return (
+    (error instanceof OAuthAuthorizationError && error.description) ||
+    intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" })
   );
 }
 
@@ -728,10 +746,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(intl, error),
         });
         return false;
       }
@@ -772,10 +787,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(intl, error),
         });
         return false;
       } finally {
@@ -813,10 +825,7 @@ export function ServerCatalog() {
         showRegistrationNotification({
           id: `oauth:${server.id}`,
           type: "info",
-          message:
-            error instanceof Error
-              ? error.message
-              : intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" }),
+          message: oauthErrorMessage(intl, error),
         });
       } finally {
         endAdding(server.id);

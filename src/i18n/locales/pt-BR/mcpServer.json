@@ -188,6 +188,7 @@
   "mcpServer.catalog.oauth.retryStatus": "Tentar status de autorização novamente",
   "mcpServer.catalog.oauth.authorize": "Autorizar",
   "mcpServer.catalog.oauth.authorizationError": "Não foi possível concluir a autorização OAuth. Tente novamente.",
+  "mcpServer.catalog.oauth.popupBlocked": "O navegador bloqueou a janela de autorização OAuth. Permita pop-ups para este site e tente novamente.",
   "mcpServer.catalog.oauth.authorizedToolsPending": "{name} está autorizado, mas não foi possível buscar as ferramentas. Tente novamente pelas ações do servidor.",
   "mcpServer.catalog.addError": "Não foi possível adicionar este servidor. Tente novamente.",
   "mcpServer.catalog.addFailed.short": "Erro",
