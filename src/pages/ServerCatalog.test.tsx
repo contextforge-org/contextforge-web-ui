@@ -60,30 +60,6 @@ vi.mock("@/api/oauth", async (importOriginal) => ({
 }));
 vi.mock("@/api/servers", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/servers")>()),
-  // Real error classes so `instanceof` checks in the page keep working
-  // against rejections created from the mocked module surface.
-  OAuthAuthorizationError: class OAuthAuthorizationError extends Error {
-    code?: string;
-    description?: string;
-    constructor(code?: string, description?: string) {
-      super(description || code || "OAuth authorization failed");
-      this.name = "OAuthAuthorizationError";
-      this.code = code;
-      this.description = description;
-    }
-  },
-  OAuthCancelledError: class OAuthCancelledError extends Error {
-    constructor(message = "OAuth authorization was cancelled") {
-      super(message);
-      this.name = "OAuthCancelledError";
-    }
-  },
-  OAuthPopupBlockedError: class OAuthPopupBlockedError extends Error {
-    constructor() {
-      super("Failed to open OAuth authorization window");
-      this.name = "OAuthPopupBlockedError";
-    }
-  },
   serversApi: {
     testOAuthConnection: vi.fn(),
     openOAuthAuthorizationPopup: vi.fn(),
@@ -715,7 +691,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("button", { name: "Actions for GitHub" })).toHaveFocus();
   });
 
-  it("shows the provider's reason in the dialog when authorization fails", async () => {
+  it("shows localized provider guidance and hides raw descriptions", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(
       new OAuthAuthorizationError("access_denied", "Provider denied the request"),
@@ -738,9 +714,12 @@ describe("ServerCatalog", () => {
     );
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    // Real failures still surface so the user can react; only the
-    // deliberate popup dismissal is silent.
-    expect(await within(form).findByText("Provider denied the request")).toBeVisible();
+    expect(
+      await within(form).findByText(
+        "The provider denied authorization. Authorize this server again.",
+      ),
+    ).toBeVisible();
+    expect(within(form).queryByText("Provider denied the request")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
@@ -766,7 +745,9 @@ describe("ServerCatalog", () => {
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(form).findByText("OAuth authorization could not be completed. Try again."),
+      await within(form).findByText(
+        "OAuth connection failed. Check the configuration and try again.",
+      ),
     ).toBeVisible();
     expect(within(form).queryByText("OAuth authorization failed")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
@@ -794,7 +775,9 @@ describe("ServerCatalog", () => {
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(form).findByText("OAuth authorization could not be completed. Try again."),
+      await within(form).findByText(
+        "The provider denied authorization. Authorize this server again.",
+      ),
     ).toBeVisible();
     expect(within(form).queryByText("OAuth authorization failed")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
