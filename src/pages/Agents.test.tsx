@@ -68,7 +68,7 @@ describe("Agents", () => {
     });
 
     server.use(
-      http.get("/api/a2a", async () => {
+      http.get("/api/v1/a2a", async () => {
         await requestGate;
         return HttpResponse.json([]);
       }),
@@ -90,7 +90,7 @@ describe("Agents", () => {
 
   it("displays error message when the API call fails", async () => {
     server.use(
-      http.get("/api/a2a", () =>
+      http.get("/api/v1/a2a", () =>
         HttpResponse.json({ detail: "Failed to fetch agents" }, { status: 500 }),
       ),
     );
@@ -104,7 +104,7 @@ describe("Agents", () => {
   });
 
   it("shows an empty state when there are no agents", async () => {
-    server.use(http.get("/api/a2a", () => HttpResponse.json([])));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json([])));
 
     renderWithProviders(<Agents />);
 
@@ -119,7 +119,7 @@ describe("Agents", () => {
 
   it("renders a card per agent with its name and description", async () => {
     const mockAgents = [createMockAgent(1), createMockAgent(2)];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -133,7 +133,7 @@ describe("Agents", () => {
 
   it("omits the description when an agent has none", async () => {
     const mockAgents = [createMockAgent(1, { description: "" })];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -145,7 +145,7 @@ describe("Agents", () => {
 
   it("shows an active status indicator when the agent is enabled and reachable", async () => {
     const mockAgents = [createMockAgent(1, { enabled: true, reachable: true })];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -154,7 +154,7 @@ describe("Agents", () => {
 
   it("shows an inactive status indicator when the agent is disabled or unreachable", async () => {
     const mockAgents = [createMockAgent(1, { enabled: false, reachable: true })];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -165,7 +165,7 @@ describe("Agents", () => {
     const mockAgents = [
       createMockAgent(1, { tags: [{ label: "billing" }, { label: "internal" }] }),
     ];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -181,7 +181,7 @@ describe("Agents", () => {
         tags: Array.from({ length: 10 }, (_, i) => ({ label: `tag-${i + 1}` })),
       }),
     ];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -196,7 +196,7 @@ describe("Agents", () => {
   it("renders without tags when the field is omitted entirely", async () => {
     const agent = createMockAgent(1);
     delete (agent as Partial<Agent>).tags;
-    server.use(http.get("/api/a2a", () => HttpResponse.json([agent])));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json([agent])));
 
     renderWithProviders(<Agents />);
 
@@ -207,7 +207,7 @@ describe("Agents", () => {
 
   it("ignores null entries returned by the API", async () => {
     const mockAgents: (Agent | null)[] = [createMockAgent(1), null];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -220,7 +220,7 @@ describe("Agents", () => {
   it("treats a non-array response as an empty list instead of crashing", async () => {
     // The shape a broken/legacy backend response would take — guards the
     // Array.isArray fallback rather than assuming `data` is always an array.
-    server.use(http.get("/api/a2a", () => HttpResponse.json({ agents: [] })));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json({ agents: [] })));
 
     renderWithProviders(<Agents />);
 
@@ -232,7 +232,7 @@ describe("Agents", () => {
   it("requests the list with include_inactive=true so disabled agents stay listed", async () => {
     let requestedUrl: URL | undefined;
     server.use(
-      http.get("/api/a2a", ({ request }) => {
+      http.get("/api/v1/a2a", ({ request }) => {
         requestedUrl = new URL(request.url);
         return HttpResponse.json([]);
       }),
@@ -249,7 +249,7 @@ describe("Agents", () => {
 
   it("uses correct grid layout classes", async () => {
     const mockAgents = [createMockAgent(1)];
-    server.use(http.get("/api/a2a", () => HttpResponse.json(mockAgents)));
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
@@ -267,7 +267,7 @@ describe("Agents", () => {
   describe("connect agent card", () => {
     it("shows only the Connect agent card when nothing is connected and the user can create", async () => {
       mockHasPermission.mockImplementation(() => true);
-      server.use(http.get("/api/a2a", () => HttpResponse.json([])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([])));
 
       renderWithProviders(<Agents />);
 
@@ -278,7 +278,7 @@ describe("Agents", () => {
 
     it("lists the Connect agent card ahead of existing agents", async () => {
       mockHasPermission.mockImplementation(() => true);
-      server.use(http.get("/api/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
 
@@ -290,7 +290,7 @@ describe("Agents", () => {
     });
 
     it("hides the Connect agent card without a2a.create", async () => {
-      server.use(http.get("/api/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
 
@@ -310,8 +310,8 @@ describe("Agents", () => {
       const agent = createMockAgent(1, { enabled: true });
       let requestedUrl = "";
       server.use(
-        http.get("/api/a2a", () => HttpResponse.json([agent])),
-        http.post("/api/a2a/:id/state", ({ request }) => {
+        http.get("/api/v1/a2a", () => HttpResponse.json([agent])),
+        http.post("/api/v1/a2a/:id/state", ({ request }) => {
           requestedUrl = request.url;
           return HttpResponse.json({ ...agent, enabled: false });
         }),
@@ -329,8 +329,8 @@ describe("Agents", () => {
     it("reverts the optimistic toggle and reports an error when the request fails", async () => {
       const agent = createMockAgent(1, { enabled: true });
       server.use(
-        http.get("/api/a2a", () => HttpResponse.json([agent])),
-        http.post("/api/a2a/:id/state", () =>
+        http.get("/api/v1/a2a", () => HttpResponse.json([agent])),
+        http.post("/api/v1/a2a/:id/state", () =>
           HttpResponse.json({ detail: "boom" }, { status: 500 }),
         ),
       );
@@ -347,8 +347,8 @@ describe("Agents", () => {
       const agent = createMockAgent(1);
       let deleted = false;
       server.use(
-        http.get("/api/a2a", () => HttpResponse.json(deleted ? [] : [agent])),
-        http.delete("/api/a2a/:id", () => {
+        http.get("/api/v1/a2a", () => HttpResponse.json(deleted ? [] : [agent])),
+        http.delete("/api/v1/a2a/:id", () => {
           deleted = true;
           return new HttpResponse(null, { status: 204 });
         }),
@@ -367,7 +367,7 @@ describe("Agents", () => {
     });
 
     it("keeps the agent when the delete confirmation is cancelled", async () => {
-      server.use(http.get("/api/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
       const user = await openMenu("Agent 1");
@@ -381,7 +381,7 @@ describe("Agents", () => {
 
     it("hides each action the user lacks permission for", async () => {
       mockHasPermission.mockImplementation((perm) => perm === "a2a.update");
-      server.use(http.get("/api/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
       await openMenu("Agent 1");
@@ -392,7 +392,7 @@ describe("Agents", () => {
 
     it("renders no actions menu without update or delete permission", async () => {
       mockHasPermission.mockImplementation(() => false);
-      server.use(http.get("/api/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
 
