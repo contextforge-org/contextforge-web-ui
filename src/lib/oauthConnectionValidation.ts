@@ -6,6 +6,18 @@ import type { OAuthConnectionValidationResponse } from "@/api/contracts/oauthCon
 export const VALIDATION_STAGES = ["token", "negotiation", "tools_list"] as const;
 
 const ERROR_CODES = new Set([
+  "invalid_grant",
+  "unsupported_grant_type",
+  "login_required",
+  "consent_required",
+  "interaction_required",
+  "account_selection_required",
+  "invalid_request_uri",
+  "invalid_request_object",
+  "request_not_supported",
+  "request_uri_not_supported",
+  "registration_not_supported",
+  "token_validation_failed",
   "invalid_scope",
   "insufficient_scope",
   "redirect_uri_mismatch",

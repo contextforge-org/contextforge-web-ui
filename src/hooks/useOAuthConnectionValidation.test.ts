@@ -167,6 +167,64 @@ describe("useOAuthConnectionValidation", () => {
     expect(result.current.entries["gw-1"].errorCode).toBe("tools_unsupported");
   });
 
+  it.each(["token", "negotiation", "tools_list"] as const)(
+    "derives guidance for every incomplete %s outcome without a backend error code",
+    async (stage) => {
+      const expected = {
+        token: "token_validation_failed",
+        negotiation: "mcp_handshake_failed",
+        tools_list: "tools_list_failed",
+      };
+      const { result } = renderHook(() => useOAuthConnectionValidation());
+      for (const outcome of ["failed", "skipped", "unsupported"] as const) {
+        mockTest.mockResolvedValue({
+          ...success,
+          stages: { ...success?.stages, [stage]: outcome },
+        });
+        await act(() => result.current.test("gw-1", target));
+        expect(result.current.entries["gw-1"]).toMatchObject({
+          state: "failure",
+          errorCode:
+            stage === "tools_list" && outcome === "unsupported"
+              ? "tools_unsupported"
+              : expected[stage],
+        });
+      }
+    },
+  );
+
+  it("reports resolver exceptions as gateway failures without exposing their messages", async () => {
+    const { result } = renderHook(() => useOAuthConnectionValidation());
+    await act(() =>
+      result.current.test("gw-1", async () => {
+        throw new Error("unsafe resolver details");
+      }),
+    );
+    expect(result.current.entries["gw-1"]).toMatchObject({
+      state: "failure",
+      errorCode: "gateway_unavailable",
+    });
+    expect(mockTest).not.toHaveBeenCalled();
+  });
+
+  it("preserves HTTP permission errors from a gateway resolver", async () => {
+    const { result } = renderHook(() => useOAuthConnectionValidation());
+    await act(() =>
+      result.current.test("gw-1", async () => {
+        throw new ApiError(403, null, "unsafe resolver details");
+      }),
+    );
+    expect(result.current.entries["gw-1"].errorCode).toBe("permission_denied");
+    expect(mockTest).not.toHaveBeenCalled();
+  });
+
+  it("still reports transport failures during validation as network errors", async () => {
+    mockTest.mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => useOAuthConnectionValidation());
+    await act(() => result.current.test("gw-1", target));
+    expect(result.current.entries["gw-1"].errorCode).toBe("network");
+  });
+
   it("retains the previous result and time during a retest", async () => {
     mockTest.mockResolvedValueOnce(success).mockImplementationOnce(() => new Promise(() => {}));
     const { result, unmount } = renderHook(() => useOAuthConnectionValidation());
