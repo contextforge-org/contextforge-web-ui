@@ -167,6 +167,8 @@ npm run api:generate   # regenerate src/generated/ from ./openapi.json
 
 To bump the API version, replace `openapi.json` with the new spec, update the version note above, then run `npm run api:generate`.
 
+Post-authorization OAuth connection validation uses a [handwritten compatibility contract](./src/api/contracts/oauthConnectionValidation.ts) for [backend PR #7343](https://github.com/IBM/mcp-context-forge/pull/7343). It extends the existing generated handshake response without modifying `openapi.json`. Remove this compatibility contract once the automated schema refresh includes those fields.
+
 ## Code Quality
 
 ### Linting
