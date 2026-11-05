@@ -67,5 +67,6 @@
   "common.errorBoundary.reload": "Recarregar página",
   "common.required": "*",
   "common.team.label": "Equipe",
-  "common.team.placeholder": "Selecione uma equipe"
+  "common.team.placeholder": "Selecione uma equipe",
+  "importExport.export.failed": "Falha ao exportar"
 }
