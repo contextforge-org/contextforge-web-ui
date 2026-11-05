@@ -20,7 +20,7 @@ services:
       SSO_KEYCLOAK_PUBLIC_BASE_URL: http://localhost:8180
       SSO_KEYCLOAK_REALM: mcp-gateway
       SSO_KEYCLOAK_CLIENT_ID: contextforge-web-ui
-      SSO_KEYCLOAK_CLIENT_SECRET: contextforge-web-ui-e2e-secret
+      SSO_KEYCLOAK_CLIENT_SECRET: contextforge-web-ui-e2e-secret # pragma: allowlist secret
     depends_on:
       redis:
         condition: service_healthy
@@ -67,7 +67,7 @@ services:
       SSO_KEYCLOAK_PUBLIC_BASE_URL: http://localhost:8180
       SSO_KEYCLOAK_REALM: mcp-gateway
       SSO_KEYCLOAK_CLIENT_ID: mcp-gateway
-      SSO_KEYCLOAK_CLIENT_SECRET: keycloak-dev-secret
+      SSO_KEYCLOAK_CLIENT_SECRET: keycloak-dev-secret # pragma: allowlist secret
       SSO_API_TOKEN_AUTH_ENABLED: "true"
     ports:
       - "4444:4444"
