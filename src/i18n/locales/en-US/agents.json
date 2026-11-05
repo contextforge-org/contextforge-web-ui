@@ -5,5 +5,20 @@
   "agents.card.status.active": "Active",
   "agents.card.status.inactive": "Inactive",
   "agents.empty.title": "No agents yet",
-  "agents.empty.description": "Agents will appear here once they're registered with the server."
+  "agents.empty.description": "Agents will appear here once they're registered with the server.",
+  "agents.card.actions.label": "Actions for {name}",
+  "agents.card.actions.enable": "Enable",
+  "agents.card.actions.disable": "Disable",
+  "agents.card.actions.delete": "Delete",
+  "agents.toast.enableSuccess": "Enabled {name}",
+  "agents.toast.disableSuccess": "Disabled {name}",
+  "agents.toast.enableError": "Failed to enable the agent",
+  "agents.toast.disableError": "Failed to disable the agent",
+  "agents.delete.confirm.title": "Delete agent",
+  "agents.delete.confirm.description": "Are you sure you want to delete {name}? This cannot be undone.",
+  "agents.delete.confirm.button": "Delete",
+  "agents.delete.success": "Deleted {name}",
+  "agents.delete.error": "Failed to delete {name}",
+  "agents.connect.title": "Connect agent",
+  "agents.connect.description": "Connect an agent over the A2A protocol"
 }

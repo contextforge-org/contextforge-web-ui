@@ -5,5 +5,20 @@
   "agents.card.status.active": "Ativo",
   "agents.card.status.inactive": "Inativo",
   "agents.empty.title": "Ainda não há agentes",
-  "agents.empty.description": "Os agentes aparecerão aqui assim que forem registrados no servidor."
+  "agents.empty.description": "Os agentes aparecerão aqui assim que forem registrados no servidor.",
+  "agents.card.actions.label": "Ações para {name}",
+  "agents.card.actions.enable": "Ativar",
+  "agents.card.actions.disable": "Desativar",
+  "agents.card.actions.delete": "Excluir",
+  "agents.toast.enableSuccess": "{name} ativado",
+  "agents.toast.disableSuccess": "{name} desativado",
+  "agents.toast.enableError": "Falha ao ativar o agente",
+  "agents.toast.disableError": "Falha ao desativar o agente",
+  "agents.delete.confirm.title": "Excluir agente",
+  "agents.delete.confirm.description": "Tem certeza de que deseja excluir {name}? Esta ação não pode ser desfeita.",
+  "agents.delete.confirm.button": "Excluir",
+  "agents.delete.success": "{name} excluído",
+  "agents.delete.error": "Falha ao excluir {name}",
+  "agents.connect.title": "Conectar agente",
+  "agents.connect.description": "Conecte um agente pelo protocolo A2A"
 }
