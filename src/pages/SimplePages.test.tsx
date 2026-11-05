@@ -1,34 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import { screen } from "@testing-library/react";
+import type { ComponentType } from "react";
 import { renderWithProviders } from "@/test/test-utils";
-import { RouterProvider } from "@/router";
-
-// These pages are rendered here as smoke tests, without an AuthProvider; stub
-// the auth-dependent hooks so they render standalone.
-vi.mock("@/auth/useAuth", () => ({
-  useAuth: () => ({ hasPermission: () => true, permissionsLoading: false }),
-}));
-
-vi.mock("@/hooks/useMiniCardStatuses", () => ({
-  useMiniCardStatuses: () => {
-    const offline = { kind: "dot", tone: "muted", labelId: "dashboard.home.status.offline" };
-    return {
-      statuses: {
-        system: offline,
-        activity: { kind: "activity", errors: 0, warnings: 0 },
-        mcp: offline,
-        a2a: offline,
-        rest: offline,
-        grpc: offline,
-      },
-      headlineCondition: {},
-    };
-  },
-}));
-
-import { Agents } from "./Agents";
 import { ChangePassword } from "./ChangePassword";
-import { Dashboard } from "./Dashboard";
-import { ForgotPassword } from "./ForgotPassword";
 import { Grpc } from "./Grpc";
 import { LLMModels } from "./LLMModels";
 import { LLMProviders } from "./LLMProviders";
@@ -36,122 +10,24 @@ import { Maintenance } from "./Maintenance";
 import { Metrics } from "./Metrics";
 import { Observability } from "./Observability";
 import { Performance } from "./Performance";
-import { Plugins } from "./Plugins";
-import { Prompts } from "./Prompts";
-import { Resources } from "./Resources";
 import { RestApi } from "./RestApi";
-import { ServerCatalog } from "./ServerCatalog";
-import { Teams } from "./Teams";
-import { Tokens } from "./Tokens";
 
-describe("Simple Page Components", () => {
-  it("renders Agents page", () => {
-    renderWithProviders(<Agents />);
-    expect(document.body).toBeTruthy();
-  });
+// Placeholder pages without their own test file; each renders only its title.
+const pages: [string, ComponentType, string][] = [
+  ["ChangePassword", ChangePassword, "Change Password"],
+  ["Grpc", Grpc, "gRPC"],
+  ["LLMModels", LLMModels, "LLM Models"],
+  ["LLMProviders", LLMProviders, "LLM Providers"],
+  ["Maintenance", Maintenance, "Maintenance"],
+  ["Metrics", Metrics, "Metrics"],
+  ["Observability", Observability, "Observability"],
+  ["Performance", Performance, "Performance"],
+  ["RestApi", RestApi, "REST API"],
+];
 
-  it("renders ChangePassword page", () => {
-    renderWithProviders(<ChangePassword />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Dashboard page", () => {
-    renderWithProviders(
-      <RouterProvider>
-        <Dashboard />
-      </RouterProvider>,
-    );
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders ForgotPassword page", () => {
-    renderWithProviders(
-      <RouterProvider>
-        <ForgotPassword />
-      </RouterProvider>,
-    );
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Grpc page", () => {
-    renderWithProviders(<Grpc />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders LLMModels page", () => {
-    renderWithProviders(<LLMModels />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders LLMProviders page", () => {
-    renderWithProviders(<LLMProviders />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Maintenance page", () => {
-    renderWithProviders(<Maintenance />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Metrics page", () => {
-    renderWithProviders(<Metrics />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Observability page", () => {
-    renderWithProviders(<Observability />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Performance page", () => {
-    renderWithProviders(<Performance />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Plugins page", () => {
-    renderWithProviders(
-      <RouterProvider>
-        <Plugins />
-      </RouterProvider>,
-    );
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Prompts page", () => {
-    renderWithProviders(<Prompts />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Resources page", () => {
-    renderWithProviders(
-      <RouterProvider>
-        <Resources />
-      </RouterProvider>,
-    );
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders RestApi page", () => {
-    renderWithProviders(<RestApi />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders ServerCatalog page", () => {
-    renderWithProviders(
-      <RouterProvider>
-        <ServerCatalog />
-      </RouterProvider>,
-    );
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Teams page", () => {
-    renderWithProviders(<Teams />);
-    expect(document.body).toBeTruthy();
-  });
-
-  it("renders Tokens page", () => {
-    renderWithProviders(<Tokens />);
-    expect(document.body).toBeTruthy();
+describe("Placeholder pages", () => {
+  it.each(pages)("%s renders its title", (_, Page, title) => {
+    renderWithProviders(<Page />);
+    expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
   });
 });

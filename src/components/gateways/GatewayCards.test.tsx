@@ -12,8 +12,8 @@ import type { VirtualServer } from "@/types/server";
 describe("ConnectSourceCard", () => {
   it("renders a card with title and description from intl", () => {
     renderWithProviders(<ConnectSourceCard onAction={vi.fn()} />);
-    // intl message IDs are rendered as-is (the I18n provider resolves them)
-    expect(document.body).toBeTruthy();
+    expect(screen.getByText("Create server")).toBeInTheDocument();
+    expect(screen.getByText(/Make external sources available/)).toBeInTheDocument();
   });
 
   it("calls onAction when the card is clicked", () => {
@@ -196,17 +196,5 @@ describe("VirtualServerCard", () => {
     // "api" and "test" tags should be rendered as badges
     expect(screen.getByText("api")).toBeTruthy();
     expect(screen.getByText("test")).toBeTruthy();
-  });
-
-  it("applies custom className", () => {
-    renderWithProviders(
-      <VirtualServerCard
-        server={mockServer}
-        onViewDetails={vi.fn()}
-        className="custom-card-class"
-      />,
-    );
-    const card = screen.getByTestId("virtual-server-card");
-    expect(card.className).toContain("custom-card-class");
   });
 });

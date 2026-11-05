@@ -24,11 +24,6 @@ vi.mock("../ui/sidebar", () => ({
 import React from "react";
 
 describe("AppShell", () => {
-  it("renders without crashing", () => {
-    renderWithProviders(<AppShell>Content</AppShell>);
-    expect(document.body).toBeTruthy();
-  });
-
   it("renders the sidebar", () => {
     renderWithProviders(<AppShell>Content</AppShell>);
     expect(screen.getByTestId("app-sidebar")).toBeTruthy();

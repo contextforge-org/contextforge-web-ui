@@ -17,10 +17,12 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
+    environment: "happy-dom",
     setupFiles: "./src/test/setup.ts",
     css: true,
     testTimeout: 15000,
+    // Console output only for failing tests.
+    silent: "passed-only",
     // Vitest runs Testing-Library specs under src/; Playwright specs live
     // under e2e/ and must not be picked up here (they use @playwright/test).
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
@@ -30,7 +32,8 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
+      // Per-file table lives in coverage/index.html.
+      reporter: ["text-summary", "json", "html"],
       reportsDirectory: "./coverage",
       exclude: [
         "node_modules/",

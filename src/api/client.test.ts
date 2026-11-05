@@ -279,11 +279,7 @@ describe("api client", () => {
 
   describe("Authentication", () => {
     it("redirects to login on 401 response", async () => {
-      const originalLocation = window.location;
-      const mockReplace = vi.fn();
-      delete (window as unknown as { location?: unknown }).location;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.location = { ...originalLocation, replace: mockReplace } as any;
+      const mockReplace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
 
       server.use(http.get("*/api/protected", () => new HttpResponse(null, { status: 401 })));
 
@@ -295,20 +291,12 @@ describe("api client", () => {
 
       expect(mockReplace).toHaveBeenCalledWith("/app/login");
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.location = originalLocation as any;
+      mockReplace.mockRestore();
     });
 
     it("preserves the current app page as a next param on 401", async () => {
-      const originalLocation = window.location;
-      const mockReplace = vi.fn();
-      const fakeLocation: Location = {
-        ...originalLocation,
-        pathname: "/app/tools",
-        search: "",
-        replace: mockReplace,
-      };
-      Object.defineProperty(window, "location", { value: fakeLocation, configurable: true });
+      const mockReplace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
+      window.history.replaceState(null, "", "/app/tools");
 
       server.use(http.get("*/api/protected", () => new HttpResponse(null, { status: 401 })));
 
@@ -320,15 +308,12 @@ describe("api client", () => {
 
       expect(mockReplace).toHaveBeenCalledWith("/app/login?next=%2Fapp%2Ftools");
 
-      Object.defineProperty(window, "location", { value: originalLocation, configurable: true });
+      mockReplace.mockRestore();
+      window.history.replaceState(null, "", "/");
     });
 
     it("does not redirect to login on 401 for /app/auth/me", async () => {
-      const originalLocation = window.location;
-      const mockReplace = vi.fn();
-      delete (window as unknown as { location?: unknown }).location;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.location = { ...originalLocation, replace: mockReplace } as any;
+      const mockReplace = vi.spyOn(window.location, "replace").mockImplementation(() => {});
 
       server.use(http.get("*/auth/session", () => new HttpResponse(null, { status: 401 })));
 
@@ -340,23 +325,24 @@ describe("api client", () => {
 
       expect(mockReplace).not.toHaveBeenCalled();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.location = originalLocation as any;
+      mockReplace.mockRestore();
     });
 
     it("sends credentials same-origin for authenticated requests", async () => {
       let credentialsMode: RequestCredentials | undefined;
-      const originalFetch = global.fetch;
-      global.fetch = vi.fn(async (_url, options) => {
-        credentialsMode = options?.credentials;
-        return new Response(JSON.stringify({ ok: true }));
-      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: RequestInfo | URL, options?: RequestInit) => {
+          credentialsMode = options?.credentials;
+          return new Response(JSON.stringify({ ok: true }));
+        }),
+      );
 
       await api.get("/api/test");
 
       expect(credentialsMode).toBe("same-origin");
 
-      global.fetch = originalFetch;
+      vi.unstubAllGlobals();
     });
   });
 

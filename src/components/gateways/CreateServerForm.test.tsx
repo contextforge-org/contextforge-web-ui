@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/test-utils";
-import { screen, fireEvent } from "@testing-library/react";
 import { CreateServerForm } from "./CreateServerForm";
 
 const defaultProps = {
@@ -8,85 +9,94 @@ const defaultProps = {
   onSuccess: vi.fn(),
 };
 
+const nameInput = () => screen.getByRole("textbox", { name: /^Name/ });
+const optionalToggle = () => screen.getByRole("button", { name: "Optional configuration" });
+
 describe("CreateServerForm", () => {
-  it("renders the form with default title from intl", () => {
+  it("renders the default title, description and submit label from intl", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} />);
-    expect(document.querySelector("form")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Create server" })).toBeInTheDocument();
+    expect(screen.getByText(/Compose a single endpoint/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
   });
 
   it("renders custom title when provided", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} title="Edit Server" />);
-    expect(screen.getByText("Edit Server")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Edit Server" })).toBeInTheDocument();
   });
 
   it("renders custom description when provided", () => {
     renderWithProviders(
       <CreateServerForm {...defaultProps} description="Create a new MCP server" />,
     );
-    expect(screen.getByText("Create a new MCP server")).toBeTruthy();
+    expect(screen.getByText("Create a new MCP server")).toBeInTheDocument();
   });
 
-  it("renders server name input", () => {
+  it("renders an empty server name input", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} />);
-    // Name input has placeholder from intl
-    const nameInput = document.querySelector("input[name='name'], input[id='server-name']");
-    expect(nameInput ?? document.querySelector("input[type='text']")).toBeTruthy();
+    expect(nameInput()).toHaveValue("");
   });
 
-  it("renders visibility radio buttons", () => {
+  it("renders the three visibility options with Internal selected by default", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} />);
-    const radiogroup = screen.getByRole("radiogroup");
-    expect(radiogroup).toBeTruthy();
-    const radios = screen.getAllByRole("radio");
-    expect(radios.length).toBeGreaterThanOrEqual(3); // team, public, private
+    expect(screen.getByRole("radiogroup", { name: "Visibility" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Internal" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Team" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Private" })).not.toBeChecked();
   });
 
   it("renders custom submitLabel", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} submitLabel="Save Changes" />);
-    expect(screen.getByRole("button", { name: /Save Changes/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeInTheDocument();
   });
 
   it("renders submitError when provided", () => {
     renderWithProviders(
       <CreateServerForm {...defaultProps} submitError="Server creation failed" />,
     );
-    expect(screen.getByRole("alert")).toBeTruthy();
-    expect(screen.getByText("Server creation failed")).toBeTruthy();
+    expect(screen.getByRole("alert")).toHaveTextContent("Server creation failed");
   });
 
   it("does not render error alert when submitError is null", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} submitError={null} />);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("calls onCancel when cancel button is clicked", () => {
+  it("calls onCancel when cancel button is clicked", async () => {
+    const user = userEvent.setup();
     const onCancel = vi.fn();
     renderWithProviders(<CreateServerForm {...defaultProps} onCancel={onCancel} />);
-    const cancelButton = screen.getByRole("button", { name: /cancel/i });
-    fireEvent.click(cancelButton);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onSuccess when valid form is submitted", () => {
+  it("calls onSuccess with the form details when a valid form is submitted", async () => {
+    const user = userEvent.setup();
     const onSuccess = vi.fn();
     renderWithProviders(<CreateServerForm {...defaultProps} onSuccess={onSuccess} />);
-    // Find the name input and fill it in
-    const allInputs = document.querySelectorAll("input[type='text']");
-    if (allInputs.length > 0) {
-      fireEvent.change(allInputs[0], { target: { value: "My Server" } });
-    }
-    const form = document.querySelector("form")!;
-    fireEvent.submit(form);
-    // With a valid name filled in, onSuccess should be called
-    // (may or may not be called depending on the name input's id)
+
+    await user.type(nameInput(), "My Server");
+    await user.click(screen.getByRole("radio", { name: "Private" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(onSuccess).toHaveBeenCalledWith({
+      name: "My Server",
+      visibility: "private",
+      oauthEnabled: false,
+      tags: undefined,
+      description: undefined,
+    });
   });
 
-  it("shows validation error when name is empty on submit", () => {
-    renderWithProviders(<CreateServerForm {...defaultProps} />);
-    const form = document.querySelector("form")!;
-    fireEvent.submit(form);
-    // An error should appear for the name field
-    expect(document.body).toBeTruthy(); // form stays visible
+  it("shows a validation error and does not call onSuccess when name is empty", async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    renderWithProviders(<CreateServerForm {...defaultProps} onSuccess={onSuccess} />);
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByText("Server name is required.")).toBeInTheDocument();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it("renders children when provided", () => {
@@ -95,56 +105,59 @@ describe("CreateServerForm", () => {
         <div data-testid="custom-child">Custom Child</div>
       </CreateServerForm>,
     );
-    expect(screen.getByTestId("custom-child")).toBeTruthy();
+    expect(screen.getByTestId("custom-child")).toBeInTheDocument();
   });
 
   it("initializes with provided initial values", () => {
     renderWithProviders(
       <CreateServerForm
         {...defaultProps}
-        initialValues={{ name: "Preset Server", visibility: "public" }}
+        initialValues={{ name: "Preset Server", visibility: "team" }}
       />,
     );
-    // The name input should be pre-filled
-    const input = document.querySelector("input[value='Preset Server']");
-    expect(input).toBeTruthy();
+    expect(nameInput()).toHaveValue("Preset Server");
+    expect(screen.getByRole("radio", { name: "Team" })).toBeChecked();
   });
 
   it("disables submit button when isSubmitting=true", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} isSubmitting={true} />);
-    // Find buttons and check one of them is disabled during submission
-    const buttons = screen.getAllByRole("button");
-    const submitBtn = buttons.find((b) => !b.textContent?.toLowerCase().includes("cancel"));
-    expect(submitBtn).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
 
-  it("renders optional section toggle button", () => {
+  it("keeps the optional section collapsed by default", () => {
     renderWithProviders(<CreateServerForm {...defaultProps} />);
-    // Optional section has a ChevronRight toggle button
-    const buttons = screen.getAllByRole("button");
-    expect(buttons.length).toBeGreaterThan(1);
+    expect(optionalToggle()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("textbox", { name: /Virtual server description/ })).toBeNull();
   });
 
-  it("opens optional section when toggle is clicked", () => {
+  it("opens and closes the optional section when the toggle is clicked", async () => {
+    const user = userEvent.setup();
     renderWithProviders(<CreateServerForm {...defaultProps} />);
-    // Find the optional toggle button (ChevronRight icon button)
-    const buttons = screen.getAllByRole("button");
-    const optionalToggle = buttons.find((b) => {
-      const label = b.getAttribute("aria-label") ?? b.textContent ?? "";
-      return label.toLowerCase().includes("optional") || label.includes("chevron");
-    });
-    if (optionalToggle) {
-      fireEvent.click(optionalToggle);
-      // After click, tags/description fields may appear
-    }
-    expect(document.body).toBeTruthy();
+
+    await user.click(optionalToggle());
+    expect(optionalToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("textbox", { name: /Virtual server description/ })).toBeInTheDocument();
+
+    await user.click(optionalToggle());
+    expect(optionalToggle()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("textbox", { name: /Virtual server description/ })).toBeNull();
   });
 
   it("pre-opens optional section when initial values have tags", () => {
     renderWithProviders(
       <CreateServerForm {...defaultProps} initialValues={{ tags: ["api"], description: "" }} />,
     );
-    // Optional section should be open
-    expect(document.body).toBeTruthy();
+    expect(optionalToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("api")).toBeInTheDocument();
+  });
+
+  it("pre-opens optional section when initial values have a description", () => {
+    renderWithProviders(
+      <CreateServerForm {...defaultProps} initialValues={{ description: "Preset description" }} />,
+    );
+    expect(screen.getByRole("textbox", { name: /Virtual server description/ })).toHaveValue(
+      "Preset description",
+    );
   });
 });

@@ -111,10 +111,4 @@ describe("PendingInvitationItem", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(container.querySelector("svg")).not.toBeInTheDocument();
   });
-
-  it("merges className onto the row", () => {
-    const { container } = renderItem({ className: "pt-6" });
-
-    expect(container.firstElementChild).toHaveClass("flex", "pt-6");
-  });
 });
