@@ -1,8 +1,9 @@
 # ===============================================================
 # ⚛️  Repository Quality & Client Unit Tests
 # ===============================================================
-#   - runs repository-wide ESLint and Prettier, plus client Vitest coverage
-#   - ensures code quality and test coverage for frontend
+#   - runs repository-wide ESLint and Prettier, client typecheck and
+#     production build, plus client Vitest coverage
+#   - ensures code quality, a buildable SPA and test coverage for frontend
 #   - runs on PRs and pushes to main
 # ---------------------------------------------------------------
 
@@ -52,6 +53,12 @@ jobs:
 
       - name: Lint code with ESLint
         run: npm run lint
+
+      - name: Typecheck client
+        run: npm run typecheck
+
+      - name: Build client
+        run: npx vite build
 
       - name: Run tests with Vitest
         run: npm run test:coverage

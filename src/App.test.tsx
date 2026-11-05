@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { configure, getConfig, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import { renderWithProviders } from "./test/test-utils";
@@ -16,6 +16,11 @@ vi.mock("@/hooks/useQuery", () => ({
 }));
 
 describe("App", () => {
+  // Lazy route chunks transform on first import; slow under CI load + coverage.
+  const { asyncUtilTimeout } = getConfig();
+  beforeAll(() => configure({ asyncUtilTimeout: 5000 }));
+  afterAll(() => configure({ asyncUtilTimeout }));
+
   it("shows the Suspense fallback while a route chunk is loading, and only clears the chunk-reload guard once real content mounts", async () => {
     // Must be the first test in this file to exercise Login's *unresolved*
     // lazy import — later tests hit its now-cached module instead, so the

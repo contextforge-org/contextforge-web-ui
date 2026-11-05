@@ -350,8 +350,7 @@ See [`e2e/README.md`](./e2e/README.md) for layout, fixtures, and guidelines.
 
 ### GitHub Actions
 
-Repository-wide formatting and ESLint checks, followed by client unit tests with coverage, run on pull requests via [`.github/workflows/quality-checks.yml`](./.github/workflows/quality-checks.yml).
-Client builds and typechecking run via [`.github/workflows/client-build.yml`](./.github/workflows/client-build.yml).
+Repository-wide formatting and ESLint checks, client typechecking and production build, followed by client unit tests with coverage, run on pull requests via [`.github/workflows/quality-checks.yml`](./.github/workflows/quality-checks.yml).
 BFF typechecking and unit tests run via [`.github/workflows/bff-checks.yml`](./.github/workflows/bff-checks.yml).
 Mocked API E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/workflows/client-e2e.yml).
 
@@ -360,12 +359,11 @@ Mocked API E2E tests run via [`.github/workflows/client-e2e.yml`](./.github/work
 Each workflow checks out the source, sets up Node from `.nvmrc`, and installs
 dependencies with `npm ci` before running its checks:
 
-| Workflow                                 | Steps after dependency installation                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Repository quality and client unit tests | Generate API code, check formatting with Prettier, run repository-wide ESLint, and run client Vitest tests with coverage.             |
-| Client build and typecheck               | Run `npm run build` to generate API code, typecheck the client and Vite configuration, and bundle the SPA into `server/public/`.      |
-| BFF typecheck and unit tests             | Run the BFF TypeScript check and BFF Vitest tests once, with dependencies and commands scoped to `server/`.                           |
-| Mocked API E2E tests                     | Generate API code, install Chromium and its system dependencies, run Playwright tests, and upload the HTML report and failure traces. |
+| Workflow                                 | Steps after dependency installation                                                                                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Repository quality and client unit tests | Generate API code, check formatting with Prettier, run repository-wide ESLint, typecheck the client and Vite configuration, bundle the SPA into `server/public/`, and run client Vitest tests with coverage. |
+| BFF typecheck and unit tests             | Run the BFF TypeScript check and BFF Vitest tests once, with dependencies and commands scoped to `server/`.                                                                                                  |
+| Mocked API E2E tests                     | Generate API code, install Chromium and its system dependencies, run Playwright tests, and upload the HTML report and failure traces.                                                                        |
 
 **Triggers:**
 
