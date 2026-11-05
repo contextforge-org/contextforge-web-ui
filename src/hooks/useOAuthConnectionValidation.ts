@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import { serversApi } from "@/api/servers";
+import { validateServerId } from "@/utils/serverId";
 import type { OAuthConnectionValidationResponse } from "@/api/contracts/oauthConnectionValidation";
 import {
   hasValidationStages,
@@ -68,6 +69,11 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
         const resolved = typeof target === "function" ? await target(controller.signal) : target;
         if (!isCurrent()) return;
         if (resolved.gatewayId !== id) throw new ApiError(422, null, "Gateway mismatch");
+        try {
+          validateServerId(resolved.gatewayId);
+        } catch {
+          throw new ApiError(422, null, "Invalid gateway ID");
+        }
         resolvingTarget = false;
         const result = await serversApi.testOAuthConnection(resolved, controller.signal);
         if (!isCurrent()) return;
@@ -104,6 +110,9 @@ export function useOAuthConnectionValidation(enabled = true, targets?: Record<st
                   422: "request_invalid",
                   429: "rate_limited",
                   404: "gateway_unavailable",
+                  502: "gateway_unavailable",
+                  503: "gateway_unavailable",
+                  504: "timeout",
                 } as Record<number, string>
               )[error.status] ?? "generic")
             : resolvingTarget
