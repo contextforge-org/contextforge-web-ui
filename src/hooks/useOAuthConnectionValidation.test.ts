@@ -87,6 +87,9 @@ describe("useOAuthConnectionValidation", () => {
     [422, "request_invalid"],
     [429, "rate_limited"],
     [500, "generic"],
+    [502, "gateway_unavailable"],
+    [503, "gateway_unavailable"],
+    [504, "timeout"],
   ])("maps HTTP %s without automatic retry", async (status, code) => {
     mockTest.mockRejectedValue(new ApiError(status as number, null, "unsafe upstream body"));
     const { result } = renderHook(() => useOAuthConnectionValidation());
@@ -156,6 +159,22 @@ describe("useOAuthConnectionValidation", () => {
     expect(result.current.entries["gw-1"].errorCode).toBe("request_invalid");
     expect(mockTest).not.toHaveBeenCalled();
   });
+
+  it.each(["", "invalid/id", "invalid id", "../gateway"])(
+    "rejects invalid gateway ID %j before sending a request",
+    async (gatewayId) => {
+      const { result } = renderHook(() => useOAuthConnectionValidation());
+      const invalidTarget = { ...target, gatewayId };
+      for (const input of [invalidTarget, async () => invalidTarget]) {
+        await act(() => result.current.test(gatewayId, input));
+        expect(result.current.entries[gatewayId]).toMatchObject({
+          state: "failure",
+          errorCode: "request_invalid",
+        });
+        expect(mockTest).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it("explains unsupported tools without inventing a scope failure", async () => {
     mockTest.mockResolvedValue({
