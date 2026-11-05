@@ -525,19 +525,20 @@ export function TestConnectionPanel({ serverUrl, actionLabel }: TestConnectionPa
         <div className="flex h-5 items-end justify-end gap-3">
           {isTesting && (
             <Button variant="ghost" onClick={handleCancel}>
-              Cancel
+              {intl.formatMessage({ id: "common.button.cancel" })}
             </Button>
           )}
           <Button onClick={handleTest} disabled={isTesting}>
             {isTesting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running test…
+                {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.runningTest" })}
               </>
             ) : hasResult ? (
-              "Re-test connection"
+              intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.retestButton" })
             ) : (
-              (actionLabel ?? "Test connection")
+              (actionLabel ??
+              intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.testButton" }))
             )}
           </Button>
         </div>
@@ -552,7 +553,9 @@ export function TestConnectionPanel({ serverUrl, actionLabel }: TestConnectionPa
           {isTesting && (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Running test…</p>
+              <p className="text-sm text-muted-foreground">
+                {intl.formatMessage({ id: "mcpServer.testConnection.virtualServer.runningTest" })}
+              </p>
             </div>
           )}
 
