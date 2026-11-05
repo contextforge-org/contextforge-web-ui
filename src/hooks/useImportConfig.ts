@@ -22,7 +22,7 @@ export type ImportRunOptions = Omit<ImportOptions, "data" | "dryRun">;
  * caller's job. Use `importOutcome` to judge an import result.
  */
 export interface ImportConfigState {
-  /** Reads + shape-checks a file; resolves false (with `error` set) when it's unusable. */
+  /** Reads + shape-checks a file; false when unusable (`error` set) or superseded by a newer load/reset. */
   loadFile: (file: File) => Promise<boolean>;
   /** Validates the import server-side without writing anything. */
   dryRun: (opts?: ImportRunOptions) => Promise<ImportResult | null>;
@@ -73,6 +73,8 @@ export function useImportConfig(): ImportConfigState {
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Bumped by every reset/new load; a file read that finishes under an older value is dropped.
+  const loadGenRef = useRef(0);
 
   const abortCurrent = useCallback(() => {
     abortRef.current?.abort();
@@ -114,6 +116,7 @@ export function useImportConfig(): ImportConfigState {
   );
 
   const reset = useCallback(() => {
+    loadGenRef.current += 1;
     abortCurrent();
     setData(null);
     setDryRunResult(null);
@@ -124,10 +127,14 @@ export function useImportConfig(): ImportConfigState {
   const loadFile = useCallback(
     async (file: File) => {
       reset();
+      const gen = loadGenRef.current;
       try {
-        setData(await parseImportFile(file));
+        const parsed = await parseImportFile(file);
+        if (gen !== loadGenRef.current) return false;
+        setData(parsed);
         return true;
       } catch (err) {
+        if (gen !== loadGenRef.current) return false;
         // Anything else is the browser failing to read the file.
         const id = !(err instanceof ImportFileError)
           ? "importExport.import.failed"

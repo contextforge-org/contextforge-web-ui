@@ -115,6 +115,105 @@ describe("useImportConfig", () => {
       expect(result.current.error).toBe("Import failed");
     });
 
+    describe("superseded reads", () => {
+      // A file whose read settles only when the test says so.
+      function slowFile() {
+        let resolve!: (content: string) => void;
+        let reject!: (err: Error) => void;
+        const text = new Promise<string>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        });
+        return { file: { text: () => text } as unknown as File, resolve, reject };
+      }
+      const OTHER: ConfigExport = { ...EXPORT, entities: { servers: [{ name: "s1" }] } };
+
+      it("keeps the newer file when an older read finishes last", async () => {
+        const a = slowFile();
+        const b = slowFile();
+        const { result } = renderHook();
+
+        let loadA!: Promise<boolean>;
+        let loadB!: Promise<boolean>;
+        act(() => {
+          loadA = result.current.loadFile(a.file);
+        });
+        act(() => {
+          loadB = result.current.loadFile(b.file);
+        });
+
+        let okB!: boolean;
+        await act(async () => {
+          b.resolve(JSON.stringify(OTHER));
+          okB = await loadB;
+        });
+        let okA!: boolean;
+        await act(async () => {
+          a.resolve(JSON.stringify(EXPORT));
+          okA = await loadA;
+        });
+
+        expect(okB).toBe(true);
+        expect(okA).toBe(false);
+        expect(result.current.data).toEqual(OTHER);
+      });
+
+      it("does not restore a file discarded by reset mid-read", async () => {
+        const a = slowFile();
+        const { result } = renderHook();
+
+        let load!: Promise<boolean>;
+        act(() => {
+          load = result.current.loadFile(a.file);
+        });
+        act(() => result.current.reset());
+
+        let ok!: boolean;
+        await act(async () => {
+          a.resolve(JSON.stringify(EXPORT));
+          ok = await load;
+        });
+
+        expect(ok).toBe(false);
+        expect(result.current.data).toBeNull();
+      });
+
+      it("ignores a late failure from a superseded read", async () => {
+        const a = slowFile();
+        const { result } = renderHook();
+
+        let loadA!: Promise<boolean>;
+        act(() => {
+          loadA = result.current.loadFile(a.file);
+        });
+        await act(() => result.current.loadFile(exportFile()));
+        await act(async () => {
+          a.reject(new Error("NotReadableError"));
+          await loadA;
+        });
+
+        expect(result.current.data).toEqual(EXPORT);
+        expect(result.current.error).toBeNull();
+      });
+
+      it("ignores a late failure after reset", async () => {
+        const a = slowFile();
+        const { result } = renderHook();
+
+        let load!: Promise<boolean>;
+        act(() => {
+          load = result.current.loadFile(a.file);
+        });
+        act(() => result.current.reset());
+        await act(async () => {
+          a.resolve("{not json");
+          await load;
+        });
+
+        expect(result.current.error).toBeNull();
+      });
+    });
+
     it("clears earlier results when a new file is loaded", async () => {
       mockImportConfig.mockResolvedValueOnce(RESULT);
       const { result } = await loaded();
