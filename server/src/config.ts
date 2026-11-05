@@ -66,7 +66,7 @@ export const config = {
   // headroom than a plain API call needs.
   oauthProxyTimeoutMs: Number(optional("OAUTH_PROXY_TIMEOUT_MS", "30000")),
 
-  // Body limit for the config-import proxy routes only (routes/proxy/catch-all.ts);
+  // Body limit for the config-import proxy route only (routes/proxy/catch-all.ts);
   // full exports outgrow Fastify's 1 MiB default, every other /api/* route keeps it.
   importBodyLimitBytes: Number(optional("IMPORT_BODY_LIMIT_BYTES", "10485760")),
 

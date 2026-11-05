@@ -32,8 +32,8 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 // Verified against mcpgateway: /api/logs is the only such router.
 const UPSTREAM_API_PREFIXES = ["logs/"];
 
-// POST-only upstream routes that take a whole config export as the body.
-const IMPORT_PATHS = ["v1/import", "v1/admin/import/preview"];
+// Upstream route that takes a whole config export as the body.
+const IMPORT_PATH = "v1/import";
 
 /** Browser `/api/<wildcard>` -> the path FastAPI actually serves. */
 function toUpstreamPath(wildcard: string): string {
@@ -188,14 +188,12 @@ export default async function catchAllProxyRoute(fastify: FastifyInstance): Prom
   };
 
   // Config import bodies (full exports) outgrow the 1 MiB default; raise the
-  // limit on these routes only. Static paths win over the wildcard below.
-  for (const path of IMPORT_PATHS) {
-    fastify.post(
-      `/api/${path}`,
-      { bodyLimit: config.importBodyLimitBytes, preHandler: [fastify.sessionAuth, csrfIfUnsafe] },
-      (request, reply) => proxyToUpstream(request, reply, path),
-    );
-  }
+  // limit on this route only. Static paths win over the wildcard below.
+  fastify.post(
+    `/api/${IMPORT_PATH}`,
+    { bodyLimit: config.importBodyLimitBytes, preHandler: [fastify.sessionAuth, csrfIfUnsafe] },
+    (request, reply) => proxyToUpstream(request, reply, IMPORT_PATH),
+  );
 
   fastify.all("/api/*", { preHandler: [fastify.sessionAuth, csrfIfUnsafe] }, (request, reply) =>
     proxyToUpstream(request, reply, (request.params as Record<string, string>)["*"] ?? ""),
