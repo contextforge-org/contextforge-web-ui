@@ -116,6 +116,47 @@ describe("useExportConfig", () => {
     expect(result.current.isExporting).toBe(false);
   });
 
+  it("a second call aborts the first and owns isExporting until it settles", async () => {
+    let resolveFirst!: (value: ConfigExport) => void;
+    let resolveSecond!: (value: ConfigExport) => void;
+    mockExportConfig
+      .mockReturnValueOnce(new Promise((r) => (resolveFirst = r)))
+      .mockReturnValueOnce(new Promise((r) => (resolveSecond = r)));
+    const { result } = renderHook();
+
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = result.current.exportAll();
+    });
+    act(() => {
+      second = result.current.exportAll();
+    });
+    const firstSignal = mockExportConfig.mock.calls[0][1] as AbortSignal;
+    const secondSignal = mockExportConfig.mock.calls[1][1] as AbortSignal;
+    expect(firstSignal.aborted).toBe(true);
+    expect(secondSignal.aborted).toBe(false);
+
+    // The aborted call answering late must not clear the loading state.
+    let firstReturned!: boolean;
+    await act(async () => {
+      resolveFirst(EXPORT);
+      firstReturned = await first;
+    });
+    expect(firstReturned).toBe(false);
+    expect(result.current.isExporting).toBe(true);
+    expect(mockDownloadJson).not.toHaveBeenCalled();
+
+    let secondReturned!: boolean;
+    await act(async () => {
+      resolveSecond(EXPORT);
+      secondReturned = await second;
+    });
+    expect(secondReturned).toBe(true);
+    expect(result.current.isExporting).toBe(false);
+    expect(mockDownloadJson).toHaveBeenCalledOnce();
+  });
+
   it("surfaces the backend detail on failure and skips the download", async () => {
     mockExportConfig.mockRejectedValueOnce(
       new ApiError(403, { detail: "Insufficient permissions" }, "HTTP 403"),

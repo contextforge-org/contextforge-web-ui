@@ -68,6 +68,5 @@
   "common.required": "*",
   "common.team.label": "Equipo",
   "common.team.placeholder": "Seleccione un equipo",
-  "importExport.export.success": "Configuración exportada",
   "importExport.export.failed": "Error al exportar"
 }

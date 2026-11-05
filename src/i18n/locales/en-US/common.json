@@ -68,6 +68,5 @@
   "common.required": "*",
   "common.team.label": "Team",
   "common.team.placeholder": "Select a team",
-  "importExport.export.success": "Configuration exported",
   "importExport.export.failed": "Export failed"
 }
