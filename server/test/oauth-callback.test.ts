@@ -39,6 +39,14 @@ beforeAll(async () => {
       return;
     }
 
+    if (req.url?.startsWith("/oauth/callback?structured-error")) {
+      res.writeHead(400, { "content-type": "text/html" });
+      res.end(
+        '<script>window.opener.postMessage({"type":"oauth_callback","status":"error","error":"oauth_error","errorCode":"token_url_unreachable","failedStage":"token_exchange","reauthorizationRequired":false},"*");window.close();</script>',
+      );
+      return;
+    }
+
     // Mirrors mcpgateway's oauth_callback popup branch: an HTML page whose
     // inline script posts the result to window.opener and closes itself.
     res.writeHead(200, {
@@ -65,6 +73,18 @@ async function buildApp() {
 }
 
 describe("GET /oauth/callback", () => {
+  it("forwards structured backend callback error fields", async () => {
+    const app = await buildApp();
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?structured-error=1&state=popup.xyz",
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toContain('"errorCode":"token_url_unreachable"');
+    expect(response.body).toContain('"failedStage":"token_exchange"');
+    expect(response.body).toContain('"reauthorizationRequired":false');
+  });
+
   it("proxies with no session cookie required", async () => {
     const app = await buildApp();
 

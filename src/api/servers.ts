@@ -14,6 +14,10 @@ import type {
   GatewayTestRequest,
   GatewayTestResponse,
 } from "@/generated/types";
+import type {
+  OAuthConnectionValidationRequest,
+  OAuthConnectionValidationResponse,
+} from "./contracts/oauthConnectionValidation";
 import { validateServerId } from "@/utils/serverId";
 
 const serverByIdRequestCache = new Map<string, Promise<MCPServer>>();
@@ -33,14 +37,20 @@ function providerErrorText(value: unknown): string | undefined {
 export class OAuthAuthorizationError extends Error {
   readonly code?: string;
   readonly description?: string;
+  readonly errorCode?: string;
+  readonly failedStage?: string;
+  readonly reauthorizationRequired: boolean;
 
-  constructor(code?: unknown, description?: unknown) {
+  constructor(code?: unknown, description?: unknown, details?: Partial<OAuthCallbackResult>) {
     const safeCode = providerErrorText(code);
     const safeDescription = providerErrorText(description);
     super(safeDescription || safeCode || "OAuth authorization failed");
     this.name = "OAuthAuthorizationError";
     this.code = safeCode;
     this.description = safeDescription;
+    this.errorCode = providerErrorText(details?.errorCode) ?? safeCode;
+    this.failedStage = providerErrorText(details?.failedStage);
+    this.reauthorizationRequired = details?.reauthorizationRequired === true;
   }
 }
 
@@ -204,6 +214,21 @@ export const serversApi = {
     return api.post("/v1/mcp-servers/test-handshake", request, { signal });
   },
 
+  testOAuthConnection: (
+    { gatewayId, baseUrl }: { gatewayId: string; baseUrl: string },
+    signal?: AbortSignal,
+  ): Promise<OAuthConnectionValidationResponse> => {
+    return api.post(
+      "/v1/mcp-servers/test-handshake",
+      {
+        baseUrl,
+        gatewayId: validateServerId(gatewayId),
+        validationMode: "post_authorization",
+      } satisfies OAuthConnectionValidationRequest,
+      { signal },
+    );
+  },
+
   /**
    * Toggle the enabled state of an MCP server (activate/deactivate)
    */
@@ -297,7 +322,7 @@ export const serversApi = {
         if (data.status === "success") {
           resolve(data);
         } else {
-          reject(new OAuthAuthorizationError(data.error, data.errorDescription));
+          reject(new OAuthAuthorizationError(data.error, data.errorDescription, data));
         }
       };
 
@@ -343,4 +368,7 @@ export interface OAuthCallbackResult {
   gatewayName?: string;
   error?: string;
   errorDescription?: string;
+  errorCode?: string;
+  failedStage?: string;
+  reauthorizationRequired?: boolean;
 }

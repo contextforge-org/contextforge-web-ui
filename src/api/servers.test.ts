@@ -1,6 +1,6 @@
 import { waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { serversApi } from "./servers";
+import { OAuthAuthorizationError, serversApi } from "./servers";
 import { setCsrfToken } from "./client";
 import type { GatewayTestRequest, GatewayHandshakeRequest } from "@/generated/types";
 
@@ -31,6 +31,68 @@ describe("serversApi", () => {
   afterEach(() => {
     setCsrfToken(null);
     vi.restoreAllMocks();
+  });
+
+  describe("post-authorization connection validation", () => {
+    it("sends only the saved gateway identity, URL and strict mode", async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ success: false, latencyMs: 1, errorCode: "insufficient_scope" }),
+          { status: 200 },
+        ),
+      );
+      const controller = new AbortController();
+      const result = await serversApi.testOAuthConnection(
+        { gatewayId: "gw-1", baseUrl: "https://saved.example/mcp" },
+        controller.signal,
+      );
+      expect(result?.errorCode).toBe("insufficient_scope");
+      expect(mockFetch).toHaveBeenCalledExactlyOnceWith(
+        expect.stringContaining("/v1/mcp-servers/test-handshake"),
+        expect.objectContaining({
+          method: "POST",
+          signal: controller.signal,
+          body: JSON.stringify({
+            baseUrl: "https://saved.example/mcp",
+            gatewayId: "gw-1",
+            validationMode: "post_authorization",
+          }),
+        }),
+      );
+    });
+
+    it("retains structured callback fields and remains compatible with legacy errors", async () => {
+      const authWindow = mockAuthPopup();
+      vi.spyOn(window, "open").mockReturnValue(authWindow);
+      mockFetch.mockResolvedValueOnce(nonceResponse());
+      const promise = serversApi.triggerOAuthAuthorization("gw-1");
+      const failure = expect(promise).rejects.toMatchObject({
+        code: "oauth_error",
+        errorCode: "token_url_unreachable",
+        failedStage: "token_exchange",
+        reauthorizationRequired: false,
+      });
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: authWindow,
+          data: {
+            type: "oauth_callback",
+            status: "error",
+            error: "oauth_error",
+            errorCode: "token_url_unreachable",
+            failedStage: "token_exchange",
+            reauthorizationRequired: false,
+          },
+        }),
+      );
+      await failure;
+      expect(new OAuthAuthorizationError("access_denied").errorCode).toBe("access_denied");
+      expect(
+        new OAuthAuthorizationError("unknown", "text", {
+          reauthorizationRequired: "yes" as unknown as boolean,
+        }).reauthorizationRequired,
+      ).toBe(false);
+    });
   });
 
   describe("toggleEnabled", () => {
