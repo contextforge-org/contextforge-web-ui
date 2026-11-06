@@ -92,7 +92,6 @@ test.describe("Global search", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Search" }).click();
     const searchBox = page.getByRole("searchbox", { name: "Search" });

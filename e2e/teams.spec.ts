@@ -121,7 +121,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       const main = page.getByRole("main");
       await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
@@ -146,7 +145,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await expect(page.getByText("No teams yet")).toBeVisible();
       await expect(
@@ -173,7 +171,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await expect(page.getByText("Engineering")).toBeVisible();
       await expect(page.getByText("Public Team")).toBeVisible();
@@ -232,7 +229,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
       await expect(page.getByRole("heading", { name: "Create Team" })).toBeVisible();
@@ -309,7 +305,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
 
@@ -391,7 +386,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
 
@@ -475,8 +469,16 @@ test.describe("Teams page", () => {
         }
       });
 
+      // Stub the directory search so typing never sends a real request to the preview server.
+      await page.route("**/auth/email/admin/users?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ users: [] }),
+        });
+      });
+
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
       await page.locator("#team-name").fill("Team With Invite");
@@ -508,7 +510,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
 
@@ -574,7 +575,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
 
@@ -637,7 +637,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -671,7 +670,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -694,7 +692,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -723,7 +720,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -784,11 +780,14 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
 
+      // Members must load first: a late fetch resets the rows and drops the one being typed into.
+      await expect(
+        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       await pickComboboxOption(
         page,
@@ -862,12 +861,24 @@ test.describe("Teams page", () => {
         }
       });
 
+      // Stub the directory search so typing never sends a real request to the preview server.
+      await page.route("**/auth/email/admin/users?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ users: [] }),
+        });
+      });
+
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
 
+      // Members must load first: a late fetch resets the rows and drops the one being typed into.
+      await expect(
+        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       // No matching directory entry — commit the raw email via "Use ...".
       await enterCustomComboboxEmail(
@@ -939,12 +950,24 @@ test.describe("Teams page", () => {
         }
       });
 
+      // Stub the directory search so typing never sends a real request to the preview server.
+      await page.route("**/auth/email/admin/users?*", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ users: [] }),
+        });
+      });
+
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
 
+      // Members must load first: a late fetch resets the rows and drops the one being typed into.
+      await expect(
+        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       await enterCustomComboboxEmail(
         page,
@@ -1001,7 +1024,6 @@ test.describe("Teams page", () => {
       );
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1049,7 +1071,6 @@ test.describe("Teams page", () => {
       );
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1112,7 +1133,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1163,7 +1183,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1210,7 +1229,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1253,7 +1271,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await expect(page.getByText("Engineering")).toBeVisible();
       await expect(page.getByText("Public Team")).toBeVisible();
@@ -1287,7 +1304,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -1324,7 +1340,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await expect(page.getByText("Engineering")).toBeVisible();
 
@@ -1353,7 +1368,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -1390,7 +1404,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
       await page.locator("#team-name").fill("Duplicate Team");
@@ -1421,7 +1434,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -1469,7 +1481,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Create Team" }).click();
       await page.locator("#team-name").fill("Slow Team");
@@ -1499,7 +1510,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       // aria-labels on the row's action buttons also contain the long name, so
       // scope to visible text (getByText) rather than accessible name (getByRole)
@@ -1532,7 +1542,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
@@ -1567,7 +1576,6 @@ test.describe("Teams page", () => {
       });
 
       await page.goto(APP.TEAMS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();

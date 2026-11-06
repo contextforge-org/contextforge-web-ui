@@ -216,7 +216,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Virtual servers" })).toBeVisible();
     const mainContent = page.getByRole("main");
@@ -243,7 +242,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Virtual servers" })).toBeVisible();
     await expect(
@@ -261,7 +259,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /Create server Make external sources/i }).click();
 
@@ -459,7 +456,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // Check for virtual servers heading
     await expect(page.getByRole("heading", { name: "Virtual servers" })).toBeVisible();
@@ -483,7 +479,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("testVS")).toBeVisible();
 
@@ -511,7 +506,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
 
@@ -553,7 +547,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
     await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-inactive/);
@@ -593,7 +586,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
     await page.getByRole("button", { name: "Actions for testVS" }).click();
@@ -646,7 +638,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -688,7 +679,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -724,7 +714,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("testVS")).toBeVisible();
 
@@ -769,7 +758,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -820,7 +808,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -865,7 +852,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -892,7 +878,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(
       page.getByTestId("virtual-server-card").filter({ hasText: "testVS" }),
@@ -934,7 +919,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(
       page.getByTestId("virtual-server-card").filter({ hasText: "testVS" }),
@@ -994,7 +978,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1004,7 +987,6 @@ test.describe("Virtual Servers page", () => {
 
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
     await expect(detailsPanel).toHaveCount(0);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -1057,7 +1039,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1067,7 +1048,6 @@ test.describe("Virtual Servers page", () => {
 
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
     await expect(detailsPanel).toHaveCount(0);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -1113,7 +1093,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1124,8 +1103,6 @@ test.describe("Virtual Servers page", () => {
     await page.keyboard.press("Escape"); // drawer is a full-height overlay; must close it before clicking table row actions
 
     await expect(detailsPanel).toHaveCount(0);
-
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -1160,7 +1137,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1271,7 +1247,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1324,7 +1299,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1370,7 +1344,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for testVS" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1436,7 +1409,6 @@ test.describe("Virtual Servers page", () => {
       });
 
       await page.goto(APP.GATEWAYS);
-      await page.waitForLoadState("networkidle");
 
       const panel = await openVirtualServerToolTest(page);
       await expect(panel.getByRole("button", { name: "Preview" })).toBeVisible();
@@ -1508,7 +1480,6 @@ test.describe("Virtual Servers page", () => {
       await routeVirtualServerTryIt(page, [makeTryItTool()]);
 
       await page.goto(APP.GATEWAYS);
-      await page.waitForLoadState("networkidle");
       const panel = await openVirtualServerToolTest(page);
 
       await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
@@ -1520,7 +1491,6 @@ test.describe("Virtual Servers page", () => {
     test("restores focus after keyboard navigation through tool testing", async ({ page }) => {
       await routeVirtualServerTryIt(page, [makeTryItTool()]);
       await page.goto(APP.GATEWAYS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for testVS" }).focus();
       await page.keyboard.press("Enter");
@@ -1546,7 +1516,6 @@ test.describe("Virtual Servers page", () => {
       await routeVirtualServerTryIt(page, [makeTryItTool()]);
 
       await page.goto(APP.GATEWAYS);
-      await page.waitForLoadState("networkidle");
       const panel = await openVirtualServerToolTest(page);
 
       await expect(panel.getByRole("switch", { name: "Live invocation" })).toHaveCount(0);
@@ -1566,6 +1535,7 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("button", { name: /Open testVS \(coming soon\)/ })).toHaveCount(0);
@@ -1582,6 +1552,7 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("button", { name: "Virtual server actions" })).toHaveCount(0);
@@ -1601,7 +1572,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // Check for error message
     await expect(page.getByRole("alert")).toBeVisible();
@@ -1620,7 +1590,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
 
@@ -1649,7 +1618,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("testVS")).toBeVisible();
     await expect(page.getByText("Production Server")).toBeVisible();
@@ -1683,7 +1651,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // Cards are uniform now, so empty servers are no longer sorted to the end
     // to keep a full-width row from splitting the grid.
@@ -1707,7 +1674,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // Focus the create server card
     const connectCard = page.getByRole("button", {
@@ -1737,7 +1703,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
     await expect(card.getByTestId("last-updated")).toBeVisible();
@@ -1761,7 +1726,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     const card = page.getByTestId("virtual-server-card").filter({ hasText: "testVS" });
 
@@ -1791,7 +1755,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     await page
       .getByTestId("virtual-server-card")
@@ -1872,7 +1835,6 @@ test.describe("Virtual Servers page", () => {
     });
 
     await page.goto("/app/gateways/create-server");
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("radio", { name: "Internal" })).toBeChecked();
     await page.getByLabel("Name").fill("MCP backed server");

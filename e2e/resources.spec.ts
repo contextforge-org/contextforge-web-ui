@@ -49,7 +49,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Add resources")).toBeVisible();
     await expect(
@@ -71,7 +70,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
     await expect(page.getByText("Add resources")).not.toBeVisible();
@@ -87,7 +85,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await page.getByText("Add resources").click();
 
@@ -105,7 +102,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.getByText("Error loading resources")).toBeVisible();
@@ -121,7 +117,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Resources" })).toBeVisible();
 
@@ -150,7 +145,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("big-gateway")).toBeVisible();
     await expect(page.getByText("10 resources")).toBeVisible();
@@ -173,7 +167,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
 
@@ -199,7 +192,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     const kebab = page.getByRole("button", { name: `More options for ${longSlug}` });
     await expect(kebab).toBeVisible();
@@ -231,7 +223,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -253,7 +244,6 @@ test.describe("Resources page", () => {
     });
 
     await page.goto(APP.RESOURCES);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -289,7 +279,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -333,7 +322,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -369,7 +357,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -413,7 +400,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -462,7 +448,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -507,7 +492,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for solo-gateway" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -555,7 +539,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for multi-gw" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -603,7 +586,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await expect(page.getByText("lone-gateway")).toBeVisible();
       await expect(page.getByText("github-server")).toBeVisible();
@@ -662,7 +644,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
@@ -719,7 +700,6 @@ test.describe("Resources page", () => {
       });
 
       await page.goto(APP.RESOURCES);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "More options for github-server" }).click();
       await page.getByRole("menuitem", { name: "View details" }).click();
