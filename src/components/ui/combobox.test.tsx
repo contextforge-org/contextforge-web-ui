@@ -91,6 +91,21 @@ describe("Combobox", () => {
     expect(onValueChange).toHaveBeenCalledWith("new@example.com");
   });
 
+  it("keeps the typed search when focus bounces away and back while open", async () => {
+    const user = userEvent.setup();
+    render(<Combobox options={OPTIONS} allowCustomValue />);
+    const input = screen.getByRole("combobox");
+
+    await user.click(input);
+    await user.keyboard("new@example.com");
+    // A closing menu returning focus to its trigger, then a dialog's focus trap pulling it back.
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+
+    expect(input).toHaveValue("new@example.com");
+    expect(screen.getByRole("option", { name: 'Use "new@example.com"' })).toBeInTheDocument();
+  });
+
   it("shows the empty text and no custom entry when allowCustomValue is false", async () => {
     const user = userEvent.setup();
     render(<Combobox options={OPTIONS} allowCustomValue={false} emptyText="No user found." />);

@@ -783,11 +783,6 @@ test.describe("Teams page", () => {
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
-
-      // Members must load first: a late fetch resets the rows and drops the one being typed into.
-      await expect(
-        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
-      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       await pickComboboxOption(
         page,
@@ -874,11 +869,6 @@ test.describe("Teams page", () => {
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
-
-      // Members must load first: a late fetch resets the rows and drops the one being typed into.
-      await expect(
-        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
-      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       // No matching directory entry — commit the raw email via "Use ...".
       await enterCustomComboboxEmail(
@@ -963,11 +953,6 @@ test.describe("Teams page", () => {
 
       await page.getByRole("button", { name: "Actions for Engineering" }).click();
       await page.getByRole("menuitem", { name: "Manage Members" }).click();
-
-      // Members must load first: a late fetch resets the rows and drops the one being typed into.
-      await expect(
-        page.getByRole("button", { name: `Remove ${MOCK_MEMBER.user_email}` }),
-      ).toBeVisible();
       await page.getByRole("button", { name: "Add member" }).click();
       await enterCustomComboboxEmail(
         page,
