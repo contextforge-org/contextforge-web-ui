@@ -329,6 +329,78 @@ describe("ServerCatalog", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("reuses cached and pending gateway requests when the catalog ID list changes", async () => {
+    const first = { ...oauthServer, is_registered: true, gateway_id: "gateway-first" };
+    const second = { ...first, id: "second", name: "Second", gateway_id: "gateway-second" };
+    const third = { ...first, id: "third", name: "Third", gateway_id: "gateway-third" };
+    const gateway = { id: first.gateway_id, enabled: true, authType: "oauth" };
+    const pending = deferred<typeof gateway>();
+    const secondRequest = deferred<typeof gateway>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(pending.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+    const show = (servers: CatalogServer[]) =>
+      mockUseQuery.mockReturnValue(queryResult({ data: { ...response, servers } }));
+
+    show([first]);
+    const { rerender, unmount } = renderWithRouter(<ServerCatalog />);
+    expect(get).toHaveBeenCalledTimes(1);
+    const firstSignal = get.mock.calls[0][2] as AbortSignal;
+
+    show([first, second]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(firstSignal.aborted).toBe(false);
+
+    await act(async () => pending.resolve(gateway));
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(async () => secondRequest.resolve({ ...gateway, id: second.gateway_id }));
+    show([second]);
+    rerender(withProviders(<ServerCatalog />));
+    show([first, second]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(2);
+
+    const lastRequest = deferred<typeof gateway>();
+    get.mockReturnValue(lastRequest.promise);
+    show([first, second, third]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(3);
+    const thirdSignal = get.mock.calls[2][2] as AbortSignal;
+    expect(thirdSignal.aborted).toBe(false);
+    unmount();
+    expect(thirdSignal.aborted).toBe(true);
+    await act(async () => lastRequest.resolve({ ...gateway, id: third.gateway_id }));
+  });
+
+  it("clears cached gateways and aborts pending requests when read permission is revoked", async () => {
+    const first = { ...oauthServer, is_registered: true, gateway_id: "gateway-first" };
+    const second = { ...first, id: "second", name: "Second", gateway_id: "gateway-second" };
+    const gateway = { id: first.gateway_id, enabled: true, authType: "oauth" };
+    const firstRequest = deferred<typeof gateway>();
+    const pending = deferred<typeof gateway>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValue(pending.promise);
+    mockUseQuery.mockReturnValue(queryResult({ data: { ...response, servers: [first, second] } }));
+    const { rerender } = renderWithRouter(<ServerCatalog />);
+    await act(async () => firstRequest.resolve(gateway));
+    expect(get).toHaveBeenCalledTimes(2);
+    const signal = get.mock.calls[1][2] as AbortSignal;
+    authState.hasPermission.mockReturnValue(false);
+    rerender(withProviders(<ServerCatalog />));
+    expect(signal.aborted).toBe(true);
+    await act(async () => pending.resolve({ ...gateway, id: second.gateway_id }));
+    const reloaded = deferred<typeof gateway>();
+    get.mockReturnValue(reloaded.promise);
+    authState.hasPermission.mockReturnValue(true);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(4);
+    await act(async () => reloaded.resolve(gateway));
+  });
+
   it("uses the catalog GET endpoint and shared loader", () => {
     mockUseQuery.mockReturnValue(queryResult({ data: undefined, isLoading: true }));
 

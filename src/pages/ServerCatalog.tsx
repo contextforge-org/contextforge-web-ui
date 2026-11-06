@@ -445,28 +445,43 @@ export function ServerCatalog() {
     retry: retryOAuthStatus,
   } = useOAuthStatuses(oauthGatewayIds, { enabled: canReadOAuthStatuses });
   const [savedOAuthGateways, setSavedOAuthGateways] = useState<Record<string, MCPServer>>({});
+  const gatewayRequests = useRef(new Map<string, AbortController>());
+  const abortGatewayRequests = useCallback(() => {
+    gatewayRequests.current.forEach((controller) => controller.abort());
+    gatewayRequests.current.clear();
+  }, []);
+  useEffect(() => abortGatewayRequests, [abortGatewayRequests]);
   const oauthGatewayIdsKey = JSON.stringify(oauthGatewayIds);
   useEffect(() => {
     if (!canReadOAuthStatuses) {
-      setSavedOAuthGateways({});
+      abortGatewayRequests();
+      setSavedOAuthGateways((previous) => (Object.keys(previous).length ? {} : previous));
       return;
     }
-    const controller = new AbortController();
     const ids = JSON.parse(oauthGatewayIdsKey) as string[];
-    setSavedOAuthGateways((previous) =>
-      Object.fromEntries(Object.entries(previous).filter(([id]) => ids.includes(id))),
-    );
+    // Keep cached and in-flight entries across ID-list changes. Explicit tests
+    // and authorization refreshes still fetch the current saved configuration.
     ids.forEach((id) => {
+      if (savedOAuthGateways[id] || gatewayRequests.current.has(id)) return;
+      const controller = new AbortController();
+      gatewayRequests.current.set(id, controller);
       void api
         .get<MCPServer>(`/v1/mcp-servers/${encodeURIComponent(id)}`, undefined, controller.signal)
         .then((gateway) => {
-          if (!controller.signal.aborted)
-            setSavedOAuthGateways((previous) => ({ ...previous, [id]: gateway }));
+          if (!controller.signal.aborted) {
+            setSavedOAuthGateways((previous) =>
+              previous[id] ? previous : { ...previous, [id]: gateway },
+            );
+          }
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          if (gatewayRequests.current.get(id) === controller) {
+            gatewayRequests.current.delete(id);
+          }
+        });
     });
-    return () => controller.abort();
-  }, [oauthGatewayIdsKey, canReadOAuthStatuses]);
+  }, [oauthGatewayIdsKey, canReadOAuthStatuses, savedOAuthGateways, abortGatewayRequests]);
   const validationTargets = Object.fromEntries(
     oauthGatewayIds.map((id) => [
       id,
@@ -1402,8 +1417,9 @@ export function ServerCatalog() {
             !canTestOAuthServer(server) ||
             isAdding(server.id) ||
             isDisconnecting(server.id)
-          )
+          ) {
             return null;
+          }
           const id = server.gateway_id;
           return (
             <OAuthConnectionValidationPanel
