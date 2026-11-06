@@ -1553,6 +1553,123 @@ describe("Servers", () => {
       };
     }
 
+    it("offers an explicit test after authorization and shares its result with details", async () => {
+      const user = userEvent.setup();
+      setupOAuth();
+      const testConnection = vi.spyOn(serversApi, "testOAuthConnection");
+      testConnection.mockResolvedValue({
+        success: true,
+        latencyMs: 5,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+        componentCounts: { tools: 0 },
+      });
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const row = screen.getByRole("row", { name: /Test Server 0/ });
+      const button = await within(row).findByRole("button", {
+        name: "Test connection Test Server 0",
+      });
+      expect(testConnection).not.toHaveBeenCalled();
+      await user.click(button);
+      expect(await screen.findByText("Stored authorization verified")).toBeVisible();
+      expect(testConnection).toHaveBeenCalledExactlyOnceWith(
+        { gatewayId: "server-0", baseUrl: mockServerDetails.url },
+        expect.any(AbortSignal),
+      );
+      const get = vi.mocked(api.get).getMockImplementation()!;
+      vi.mocked(api.get).mockImplementation((...args) =>
+        args[0] === "/v1/mcp-servers/server-0"
+          ? Promise.resolve({
+              ...mockServerDetails,
+              authType: "oauth",
+              oauthConfig: { grant_type: "authorization_code", scope: "read" },
+            } as never)
+          : get(...args),
+      );
+      await user.click(within(row).getByRole("button", { name: "Actions for Test Server 0" }));
+      await user.click(await screen.findByRole("menuitem", { name: "View details" }));
+      const panel = screen.getByRole("region", { name: /MCP Server details: Test Server 0/ });
+      expect(within(panel).getByText("Stored authorization verified")).toBeVisible();
+      expect(within(panel).getByText("0 tools")).toBeVisible();
+    });
+
+    it("resolves the latest saved URL before sending validation", async () => {
+      const user = userEvent.setup();
+      setupOAuth({ token: "valid" });
+      const get = vi.mocked(api.get).getMockImplementation()!;
+      vi.mocked(api.get).mockImplementation((...args) => {
+        if (args[0] === "/v1/mcp-servers/server-0")
+          return Promise.resolve({
+            ...mockServerDetails,
+            url: "https://updated.example/mcp",
+            authType: "oauth",
+            oauthConfig: { grant_type: "authorization_code" },
+          } as never);
+        return get(...args);
+      });
+      const validate = vi.spyOn(serversApi, "testOAuthConnection").mockResolvedValue({
+        latencyMs: 1,
+        success: true,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+      });
+      renderWithRouter(<Servers />);
+      const row = await screen.findByRole("row", { name: /Test Server 0/ });
+      await user.click(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      );
+      await waitFor(() =>
+        expect(validate).toHaveBeenCalledWith(
+          { gatewayId: "server-0", baseUrl: "https://updated.example/mcp" },
+          expect.any(AbortSignal),
+        ),
+      );
+    });
+
+    it("does not offer strict validation to a read-only caller", async () => {
+      setupOAuth({ token: "valid" });
+      mockHasPermission.mockImplementation((permission) => permission === "gateways.read");
+      renderWithRouter(<Servers />);
+      await screen.findByText("Test Server 0");
+      await screen.findByRole("button", { name: "Test Server 0 status: Active. Show details" });
+      expect(
+        screen.queryByRole("button", { name: "Test connection Test Server 0" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("clears a failed validation when reauthorization starts", async () => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth({ token: "valid" });
+      vi.spyOn(serversApi, "testOAuthConnection").mockResolvedValue({
+        success: false,
+        latencyMs: 5,
+        stages: { token: "ok", negotiation: "ok", tools_list: "failed" },
+        errorCode: "insufficient_scope",
+        reauthorizationRequired: true,
+      });
+      renderWithRouter(<Servers />);
+      const row = await screen.findByRole("row", { name: /Test Server 0/ });
+      await user.click(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      );
+      expect(await screen.findByText(/stored token lacks the required scope/)).toBeVisible();
+      let finish!: () => void;
+      authorize.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve({ type: "oauth_callback", status: "success" });
+          }),
+      );
+      await user.click(within(row).getByRole("button", { name: "Authorize again" }));
+      expect(screen.queryByText("Connection validation failed")).not.toBeInTheDocument();
+      expect(
+        within(row).queryByRole("button", { name: "Test connection Test Server 0" }),
+      ).not.toBeInTheDocument();
+      await act(async () => finish());
+      expect(
+        await within(row).findByRole("button", { name: "Test connection Test Server 0" }),
+      ).toBeVisible();
+    });
+
     it("authorizes from the row without opening details or reloading the table", async () => {
       const user = userEvent.setup();
       const { discover } = setupOAuth();
@@ -1582,7 +1699,7 @@ describe("Servers", () => {
       expect(await screen.findByText("Fresh prompt")).toBeVisible();
     });
 
-    it("shows the provider reason, dismisses without closing details, and retries successfully", async () => {
+    it("shows localized guidance with provider details and retries successfully", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
       authorize.mockRejectedValueOnce(
@@ -1597,7 +1714,11 @@ describe("Servers", () => {
       const dialog = await screen.findByRole("dialog", {
         name: "OAuth authorization failed for Test Server 0",
       });
-      expect(within(dialog).getByText("Provider denied the requested scope")).toBeVisible();
+      expect(
+        within(dialog).getByText(
+          "The provider denied authorization. Authorize this server again. Provider message: Provider denied the requested scope",
+        ),
+      ).toBeVisible();
       await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       // Radix lifts the modal's body pointer-events lock after unmount.
@@ -1611,6 +1732,30 @@ describe("Servers", () => {
       expect(authorize).toHaveBeenCalledTimes(2);
     });
 
+    it.each([
+      [
+        "invalid_grant",
+        "The authorization code expired",
+        "The authorization grant is invalid or expired. Authorize this server again.",
+      ],
+      [
+        "provider_specific_error",
+        '<img src=x onerror="alert(1)">',
+        "OAuth connection failed. Check the configuration and try again.",
+      ],
+    ])("preserves provider details as plain text for %s", async (code, description, guidance) => {
+      const user = userEvent.setup();
+      const { authorize } = setupOAuth();
+      authorize.mockRejectedValueOnce(new OAuthAuthorizationError(code, description));
+      renderWithRouter(<Servers />);
+      await user.click(await screen.findByRole("button", { name: "Authorize Test Server 0" }));
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByText(`${guidance} Provider message: ${description}`),
+      ).toBeVisible();
+      expect(dialog.querySelector("img")).toBeNull();
+    });
+
     it("dismisses only the failure dialog with Escape and restores focus to Authorize", async () => {
       const user = userEvent.setup();
       const { authorize } = setupOAuth();
@@ -1621,7 +1766,11 @@ describe("Servers", () => {
       await user.click(
         await within(details).findByRole("button", { name: "Authorize Test Server 0" }),
       );
-      await screen.findByRole("dialog");
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByText("The provider denied authorization. Authorize this server again."),
+      ).toBeVisible();
+      expect(within(dialog).queryByText(/Provider message:/)).not.toBeInTheDocument();
       await user.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(screen.getByRole("region", { name: /Test Server 0/i })).toBeVisible();
@@ -1775,7 +1924,12 @@ describe("Servers", () => {
         () =>
           new Promise((_, reject) => {
             fail = () =>
-              reject(new OAuthAuthorizationError("access_denied", "Failure from server 0"));
+              reject(
+                new OAuthAuthorizationError(
+                  "access_denied",
+                  "The provider denied authorization. Authorize this server again.",
+                ),
+              );
           }),
       );
       renderWithRouter(<Servers />);
@@ -1787,7 +1941,11 @@ describe("Servers", () => {
       const failure = await screen.findByRole("dialog", {
         name: "OAuth authorization failed for Test Server 0",
       });
-      expect(within(failure).getByText("Failure from server 0")).toBeVisible();
+      expect(
+        within(failure).getByText(
+          "The provider denied authorization. Authorize this server again.",
+        ),
+      ).toBeVisible();
       await user.click(within(failure).getByRole("button", { name: "Dismiss" }));
       expect(screen.getByRole("region", { name: /Test Server 1/i })).toBeVisible();
     });

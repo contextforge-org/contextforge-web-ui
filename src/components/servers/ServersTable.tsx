@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from "react";
 import { Building2, Lock, Users } from "lucide-react";
 import {
   Table,
@@ -47,6 +48,7 @@ function getVisibilityConfig(visibility: MCPServer["visibility"]) {
 }
 
 interface ServersTableProps {
+  renderOAuthValidation?: (server: MCPServer, variant: "actions" | "result") => ReactNode;
   servers: MCPServer[];
   isLoading: boolean;
   onEdit?: (id: string) => void;
@@ -63,6 +65,7 @@ interface ServersTableProps {
 
 export function ServersTable({
   servers,
+  renderOAuthValidation,
   isLoading,
   onEdit,
   onDelete,
@@ -130,86 +133,101 @@ export function ServersTable({
             const lastSeen = getLastSeenValue(server);
             const visibility = getVisibilityConfig(server.visibility);
             const VisibilityIcon = visibility.Icon;
+            const validationResult = renderOAuthValidation?.(server, "result");
 
             return (
-              <TableRow
-                key={server.id}
-                className="border-0 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg"
-              >
-                <TableCell className="px-4 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <ServerIcon name={server.name} size="md" />
-                    <span className="font-medium text-card-foreground">{server.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-2.5">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {intl.formatMessage(
-                        { id: "mcpServer.table.components.tools" },
-                        { count: toolCount },
-                      )}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {intl.formatMessage(
-                        { id: "mcpServer.table.components.resources" },
-                        { count: resourcesCount },
-                      )}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {intl.formatMessage(
-                        { id: "mcpServer.table.components.prompts" },
-                        { count: promptsCount },
-                      )}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
-                  {formatLocalDateTime(lastSeen, intl.formatMessage({ id: "mcpServer.neverUsed" }))}
-                </TableCell>
-                <TableCell className="px-4 py-2.5">
-                  <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                    <TruncatedText className="max-w-[180px]">{server.id}</TruncatedText>
-                    <CopyButton
-                      value={server.id}
-                      label={intl.formatMessage(
-                        { id: "mcpServer.table.copyUuid" },
-                        { name: server.name },
-                      )}
-                      iconClassName="h-3.5 w-3.5"
+              <Fragment key={server.id}>
+                <TableRow className="border-0 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg">
+                  <TableCell className="px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <ServerIcon name={server.name} size="md" />
+                      <span className="font-medium text-card-foreground">{server.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {intl.formatMessage(
+                          { id: "mcpServer.table.components.tools" },
+                          { count: toolCount },
+                        )}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {intl.formatMessage(
+                          { id: "mcpServer.table.components.resources" },
+                          { count: resourcesCount },
+                        )}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {intl.formatMessage(
+                          { id: "mcpServer.table.components.prompts" },
+                          { count: promptsCount },
+                        )}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {formatLocalDateTime(
+                      lastSeen,
+                      intl.formatMessage({ id: "mcpServer.neverUsed" }),
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <TruncatedText className="max-w-[180px]">{server.id}</TruncatedText>
+                      <CopyButton
+                        value={server.id}
+                        label={intl.formatMessage(
+                          { id: "mcpServer.table.copyUuid" },
+                          { name: server.name },
+                        )}
+                        iconClassName="h-3.5 w-3.5"
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5">
+                    <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <VisibilityIcon
+                        className="h-3.5 w-3.5"
+                        aria-hidden="true"
+                        focusable="false"
+                      />
+                      <span>{intl.formatMessage({ id: visibility.labelId })}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5" data-server-status>
+                    <ServerStatusIndicator
+                      server={server}
+                      oauthStatus={oauthStatuses?.[server.id]}
+                      authorizing={authorizingServerIds?.has(server.id)}
+                      onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
+                      onRetry={onRetryOAuthStatus && (() => onRetryOAuthStatus(server.id))}
+                      compact
                     />
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-2.5">
-                  <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <VisibilityIcon className="h-3.5 w-3.5" aria-hidden="true" focusable="false" />
-                    <span>{intl.formatMessage({ id: visibility.labelId })}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-2.5" data-server-status>
-                  <ServerStatusIndicator
-                    server={server}
-                    oauthStatus={oauthStatuses?.[server.id]}
-                    authorizing={authorizingServerIds?.has(server.id)}
-                    onAuthorize={onAuthorize && (() => onAuthorize(server.id))}
-                    onRetry={onRetryOAuthStatus && (() => onRetryOAuthStatus(server.id))}
-                    compact
-                  />
-                </TableCell>
-                <TableCell className="px-4 py-2.5 text-right">
-                  <ServerActionsMenu
-                    server={server}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onViewDetails={onViewDetails}
-                    onToggleEnabled={onToggleEnabled}
-                    onRefresh={onRefresh}
-                    isRefreshing={refreshingServerIds?.has(server.id)}
-                  />
-                </TableCell>
-              </TableRow>
+                    {renderOAuthValidation?.(server, "actions")}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-right">
+                    <ServerActionsMenu
+                      server={server}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onViewDetails={onViewDetails}
+                      onToggleEnabled={onToggleEnabled}
+                      onRefresh={onRefresh}
+                      isRefreshing={refreshingServerIds?.has(server.id)}
+                    />
+                  </TableCell>
+                </TableRow>
+                {validationResult && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="bg-muted/30 px-4 py-3">
+                      {validationResult}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
             );
           })}
         </TableBody>

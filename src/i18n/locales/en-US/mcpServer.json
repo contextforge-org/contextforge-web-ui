@@ -449,5 +449,8 @@
   "mcpServer.oauthValidation.error.request_invalid": "The saved server is not eligible for this test or the request is invalid. Reload and check its configuration.",
   "mcpServer.oauthValidation.error.rate_limited": "Too many connection tests. Wait before testing again.",
   "mcpServer.oauthValidation.error.network": "The connection test could not reach the backend. Check your connection and try again.",
-  "mcpServer.oauthValidation.error.unauthenticated": "Your session has expired. Sign in again."
+  "mcpServer.oauthValidation.error.unauthenticated": "Your session has expired. Sign in again.",
+  "mcpServer.oauthValidation.genericTest": "Run custom connection test",
+  "mcpServer.oauthValidation.providerError": "{guidance} Provider message: {description}",
+  "mcpServer.oauthValidation.actionLabel": "{action} {name}"
 }
