@@ -273,7 +273,7 @@ describe("ServerCatalog", () => {
       componentCounts: { tools: 0 },
     });
     renderWithRouter(<ServerCatalog />);
-    const button = await screen.findByRole("button", { name: "Test connection" });
+    const button = await screen.findByRole("button", { name: "Test connection GitHub" });
     expect(testConnection).not.toHaveBeenCalled();
     await user.click(button);
     expect(await screen.findByText("Stored authorization verified")).toBeVisible();
@@ -298,7 +298,9 @@ describe("ServerCatalog", () => {
     renderWithRouter(<ServerCatalog />);
     await user.click(await screen.findByRole("button", { name: "Actions for GitHub" }));
     expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Test connection" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Test connection GitHub" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
