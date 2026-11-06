@@ -9,7 +9,7 @@ import {
   testCatalogServer,
   type GatewayImpactPreview,
 } from "@/api/catalog";
-import { ApiError } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import {
   OAuthAuthorizationError,
   OAuthCancelledError,
@@ -38,6 +38,15 @@ import type {
   CatalogServerRegisterBody,
 } from "@/generated/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import type { MCPServer } from "@/types/server";
+import { useOAuthConnectionValidation } from "@/hooks/useOAuthConnectionValidation";
+import { OAuthConnectionValidationPanel } from "@/components/servers/OAuthConnectionValidationPanel";
+import {
+  canValidateOAuthConnection,
+  oauthConfigurationKey,
+  oauthAuthorizationErrorMessage,
+} from "@/lib/oauthConnectionValidation";
+import { catalogTestAction } from "@/lib/catalogConnectionValidation";
 import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
@@ -358,17 +367,15 @@ function CatalogPageLayout({
   );
 }
 
-// Surface the provider's own description when it sent one. A blocked popup
-// gets its own message (retrying won't help). Everything else, including a
-// provider denial with only a raw error code, gets the localized text.
-function oauthErrorMessage(intl: IntlShape, error: unknown): string {
+// Preserve popup-blocker guidance and use safe localized provider error mappings.
+function catalogOAuthErrorMessage(intl: IntlShape, error: unknown): string {
   if (error instanceof OAuthPopupBlockedError) {
     return intl.formatMessage({ id: "mcpServer.catalog.oauth.popupBlocked" });
   }
-  return (
-    (error instanceof OAuthAuthorizationError && error.description) ||
-    intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" })
-  );
+  if (error instanceof OAuthAuthorizationError) {
+    return oauthAuthorizationErrorMessage(intl, error);
+  }
+  return intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" });
 }
 
 export function ServerCatalog() {
@@ -437,7 +444,86 @@ export function ServerCatalog() {
     reload: reloadOAuthStatuses,
     retry: retryOAuthStatus,
   } = useOAuthStatuses(oauthGatewayIds, { enabled: canReadOAuthStatuses });
-  const canTest = canReadOAuthStatuses;
+  const [savedOAuthGateways, setSavedOAuthGateways] = useState<Record<string, MCPServer>>({});
+  const gatewayRequests = useRef(new Map<string, AbortController>());
+  const abortGatewayRequests = useCallback(() => {
+    gatewayRequests.current.forEach((controller) => controller.abort());
+    gatewayRequests.current.clear();
+  }, []);
+  useEffect(() => abortGatewayRequests, [abortGatewayRequests]);
+  const oauthGatewayIdsKey = JSON.stringify(oauthGatewayIds);
+  useEffect(() => {
+    if (!canReadOAuthStatuses) {
+      abortGatewayRequests();
+      setSavedOAuthGateways((previous) => (Object.keys(previous).length ? {} : previous));
+      return;
+    }
+    const ids = JSON.parse(oauthGatewayIdsKey) as string[];
+    // Keep cached and in-flight entries across ID-list changes. Explicit tests
+    // and authorization refreshes still fetch the current saved configuration.
+    ids.forEach((id) => {
+      if (savedOAuthGateways[id] || gatewayRequests.current.has(id)) return;
+      const controller = new AbortController();
+      gatewayRequests.current.set(id, controller);
+      void api
+        .get<MCPServer>(`/v1/mcp-servers/${encodeURIComponent(id)}`, undefined, controller.signal)
+        .then((gateway) => {
+          if (!controller.signal.aborted) {
+            setSavedOAuthGateways((previous) =>
+              previous[id] ? previous : { ...previous, [id]: gateway },
+            );
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (gatewayRequests.current.get(id) === controller) {
+            gatewayRequests.current.delete(id);
+          }
+        });
+    });
+  }, [oauthGatewayIdsKey, canReadOAuthStatuses, savedOAuthGateways, abortGatewayRequests]);
+  const validationTargets = Object.fromEntries(
+    oauthGatewayIds.map((id) => [
+      id,
+      savedOAuthGateways[id] ? oauthConfigurationKey(savedOAuthGateways[id]) : id,
+    ]),
+  );
+  const {
+    entries: validationEntries,
+    test: testOAuthConnection,
+    reset: resetValidation,
+  } = useOAuthConnectionValidation(canReadOAuthStatuses && canUpdateServer, validationTargets);
+  const canTestOAuthServer = useCallback(
+    (server: CatalogServer) => {
+      const gateway = server.gateway_id ? savedOAuthGateways[server.gateway_id] : undefined;
+      return (
+        canReadOAuthStatuses &&
+        canUpdateServer &&
+        !!gateway &&
+        canValidateOAuthConnection(gateway, oauthStatuses[gateway.id])
+      );
+    },
+    [canReadOAuthStatuses, canUpdateServer, savedOAuthGateways, oauthStatuses],
+  );
+  const getTestAction = useCallback(
+    (server: CatalogServer) =>
+      catalogTestAction(server, {
+        status: oauthStatuses[server.gateway_id ?? ""],
+        canTest: canReadOAuthStatuses,
+        canUpdate: canUpdateServer,
+        canValidate: canTestOAuthServer(server),
+        pending: isAdding(server.id) || isTesting(server.id) || isDisconnecting(server.id),
+      }),
+    [
+      oauthStatuses,
+      canReadOAuthStatuses,
+      canUpdateServer,
+      canTestOAuthServer,
+      isAdding,
+      isTesting,
+      isDisconnecting,
+    ],
+  );
   const canDisconnect = !permissionsLoading && hasPermission("gateways.delete");
   const { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters } =
     useCatalogFilters();
@@ -523,12 +609,18 @@ export function ServerCatalog() {
 
   const refreshGatewayData = useCallback(
     async (gatewayId: string, server: Pick<CatalogServer, "id" | "name">) => {
+      const gatewayRefresh = api
+        .get<MCPServer>(`/v1/mcp-servers/${encodeURIComponent(gatewayId)}`)
+        .then((gateway) =>
+          setSavedOAuthGateways((previous) => ({ ...previous, [gatewayId]: gateway })),
+        );
       const componentRefreshPromise = canUpdateServer
         ? serversApi.fetchToolsAfterOAuth(gatewayId)
         : Promise.resolve(undefined);
       const [, componentRefresh] = await Promise.allSettled([
         refreshOAuthStatus(gatewayId),
         componentRefreshPromise,
+        gatewayRefresh,
       ]);
       if (componentRefresh.status === "rejected") {
         showRegistrationNotification({
@@ -746,7 +838,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message: oauthErrorMessage(intl, error),
+          message: catalogOAuthErrorMessage(intl, error),
         });
         return false;
       }
@@ -771,6 +863,7 @@ export function ServerCatalog() {
       setOAuthAuthorizing(true);
       setOAuthFormNotification(undefined);
       try {
+        resetValidation(gatewayId);
         await serversApi.triggerOAuthAuthorization(gatewayId, authWindow);
         if (canUpdateServer) await serversApi.toggleEnabled(gatewayId, true);
         await refreshGatewayData(gatewayId, oauthServer);
@@ -787,7 +880,7 @@ export function ServerCatalog() {
         setOAuthFormNotification({
           id: `oauth:${oauthServer.id}`,
           type: "info",
-          message: oauthErrorMessage(intl, error),
+          message: catalogOAuthErrorMessage(intl, error),
         });
         return false;
       } finally {
@@ -799,6 +892,7 @@ export function ServerCatalog() {
       canUpdateServer,
       oauthServer,
       pendingOAuthGatewayId,
+      resetValidation,
       refreshGatewayData,
       refreshCatalogSilently,
       registerServer,
@@ -811,6 +905,7 @@ export function ServerCatalog() {
       if (!server.gateway_id || !beginAdding(server.id)) return;
       dismissRegistrationNotification(`oauth:${server.id}`);
       try {
+        resetValidation(server.gateway_id);
         await serversApi.triggerOAuthAuthorization(server.gateway_id);
         if (canUpdateServer) await serversApi.toggleEnabled(server.gateway_id, true);
         await refreshGatewayData(server.gateway_id, server);
@@ -825,7 +920,7 @@ export function ServerCatalog() {
         showRegistrationNotification({
           id: `oauth:${server.id}`,
           type: "info",
-          message: oauthErrorMessage(intl, error),
+          message: catalogOAuthErrorMessage(intl, error),
         });
       } finally {
         endAdding(server.id);
@@ -833,6 +928,7 @@ export function ServerCatalog() {
     },
     [
       beginAdding,
+      resetValidation,
       canUpdateServer,
       dismissRegistrationNotification,
       endAdding,
@@ -846,16 +942,29 @@ export function ServerCatalog() {
 
   const handleTest = useCallback(
     async (server: CatalogServer) => {
-      if (
-        server.requires_oauth_config ||
-        isAdding(server.id) ||
-        isDisconnecting(server.id) ||
-        !beginTesting(server.id)
-      ) {
+      const action = getTestAction(server);
+      if (action.availability !== "enabled" || !beginTesting(server.id)) {
         return;
       }
 
       dismissRegistrationNotification(`test:${server.id}`);
+
+      if (action.kind === "oauth") {
+        const id = server.gateway_id!;
+        await testOAuthConnection(id, async (signal) => {
+          const gateway = await api.get<MCPServer>(
+            `/v1/mcp-servers/${encodeURIComponent(id)}`,
+            undefined,
+            signal,
+          );
+          if (!canValidateOAuthConnection(gateway, oauthStatuses[id])) {
+            throw new ApiError(422, null, "Gateway is not eligible for OAuth validation");
+          }
+          return { gatewayId: id, baseUrl: gateway.url };
+        });
+        endTesting(server.id);
+        return;
+      }
 
       try {
         const result = await testCatalogServer(server.url);
@@ -906,13 +1015,14 @@ export function ServerCatalog() {
       }
     },
     [
+      getTestAction,
       beginTesting,
       dismissRegistrationNotification,
+      testOAuthConnection,
+      oauthStatuses,
       endTesting,
-      intl,
-      isAdding,
-      isDisconnecting,
       showRegistrationNotification,
+      intl,
     ],
   );
 
@@ -1065,6 +1175,7 @@ export function ServerCatalog() {
     let pollController: AbortController | null = null;
 
     try {
+      resetValidation(gatewayId);
       const response = await disconnectCatalogGateway(gatewayId);
       if (response.status === 202) {
         setDisconnectServer(null);
@@ -1138,6 +1249,7 @@ export function ServerCatalog() {
     }
   }, [
     beginDisconnecting,
+    resetValidation,
     disconnectServer,
     endDisconnecting,
     intl,
@@ -1297,12 +1409,32 @@ export function ServerCatalog() {
         onView={handleView}
         onAdd={handleAdd}
         addingServerIds={addingServerIds}
-        onTest={(server) => void handleTest(server)}
+        onTest={handleTest}
+        getTestAction={getTestAction}
+        renderOAuthValidation={(server) => {
+          if (
+            !server.gateway_id ||
+            !canTestOAuthServer(server) ||
+            isAdding(server.id) ||
+            isDisconnecting(server.id)
+          ) {
+            return null;
+          }
+          const id = server.gateway_id;
+          return (
+            <OAuthConnectionValidationPanel
+              name={server.name}
+              entry={validationEntries[id]}
+              onTest={() => void handleTest(server)}
+              onCancel={() => resetValidation(id)}
+              onAuthorize={() => void handleAuthorize(server)}
+            />
+          );
+        }}
         onAuthorize={(server) => void handleAuthorize(server)}
         onDisconnect={handleDisconnect}
         testingServerIds={testingServerIds}
         disconnectingServerIds={disconnectingServerIds}
-        canTest={canTest}
         canDisconnect={canDisconnect}
         oauthStatuses={oauthStatuses}
         addErrors={addErrors}

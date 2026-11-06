@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import type { CatalogServer } from "@/generated/types";
+import type { CatalogTestAction } from "@/lib/catalogConnectionValidation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   getAuthTypeGroupId,
@@ -118,12 +119,13 @@ function CatalogCard({
   onView,
   onAdd,
   onTest,
+  getTestAction,
+  renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   isAdding,
   isTesting,
   isDisconnecting,
-  canTest,
   canDisconnect,
   oauthStatuses,
   addError,
@@ -134,12 +136,13 @@ function CatalogCard({
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
   onTest: () => void;
+  getTestAction: (server: CatalogServer) => CatalogTestAction;
+  renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: () => void;
   onDisconnect: () => void;
   isAdding: boolean;
   isTesting: boolean;
   isDisconnecting: boolean;
-  canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
@@ -163,6 +166,7 @@ function CatalogCard({
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
   );
+  const testAction = getTestAction(server);
   const authTypeGroupId = getAuthTypeGroupId(server.auth_type);
   const requiresAuthentication = authTypeGroupId === "apiKey" || authTypeGroupId === "oauth";
   const StatusIcon = STATUS_ICON[oauthState.severity];
@@ -279,9 +283,9 @@ function CatalogCard({
                       >
                         {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
                       </DropdownMenuItem>
-                      {canTest && (
+                      {testAction.availability !== "hidden" && (
                         <DropdownMenuItem
-                          disabled={!oauthUsable || isAdding || isTesting || isDisconnecting}
+                          disabled={testAction.availability === "disabled"}
                           onSelect={onTest}
                           title={
                             !oauthUsable
@@ -389,6 +393,7 @@ function CatalogCard({
                 </StatusIndicator>
               )}
             </div>
+            {renderOAuthValidation?.(server)}
           </CardContent>
         </article>
       </Card>
@@ -481,11 +486,12 @@ export function CatalogResults({
   onAdd,
   addingServerIds,
   onTest,
+  getTestAction,
+  renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   testingServerIds = EMPTY_PENDING_IDS,
   disconnectingServerIds = EMPTY_PENDING_IDS,
-  canTest,
   canDisconnect,
   oauthStatuses = EMPTY_OAUTH_STATUSES,
   addErrors = EMPTY_ADD_ERRORS,
@@ -498,11 +504,12 @@ export function CatalogResults({
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
   onTest: (server: CatalogServer) => void;
+  getTestAction: (server: CatalogServer) => CatalogTestAction;
+  renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: (server: CatalogServer) => void;
   onDisconnect: (server: CatalogServer) => void;
   testingServerIds?: ReadonlySet<string>;
   disconnectingServerIds?: ReadonlySet<string>;
-  canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   addErrors?: Readonly<Record<string, string>>;
@@ -529,12 +536,13 @@ export function CatalogResults({
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
               onTest={() => onTest(server)}
+              getTestAction={getTestAction}
+              renderOAuthValidation={renderOAuthValidation}
               onAuthorize={() => onAuthorize(server)}
               onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}
               isTesting={testingServerIds.has(server.id)}
               isDisconnecting={disconnectingServerIds.has(server.id)}
-              canTest={canTest}
               canDisconnect={canDisconnect}
               oauthStatuses={oauthStatuses}
               addError={addErrors[server.id]}
