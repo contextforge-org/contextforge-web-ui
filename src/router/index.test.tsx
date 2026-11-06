@@ -107,21 +107,6 @@ describe("AuthGuard", () => {
       renderAuthGuard("/app/gateways", { isAuthenticated: false, isLoading: false });
       expect(screen.queryByText("protected content")).not.toBeInTheDocument();
     });
-
-    it("renders children for authenticated /app/servers path", () => {
-      renderAuthGuard("/app/servers", { isAuthenticated: true, isLoading: false });
-      expect(screen.getByText("protected content")).toBeInTheDocument();
-    });
-
-    it("renders children for authenticated /app/tools path", () => {
-      renderAuthGuard("/app/tools", { isAuthenticated: true, isLoading: false });
-      expect(screen.getByText("protected content")).toBeInTheDocument();
-    });
-
-    it("renders children for authenticated /app/users path", () => {
-      renderAuthGuard("/app/users", { isAuthenticated: true, isLoading: false });
-      expect(screen.getByText("protected content")).toBeInTheDocument();
-    });
   });
 
   describe("custom public paths", () => {

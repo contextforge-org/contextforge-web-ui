@@ -182,18 +182,4 @@ describe("UsersTable", () => {
     await user.click(deleteItem);
     expect(mockOnDeleteClick).toHaveBeenCalledWith(baseUser);
   });
-
-  it("does not trigger delete if user email is not found", async () => {
-    renderWithIntl(
-      <UsersTable
-        users={[baseUser]}
-        onDeleteClick={mockOnDeleteClick}
-        onEditClick={mockOnEditClick}
-      />,
-    );
-
-    // In a real scenario, the UsersTable looks up the user by email from the callback.
-    // If we mock the UserActionsMenu or simulate a bad email being passed, we can test it.
-    // Since we're doing black-box testing, the best we can do is just test the normal delete path.
-  });
 });

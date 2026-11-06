@@ -23,7 +23,7 @@ describe("serversApi", () => {
 
   beforeEach(() => {
     // Mock fetch globally
-    global.fetch = mockFetch;
+    vi.stubGlobal("fetch", mockFetch);
     vi.clearAllMocks();
     setCsrfToken("test-csrf-token");
   });
@@ -31,6 +31,7 @@ describe("serversApi", () => {
   afterEach(() => {
     setCsrfToken(null);
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   describe("post-authorization connection validation", () => {

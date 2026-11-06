@@ -120,7 +120,8 @@ describe("HeaderQuickNav", () => {
   });
 
   it("clears the query and returns focus when the clear button is clicked", async () => {
-    const user = userEvent.setup();
+    // ponytail: delay 0 keeps our focus timeout ahead of Radix's close auto-focus; verify in browser
+    const user = userEvent.setup({ delay: 0 });
 
     renderQuickNav();
 

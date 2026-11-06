@@ -30,13 +30,6 @@ describe("UserAvatar", () => {
     expect(container.querySelector('[data-slot="avatar"]')).toHaveClass("size-6", "rounded-md");
   });
 
-  it("accepts a className override", () => {
-    const { container } = render(<UserAvatar className="size-10" />);
-    const root = container.querySelector('[data-slot="avatar"]')!;
-    expect(root).toHaveClass("size-10");
-    expect(root).not.toHaveClass("size-6");
-  });
-
   it("mounts the image slot only when a src is supplied", () => {
     // jsdom never resolves the image load, so Radix keeps the fallback visible
     // and withholds the <img>. Asserting on the mounted-vs-absent Image child

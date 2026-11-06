@@ -6,7 +6,7 @@ describe("resourcesApi", () => {
   const mockFetch = vi.fn();
 
   beforeEach(() => {
-    global.fetch = mockFetch;
+    vi.stubGlobal("fetch", mockFetch);
     vi.clearAllMocks();
     setCsrfToken("test-csrf-token");
   });
@@ -14,6 +14,7 @@ describe("resourcesApi", () => {
   afterEach(() => {
     setCsrfToken(null);
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   describe("updateTags", () => {

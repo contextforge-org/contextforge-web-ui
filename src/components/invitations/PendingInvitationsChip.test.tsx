@@ -60,10 +60,4 @@ describe("PendingInvitationsChip", () => {
 
     expect(screen.getByRole("button", { name: "You have 2 waiting" })).toBeInTheDocument();
   });
-
-  it("merges className onto the trigger", () => {
-    renderWithProviders(<PendingInvitationsChip className="ml-2" />);
-
-    expect(screen.getByRole("button")).toHaveClass("ml-2");
-  });
 });

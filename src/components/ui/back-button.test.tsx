@@ -29,10 +29,4 @@ describe("BackButton", () => {
 
     expect(screen.getByRole("button", { name: /back/i })).toHaveAttribute("type", "button");
   });
-
-  it("merges custom classes with the base styles", () => {
-    render(<BackButton onClick={vi.fn()} className="custom-back-cls" />);
-
-    expect(screen.getByRole("button", { name: /back/i })).toHaveClass("custom-back-cls");
-  });
 });

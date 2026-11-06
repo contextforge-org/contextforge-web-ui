@@ -6,6 +6,8 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { versionDefines } from "./build-constants";
 
+const IS_CI = !!process.env.CI;
+
 export default defineConfig({
   plugins: [react()] as any,
   // Mirrors vite.config.ts's version constants for code under test.
@@ -17,10 +19,16 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
+    environment: "happy-dom",
     setupFiles: "./src/test/setup.ts",
     css: true,
     testTimeout: 15000,
+    // Console output only for failing tests.
+    silent: "passed-only",
+    // CI logs list only failures; explicit reporters drop the auto github-actions one, so re-add it.
+    reporters: IS_CI
+      ? ["minimal", ...(process.env.GITHUB_ACTIONS ? ["github-actions"] : [])]
+      : ["default"],
     // Vitest runs Testing-Library specs under src/; Playwright specs live
     // under e2e/ and must not be picked up here (they use @playwright/test).
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
@@ -30,7 +38,8 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
+      // Per-file table lives in coverage/index.html; CI uploads nothing, so it skips the files.
+      reporter: IS_CI ? ["text-summary"] : ["text-summary", "json", "html"],
       reportsDirectory: "./coverage",
       exclude: [
         "node_modules/",

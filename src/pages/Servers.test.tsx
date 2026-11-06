@@ -1600,6 +1600,8 @@ describe("Servers", () => {
       expect(within(dialog).getByText("Provider denied the requested scope")).toBeVisible();
       await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      // Radix lifts the modal's body pointer-events lock after unmount.
+      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
       const panel = screen.getByRole("region", { name: /Test Server 0/i });
       expect(within(panel).getByText("Authorization required")).toBeVisible();
       expect(within(panel).getAllByText("Authorization required")).toHaveLength(1);

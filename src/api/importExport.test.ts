@@ -24,7 +24,7 @@ describe("importExportApi", () => {
   const mockFetch = vi.fn();
 
   beforeEach(() => {
-    global.fetch = mockFetch;
+    vi.stubGlobal("fetch", mockFetch);
     vi.clearAllMocks();
     setCsrfToken("test-csrf-token");
   });
@@ -32,6 +32,7 @@ describe("importExportApi", () => {
   afterEach(() => {
     setCsrfToken(null);
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   const lastUrl = () => new URL(mockFetch.mock.calls[0][0] as string);

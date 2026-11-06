@@ -3,6 +3,17 @@ import { cleanup } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { server } from "./mocks/server";
 
+// Skip user-event's per-keystroke setTimeout; explicit options still win.
+vi.mock("@testing-library/user-event", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@testing-library/user-event")>();
+  const userEvent = {
+    ...mod.userEvent,
+    setup: (options?: Parameters<typeof mod.userEvent.setup>[0]) =>
+      mod.userEvent.setup({ delay: null, ...options }),
+  };
+  return { ...mod, default: userEvent, userEvent };
+});
+
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
 
