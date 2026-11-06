@@ -36,7 +36,7 @@ export default defineConfig({
     ignoreHTTPSErrors: BASE_URL.startsWith("https"),
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: IS_CI ? "off" : "retain-on-failure",
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
     extraHTTPHeaders: {
