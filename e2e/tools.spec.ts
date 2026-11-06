@@ -113,7 +113,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Add tools")).toBeVisible();
     await expect(
@@ -132,7 +131,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Tools" })).toBeVisible();
     await expect(page.getByText("Add tools")).not.toBeVisible();
@@ -148,7 +146,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     // Click the Add tools card
     await page.getByText("Add tools").click();
@@ -166,7 +163,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Tools" })).toBeVisible();
 
@@ -191,7 +187,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.getByText("Error loading tools")).toBeVisible();
@@ -211,7 +206,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("big-gateway")).toBeVisible();
     await expect(page.getByText("10 tools")).toBeVisible();
@@ -239,7 +233,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     // The kebab menu for the long-named group must stay visible.
     const kebab = page.getByRole("button", { name: `More options for ${longSlug}` });
@@ -276,7 +269,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
 
@@ -293,7 +285,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -349,7 +340,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -429,7 +419,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
     await expect(panel.getByText("MCP version 2025-11-25")).toBeVisible();
@@ -490,7 +479,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "local-gateway");
     await panel.getByRole("switch", { name: "Live invocation" }).click();
 
@@ -555,7 +543,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
     await panel.getByRole("switch", { name: "Live invocation" }).click();
 
@@ -590,7 +577,6 @@ test.describe("Tools page", () => {
 
     await routeToolsList(page, [liveTool]);
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
     await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
@@ -607,7 +593,6 @@ test.describe("Tools page", () => {
 
     await routeToolsList(page, [liveTool]);
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
     await expect(panel.getByRole("button", { name: "Preview", exact: true })).toBeVisible();
@@ -623,7 +608,6 @@ test.describe("Tools page", () => {
 
     await routeToolsList(page, [federatedTool]);
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
     const panel = await openToolDetails(page, "github-server");
 
     await expect(
@@ -659,7 +643,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -691,7 +674,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -726,7 +708,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -778,7 +759,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -812,7 +792,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -852,7 +831,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for solo-gateway" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -900,7 +878,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for multi-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -951,7 +928,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for rb-gateway" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -997,7 +973,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("lone-gateway")).toBeVisible();
     await expect(page.getByText("github-server")).toBeVisible();
@@ -1031,7 +1006,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     const addToolsCard = page.getByRole("button").filter({ hasText: "Add tools" });
     await addToolsCard.focus();
@@ -1062,7 +1036,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await openAddToolForm(page);
     await fillToolBasics(page, "list_users", "https://api.example.com/users");
@@ -1096,7 +1069,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await openAddToolForm(page);
     await fillToolBasics(page, "get_user", "https://api.example.com/users/1");
@@ -1124,7 +1096,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await openAddToolForm(page);
     await fillToolBasics(page, "denied_tool", "https://api.example.com/denied");
@@ -1211,7 +1182,6 @@ test.describe("Tools page", () => {
       });
 
       await page.goto(APP.TOOLS);
-      await page.waitForLoadState("networkidle");
 
       await openAddToolForm(page);
       await fillToolBasics(page, "auth_tool", "https://api.example.com/secure");
@@ -1263,7 +1233,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for edit-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1304,7 +1273,6 @@ test.describe("Tools page", () => {
     await routeToolsList(page, [TOOL]);
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for schema-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1356,7 +1324,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for toggle-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1406,7 +1373,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for activate-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -1456,7 +1422,6 @@ test.describe("Tools page", () => {
     });
 
     await page.goto(APP.TOOLS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for fail-gw" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();

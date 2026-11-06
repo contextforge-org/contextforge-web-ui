@@ -22,7 +22,6 @@ test.describe("TeamSwitcher component (smoke)", () => {
 
     // Navigate to a page with sidebar
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // Wait for TeamSwitcher to be visible
     const trigger = page.getByRole("button", { name: /all teams/i });
@@ -53,7 +52,6 @@ test.describe("TeamSwitcher component (smoke)", () => {
     });
 
     await page.goto(APP.GATEWAYS);
-    await page.waitForLoadState("networkidle");
 
     // TeamSwitcher should still render with "All teams"
     const trigger = page.getByRole("button", { name: /all teams/i });

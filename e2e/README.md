@@ -30,24 +30,25 @@ e2e/
 Install the Playwright browsers once per machine:
 
 ```bash
-npm run e2e:install
+npm run playwright:install
 ```
 
 Then, from `client/`:
 
 ```bash
-npm run e2e             # Headless run against the Vite dev server
-npm run e2e:ui          # Interactive UI mode (great for authoring)
-npm run e2e:debug       # Step through with the Playwright Inspector
-npm run e2e:report      # Open the last HTML report
+npm run playwright             # Headless run against a production build of the app
+npm run playwright:ui          # Interactive UI mode (great for authoring)
+npm run playwright:debug       # Step through with the Playwright Inspector
+npm run playwright:report      # Open the last HTML report
 ```
 
-The config spawns `npm run dev:e2e` (Vite with `--base=/`) on port `5173` and
-tears it down after the run. Set `PLAYWRIGHT_BASE_URL` to point tests at an
-existing server instead:
+The config spawns `npm run playwright:serve` (a production build served by
+`vite preview`, with source maps) on port `5173` and tears it down after the
+run. App changes need a fresh run to rebuild; the build takes a few seconds.
+Set `PLAYWRIGHT_BASE_URL` to point tests at an existing server instead:
 
 ```bash
-PLAYWRIGHT_BASE_URL=http://localhost:4444 PLAYWRIGHT_SKIP_WEBSERVER=1 npm run e2e
+PLAYWRIGHT_BASE_URL=http://localhost:4444 PLAYWRIGHT_SKIP_WEBSERVER=1 npm run playwright
 ```
 
 ### Real-backend mode (`e2e:docker`)
@@ -134,7 +135,7 @@ API responses; real API Docker runs are available through the scripts above.
 ## Troubleshooting
 
 - **`Error: Timed out waiting for ... to be visible`** — check the locator in UI
-  mode (`npm run e2e:ui`) and confirm the mock returns what the UI expects.
+  mode (`npm run playwright:ui`) and confirm the mock returns what the UI expects.
 - **Tests that pass locally but flake in CI** — add a `page.waitForLoadState`,
   tighten the mock's payload, or widen the retry count in the config for the
   specific test. Do not add arbitrary `waitForTimeout` calls.

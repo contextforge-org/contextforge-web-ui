@@ -337,11 +337,11 @@ Playwright. They run against the Vite dev server and stub backend API calls
 with `page.route()`, so no running ContextForge API is required.
 
 ```bash
-npm run e2e:install   # Install Playwright browsers (one-time)
-npm run e2e           # Headless run
-npm run e2e:ui        # Interactive UI mode
-npm run e2e:debug     # Playwright Inspector
-npm run e2e:report    # Open the last HTML report
+npm run playwright:install   # Install Playwright browsers (one-time)
+npm run playwright           # Headless run
+npm run playwright:ui        # Interactive UI mode
+npm run playwright:debug     # Playwright Inspector
+npm run playwright:report    # Open the last HTML report
 ```
 
 See [`e2e/README.md`](./e2e/README.md) for layout, fixtures, and guidelines.
@@ -440,11 +440,11 @@ dev setup.
 | `npm run test`                      | Run tests once (CI mode)                                                                          |
 | `npm run test:ui`                   | Run tests with UI                                                                                 |
 | `npm run test:coverage`             | Generate coverage report                                                                          |
-| `npm run e2e`                       | Run Playwright E2E tests                                                                          |
-| `npm run e2e:ui`                    | Playwright UI mode                                                                                |
-| `npm run e2e:debug`                 | Playwright Inspector                                                                              |
-| `npm run e2e:install`               | Install Playwright browsers                                                                       |
-| `npm run e2e:report`                | Open last Playwright report                                                                       |
+| `npm run playwright`                | Run Playwright tests (mocked API)                                                                 |
+| `npm run playwright:ui`             | Playwright UI mode                                                                                |
+| `npm run playwright:debug`          | Playwright Inspector                                                                              |
+| `npm run playwright:install`        | Install Playwright browsers                                                                       |
+| `npm run playwright:report`         | Open last Playwright report                                                                       |
 | `npm run secrets:scan`              | Scan repo for secrets, update `.secrets.baseline`                                                 |
 | `npm run secrets:audit`             | Interactively audit findings in `.secrets.baseline`                                               |
 

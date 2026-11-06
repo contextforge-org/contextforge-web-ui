@@ -58,7 +58,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     const main = page.getByRole("main");
     await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
@@ -114,7 +113,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("John Doe")).toBeVisible();
     await expect(page.getByText("Jane Smith")).not.toBeVisible();
@@ -160,7 +158,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Create User" }).click();
 
@@ -188,7 +185,6 @@ test.describe("Users page", () => {
       });
 
       await page.goto(APP.USERS);
-      await page.waitForLoadState("networkidle");
       await page.getByRole("button", { name: "Create User" }).click();
       await expect(page.getByRole("heading", { name: "Create User" })).toBeVisible();
     });
@@ -280,7 +276,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for John Doe" }).click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -311,7 +306,6 @@ test.describe("Users page", () => {
       });
 
       await page.goto(APP.USERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for John Doe" }).click();
       await page.getByRole("menuitem", { name: "Edit" }).click();
@@ -380,7 +374,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("John Doe")).toBeVisible();
     await expect(page.getByText("Jane Smith")).toBeVisible();
@@ -419,7 +412,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for John Doe" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -456,7 +448,6 @@ test.describe("Users page", () => {
     });
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("John Doe")).toBeVisible();
 
@@ -523,7 +514,6 @@ test.describe("Users page", () => {
     );
 
     await page.goto(APP.USERS);
-    await page.waitForLoadState("networkidle");
 
     // Located by email, not by selfName -- an empty/whitespace-only real
     // full_name renders as "Unnamed User" (see above), which would make a

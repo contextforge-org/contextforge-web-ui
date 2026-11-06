@@ -116,6 +116,7 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, []);
 
     await page.goto(APP.TEAMS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("button", { name: /invitation/ })).toHaveCount(0);
@@ -126,7 +127,6 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION]);
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "1 team invitation" }).click();
 
@@ -146,7 +146,6 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION, DESIGN_INVITATION]);
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "2 team invitations" }).click();
 
@@ -161,7 +160,6 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION, DESIGN_INVITATION]);
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "2 team invitations" }).click();
 
@@ -187,7 +185,6 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION, DESIGN_INVITATION]);
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "2 team invitations" }).click();
 
@@ -211,7 +208,6 @@ test.describe("Pending team invitations", () => {
     });
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "2 team invitations" }).click();
 
@@ -243,6 +239,7 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [], { status: 500 });
 
     await page.goto(APP.TEAMS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     // No count is known, so no chip renders and the failure is not toasted.
@@ -255,7 +252,6 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION]);
 
     await page.goto(APP.TEAMS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "1 team invitation" }).click();
 
@@ -281,6 +277,7 @@ test.describe("Pending team invitations", () => {
     await mockInvitations(page, [PLATFORM_INVITATION]);
 
     await page.goto(APP.TEAMS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
     await expect(page).not.toHaveURL(/settings\/teams/);
 
