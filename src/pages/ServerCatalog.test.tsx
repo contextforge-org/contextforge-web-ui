@@ -269,18 +269,18 @@ describe("ServerCatalog", () => {
       authType,
       oauthConfig: { grant_type: "authorization_code" },
     };
-    const get = vi.spyOn(api, "get").mockResolvedValue(gateway);
+    const savedGateway = deferred<typeof gateway>();
+    const validation = deferred<Awaited<ReturnType<typeof serversApi.testOAuthConnection>>>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(savedGateway.promise)
+      .mockResolvedValue({ ...gateway, enabled });
     const testConnection = vi.spyOn(serversApi, "testOAuthConnection");
-    testConnection.mockResolvedValue({
-      success: true,
-      latencyMs: 1,
-      stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
-      componentCounts: { tools: 0 },
-    });
+    testConnection.mockReturnValue(validation.promise);
     renderWithRouter(<ServerCatalog />);
-    const button = await screen.findByRole("button", { name: "Test connection GitHub" });
+    await act(async () => savedGateway.resolve(gateway));
+    const button = screen.getByRole("button", { name: "Test connection GitHub" });
     expect(testConnection).not.toHaveBeenCalled();
-    get.mockResolvedValue({ ...gateway, enabled });
     await user.click(button);
     if (!enabled) {
       expect(
@@ -291,12 +291,23 @@ describe("ServerCatalog", () => {
       expect(testConnection).not.toHaveBeenCalled();
       return;
     }
-    expect(await screen.findByText("Stored authorization verified")).toBeVisible();
     expect(get).toHaveBeenCalledTimes(2);
     expect(testConnection).toHaveBeenCalledExactlyOnceWith(
       { gatewayId: "gateway-github", baseUrl: gateway.url },
       expect.any(AbortSignal),
     );
+    expect(
+      screen.getByRole("button", { name: "Testing stored authorization… GitHub" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await act(async () => {
+      validation.resolve({
+        success: true,
+        latencyMs: 1,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+        componentCounts: { tools: 0 },
+      });
+    });
+    expect(screen.getByText("Stored authorization verified")).toBeVisible();
     expect(mockFetchToolsAfterOAuth).not.toHaveBeenCalled();
     expect(mockToggleEnabled).not.toHaveBeenCalled();
     expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
