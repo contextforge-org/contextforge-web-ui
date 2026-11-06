@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import type { CatalogServer } from "@/generated/types";
+import type { CatalogTestAction } from "@/lib/catalogConnectionValidation";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   getAuthTypeGroupId,
@@ -118,15 +119,13 @@ function CatalogCard({
   onView,
   onAdd,
   onTest,
-  canTestOAuthServer,
-  canTestOAuth = true,
+  getTestAction,
   renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   isAdding,
   isTesting,
   isDisconnecting,
-  canTest,
   canDisconnect,
   oauthStatuses,
   addError,
@@ -137,15 +136,13 @@ function CatalogCard({
   onView: (trigger: HTMLElement) => void;
   onAdd: () => void;
   onTest: () => void;
-  canTestOAuthServer?: (server: CatalogServer) => boolean;
-  canTestOAuth?: boolean;
+  getTestAction: (server: CatalogServer) => CatalogTestAction;
   renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: () => void;
   onDisconnect: () => void;
   isAdding: boolean;
   isTesting: boolean;
   isDisconnecting: boolean;
-  canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   /** Why the last add attempt failed, resolved to the server's reason or the fallback. */
@@ -169,6 +166,7 @@ function CatalogCard({
     server,
     server.gateway_id ? oauthStatuses?.[server.gateway_id] : undefined,
   );
+  const testAction = getTestAction(server);
   const authTypeGroupId = getAuthTypeGroupId(server.auth_type);
   const requiresAuthentication = authTypeGroupId === "apiKey" || authTypeGroupId === "oauth";
   const StatusIcon = STATUS_ICON[oauthState.severity];
@@ -285,32 +283,19 @@ function CatalogCard({
                       >
                         {intl.formatMessage({ id: "mcpServer.catalog.viewDetails" })}
                       </DropdownMenuItem>
-                      {canTest &&
-                        (!isCatalogOAuthServer(server) ||
-                          oauthStatuses?.[server.gateway_id ?? ""]?.state === "not_applicable" ||
-                          canTestOAuth) && (
-                          <DropdownMenuItem
-                            disabled={
-                              !oauthUsable ||
-                              isAdding ||
-                              isTesting ||
-                              isDisconnecting ||
-                              (isCatalogOAuthServer(server) &&
-                                oauthStatuses?.[server.gateway_id ?? ""]?.state !==
-                                  "not_applicable" &&
-                                !!canTestOAuthServer &&
-                                !canTestOAuthServer(server))
-                            }
-                            onSelect={onTest}
-                            title={
-                              !oauthUsable
-                                ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
-                                : undefined
-                            }
-                          >
-                            {intl.formatMessage({ id: "mcpServer.catalog.test" })}
-                          </DropdownMenuItem>
-                        )}
+                      {testAction.availability !== "hidden" && (
+                        <DropdownMenuItem
+                          disabled={testAction.availability === "disabled"}
+                          onSelect={onTest}
+                          title={
+                            !oauthUsable
+                              ? intl.formatMessage({ id: "mcpServer.catalog.testOAuthPending" })
+                              : undefined
+                          }
+                        >
+                          {intl.formatMessage({ id: "mcpServer.catalog.test" })}
+                        </DropdownMenuItem>
+                      )}
                       {oauthState.canAuthorize && server.gateway_id && (
                         <DropdownMenuItem
                           disabled={isAdding || isDisconnecting}
@@ -501,14 +486,12 @@ export function CatalogResults({
   onAdd,
   addingServerIds,
   onTest,
-  canTestOAuthServer,
-  canTestOAuth = true,
+  getTestAction,
   renderOAuthValidation,
   onAuthorize,
   onDisconnect,
   testingServerIds = EMPTY_PENDING_IDS,
   disconnectingServerIds = EMPTY_PENDING_IDS,
-  canTest,
   canDisconnect,
   oauthStatuses = EMPTY_OAUTH_STATUSES,
   addErrors = EMPTY_ADD_ERRORS,
@@ -521,14 +504,12 @@ export function CatalogResults({
   onAdd: (server: CatalogServer) => void;
   addingServerIds: ReadonlySet<string>;
   onTest: (server: CatalogServer) => void;
-  canTestOAuthServer?: (server: CatalogServer) => boolean;
-  canTestOAuth?: boolean;
+  getTestAction: (server: CatalogServer) => CatalogTestAction;
   renderOAuthValidation?: (server: CatalogServer) => ReactNode;
   onAuthorize: (server: CatalogServer) => void;
   onDisconnect: (server: CatalogServer) => void;
   testingServerIds?: ReadonlySet<string>;
   disconnectingServerIds?: ReadonlySet<string>;
-  canTest: boolean;
   canDisconnect: boolean;
   oauthStatuses?: Readonly<Record<string, OAuthStatusEntry>>;
   addErrors?: Readonly<Record<string, string>>;
@@ -555,15 +536,13 @@ export function CatalogResults({
               onView={(trigger) => onView(server, trigger)}
               onAdd={() => onAdd(server)}
               onTest={() => onTest(server)}
-              canTestOAuthServer={canTestOAuthServer}
-              canTestOAuth={canTestOAuth}
+              getTestAction={getTestAction}
               renderOAuthValidation={renderOAuthValidation}
               onAuthorize={() => onAuthorize(server)}
               onDisconnect={() => onDisconnect(server)}
               isAdding={addingServerIds.has(server.id)}
               isTesting={testingServerIds.has(server.id)}
               isDisconnecting={disconnectingServerIds.has(server.id)}
-              canTest={canTest}
               canDisconnect={canDisconnect}
               oauthStatuses={oauthStatuses}
               addError={addErrors[server.id]}

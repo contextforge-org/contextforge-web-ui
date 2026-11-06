@@ -229,13 +229,18 @@ describe("ServerCatalog", () => {
     mockTriggerOAuthAuthorization.mockReset();
     mockToggleEnabled.mockReset();
     mockFetchToolsAfterOAuth.mockReset();
+    vi.mocked(serversApi.testOAuthConnection).mockReset();
     mockOpenOAuthAuthorizationPopup.mockReturnValue({ close: vi.fn() } as unknown as Window);
     mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
     mockToggleEnabled.mockResolvedValue({ status: "success", message: "Activated" });
     mockFetchToolsAfterOAuth.mockResolvedValue({ success: true, message: "Tools fetched" });
   });
 
-  it("validates the current saved OAuth gateway URL on explicit Test only", async () => {
+  it.each([
+    ["oauth", true],
+    ["OAuth", true],
+    ["oauth", false],
+  ])("validates the freshly saved %s gateway only when enabled=%s", async (authType, enabled) => {
     const user = userEvent.setup();
     const catalogServer = {
       ...oauthServer,
@@ -261,7 +266,7 @@ describe("ServerCatalog", () => {
       name: "GitHub",
       url: "https://saved.example/mcp",
       enabled: true,
-      authType: "oauth",
+      authType,
       oauthConfig: { grant_type: "authorization_code" },
     };
     const get = vi.spyOn(api, "get").mockResolvedValue(gateway);
@@ -275,7 +280,17 @@ describe("ServerCatalog", () => {
     renderWithRouter(<ServerCatalog />);
     const button = await screen.findByRole("button", { name: "Test connection GitHub" });
     expect(testConnection).not.toHaveBeenCalled();
+    get.mockResolvedValue({ ...gateway, enabled });
     await user.click(button);
+    if (!enabled) {
+      expect(
+        await screen.findByText(
+          "The saved server is not eligible for this test or the request is invalid. Reload and check its configuration.",
+        ),
+      ).toBeVisible();
+      expect(testConnection).not.toHaveBeenCalled();
+      return;
+    }
     expect(await screen.findByText("Stored authorization verified")).toBeVisible();
     expect(get).toHaveBeenCalledTimes(2);
     expect(testConnection).toHaveBeenCalledExactlyOnceWith(
@@ -693,7 +708,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("button", { name: "Actions for GitHub" })).toHaveFocus();
   });
 
-  it("shows localized provider guidance and hides raw descriptions", async () => {
+  it("shows localized guidance with the provider description", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(
       new OAuthAuthorizationError("access_denied", "Provider denied the request"),
@@ -718,10 +733,9 @@ describe("ServerCatalog", () => {
 
     expect(
       await within(form).findByText(
-        "The provider denied authorization. Authorize this server again.",
+        "The provider denied authorization. Authorize this server again. Provider message: Provider denied the request",
       ),
     ).toBeVisible();
-    expect(within(form).queryByText("Provider denied the request")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 

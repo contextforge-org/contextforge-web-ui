@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { OAuthAuthorizationError } from "@/api/servers";
 import type { MCPServer } from "@/types/server";
+import type { OAuthStatusEntry } from "@/api/oauth";
 import { createIntl, createIntlCache } from "react-intl";
 import en from "@/i18n/locales/en-US/mcpServer.json";
 import es from "@/i18n/locales/es-ES/mcpServer.json";
@@ -8,6 +10,7 @@ import {
   canValidateOAuthConnection,
   oauthConfigurationKey,
   oauthErrorMessage,
+  oauthAuthorizationErrorMessage,
 } from "./oauthConnectionValidation";
 
 const gateway = {
@@ -44,6 +47,20 @@ describe("OAuth validation eligibility and configuration", () => {
       ),
     ).toBe(false);
     expect(canValidateOAuthConnection(gateway)).toBe(false);
+  });
+
+  it.each([
+    ["valid", true],
+    ["near_expiry", true],
+    ["expired", false],
+    ["missing", false],
+  ] as const)("allows stored-token validation for %s: %s", (tokenStatus, expected) => {
+    const status: OAuthStatusEntry = {
+      state: "ready",
+      tokenStatus,
+      status: { oauth_enabled: true },
+    };
+    expect(canValidateOAuthConnection({ ...gateway, authType: "OAuth" }, status)).toBe(expected);
   });
 });
 
@@ -82,4 +99,30 @@ describe("OAuth error guidance", () => {
       );
     },
   );
+});
+
+describe("OAuth authorization error details", () => {
+  const intl = createIntl({ locale: "en-US", messages: en }, createIntlCache());
+
+  it.each(["access_denied", "unlisted_provider_error"])(
+    "preserves provider context for %s with localized guidance",
+    (code) => {
+      const error = new OAuthAuthorizationError(code, "Contact your organization administrator");
+      expect(oauthAuthorizationErrorMessage(intl, error)).toBe(
+        `${oauthErrorMessage(intl, code)} Provider message: Contact your organization administrator`,
+      );
+    },
+  );
+
+  it("omits empty and duplicate descriptions", () => {
+    const guidance = oauthErrorMessage(intl, "access_denied");
+    for (const description of [undefined, "", guidance]) {
+      expect(
+        oauthAuthorizationErrorMessage(
+          intl,
+          new OAuthAuthorizationError("access_denied", description),
+        ),
+      ).toBe(guidance);
+    }
+  });
 });

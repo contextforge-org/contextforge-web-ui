@@ -36,7 +36,7 @@ function catalogResults(
       onDisconnect={vi.fn()}
       testingServerIds={testingServerIds}
       disconnectingServerIds={disconnectingServerIds}
-      canTest={false}
+      getTestAction={() => ({ kind: "generic", availability: "hidden" })}
       canDisconnect={false}
     />
   );
@@ -136,7 +136,7 @@ describe("CatalogResults", () => {
         onTest={vi.fn()}
         onAuthorize={onAuthorize}
         onDisconnect={vi.fn()}
-        canTest={false}
+        getTestAction={() => ({ kind: "generic", availability: "hidden" })}
         canDisconnect={false}
         oauthStatuses={{
           "gateway-github": {
@@ -185,7 +185,7 @@ describe("CatalogResults", () => {
         onDisconnect={onDisconnect}
         testingServerIds={new Set()}
         disconnectingServerIds={new Set()}
-        canTest
+        getTestAction={() => ({ kind: "oauth", availability: "disabled" })}
         canDisconnect
         oauthStatuses={{
           "gateway-github": {
@@ -245,7 +245,7 @@ describe("CatalogResults", () => {
         onTest={vi.fn()}
         onAuthorize={vi.fn()}
         onDisconnect={vi.fn()}
-        canTest={false}
+        getTestAction={() => ({ kind: "generic", availability: "hidden" })}
         canDisconnect={false}
         oauthStatuses={{
           "gateway-valid": {
@@ -296,7 +296,7 @@ describe("CatalogResults", () => {
         onTest={vi.fn()}
         onAuthorize={onAuthorize}
         onDisconnect={vi.fn()}
-        canTest={false}
+        getTestAction={() => ({ kind: "generic", availability: "hidden" })}
         canDisconnect={false}
       />,
     );
@@ -326,7 +326,7 @@ describe("CatalogResults", () => {
         onTest={vi.fn()}
         onAuthorize={vi.fn()}
         onDisconnect={vi.fn()}
-        canTest={false}
+        getTestAction={() => ({ kind: "generic", availability: "hidden" })}
         canDisconnect={false}
       />,
     );

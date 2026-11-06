@@ -44,8 +44,9 @@ import { OAuthConnectionValidationPanel } from "@/components/servers/OAuthConnec
 import {
   canValidateOAuthConnection,
   oauthConfigurationKey,
-  oauthErrorMessage,
+  oauthAuthorizationErrorMessage,
 } from "@/lib/oauthConnectionValidation";
+import { catalogTestAction } from "@/lib/catalogConnectionValidation";
 import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
@@ -371,10 +372,10 @@ function catalogOAuthErrorMessage(intl: IntlShape, error: unknown): string {
   if (error instanceof OAuthPopupBlockedError) {
     return intl.formatMessage({ id: "mcpServer.catalog.oauth.popupBlocked" });
   }
-  return (
-    (error instanceof OAuthAuthorizationError && oauthErrorMessage(intl, error.errorCode)) ||
-    intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" })
-  );
+  if (error instanceof OAuthAuthorizationError) {
+    return oauthAuthorizationErrorMessage(intl, error);
+  }
+  return intl.formatMessage({ id: "mcpServer.catalog.oauth.authorizationError" });
 }
 
 export function ServerCatalog() {
@@ -477,16 +478,37 @@ export function ServerCatalog() {
     test: testOAuthConnection,
     reset: resetValidation,
   } = useOAuthConnectionValidation(canReadOAuthStatuses && canUpdateServer, validationTargets);
-  const canTestOAuthServer = (server: CatalogServer) => {
-    const gateway = server.gateway_id ? savedOAuthGateways[server.gateway_id] : undefined;
-    return (
-      canReadOAuthStatuses &&
-      canUpdateServer &&
-      !!gateway &&
-      canValidateOAuthConnection(gateway, oauthStatuses[gateway.id])
-    );
-  };
-  const canTest = canReadOAuthStatuses;
+  const canTestOAuthServer = useCallback(
+    (server: CatalogServer) => {
+      const gateway = server.gateway_id ? savedOAuthGateways[server.gateway_id] : undefined;
+      return (
+        canReadOAuthStatuses &&
+        canUpdateServer &&
+        !!gateway &&
+        canValidateOAuthConnection(gateway, oauthStatuses[gateway.id])
+      );
+    },
+    [canReadOAuthStatuses, canUpdateServer, savedOAuthGateways, oauthStatuses],
+  );
+  const getTestAction = useCallback(
+    (server: CatalogServer) =>
+      catalogTestAction(server, {
+        status: oauthStatuses[server.gateway_id ?? ""],
+        canTest: canReadOAuthStatuses,
+        canUpdate: canUpdateServer,
+        canValidate: canTestOAuthServer(server),
+        pending: isAdding(server.id) || isTesting(server.id) || isDisconnecting(server.id),
+      }),
+    [
+      oauthStatuses,
+      canReadOAuthStatuses,
+      canUpdateServer,
+      canTestOAuthServer,
+      isAdding,
+      isTesting,
+      isDisconnecting,
+    ],
+  );
   const canDisconnect = !permissionsLoading && hasPermission("gateways.delete");
   const { filters, updateQuery, toggleFilterOption, clearFilterSection, clearAllFilters } =
     useCatalogFilters();
@@ -903,50 +925,65 @@ export function ServerCatalog() {
     ],
   );
 
-  const handleTest = async (server: CatalogServer) => {
-    if (
-      !canTest ||
-      server.requires_oauth_config ||
-      isAdding(server.id) ||
-      isDisconnecting(server.id) ||
-      !beginTesting(server.id)
-    ) {
-      return;
-    }
+  const handleTest = useCallback(
+    async (server: CatalogServer) => {
+      const action = getTestAction(server);
+      if (action.availability !== "enabled" || !beginTesting(server.id)) {
+        return;
+      }
 
-    dismissRegistrationNotification(`test:${server.id}`);
+      dismissRegistrationNotification(`test:${server.id}`);
 
-    if (
-      isCatalogOAuthServer(server) &&
-      oauthStatuses[server.gateway_id ?? ""]?.state !== "not_applicable"
-    ) {
-      if (!server.gateway_id || !canTestOAuthServer(server)) {
+      if (action.kind === "oauth") {
+        const id = server.gateway_id!;
+        await testOAuthConnection(id, async (signal) => {
+          const gateway = await api.get<MCPServer>(
+            `/v1/mcp-servers/${encodeURIComponent(id)}`,
+            undefined,
+            signal,
+          );
+          if (!canValidateOAuthConnection(gateway, oauthStatuses[id])) {
+            throw new ApiError(422, null, "Gateway is not eligible for OAuth validation");
+          }
+          return { gatewayId: id, baseUrl: gateway.url };
+        });
         endTesting(server.id);
         return;
       }
-      const id = server.gateway_id;
-      await testOAuthConnection(id, async (signal) => {
-        const gateway = await api.get<MCPServer>(
-          `/v1/mcp-servers/${encodeURIComponent(id)}`,
-          undefined,
-          signal,
-        );
-        if (
-          !gateway.enabled ||
-          gateway.authType !== "oauth" ||
-          gateway.oauthConfig?.grant_type !== "authorization_code"
-        ) {
-          throw new ApiError(422, null, "Gateway is not eligible for OAuth validation");
-        }
-        return { gatewayId: id, baseUrl: gateway.url };
-      });
-      endTesting(server.id);
-      return;
-    }
 
-    try {
-      const result = await testCatalogServer(server.url);
-      if (!result) {
+      try {
+        const result = await testCatalogServer(server.url);
+        if (!result) {
+          showRegistrationNotification(
+            {
+              id: `test:${server.id}`,
+              type: "error",
+              message: intl.formatMessage(
+                { id: "mcpServer.catalog.testError" },
+                { name: server.name },
+              ),
+            },
+            true,
+          );
+          return;
+        }
+
+        const statusCode = result.statusCode ?? 0;
+        const succeeded = statusCode >= 200 && statusCode < 300;
+        showRegistrationNotification(
+          {
+            id: `test:${server.id}`,
+            type: succeeded ? "success" : "error",
+            message: intl.formatMessage(
+              {
+                id: succeeded ? "mcpServer.catalog.testSuccess" : "mcpServer.catalog.testFailure",
+              },
+              { name: server.name, statusCode, latencyMs: result.latencyMs ?? 0 },
+            ),
+          },
+          true,
+        );
+      } catch {
         showRegistrationNotification(
           {
             id: `test:${server.id}`,
@@ -958,37 +995,21 @@ export function ServerCatalog() {
           },
           true,
         );
-        return;
+      } finally {
+        endTesting(server.id);
       }
-
-      const statusCode = result.statusCode ?? 0;
-      const succeeded = statusCode >= 200 && statusCode < 300;
-      showRegistrationNotification(
-        {
-          id: `test:${server.id}`,
-          type: succeeded ? "success" : "error",
-          message: intl.formatMessage(
-            {
-              id: succeeded ? "mcpServer.catalog.testSuccess" : "mcpServer.catalog.testFailure",
-            },
-            { name: server.name, statusCode, latencyMs: result.latencyMs ?? 0 },
-          ),
-        },
-        true,
-      );
-    } catch {
-      showRegistrationNotification(
-        {
-          id: `test:${server.id}`,
-          type: "error",
-          message: intl.formatMessage({ id: "mcpServer.catalog.testError" }, { name: server.name }),
-        },
-        true,
-      );
-    } finally {
-      endTesting(server.id);
-    }
-  };
+    },
+    [
+      getTestAction,
+      beginTesting,
+      dismissRegistrationNotification,
+      testOAuthConnection,
+      oauthStatuses,
+      endTesting,
+      showRegistrationNotification,
+      intl,
+    ],
+  );
 
   const handleDisconnect = useCallback(
     (server: CatalogServer) => {
@@ -1373,9 +1394,8 @@ export function ServerCatalog() {
         onView={handleView}
         onAdd={handleAdd}
         addingServerIds={addingServerIds}
-        onTest={(server) => void handleTest(server)}
-        canTestOAuthServer={canTestOAuthServer}
-        canTestOAuth={canReadOAuthStatuses && canUpdateServer}
+        onTest={handleTest}
+        getTestAction={getTestAction}
         renderOAuthValidation={(server) => {
           if (
             !server.gateway_id ||
@@ -1399,7 +1419,6 @@ export function ServerCatalog() {
         onDisconnect={handleDisconnect}
         testingServerIds={testingServerIds}
         disconnectingServerIds={disconnectingServerIds}
-        canTest={canTest}
         canDisconnect={canDisconnect}
         oauthStatuses={oauthStatuses}
         addErrors={addErrors}
