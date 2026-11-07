@@ -119,14 +119,14 @@ export function CatalogOAuthForm({
               // prettier-ignore
               clientSecret: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientSecretRequired" }), // pragma: allowlist secret
             }),
-        ...(isHttpUrl(authorizationUrl.trim())
+        ...(authorizationUrl.trim() === "" || isHttpUrl(authorizationUrl.trim())
           ? {}
           : {
               authorizationUrl: intl.formatMessage({
                 id: "mcpServer.catalog.oauth.authorizationUrlRequired",
               }),
             }),
-        ...(isHttpUrl(tokenUrl.trim())
+        ...(tokenUrl.trim() === "" || isHttpUrl(tokenUrl.trim())
           ? {}
           : { tokenUrl: intl.formatMessage({ id: "mcpServer.catalog.oauth.tokenUrlRequired" }) }),
         ...(visibility !== "team" || teamId
@@ -365,7 +365,6 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-authorization-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-              required
               error={errors.authorizationUrl}
             >
               {(controlProps) => (
@@ -389,7 +388,6 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-token-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-              required
               error={errors.tokenUrl}
             >
               {(controlProps) => (
