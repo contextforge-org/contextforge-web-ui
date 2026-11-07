@@ -23,7 +23,14 @@ import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
 
 type OAuthField =
-  "issuer" | "scopes" | "clientId" | "clientSecret" | "authorizationUrl" | "tokenUrl" | "team";
+  | "issuer"
+  | "tenantId"
+  | "scopes"
+  | "clientId"
+  | "clientSecret"
+  | "authorizationUrl"
+  | "tokenUrl"
+  | "team";
 type FieldErrors = Partial<Record<OAuthField, string>>;
 
 function isHttpUrl(value: string): boolean {
@@ -34,6 +41,8 @@ function isHttpUrl(value: string): boolean {
     return false;
   }
 }
+
+const TENANT_PLACEHOLDER = /\{tenantid\}/gi;
 
 /**
  * OAuth catalog registration deliberately has its own small field set.
@@ -67,6 +76,7 @@ export function CatalogOAuthForm({
   const oauth = server.oauth; // pragma: allowlist secret
   const [name, setName] = useState("");
   const [issuer, setIssuer] = useState(oauth?.issuer ?? "");
+  const [tenantId, setTenantId] = useState("");
   const [scopes, setScopes] = useState(oauth?.scopes?.join(" ") ?? "");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState(""); // pragma: allowlist secret
@@ -98,6 +108,7 @@ export function CatalogOAuthForm({
         .filter(Boolean),
     [scopes],
   );
+  const issuerNeedsTenant = issuer.toLowerCase().includes("{tenantid}");
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -107,6 +118,9 @@ export function CatalogOAuthForm({
         ...(isHttpUrl(issuer.trim())
           ? {}
           : { issuer: intl.formatMessage({ id: "mcpServer.catalog.oauth.issuerRequired" }) }),
+        ...(!issuerNeedsTenant || tenantId.trim()
+          ? {}
+          : { tenantId: intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdRequired" }) }),
         ...(scopesList.length > 0
           ? {}
           : { scopes: intl.formatMessage({ id: "mcpServer.catalog.oauth.scopesRequired" }) }),
@@ -119,14 +133,14 @@ export function CatalogOAuthForm({
               // prettier-ignore
               clientSecret: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientSecretRequired" }), // pragma: allowlist secret
             }),
-        ...(isHttpUrl(authorizationUrl.trim())
+        ...(authorizationUrl.trim() === "" || isHttpUrl(authorizationUrl.trim())
           ? {}
           : {
               authorizationUrl: intl.formatMessage({
                 id: "mcpServer.catalog.oauth.authorizationUrlRequired",
               }),
             }),
-        ...(isHttpUrl(tokenUrl.trim())
+        ...(tokenUrl.trim() === "" || isHttpUrl(tokenUrl.trim())
           ? {}
           : { tokenUrl: intl.formatMessage({ id: "mcpServer.catalog.oauth.tokenUrlRequired" }) }),
         ...(visibility !== "team" || teamId
@@ -143,7 +157,7 @@ export function CatalogOAuthForm({
         oauth_credentials: {
           // pragma: allowlist secret
           grant_type: "authorization_code",
-          issuer: issuer.trim(),
+          issuer: issuer.trim().replace(TENANT_PLACEHOLDER, () => tenantId.trim()),
           client_id: clientId.trim(),
           client_secret: clientSecret, // pragma: allowlist secret
           authorization_url: authorizationUrl.trim(),
@@ -164,10 +178,12 @@ export function CatalogOAuthForm({
       intl,
       isCallbackUrlReady,
       issuer,
+      issuerNeedsTenant,
       name,
       onSubmit,
       scopesList,
       teamId,
+      tenantId,
       tokenUrl,
       visibility,
     ],
@@ -251,6 +267,30 @@ export function CatalogOAuthForm({
                 />
               )}
             </Field>
+
+            {issuerNeedsTenant && (
+              <Field
+                id="catalog-oauth-tenant-id"
+                label={intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdLabel" })}
+                required
+                error={errors.tenantId}
+              >
+                {(controlProps) => (
+                  <Input
+                    {...controlProps}
+                    value={tenantId}
+                    onChange={(event) => {
+                      setTenantId(event.target.value);
+                      setErrors((current) => ({ ...current, tenantId: undefined }));
+                    }}
+                    placeholder={intl.formatMessage({
+                      id: "mcpServer.catalog.oauth.tenantIdPlaceholder",
+                    })}
+                    disabled={isSubmitting}
+                  />
+                )}
+              </Field>
+            )}
 
             <Field
               id="catalog-oauth-scopes"
@@ -365,7 +405,6 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-authorization-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-              required
               error={errors.authorizationUrl}
             >
               {(controlProps) => (
@@ -389,7 +428,6 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-token-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-              required
               error={errors.tokenUrl}
             >
               {(controlProps) => (
