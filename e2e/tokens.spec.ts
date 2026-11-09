@@ -67,7 +67,6 @@ test.describe("API Tokens", () => {
     });
 
     await page.goto(TOKENS_TAB);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("tab", { name: "API tokens" })).toBeVisible();
     await expect(page.getByText("CI token")).toBeVisible();
@@ -85,7 +84,6 @@ test.describe("API Tokens", () => {
     });
 
     await page.goto(TOKENS_TAB);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Generate API token" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Generate token" })).toBeVisible();
@@ -118,7 +116,6 @@ test.describe("API Tokens", () => {
     });
 
     await page.goto(TOKENS_TAB);
-    await page.waitForLoadState("networkidle");
 
     // Empty state -> open the create form.
     await page.getByRole("button", { name: "Generate token" }).click();
@@ -160,7 +157,6 @@ test.describe("API Tokens", () => {
     });
 
     await page.goto(TOKENS_TAB);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("CI token")).toBeVisible();
 

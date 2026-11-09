@@ -98,7 +98,7 @@ export function Combobox({
 
   const handleOpen = () => {
     clearBlurTimeout();
-    if (!disabled) {
+    if (!disabled && !open) {
       setOpen(true);
       setSearchValue("");
     }

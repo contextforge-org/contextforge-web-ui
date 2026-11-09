@@ -60,7 +60,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [GUARDRAILS, LOGGING]);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Plugins" })).toBeVisible();
     const list = page.getByRole("list", { name: "Catalog plugins" });
@@ -74,7 +73,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [GUARDRAILS, LOGGING]);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     // ListSearch collapses to an icon; the button shares the input's aria-label
     // and its click handler focuses (and thereby expands) the input.
@@ -90,7 +88,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [GUARDRAILS, LOGGING]);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
     await page.getByRole("combobox", { name: "Hook" }).click();
@@ -116,7 +113,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [GUARDRAILS, LOGGING]);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     const viewToggle = page.getByRole("group", { name: "Plugins view" });
     await viewToggle.getByRole("button", { name: "Enabled" }).click();
@@ -133,7 +129,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [GUARDRAILS, LOGGING]);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     const viewButton = page.getByRole("button", { name: "View PII Guardrails" });
     await viewButton.click();
@@ -157,7 +152,6 @@ test.describe("Plugins page", () => {
     await mockPlugins(page, [], false);
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     await expect(
       page.getByText(
@@ -197,7 +191,6 @@ test.describe("Plugins page", () => {
     });
 
     await page.goto(APP.PLUGINS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("alert")).toHaveText("Unable to load plugins. Try again.");
 

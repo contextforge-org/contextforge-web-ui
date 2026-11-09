@@ -60,7 +60,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Prompts" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add prompts" })).toBeVisible();
@@ -81,7 +80,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Prompts" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Add prompts" })).not.toBeVisible();
@@ -97,7 +95,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     const alert = page.getByRole("alert");
     await expect(alert).toBeVisible();
@@ -123,7 +120,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("github-server")).toBeVisible();
     await expect(page.getByText("REST prompts")).toBeVisible();
@@ -146,7 +142,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("prompt_1")).toBeVisible();
     await expect(page.getByText("prompt_8")).toBeVisible();
@@ -165,7 +160,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for github-server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -193,7 +187,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     const kebab = page.getByRole("button", { name: `More options for ${longSlug}` });
     await expect(kebab).toBeVisible();
@@ -254,7 +247,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Add prompts" }).click();
     await expect(page.getByRole("heading", { name: "Add prompt" })).toBeVisible();
@@ -308,7 +300,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     // Open the details panel for the REST prompts group.
     await page.getByRole("button", { name: "More options for REST prompts" }).click();
@@ -374,7 +365,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     // Open the federated group's panel and launch the edit form.
     await page.getByRole("button", { name: "More options for hugging-face" }).click();
@@ -443,7 +433,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for REST prompts" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -497,7 +486,6 @@ test.describe("Prompts page", () => {
     });
 
     await page.goto(APP.PROMPTS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "More options for REST prompts" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -547,7 +535,6 @@ test.describe("Prompts page", () => {
       });
 
       await page.goto(APP.PROMPTS);
-      await page.waitForLoadState("networkidle");
 
       const { panel, dialog } = await openDeleteDialog(page);
       await expect(dialog).toBeVisible();
@@ -582,7 +569,6 @@ test.describe("Prompts page", () => {
       });
 
       await page.goto(APP.PROMPTS);
-      await page.waitForLoadState("networkidle");
 
       const { panel, dialog } = await openDeleteDialog(page);
       await dialog.getByRole("button", { name: "Delete" }).click();
@@ -627,7 +613,6 @@ test.describe("Prompts page", () => {
       });
 
       await page.goto(APP.PROMPTS);
-      await page.waitForLoadState("networkidle");
 
       const { panel, dialog } = await openDeleteDialog(page);
       await dialog.getByRole("button", { name: "Delete" }).click();

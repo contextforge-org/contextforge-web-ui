@@ -146,7 +146,6 @@ test.describe("Server catalog page", () => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE, API_KEY_SERVER]);
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "Server catalog" })).toBeVisible();
     const catalogList = page.getByRole("list", { name: "Catalog servers" });
@@ -162,7 +161,6 @@ test.describe("Server catalog page", () => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     // ListSearch collapses to an icon; the button shares the input's aria-label
     // and its click handler focuses (and thereby expands) the input.
@@ -178,7 +176,6 @@ test.describe("Server catalog page", () => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
     const popover = page.getByRole("dialog", { name: "Filters" });
@@ -201,7 +198,6 @@ test.describe("Server catalog page", () => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     const viewToggle = page.getByRole("group", { name: "Catalog view" });
     await viewToggle.getByRole("button", { name: "Connected" }).click();
@@ -220,7 +216,6 @@ test.describe("Server catalog page", () => {
     await mockCatalog(page, [OPEN_CONNECTED, OPEN_AVAILABLE]);
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     const actionsButton = page.getByRole("button", { name: "Actions for Globalping" });
     await actionsButton.click();
@@ -253,7 +248,6 @@ test.describe("Server catalog page", () => {
     });
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Server catalog is disabled for this gateway.")).toBeVisible();
   });
@@ -280,7 +274,6 @@ test.describe("Server catalog page", () => {
     });
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("alert")).toHaveText("Unable to load server catalog. Try again.");
 
@@ -403,7 +396,6 @@ test.describe("Server catalog page", () => {
     );
 
     await page.goto(APP.SERVER_CATALOG);
-    await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: /^Filters(, \d+ active)?$/ }).click();
     await page.getByRole("group", { name: "Providers" }).waitFor();
 

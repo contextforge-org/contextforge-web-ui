@@ -56,7 +56,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Connect MCP server")).toBeVisible();
     await expect(
@@ -76,6 +75,7 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByText("Connect MCP server")).not.toBeVisible();
@@ -96,7 +96,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "MCP Servers" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Connect/i })).not.toBeVisible();
@@ -112,7 +111,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("heading", { name: "MCP Servers" })).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: "GitHub MCP Server" })).toBeVisible();
@@ -129,7 +127,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.getByText("Error loading servers")).toBeVisible();
@@ -145,7 +142,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("row").filter({ hasText: "GitHub MCP Server" })).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: "Slack MCP Server" })).toBeVisible();
@@ -168,7 +164,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("row").filter({ hasText: "GitHub MCP Server" })).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: "Slack MCP Server" })).not.toBeVisible();
@@ -192,6 +187,7 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
+    // networkidle: the absence check below is only meaningful once the page settles.
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("button", { name: /Load More/i })).not.toBeVisible();
@@ -207,7 +203,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
 
@@ -232,7 +227,6 @@ test.describe("MCP Servers page", () => {
       });
 
       await page.goto(APP.SERVERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
       await expect(page.getByRole("menuitem", { name: "Refresh" })).toHaveCount(0);
@@ -267,7 +261,6 @@ test.describe("MCP Servers page", () => {
       });
 
       await page.goto(APP.SERVERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
       await page.getByRole("menuitem", { name: "Refresh" }).click();
@@ -301,7 +294,6 @@ test.describe("MCP Servers page", () => {
       });
 
       await page.goto(APP.SERVERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
       await page.getByRole("menuitem", { name: "Refresh" }).click();
@@ -328,7 +320,6 @@ test.describe("MCP Servers page", () => {
       });
 
       await page.goto(APP.SERVERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
       await page.getByRole("menuitem", { name: "Refresh" }).click();
@@ -356,7 +347,6 @@ test.describe("MCP Servers page", () => {
       });
 
       await page.goto(APP.SERVERS);
-      await page.waitForLoadState("networkidle");
 
       await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
       await page.getByRole("menuitem", { name: "Refresh" }).click();
@@ -387,7 +377,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("row").filter({ hasText: "GitHub MCP Server" })).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: "Slack MCP Server" })).toBeVisible();
@@ -424,7 +413,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -459,7 +447,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
@@ -520,7 +507,6 @@ test.describe("MCP Servers page", () => {
     );
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -586,7 +572,6 @@ test.describe("MCP Servers page", () => {
     );
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -653,7 +638,6 @@ test.describe("MCP Servers page", () => {
     );
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -715,7 +699,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: "Actions for GitHub MCP Server" }).click();
     await page.getByRole("menuitem", { name: "View details" }).click();
@@ -735,7 +718,6 @@ test.describe("MCP Servers page", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await expect(page.locator("#limit-select")).toBeVisible();
     await expect(page.getByText(/Per page:/i)).toBeVisible();

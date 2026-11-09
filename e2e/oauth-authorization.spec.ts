@@ -103,7 +103,6 @@ test.describe("OAuth authorization-code popup flow", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /Connect/i }).click();
 
@@ -209,7 +208,6 @@ test.describe("OAuth authorization-code popup flow", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /Connect/i }).click();
     await page.getByLabel("Name").fill(GATEWAY_NAME);
@@ -261,7 +259,6 @@ test.describe("OAuth authorization-code popup flow", () => {
     });
 
     await page.goto(APP.SERVERS);
-    await page.waitForLoadState("networkidle");
 
     await page.getByRole("button", { name: /Connect/i }).click();
     await page.getByLabel("Name").fill(GATEWAY_NAME);
