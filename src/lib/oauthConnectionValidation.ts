@@ -56,6 +56,19 @@ export function oauthErrorMessage(intl: IntlShape, code?: string): string {
   });
 }
 
+export function oauthAuthorizationErrorMessage(
+  intl: IntlShape,
+  error: { errorCode?: string; description?: string },
+): string {
+  const guidance = oauthErrorMessage(intl, error.errorCode);
+  return error.description && error.description !== guidance
+    ? intl.formatMessage(
+        { id: "mcpServer.oauthValidation.providerError" },
+        { guidance, description: error.description },
+      )
+    : guidance;
+}
+
 export function hasValidationStages(result: OAuthConnectionValidationResponse): boolean {
   return VALIDATION_STAGES.every((stage) =>
     ["ok", "failed", "skipped", "unsupported"].includes(result?.stages?.[stage] ?? ""),

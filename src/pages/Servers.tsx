@@ -26,7 +26,7 @@ import { OAuthConnectionValidationPanel } from "@/components/servers/OAuthConnec
 import {
   canValidateOAuthConnection,
   oauthConfigurationKey,
-  oauthErrorMessage,
+  oauthAuthorizationErrorMessage,
 } from "@/lib/oauthConnectionValidation";
 import { isOAuthServer } from "@/lib/serverStatus";
 
@@ -327,14 +327,7 @@ export function Servers() {
         if (!(err instanceof OAuthCancelledError)) setOAuthDialogServerId(id);
         let reason: string;
         if (err instanceof OAuthAuthorizationError) {
-          const guidance = oauthErrorMessage(intl, err.errorCode);
-          reason =
-            err.description && err.description !== guidance
-              ? intl.formatMessage(
-                  { id: "mcpServer.oauthValidation.providerError" },
-                  { guidance, description: err.description },
-                )
-              : guidance;
+          reason = oauthAuthorizationErrorMessage(intl, err);
         } else {
           reason = err instanceof OAuthCancelledError ? "" : sanitizeError(err);
         }

@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -9,7 +9,7 @@ import {
   registerCatalogServer,
   testCatalogServer,
 } from "@/api/catalog";
-import { ApiError } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { getOAuthStatuses } from "@/api/oauth";
 import {
   OAuthAuthorizationError,
@@ -58,32 +58,10 @@ vi.mock("@/api/oauth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/oauth")>()),
   getOAuthStatuses: vi.fn(),
 }));
-vi.mock("@/api/servers", () => ({
-  // Real error classes so `instanceof` checks in the page keep working
-  // against rejections created from the mocked module surface.
-  OAuthAuthorizationError: class OAuthAuthorizationError extends Error {
-    code?: string;
-    description?: string;
-    constructor(code?: string, description?: string) {
-      super(description || code || "OAuth authorization failed");
-      this.name = "OAuthAuthorizationError";
-      this.code = code;
-      this.description = description;
-    }
-  },
-  OAuthCancelledError: class OAuthCancelledError extends Error {
-    constructor(message = "OAuth authorization was cancelled") {
-      super(message);
-      this.name = "OAuthCancelledError";
-    }
-  },
-  OAuthPopupBlockedError: class OAuthPopupBlockedError extends Error {
-    constructor() {
-      super("Failed to open OAuth authorization window");
-      this.name = "OAuthPopupBlockedError";
-    }
-  },
+vi.mock("@/api/servers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api/servers")>()),
   serversApi: {
+    testOAuthConnection: vi.fn(),
     openOAuthAuthorizationPopup: vi.fn(),
     triggerOAuthAuthorization: vi.fn(),
     toggleEnabled: vi.fn(),
@@ -217,6 +195,7 @@ function renderWithRouter(ui: ReactElement, path = "/app/server-catalog") {
 }
 
 describe("ServerCatalog", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     window.history.replaceState({}, "", "/app/");
     mockUseQuery.mockImplementation((path) =>
@@ -250,10 +229,176 @@ describe("ServerCatalog", () => {
     mockTriggerOAuthAuthorization.mockReset();
     mockToggleEnabled.mockReset();
     mockFetchToolsAfterOAuth.mockReset();
+    vi.mocked(serversApi.testOAuthConnection).mockReset();
     mockOpenOAuthAuthorizationPopup.mockReturnValue({ close: vi.fn() } as unknown as Window);
     mockTriggerOAuthAuthorization.mockResolvedValue({ type: "oauth_callback", status: "success" });
     mockToggleEnabled.mockResolvedValue({ status: "success", message: "Activated" });
     mockFetchToolsAfterOAuth.mockResolvedValue({ success: true, message: "Tools fetched" });
+  });
+
+  it.each([
+    ["oauth", true],
+    ["OAuth", true],
+    ["oauth", false],
+  ])("validates the freshly saved %s gateway only when enabled=%s", async (authType, enabled) => {
+    const user = userEvent.setup();
+    const catalogServer = {
+      ...oauthServer,
+      is_registered: true,
+      gateway_id: "gateway-github",
+      requires_oauth_config: false,
+    };
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [catalogServer], total: 1 } }),
+    );
+    mockGetOAuthStatuses.mockResolvedValue({
+      statuses: {
+        "gateway-github": {
+          oauth_enabled: true,
+          grant_type: "authorization_code",
+          user_token_status: { status: "valid", authorized: true },
+        },
+      },
+      failures: {},
+    });
+    const gateway = {
+      id: "gateway-github",
+      name: "GitHub",
+      url: "https://saved.example/mcp",
+      enabled: true,
+      authType,
+      oauthConfig: { grant_type: "authorization_code" },
+    };
+    const savedGateway = deferred<typeof gateway>();
+    const validation = deferred<Awaited<ReturnType<typeof serversApi.testOAuthConnection>>>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(savedGateway.promise)
+      .mockResolvedValue({ ...gateway, enabled });
+    const testConnection = vi.spyOn(serversApi, "testOAuthConnection");
+    testConnection.mockReturnValue(validation.promise);
+    renderWithRouter(<ServerCatalog />);
+    await act(async () => savedGateway.resolve(gateway));
+    const button = screen.getByRole("button", { name: "Test connection GitHub" });
+    expect(testConnection).not.toHaveBeenCalled();
+    await user.click(button);
+    if (!enabled) {
+      expect(
+        await screen.findByText(
+          "The saved server is not eligible for this test or the request is invalid. Reload and check its configuration.",
+        ),
+      ).toBeVisible();
+      expect(testConnection).not.toHaveBeenCalled();
+      return;
+    }
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(testConnection).toHaveBeenCalledExactlyOnceWith(
+      { gatewayId: "gateway-github", baseUrl: gateway.url },
+      expect.any(AbortSignal),
+    );
+    expect(
+      screen.getByRole("button", { name: "Testing stored authorization… GitHub" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await act(async () => {
+      validation.resolve({
+        success: true,
+        latencyMs: 1,
+        stages: { token: "ok", negotiation: "ok", tools_list: "ok" },
+        componentCounts: { tools: 0 },
+      });
+    });
+    expect(screen.getByText("Stored authorization verified")).toBeVisible();
+    expect(mockFetchToolsAfterOAuth).not.toHaveBeenCalled();
+    expect(mockToggleEnabled).not.toHaveBeenCalled();
+    expect(mockRegisterCatalogServer).not.toHaveBeenCalled();
+    expect(mockTestCatalogServer).not.toHaveBeenCalled();
+  });
+
+  it("does not expose OAuth Test to read-only callers", async () => {
+    const user = userEvent.setup();
+    const catalogServer = { ...oauthServer, is_registered: true, gateway_id: "gateway-github" };
+    mockUseQuery.mockReturnValue(
+      queryResult({ data: { ...response, servers: [catalogServer], total: 1 } }),
+    );
+    authState.hasPermission.mockImplementation((permission) => permission === "gateways.read");
+    renderWithRouter(<ServerCatalog />);
+    await user.click(await screen.findByRole("button", { name: "Actions for GitHub" }));
+    expect(screen.queryByRole("menuitem", { name: "Test connection" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Test connection GitHub" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reuses cached and pending gateway requests when the catalog ID list changes", async () => {
+    const first = { ...oauthServer, is_registered: true, gateway_id: "gateway-first" };
+    const second = { ...first, id: "second", name: "Second", gateway_id: "gateway-second" };
+    const third = { ...first, id: "third", name: "Third", gateway_id: "gateway-third" };
+    const gateway = { id: first.gateway_id, enabled: true, authType: "oauth" };
+    const pending = deferred<typeof gateway>();
+    const secondRequest = deferred<typeof gateway>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(pending.promise)
+      .mockReturnValueOnce(secondRequest.promise);
+    const show = (servers: CatalogServer[]) =>
+      mockUseQuery.mockReturnValue(queryResult({ data: { ...response, servers } }));
+
+    show([first]);
+    const { rerender, unmount } = renderWithRouter(<ServerCatalog />);
+    expect(get).toHaveBeenCalledTimes(1);
+    const firstSignal = get.mock.calls[0][2] as AbortSignal;
+
+    show([first, second]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(firstSignal.aborted).toBe(false);
+
+    await act(async () => pending.resolve(gateway));
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(async () => secondRequest.resolve({ ...gateway, id: second.gateway_id }));
+    show([second]);
+    rerender(withProviders(<ServerCatalog />));
+    show([first, second]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(2);
+
+    const lastRequest = deferred<typeof gateway>();
+    get.mockReturnValue(lastRequest.promise);
+    show([first, second, third]);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(3);
+    const thirdSignal = get.mock.calls[2][2] as AbortSignal;
+    expect(thirdSignal.aborted).toBe(false);
+    unmount();
+    expect(thirdSignal.aborted).toBe(true);
+    await act(async () => lastRequest.resolve({ ...gateway, id: third.gateway_id }));
+  });
+
+  it("clears cached gateways and aborts pending requests when read permission is revoked", async () => {
+    const first = { ...oauthServer, is_registered: true, gateway_id: "gateway-first" };
+    const second = { ...first, id: "second", name: "Second", gateway_id: "gateway-second" };
+    const gateway = { id: first.gateway_id, enabled: true, authType: "oauth" };
+    const firstRequest = deferred<typeof gateway>();
+    const pending = deferred<typeof gateway>();
+    const get = vi
+      .spyOn(api, "get")
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValue(pending.promise);
+    mockUseQuery.mockReturnValue(queryResult({ data: { ...response, servers: [first, second] } }));
+    const { rerender } = renderWithRouter(<ServerCatalog />);
+    await act(async () => firstRequest.resolve(gateway));
+    expect(get).toHaveBeenCalledTimes(2);
+    const signal = get.mock.calls[1][2] as AbortSignal;
+    authState.hasPermission.mockReturnValue(false);
+    rerender(withProviders(<ServerCatalog />));
+    expect(signal.aborted).toBe(true);
+    await act(async () => pending.resolve({ ...gateway, id: second.gateway_id }));
+    const reloaded = deferred<typeof gateway>();
+    get.mockReturnValue(reloaded.promise);
+    authState.hasPermission.mockReturnValue(true);
+    rerender(withProviders(<ServerCatalog />));
+    expect(get).toHaveBeenCalledTimes(4);
+    await act(async () => reloaded.resolve(gateway));
   });
 
   it("uses the catalog GET endpoint and shared loader", () => {
@@ -646,7 +791,7 @@ describe("ServerCatalog", () => {
     expect(screen.getByRole("button", { name: "Actions for GitHub" })).toHaveFocus();
   });
 
-  it("shows the provider's reason in the dialog when authorization fails", async () => {
+  it("shows localized guidance with the provider description", async () => {
     const user = userEvent.setup();
     mockTriggerOAuthAuthorization.mockRejectedValue(
       new OAuthAuthorizationError("access_denied", "Provider denied the request"),
@@ -669,9 +814,11 @@ describe("ServerCatalog", () => {
     );
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
-    // Real failures still surface so the user can react; only the
-    // deliberate popup dismissal is silent.
-    expect(await within(form).findByText("Provider denied the request")).toBeVisible();
+    expect(
+      await within(form).findByText(
+        "The provider denied authorization. Authorize this server again. Provider message: Provider denied the request",
+      ),
+    ).toBeVisible();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
@@ -697,7 +844,9 @@ describe("ServerCatalog", () => {
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(form).findByText("OAuth authorization could not be completed. Try again."),
+      await within(form).findByText(
+        "OAuth connection failed. Check the configuration and try again.",
+      ),
     ).toBeVisible();
     expect(within(form).queryByText("OAuth authorization failed")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
@@ -725,7 +874,9 @@ describe("ServerCatalog", () => {
     await user.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(form).findByText("OAuth authorization could not be completed. Try again."),
+      await within(form).findByText(
+        "The provider denied authorization. Authorize this server again.",
+      ),
     ).toBeVisible();
     expect(within(form).queryByText("OAuth authorization failed")).not.toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Save" })).toBeInTheDocument();
