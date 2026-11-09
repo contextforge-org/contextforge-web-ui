@@ -161,48 +161,87 @@ describe("Agents", () => {
     expect(await screen.findByRole("img", { name: "Inactive" })).toBeInTheDocument();
   });
 
-  it("renders tag chips for an agent's tags", async () => {
-    const mockAgents = [
-      createMockAgent(1, { tags: [{ label: "billing" }, { label: "internal" }] }),
-    ];
-    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
-
-    renderWithProviders(<Agents />);
-
-    await waitFor(() => {
-      expect(screen.getByText("billing")).toBeInTheDocument();
-    });
-    expect(screen.getByText("internal")).toBeInTheDocument();
-  });
-
-  it("caps visible tags at 8 and shows a +N overflow chip", async () => {
+  it("renders a chip per skill with a skills count, and no tag chips", async () => {
     const mockAgents = [
       createMockAgent(1, {
-        tags: Array.from({ length: 10 }, (_, i) => ({ label: `tag-${i + 1}` })),
+        tags: [{ id: "billing", label: "billing" }],
+        capabilities: {
+          skills: [
+            { id: "echo", name: "Echo" },
+            { id: "route", name: "Route" },
+          ],
+        },
       }),
     ];
     server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
     renderWithProviders(<Agents />);
 
-    await waitFor(() => {
-      expect(screen.getByText("tag-1")).toBeInTheDocument();
-    });
-    expect(screen.getByText("tag-8")).toBeInTheDocument();
-    expect(screen.queryByText("tag-9")).not.toBeInTheDocument();
-    expect(screen.getByText("+2")).toBeInTheDocument();
+    expect(await screen.findByText("Echo")).toBeInTheDocument();
+    expect(screen.getByText("Route")).toBeInTheDocument();
+    expect(screen.getByText("2 skills")).toBeInTheDocument();
+    expect(screen.queryByText("billing")).not.toBeInTheDocument();
   });
 
-  it("renders without tags when the field is omitted entirely", async () => {
-    const agent = createMockAgent(1);
-    delete (agent as Partial<Agent>).tags;
+  it("uses the singular for a single skill", async () => {
+    const mockAgents = [createMockAgent(1, { capabilities: { skills: [{ name: "Echo" }] } })];
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
+
+    renderWithProviders(<Agents />);
+
+    expect(await screen.findByText("1 skill")).toBeInTheDocument();
+  });
+
+  it("reads skills from the top-level list when the API provides it", async () => {
+    const agent = {
+      ...createMockAgent(1),
+      skills: [{ id: "echo", name: "Echo", description: "d", tags: [] }],
+    };
     server.use(http.get("/api/v1/a2a", () => HttpResponse.json([agent])));
 
     renderWithProviders(<Agents />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Agent 1")).toBeInTheDocument();
-    });
+    expect(await screen.findByText("Echo")).toBeInTheDocument();
+    expect(screen.getByText("1 skill")).toBeInTheDocument();
+  });
+
+  it("caps visible skills at 8 and shows a +N overflow chip", async () => {
+    const mockAgents = [
+      createMockAgent(1, {
+        capabilities: {
+          skills: Array.from({ length: 10 }, (_, i) => ({ name: `skill-${i + 1}` })),
+        },
+      }),
+    ];
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
+
+    renderWithProviders(<Agents />);
+
+    expect(await screen.findByText("skill-1")).toBeInTheDocument();
+    expect(screen.getByText("skill-8")).toBeInTheDocument();
+    expect(screen.queryByText("skill-9")).not.toBeInTheDocument();
+    expect(screen.getByText("+2")).toBeInTheDocument();
+    expect(screen.getByText("10 skills")).toBeInTheDocument();
+  });
+
+  it("shows no skills count or chips for an agent without skills", async () => {
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
+
+    renderWithProviders(<Agents />);
+
+    expect(await screen.findByText("Agent 1")).toBeInTheDocument();
+    expect(screen.queryByText(/skills?$/)).not.toBeInTheDocument();
+  });
+
+  it("renders when tags and capabilities are omitted entirely", async () => {
+    const agent = createMockAgent(1);
+    delete (agent as Partial<Agent>).tags;
+    delete (agent as Partial<Agent>).capabilities;
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json([agent])));
+
+    renderWithProviders(<Agents />);
+
+    expect(await screen.findByText("Agent 1")).toBeInTheDocument();
   });
 
   it("ignores null entries returned by the API", async () => {
@@ -287,6 +326,67 @@ describe("Agents", () => {
       expect(
         connect.compareDocumentPosition(agent) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
+    });
+
+    it("opens the connect form from the card, and Cancel returns to the list", async () => {
+      mockHasPermission.mockImplementation(() => true);
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
+      const user = userEvent.setup();
+
+      renderWithProviders(<Agents />);
+      await user.click(await screen.findByRole("button", { name: /Connect agent/ }));
+
+      expect(
+        await screen.findByPlaceholderText("Add URL for a running agent..."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Agent 1")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(await screen.findByText("Agent 1")).toBeInTheDocument();
+    });
+
+    it("registers an agent from its card and shows it in the refreshed list", async () => {
+      mockHasPermission.mockImplementation(() => true);
+      let registered = false;
+      server.use(
+        http.get("/api/v1/a2a", () =>
+          HttpResponse.json(registered ? [createMockAgent(1, { name: "Visual Router" })] : []),
+        ),
+        http.post("/api/v1/a2a/fetch-card", () =>
+          HttpResponse.json({
+            found: true,
+            outcome: "found",
+            detectedVersion: "1.0",
+            card: { name: "Visual Router", skills: [] },
+            suggestedAgent: {
+              name: "Visual Router",
+              endpoint_url: "https://agent.example.com/rpc",
+              protocol_version: "1.0",
+            },
+            warnings: [],
+          }),
+        ),
+        http.post("/api/v1/a2a", () => {
+          registered = true;
+          return HttpResponse.json({ id: "agent-1", name: "Visual Router" }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+
+      renderWithProviders(<Agents />);
+      await user.click(await screen.findByRole("button", { name: /Connect agent/ }));
+      await user.type(
+        await screen.findByPlaceholderText("Add URL for a running agent..."),
+        "https://agent.example.com",
+      );
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await user.click(await screen.findByRole("button", { name: "Continue" }));
+      await user.click(await screen.findByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Connected Visual Router"));
+      expect(await screen.findByRole("img", { name: "Active" })).toBeInTheDocument();
+      expect(screen.getByText("Visual Router")).toBeInTheDocument();
     });
 
     it("hides the Connect agent card without a2a.create", async () => {

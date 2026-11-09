@@ -63,6 +63,70 @@ async function mockAgentMutation(
   );
 }
 
+const FOUND_CARD = {
+  found: true,
+  outcome: "found",
+  detectedVersion: "1.0",
+  card: {
+    name: "Visual Router",
+    description: "Routes visual-production briefs to vendors.",
+    version: "1.1.0",
+    supportedInterfaces: [
+      { url: "https://agent.example.com/rpc", protocolBinding: "JSONRPC", protocolVersion: "1.0" },
+    ],
+    skills: [
+      { id: "fit", name: "Vendor-fit routing" },
+      { id: "hybrid", name: "Hybrid production routing" },
+    ],
+    securitySchemes: { bearerAuth: { httpAuthSecurityScheme: { scheme: "bearer" } } },
+    securityRequirements: [{ schemes: { bearerAuth: {} } }],
+  },
+  suggestedAgent: {
+    name: "Visual Router",
+    description: "Routes visual-production briefs to vendors.",
+    endpoint_url: "https://agent.example.com/rpc",
+    protocol_version: "1.0",
+    version: "1.1.0",
+    auth_type: "bearer",
+  },
+  warnings: [],
+};
+
+/** Stubs POST <anything>/a2a/fetch-card and records the request bodies. */
+async function mockFetchCard(page: Page, result: unknown, status = 200) {
+  const bodies: unknown[] = [];
+  await page.route(
+    (url) => url.pathname.endsWith("/a2a/fetch-card"),
+    async (route) => {
+      bodies.push(route.request().postDataJSON());
+      await json(route, result, status);
+    },
+  );
+  return bodies;
+}
+
+/** Stubs POST <anything>/a2a (register) and records the request bodies. */
+async function mockRegisterAgent(page: Page, respond: (route: Route) => Promise<void> | void) {
+  const bodies: Array<Record<string, unknown>> = [];
+  await page.route(
+    (url) => /\/a2a\/?$/.test(url.pathname),
+    async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      bodies.push(route.request().postDataJSON());
+      return respond(route);
+    },
+  );
+  return bodies;
+}
+
+async function startConnect(page: Page, url = "https://agent.example.com") {
+  await page.getByRole("button", { name: /Connect agent/ }).click();
+  await page.getByPlaceholder("Add URL for a running agent...").fill(url);
+  await page.getByRole("button", { name: "Continue" }).click();
+}
+
+const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
+
 const toast = (page: Page, text: RegExp) =>
   page.locator("[data-sonner-toast]").filter({ hasText: text });
 
@@ -116,6 +180,278 @@ test.describe("Agents page", () => {
     });
   });
 
+  test.describe("connect an agent that publishes a card", () => {
+    test("reads the card, collects the key and registers the agent", async ({ page }) => {
+      let registered = false;
+      await mockAgentList(page, () =>
+        registered ? [makeAgent("visual-router", { name: "Visual Router" })] : [],
+      );
+      const fetchBodies = await mockFetchCard(page, FOUND_CARD);
+      const createBodies = await mockRegisterAgent(page, async (route) => {
+        registered = true;
+        await json(route, makeAgent("visual-router", { name: "Visual Router" }), 201);
+      });
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+
+      // Review: what the card declares
+      await expect(page.getByRole("heading", { name: "Visual Router" })).toBeVisible();
+      await expect(page.getByText("agent v1.1.0")).toBeVisible();
+      await expect(page.getByText("Skills (2)")).toBeVisible();
+      await expect(page.getByText("Vendor-fit routing")).toBeVisible();
+      await expect(page.getByText("agent.example.com", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      // Authenticate and register
+      await expect(page.getByRole("heading", { name: "Authenticate agent" })).toBeVisible();
+      await page.getByLabel(/Bearer token/i).fill("s3cret");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Visual Router/)).toBeVisible();
+      await expect(page.getByText("Visual Router", { exact: true })).toBeVisible();
+      await expect(page.getByPlaceholder("Add URL for a running agent...")).toBeHidden();
+
+      expect(fetchBodies).toEqual([{ baseUrl: "https://agent.example.com" }]);
+      expect(createBodies).toHaveLength(1);
+      expect(createBodies[0]).toMatchObject({
+        agent: {
+          name: "Visual Router",
+          endpoint_url: "https://agent.example.com/rpc",
+          auth_type: "bearer",
+          auth_token: "s3cret",
+        },
+        visibility: "public",
+      });
+    });
+
+    test("does not register until the required key is entered", async ({ page }) => {
+      await mockAgentList(page, []);
+      await mockFetchCard(page, FOUND_CARD);
+      const createBodies = await mockRegisterAgent(page, (route) => json(route, {}, 201));
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(page.getByText("Enter the credentials the agent requires.")).toBeVisible();
+      expect(createBodies).toHaveLength(0);
+    });
+
+    test("shows the server's reason and keeps the form when registration fails", async ({
+      page,
+    }) => {
+      await mockAgentList(page, []);
+      await mockFetchCard(page, FOUND_CARD);
+      await mockRegisterAgent(page, (route) =>
+        json(route, { detail: "Agent name already exists" }, 409),
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByLabel(/Bearer token/i).fill("s3cret");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(page.getByText("Agent name already exists")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Authenticate agent" })).toBeVisible();
+    });
+
+    test("goes back from the review to the URL step with the URL kept", async ({ page }) => {
+      await mockAgentList(page, []);
+      await mockFetchCard(page, FOUND_CARD);
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page, "https://agent.example.com");
+      await expect(page.getByRole("heading", { name: "Visual Router" })).toBeVisible();
+      await page.getByRole("button", { name: "Back" }).click();
+
+      await expect(page.getByPlaceholder("Add URL for a running agent...")).toHaveValue(
+        "https://agent.example.com",
+      );
+    });
+
+    test("returns to the list on Cancel without registering anything", async ({ page }) => {
+      await mockAgentList(page, [ALPHA]);
+      const createBodies = await mockRegisterAgent(page, (route) => json(route, {}, 201));
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+      await page.getByRole("button", { name: "Cancel" }).click();
+
+      await expect(page.getByText("Agent alpha")).toBeVisible();
+      expect(createBodies).toHaveLength(0);
+    });
+
+    test("rejects a URL that is not http(s) without calling the gateway", async ({ page }) => {
+      await mockAgentList(page, []);
+      const fetchBodies = await mockFetchCard(page, FOUND_CARD);
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page, "ftp://agent.example.com");
+
+      await expect(page.getByText("Enter a valid http or https URL.")).toBeVisible();
+      expect(fetchBodies).toHaveLength(0);
+    });
+
+    for (const [name, respond] of [
+      ["publishes no card", (route: Route) => json(route, { found: false, outcome: "no_card" })],
+      [
+        "needs credentials to read its card",
+        (route: Route) =>
+          json(route, { found: false, outcome: "auth_required", authScheme: "Bearer" }),
+      ],
+      [
+        "cannot be reached",
+        (route: Route) => json(route, { found: false, outcome: "unreachable" }),
+      ],
+      [
+        "is refused by the gateway",
+        (route: Route) => json(route, { detail: "Insufficient permissions" }, 403),
+      ],
+    ] as const) {
+      test(`says the card is not available and opens manual entry when the agent ${name}`, async ({
+        page,
+      }) => {
+        await mockAgentList(page, []);
+        await page.route(
+          (url) => url.pathname.endsWith("/a2a/fetch-card"),
+          (route) => respond(route),
+        );
+
+        await page.goto(APP.AGENTS);
+        await startConnect(page);
+
+        await expect(page.getByText(CARD_UNAVAILABLE)).toBeVisible();
+        await expect(page.getByRole("button", { name: "Enter manually" })).toHaveAttribute(
+          "aria-expanded",
+          "true",
+        );
+        await expect(page.getByPlaceholder("Add an agent name")).toBeVisible();
+      });
+    }
+  });
+
+  test.describe("enter an agent manually", () => {
+    const fillRequired = async (page: Page) => {
+      await page.getByPlaceholder("Add an agent name").fill("Echo agent");
+      await page.getByPlaceholder("https://agents.example.com/a2a").fill("http://127.0.0.1:9100");
+    };
+
+    test("is collapsed until expanded", async ({ page }) => {
+      await mockAgentList(page, []);
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+
+      const toggle = page.getByRole("button", { name: "Enter manually" });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByPlaceholder("Add an agent name")).toBeHidden();
+
+      await toggle.click();
+
+      await expect(page.getByPlaceholder("Add an agent name")).toBeVisible();
+      await expect(page.getByRole("radio", { name: "JSON-RPC" })).toBeChecked();
+      await expect(page.getByRole("radio", { name: "A2A 1.0" })).toBeChecked();
+      await expect(page.getByRole("radio", { name: "None" })).toBeChecked();
+    });
+
+    test("registers an agent from the details, with credentials", async ({ page }) => {
+      let registered = false;
+      await mockAgentList(page, () =>
+        registered ? [makeAgent("echo", { name: "Echo agent" })] : [],
+      );
+      const fetchBodies = await mockFetchCard(page, { found: false, outcome: "no_card" });
+      const createBodies = await mockRegisterAgent(page, async (route) => {
+        registered = true;
+        await json(route, makeAgent("echo", { name: "Echo agent" }), 201);
+      });
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page, "https://agent.example.com/agent.json");
+      await expect(page.getByText(CARD_UNAVAILABLE)).toBeVisible();
+
+      await fillRequired(page);
+      await page.getByRole("radio", { name: "A2A 0.3" }).click();
+      // The radio is visually hidden; users click its tab label.
+      await page.locator('label[for="agent-auth-bearer"]').click();
+      await page.getByPlaceholder("Paste bearer token...").fill("s3cret");
+      await page.getByPlaceholder("Add optional tags separated with commas").fill("testing, echo");
+      await page.getByPlaceholder("Add an optional description...").fill("Echoes text back");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Echo agent/)).toBeVisible();
+      await expect(page.getByText("Echo agent", { exact: true })).toBeVisible();
+
+      expect(fetchBodies).toHaveLength(1);
+      expect(createBodies).toHaveLength(1);
+      expect(createBodies[0]).toMatchObject({
+        agent: {
+          name: "Echo agent",
+          endpoint_url: "http://127.0.0.1:9100",
+          protocol_version: "0.3",
+          auth_type: "bearer",
+          auth_token: "s3cret",
+          description: "Echoes text back",
+          tags: ["testing", "echo"],
+        },
+        visibility: "public",
+      });
+    });
+
+    test("registers without reading a card or needing the URL", async ({ page }) => {
+      await mockAgentList(page, []);
+      const fetchBodies = await mockFetchCard(page, FOUND_CARD);
+      const createBodies = await mockRegisterAgent(page, (route) =>
+        json(route, makeAgent("echo", { name: "Echo agent" }), 201),
+      );
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+      await page.getByRole("button", { name: "Enter manually" }).click();
+      await fillRequired(page);
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Echo agent/)).toBeVisible();
+      expect(fetchBodies).toHaveLength(0);
+      expect(createBodies).toHaveLength(1);
+    });
+
+    test("needs a name and a valid endpoint before registering", async ({ page }) => {
+      await mockAgentList(page, []);
+      const createBodies = await mockRegisterAgent(page, (route) => json(route, {}, 201));
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+      await page.getByRole("button", { name: "Enter manually" }).click();
+      await page.getByPlaceholder("https://agents.example.com/a2a").fill("ftp://nope");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(page.getByText("Enter a name for the agent.")).toBeVisible();
+      await expect(page.getByText("Enter a valid http or https endpoint URL.")).toBeVisible();
+      expect(createBodies).toHaveLength(0);
+    });
+
+    test("shows the server's reason and keeps the form when registration fails", async ({
+      page,
+    }) => {
+      await mockAgentList(page, []);
+      await mockRegisterAgent(page, (route) =>
+        json(route, { detail: "Agent name already exists" }, 409),
+      );
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+      await page.getByRole("button", { name: "Enter manually" }).click();
+      await fillRequired(page);
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(page.getByText("Agent name already exists")).toBeVisible();
+      await expect(page.getByPlaceholder("Add an agent name")).toHaveValue("Echo agent");
+    });
+  });
+
   test.describe("list", () => {
     test("renders a card per agent with its status indicator", async ({ page }) => {
       await mockAgentList(page, [ALPHA, BETA]);
@@ -126,6 +462,34 @@ test.describe("Agents page", () => {
       await expect(page.getByText("Description for alpha")).toBeVisible();
       await expect(page.getByRole("img", { name: "Active", exact: true })).toHaveCount(1);
       await expect(page.getByRole("img", { name: "Inactive", exact: true })).toHaveCount(1);
+    });
+
+    test("shows the agent's skills with a count, and not its tags", async ({ page }) => {
+      await mockAgentList(page, [
+        makeAgent("skilled", {
+          name: "Skilled agent",
+          tags: [{ id: "billing", label: "billing" }],
+          capabilities: {
+            skills: [
+              { id: "echo", name: "Echo" },
+              { id: "route", name: "Route" },
+            ],
+          },
+        }),
+        makeAgent("plain", { name: "Plain agent", tags: [{ id: "ops", label: "ops" }] }),
+      ]);
+
+      await page.goto(APP.AGENTS);
+
+      const skilled = page.locator('[data-slot="card"]').filter({ hasText: "Skilled agent" });
+      await expect(skilled.getByText("2 skills")).toBeVisible();
+      await expect(skilled.getByText("Echo")).toBeVisible();
+      await expect(skilled.getByText("Route")).toBeVisible();
+      await expect(page.getByText("billing")).toBeHidden();
+      await expect(page.getByText("ops", { exact: true })).toBeHidden();
+
+      const plain = page.locator('[data-slot="card"]').filter({ hasText: "Plain agent" });
+      await expect(plain.getByText(/skills?$/)).toBeHidden();
     });
 
     test("requests disabled agents too (include_inactive=true)", async ({ page }) => {

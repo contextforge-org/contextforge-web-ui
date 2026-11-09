@@ -3,7 +3,8 @@
  */
 
 import { api } from "./client";
-import type { A2AAgentRead } from "@/generated/types";
+import type { A2AAgentRead, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
+import type { FetchCardResult } from "@/types/agentCard";
 
 /**
  * Validates an agent ID to prevent path traversal and injection attacks
@@ -28,6 +29,25 @@ function validateAgentId(id: string): string {
 }
 
 export const agentsApi = {
+  /**
+   * Read an Agent Card from an endpoint that is not registered yet.
+   *
+   * A reachable host that publishes no card, one that wants credentials, and an
+   * unreachable one all come back as 200 with a distinct `outcome`; only a
+   * missing permission or a malformed request is an error.
+   */
+  fetchCard: (baseUrl: string): Promise<FetchCardResult> => {
+    return api.post("/v1/a2a/fetch-card", { baseUrl });
+  },
+
+  /**
+   * Register an agent. The route embeds its body parameters, so the agent
+   * fields travel under `agent` beside `team_id` and `visibility`.
+   */
+  create: (body: BodyCreateA2aAgentV1A2aPost): Promise<A2AAgentRead> => {
+    return api.post("/v1/a2a", body);
+  },
+
   /**
    * Enable or disable an agent. Returns the agent as stored after the change.
    */

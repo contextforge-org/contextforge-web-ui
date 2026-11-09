@@ -1,0 +1,392 @@
+import { useCallback, useMemo, useState } from "react";
+import { useIntl } from "react-intl";
+import { useAuth } from "@/auth/useAuth";
+import { agentsApi } from "@/api/agents";
+import { ApiError } from "@/api/client";
+import {
+  credentialFields,
+  hasRequiredCredentials,
+  parseList,
+  type AgentAuthType,
+  type AgentAuthValues,
+  type ProtocolVersion,
+} from "@/components/agents/manualAgent";
+import type { CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
+import { resolveTeamId, useTeams } from "@/hooks/useTeams";
+import { extractApiErrorDetail } from "@/utils/errors";
+import type { A2AAgentCreate, A2AAgentRead, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
+import type { Visibility } from "@/types/server";
+import type { FetchCardResult, SuggestedAgent } from "@/types/agentCard";
+
+export type ConnectAgentStep = "url" | "review" | "auth";
+
+/** Auth types the card flow can collect credentials for. Anything else blocks registration. */
+const SUPPORTED_CARD_AUTH_TYPES = new Set(["bearer", "basic", "authheaders", "query_param"]);
+
+export function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export interface ConnectAgentErrors {
+  url?: string;
+  name?: string;
+  endpoint?: string;
+  credentials?: string;
+  teamId?: string;
+  submit?: string;
+}
+
+interface UseConnectAgentFormOptions {
+  onCreated: (agent: A2AAgentRead) => void;
+}
+
+export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
+  const intl = useIntl();
+  const { selectedTeamId } = useAuth();
+  const { teams } = useTeams();
+
+  const [step, setStep] = useState<ConnectAgentStep>("url");
+  const [url, setUrlState] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  /** The card could not be read, for whatever reason: no card, credentials needed, unreachable or an error. */
+  const [cardUnavailable, setCardUnavailable] = useState(false);
+  const [result, setResult] = useState<FetchCardResult | null>(null);
+
+  // Credentials are shared by the card flow and the manual form; only one is ever in use.
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [headers, setHeaders] = useState<CustomHeader[]>([]);
+  const [queryParamName, setQueryParamName] = useState("");
+  const [queryParamValue, setQueryParamValue] = useState("");
+  const [oauthTokenUrl, setOauthTokenUrl] = useState("");
+  const [oauthClientId, setOauthClientId] = useState("");
+  const [oauthClientSecret, setOauthClientSecret] = useState("");
+  const [oauthScopes, setOauthScopes] = useState("");
+
+  const [visibility, setVisibilityState] = useState<Visibility>("public");
+  const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(undefined);
+  const [tags, setTags] = useState<string[]>([]);
+
+  // "Enter manually": for agents that publish no card.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualEndpoint, setManualEndpoint] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  /** Comma-separated, as typed. */
+  const [manualTags, setManualTags] = useState("");
+  const [protocolVersion, setProtocolVersion] = useState<ProtocolVersion>("1.0");
+  const [manualAuthType, setManualAuthTypeState] = useState<AgentAuthType>("none");
+
+  const [errors, setErrors] = useState<ConnectAgentErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const suggested: SuggestedAgent = useMemo(() => result?.suggestedAgent ?? {}, [result]);
+  const authType = (suggested.auth_type ?? null) as AgentAuthType | null;
+  const isAuthSupported = !authType || SUPPORTED_CARD_AUTH_TYPES.has(authType);
+  const teamId =
+    visibility === "team" ? resolveTeamId(teams, selectedTeamId, chosenTeamId) : undefined;
+
+  const authValues: AgentAuthValues = useMemo(
+    () => ({
+      token,
+      username,
+      password,
+      headers,
+      queryParamName,
+      queryParamValue,
+      oauthTokenUrl,
+      oauthClientId,
+      oauthClientSecret,
+      oauthScopes,
+    }),
+    [
+      token,
+      username,
+      password,
+      headers,
+      queryParamName,
+      queryParamValue,
+      oauthTokenUrl,
+      oauthClientId,
+      oauthClientSecret,
+      oauthScopes,
+    ],
+  );
+
+  const clearError = useCallback((key: keyof ConnectAgentErrors) => {
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  }, []);
+
+  const setUrl = useCallback(
+    (value: string) => {
+      setUrlState(value);
+      setCardUnavailable(false);
+      clearError("url");
+    },
+    [clearError],
+  );
+
+  const setVisibility = useCallback(
+    (value: Visibility) => {
+      setVisibilityState(value);
+      clearError("teamId");
+    },
+    [clearError],
+  );
+
+  const setTeamId = useCallback(
+    (value: string) => {
+      setChosenTeamId(value);
+      clearError("teamId");
+    },
+    [clearError],
+  );
+
+  const setManualAuthType = useCallback(
+    (value: AgentAuthType) => {
+      setManualAuthTypeState(value);
+      // The "custom headers" tab starts with one empty row, as in the design.
+      if (value === "authheaders") {
+        setHeaders((prev) =>
+          prev.length > 0 ? prev : [{ id: crypto.randomUUID(), key: "", value: "" }],
+        );
+      }
+      clearError("credentials");
+    },
+    [clearError],
+  );
+
+  const resetAuthValues = useCallback((next: SuggestedAgent) => {
+    setToken("");
+    setUsername("");
+    setPassword("");
+    setHeaders(
+      next.auth_type === "authheaders"
+        ? [{ id: crypto.randomUUID(), key: next.auth_header_key ?? "", value: "" }]
+        : [],
+    );
+    setQueryParamName(next.auth_query_param_key ?? "");
+    setQueryParamValue("");
+  }, []);
+
+  /** Step 1: read the card. Only a found card advances; anything else opens manual entry. */
+  const submitUrl = useCallback(async () => {
+    const trimmed = url.trim();
+    if (!isHttpUrl(trimmed)) {
+      setErrors((prev) => ({
+        ...prev,
+        url: intl.formatMessage({ id: "agents.connect.url.invalid" }),
+      }));
+      return;
+    }
+
+    setIsFetching(true);
+    setCardUnavailable(false);
+    try {
+      const fetched = await agentsApi.fetchCard(trimmed);
+      if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
+        setResult(fetched);
+        resetAuthValues(fetched.suggestedAgent);
+        setStep("review");
+      } else {
+        setCardUnavailable(true);
+        setManualOpen(true);
+      }
+    } catch {
+      setCardUnavailable(true);
+      setManualOpen(true);
+    } finally {
+      setIsFetching(false);
+    }
+  }, [url, intl, resetAuthValues]);
+
+  const goToAuth = useCallback(() => setStep("auth"), []);
+
+  /** One step back. From the first step the caller leaves the form instead. */
+  const goBack = useCallback((): boolean => {
+    if (step === "auth") {
+      setStep("review");
+      return true;
+    }
+    if (step === "review") {
+      setStep("url");
+      return true;
+    }
+    return false;
+  }, [step]);
+
+  const missingAuthValues = useCallback(
+    (type: AgentAuthType | null): string | undefined =>
+      hasRequiredCredentials(type, authValues)
+        ? undefined
+        : intl.formatMessage({ id: "agents.connect.auth.credentialsRequired" }),
+    [authValues, intl],
+  );
+
+  const create = useCallback(
+    async (payload: BodyCreateA2aAgentV1A2aPost) => {
+      setIsSubmitting(true);
+      try {
+        const created = await agentsApi.create(payload);
+        onCreated(created);
+      } catch (err) {
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        setErrors({ submit: detail || intl.formatMessage({ id: "agents.connect.error.create" }) });
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [onCreated, intl],
+  );
+
+  /** Step 3 of the card flow: register the agent the card described. */
+  const submit = useCallback(async () => {
+    const next: ConnectAgentErrors = {};
+    if (!isAuthSupported) {
+      next.submit = intl.formatMessage({ id: "agents.connect.auth.unsupported" });
+    }
+    next.credentials = missingAuthValues(authType);
+    if (visibility === "team" && !teamId) {
+      next.teamId = intl.formatMessage({ id: "agents.connect.auth.teamRequired" });
+    }
+    setErrors(next);
+    if (next.submit || next.credentials || next.teamId) return;
+
+    if (!suggested.name || !suggested.endpoint_url) {
+      setErrors({ submit: intl.formatMessage({ id: "agents.connect.error.incompleteCard" }) });
+      return;
+    }
+
+    // Everything the card yielded, plus only what a card cannot contain.
+    const agent: A2AAgentCreate = {
+      ...(suggested as unknown as A2AAgentCreate),
+      name: suggested.name,
+      endpoint_url: suggested.endpoint_url,
+      ...(tags.length > 0 ? { tags } : {}),
+      ...credentialFields(authType, authValues),
+    };
+    await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
+  }, [
+    isAuthSupported,
+    missingAuthValues,
+    authType,
+    visibility,
+    teamId,
+    suggested,
+    tags,
+    authValues,
+    create,
+    intl,
+  ]);
+
+  /** Registers an agent from the manually entered details. No card is stored for it. */
+  const submitManual = useCallback(async () => {
+    const next: ConnectAgentErrors = {};
+    const name = manualName.trim();
+    const endpoint = manualEndpoint.trim();
+    if (!name) next.name = intl.formatMessage({ id: "agents.connect.manual.name.required" });
+    if (!isHttpUrl(endpoint)) {
+      next.endpoint = intl.formatMessage({ id: "agents.connect.manual.endpoint.invalid" });
+    }
+    next.credentials = missingAuthValues(manualAuthType);
+    if (visibility === "team" && !teamId) {
+      next.teamId = intl.formatMessage({ id: "agents.connect.auth.teamRequired" });
+    }
+    setErrors(next);
+    if (Object.values(next).some(Boolean)) return;
+
+    const description = manualDescription.trim();
+    const manualTagList = [...new Set(parseList(manualTags))];
+    const agent: A2AAgentCreate = {
+      name,
+      endpoint_url: endpoint,
+      protocol_version: protocolVersion,
+      // TODO(IBM/mcp-context-forge#7383): also send the protocol binding once the API stores one.
+      ...(description ? { description } : {}),
+      ...(manualTagList.length > 0 ? { tags: manualTagList } : {}),
+      ...credentialFields(manualAuthType, authValues),
+    };
+    await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
+  }, [
+    manualName,
+    manualEndpoint,
+    manualDescription,
+    manualTags,
+    manualAuthType,
+    protocolVersion,
+    visibility,
+    teamId,
+    authValues,
+    missingAuthValues,
+    create,
+    intl,
+  ]);
+
+  return {
+    step,
+    url,
+    setUrl,
+    isFetching,
+    cardUnavailable,
+    result,
+    submitUrl,
+    goToAuth,
+    goBack,
+    authType,
+    isAuthSupported,
+    token,
+    setToken,
+    username,
+    setUsername,
+    password,
+    setPassword,
+    headers,
+    setHeaders,
+    queryParamName,
+    setQueryParamName,
+    queryParamValue,
+    setQueryParamValue,
+    oauthTokenUrl,
+    setOauthTokenUrl,
+    oauthClientId,
+    setOauthClientId,
+    oauthClientSecret,
+    setOauthClientSecret,
+    oauthScopes,
+    setOauthScopes,
+    visibility,
+    setVisibility,
+    teams,
+    teamId,
+    setTeamId,
+    tags,
+    setTags,
+    manualOpen,
+    setManualOpen,
+    manualName,
+    setManualName,
+    manualEndpoint,
+    setManualEndpoint,
+    manualDescription,
+    setManualDescription,
+    manualTags,
+    setManualTags,
+    protocolVersion,
+    setProtocolVersion,
+    manualAuthType,
+    setManualAuthType,
+    submitManual,
+    errors,
+    clearError,
+    isSubmitting,
+    submit,
+  };
+}
+
+export type ConnectAgentFormState = ReturnType<typeof useConnectAgentForm>;
