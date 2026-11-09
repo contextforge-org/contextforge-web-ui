@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.1.0+663938"
+    "version": "1.1.1"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -8872,6 +8872,70 @@
         }
       }
     },
+    "/v1/a2a/{agent_id}/card": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Agent Card",
+        "description": "Retrieve the A2A AgentCard for an agent or agent-exposing virtual server.\n\nResolves ``agent_id`` against standalone A2A agents first, then against\nvirtual servers with an enabled A2A interface, mirroring the internal\n``/_internal/a2a/agents/{agent_name}/card`` lookup used by the Rust\nsidecar. Layer-1 visibility is enforced inside the service calls.\n\nArgs:\n    agent_id (str): The ID of the agent or agent-exposing virtual server.\n    request (Request): The FastAPI request object for team_id retrieval.\n    response (Response): The response object used to set cache headers.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    Dict[str, Any]: The AgentCard for the resolved agent.\n\nRaises:\n    HTTPException: If the agent is not found or the caller lacks access.",
+        "operationId": "get_a2a_agent_card_v1_a2a__agent_id__card_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/a2a/{agent_id}/state": {
       "post": {
         "tags": [
@@ -9004,6 +9068,592 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/A2AAgentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/tasks": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "List A2A Tasks",
+        "description": "List task summaries for an A2A agent with ``pageToken`` pagination.\n\nSummaries omit ``history`` and ``artifacts``; fetch a single task for those.\n\nArgs:\n    agent_id: Owning agent ID.\n    request: The FastAPI request object.\n    state: Optional task state filter.\n    page_size: Maximum tasks per page.\n    page_token: Opaque token returned as ``nextPageToken`` by the previous page.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Dict with ``tasks`` and ``nextPageToken`` (empty string on the last page).",
+        "operationId": "list_a2a_tasks_v1_a2a__agent_id__tasks_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/A2ATaskState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by task state",
+              "title": "State"
+            },
+            "description": "Filter by task state"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Pagesize"
+            }
+          },
+          {
+            "name": "pageToken",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pagetoken"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List A2A Tasks V1 A2A  Agent Id  Tasks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Task",
+        "description": "Get an A2A task.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    The task in A2A wire format.\n\nRaises:\n    HTTPException: 404 if the task does not exist or is not visible.",
+        "operationId": "get_a2a_task_v1_a2a__agent_id__tasks__task_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get A2A Task V1 A2A  Agent Id  Tasks  Task Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/tasks/{task_id}/cancel": {
+      "post": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Cancel A2A Task",
+        "description": "Cancel an A2A task in the gateway's task store.\n\nThe route changes local task state only and does not signal the remote agent.\nTasks already in a terminal state are returned unchanged.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    The task in A2A wire format.\n\nRaises:\n    HTTPException: 404 if the task does not exist or is not visible.",
+        "operationId": "cancel_a2a_task_v1_a2a__agent_id__tasks__task_id__cancel_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel A2A Task V1 A2A  Agent Id  Tasks  Task Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/tasks/{task_id}/pushNotificationConfigs": {
+      "post": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Create A2A Push Config",
+        "description": "Create or update a push notification config for a task.\n\nReturns 201 for a new config and 200 when the ``(agent, task, webhook_url)`` config already exists and is updated.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    body: Webhook configuration.\n    request: The FastAPI request object.\n    response: The FastAPI response object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    The stored config. ``auth_token`` is never returned.",
+        "operationId": "create_a2a_push_config_v1_a2a__agent_id__tasks__task_id__pushNotificationConfigs_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/A2APushNotificationConfigRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create A2A Push Config V1 A2A  Agent Id  Tasks  Task Id  Pushnotificationconfigs Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "List A2A Push Configs",
+        "description": "List push notification configs for a task.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Dict with ``configs``.",
+        "operationId": "list_a2a_push_configs_v1_a2a__agent_id__tasks__task_id__pushNotificationConfigs_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List A2A Push Configs V1 A2A  Agent Id  Tasks  Task Id  Pushnotificationconfigs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/tasks/{task_id}/pushNotificationConfigs/{config_id}": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Push Config",
+        "description": "Get one push notification config.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    config_id: Push config ID.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    The stored config.\n\nRaises:\n    HTTPException: 404 if the config does not exist or is not visible.",
+        "operationId": "get_a2a_push_config_v1_a2a__agent_id__tasks__task_id__pushNotificationConfigs__config_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Config Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get A2A Push Config V1 A2A  Agent Id  Tasks  Task Id  Pushnotificationconfigs  Config Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Delete A2A Push Config",
+        "description": "Delete a push notification config.\n\nArgs:\n    agent_id: Owning agent ID.\n    task_id: Agent-side task ID.\n    config_id: Push config ID.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    ``{\"deleted\": True}``.\n\nRaises:\n    HTTPException: 404 if the config does not exist or is not visible.",
+        "operationId": "delete_a2a_push_config_v1_a2a__agent_id__tasks__task_id__pushNotificationConfigs__config_id__delete",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Config Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete A2A Push Config V1 A2A  Agent Id  Tasks  Task Id  Pushnotificationconfigs  Config Id  Delete"
                 }
               }
             }
@@ -14028,7 +14678,7 @@
           "llmchat"
         ],
         "summary": "Connect",
-        "description": "Create or refresh a chat session for a user.\n\nInitializes a new MCPChatService instance for the specified user, establishing\nconnections to both the MCP server and the configured LLM provider. If a session\nalready exists for the user, it is gracefully shutdown before creating a new one.\n\nAuthentication is handled via JWT token from cookies if not explicitly provided\nin the request body.\n\nArgs:\n    input_data: ConnectInput containing user_id, optional server/LLM config, and streaming preference.\n    request: FastAPI Request object for accessing cookies and headers.\n    user: Authenticated user context.\n\nReturns:\n    dict: Connection status response containing:\n        - status: 'connected'\n        - user_id: The connected user's identifier\n        - provider: The LLM provider being used\n        - tool_count: Number of available MCP tools\n        - tools: List of tool names\n\nRaises:\n    HTTPException: If an error occurs.\n        400: Invalid user_id, invalid configuration, or LLM config error.\n        401: Missing authentication token.\n        503: Failed to connect to MCP server.\n        500: Service initialization failure or unexpected error.\n\nExamples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n    Example request body:\n\n    {\n        \"user_id\": \"user123\",\n        \"server\": {\n            \"url\": \"http://localhost:8000/mcp\",\n            \"auth_token\": \"jwt_token_here\"\n        },\n        \"llm\": {\n            \"provider\": \"ollama\",\n            \"config\": {\"model\": \"llama3\"}\n        },\n        \"streaming\": false\n    }\n\n    Example response:\n\n    {\n        \"status\": \"connected\",\n        \"user_id\": \"user123\",\n        \"provider\": \"ollama\",\n        \"tool_count\": 5,\n        \"tools\": [\"search\", \"calculator\", \"weather\", \"translate\", \"summarize\"]\n    }\n\nNote:\n    Existing sessions are automatically terminated before establishing new ones.\n    All configuration values support environment variable fallbacks.",
+        "description": "Create or refresh a chat session for a user.\n\nInitializes a new MCPChatService instance for the specified user, establishing\nconnections to both the MCP server and the configured LLM provider. If a session\nalready exists for the user, it is gracefully shutdown before creating a new one.\n\nAuthentication uses the Bearer token from the configured auth header, else the\n`jwt_token` / `access_token` cookie, if not explicitly provided in the request body.\n\nArgs:\n    input_data: ConnectInput containing user_id, optional server/LLM config, and streaming preference.\n    request: FastAPI Request object for accessing cookies and headers.\n    user: Authenticated user context.\n\nReturns:\n    dict: Connection status response containing:\n        - status: 'connected'\n        - user_id: The connected user's identifier\n        - provider: The LLM provider being used\n        - tool_count: Number of available MCP tools\n        - tools: List of tool names\n\nRaises:\n    HTTPException: If an error occurs.\n        400: Invalid user_id, invalid configuration, or LLM config error.\n        401: Missing authentication token.\n        503: Failed to connect to MCP server.\n        500: Service initialization failure or unexpected error.\n\nExamples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n    Example request body:\n\n    {\n        \"user_id\": \"user123\",\n        \"server\": {\n            \"url\": \"http://localhost:8000/mcp\",\n            \"auth_token\": \"jwt_token_here\"\n        },\n        \"llm\": {\n            \"provider\": \"ollama\",\n            \"config\": {\"model\": \"llama3\"}\n        },\n        \"streaming\": false\n    }\n\n    Example response:\n\n    {\n        \"status\": \"connected\",\n        \"user_id\": \"user123\",\n        \"provider\": \"ollama\",\n        \"tool_count\": 5,\n        \"tools\": [\"search\", \"calculator\", \"weather\", \"translate\", \"summarize\"]\n    }\n\nNote:\n    Existing sessions are automatically terminated before establishing new ones.\n    All configuration values support environment variable fallbacks.",
         "operationId": "connect_v1_llmchat_connect_post",
         "security": [
           {
@@ -15340,6 +15990,29 @@
         "summary": "Get Gateway Models",
         "description": "Get enabled models for the LLM Chat dropdown.",
         "operationId": "get_gateway_models_v1_llm_gateway_models_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -15350,13 +16023,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "ConfigurableHTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/v1/admin/llm/providers/html": {
@@ -25986,7 +26664,7 @@
           "Admin UI"
         ],
         "summary": "Admin Test Gateway",
-        "description": "Test a gateway by sending a request to its URL.\nThis endpoint allows administrators to test the connectivity and response\n\nArgs:\n    request (GatewayTestRequest): The request object containing the gateway URL and request details.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user (str): Authenticated user dependency.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayTestResponse: The response from the gateway, including status code, latency, and body\n\nExamples:\n    >>> callable(admin_test_gateway)\n    True\n    >>> admin_test_gateway.__name__\n    'admin_test_gateway'",
+        "description": "Test a gateway by sending a request to its URL.\nThis endpoint allows administrators to test the connectivity and response\n\nArgs:\n    request (GatewayTestRequest): The request object containing the gateway URL and request details.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user (str): Authenticated user dependency.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayTestResponse: The response from the gateway, including status code, latency, and body\n\nRaises:\n    HTTPException: 403 if the team is out of token scope or the caller may not use the stored credential.\n\nExamples:\n    >>> callable(admin_test_gateway)\n    True\n    >>> admin_test_gateway.__name__\n    'admin_test_gateway'",
         "operationId": "admin_test_gateway_v1_admin_gateways_test_post",
         "security": [
           {
@@ -37937,6 +38615,9 @@
               }
             }
           },
+          "400": {
+            "description": "Safe OAuth failure HTML. Popup postMessage retains the type, status, error, and errorDescription fields, and adds errorCode, failedStage, and reauthorizationRequired. Recognized provider codes are preserved; descriptions use fixed safe guidance. Unknown provider codes become oauth_error. Codes include redirect_uri_mismatch, invalid_scope, insufficient_scope, invalid_client, invalid_request, unauthorized_client, unsupported_response_type, server_error, temporarily_unavailable, token_url_unreachable, and token_exchange_failed."
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -38791,7 +39472,7 @@
           "MCP Servers"
         ],
         "summary": "Check Mcp Server Connectivity",
-        "description": "Test MCP server / gateway connectivity.\n\nDelegates to the shared ``test_gateway_connectivity`` implementation in\n``mcpgateway.services.gateway_service``, which handles SSRF protection,\nDNS-pinning, OAuth token acquisition, and structured logging.\n\nArgs:\n    request (GatewayTestRequest): The request object containing the gateway URL and request details.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayTestResponse: The response from the gateway, including status code, latency, and body.\n\nExamples:\n    >>> callable(check_mcp_server_connectivity)\n    True\n    >>> check_mcp_server_connectivity.__name__\n    'check_mcp_server_connectivity'",
+        "description": "Test MCP server / gateway connectivity.\n\nDelegates to the shared ``test_gateway_connectivity`` implementation in\n``mcpgateway.services.gateway_service``, which handles SSRF protection,\nDNS-pinning, OAuth token acquisition, and structured logging.\n\nArgs:\n    request (GatewayTestRequest): The request object containing the gateway URL and request details.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayTestResponse: The response from the gateway, including status code, latency, and body.\n\nRaises:\n    HTTPException: 403 if the team is out of token scope or the caller may not use the stored credential.\n\nExamples:\n    >>> callable(check_mcp_server_connectivity)\n    True\n    >>> check_mcp_server_connectivity.__name__\n    'check_mcp_server_connectivity'",
         "operationId": "check_mcp_server_connectivity_v1_mcp_servers_test_post",
         "security": [
           {
@@ -38874,7 +39555,7 @@
           "MCP Servers"
         ],
         "summary": "Check Mcp Server Handshake",
-        "description": "Test whether an MCP server URL speaks MCP via a protocol handshake.\n\nDelegates to ``test_gateway_handshake`` in\n``mcpgateway.services.gateway_service``, which tries the stateless\n``server/discover`` method first and falls back to a stateful SDK\n``initialize`` round-trip, classifying failures for actionable UI copy.\n\nArgs:\n    request (GatewayHandshakeRequest): The request object containing the server URL and optional headers.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nExamples:\n    >>> callable(check_mcp_server_handshake)\n    True\n    >>> check_mcp_server_handshake.__name__\n    'check_mcp_server_handshake'",
+        "description": "Test whether an MCP server URL speaks MCP via a protocol handshake.\n\nDelegates to ``test_gateway_handshake`` in\n``mcpgateway.services.gateway_service``, which tries the stateless\n``server/discover`` method first and falls back to a stateful SDK\n``initialize`` round-trip, classifying failures for actionable UI copy.\n\nArgs:\n    request (GatewayHandshakeRequest): The request object containing the server URL and optional headers.\n    team_id (Optional[str]): Optional team ID for team-specific gateways.\n    user: Authenticated user context.\n    db (Session): Database session dependency.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: 403 if the team is out of scope, or the request shapes the path or headers\n        while carrying a stored credential the caller may not use.\n\nExamples:\n    >>> callable(check_mcp_server_handshake)\n    True\n    >>> check_mcp_server_handshake.__name__\n    'check_mcp_server_handshake'",
         "operationId": "check_mcp_server_handshake_v1_mcp_servers_test_handshake_post",
         "security": [
           {
@@ -38929,7 +39610,7 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Handshake or validation outcome. Upstream failures return success=false with safe stage results.",
             "content": {
               "application/json": {
                 "schema": {
@@ -38938,15 +39619,17 @@
               }
             }
           },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Gateway read permission required; post_authorization also requires gateway update permission."
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Invalid input, missing exact gateway ID, or incompatible post-authorization header overrides."
+          },
+          "429": {
+            "description": "Per-user connection-test rate limit exceeded."
           }
         }
       }
@@ -41472,6 +42155,65 @@
         "title": "A2AJsonRpcResponse",
         "description": "Schema for ``POST /v1/a2a/{agent_name}/jsonrpc``.\n\nThis passthrough always answers with a JSON-RPC envelope: an agent document that\nalready carries ``jsonrpc`` is returned unchanged, otherwise the agent's response is\nwrapped as ``{\"jsonrpc\": \"2.0\", \"result\": ...}``. ``id`` is only present when the\nrequest had one. The gateway's own JSON-RPC error replies are returned as explicit\nresponses with a non-2xx status, so they bypass this model.\n\nIts fields deliberately match :class:`A2AInvokeResponse`; the separate class\nname provides a distinct OpenAPI component for this route."
       },
+      "A2APushNotificationConfigRequest": {
+        "properties": {
+          "webhook_url": {
+            "type": "string",
+            "title": "Webhook Url"
+          },
+          "auth_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Token"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "webhook_url"
+        ],
+        "title": "A2APushNotificationConfigRequest",
+        "description": "Schema for the client-facing push notification config body.\n\nThe agent and task identifiers come from the URL path, not the body."
+      },
+      "A2ATaskState": {
+        "type": "string",
+        "enum": [
+          "submitted",
+          "working",
+          "input-required",
+          "auth-required",
+          "completed",
+          "canceled",
+          "failed",
+          "rejected"
+        ],
+        "title": "A2ATaskState",
+        "description": "Finite state machine for A2A task lifecycle per the A2A v1 spec.\n\nTerminal states (``completed``, ``canceled``, ``failed``, ``rejected``)\nare the only states for which ``completed_at`` should be set; the\nmodel-validators on :class:`A2ATaskCreate` and :class:`A2ATaskUpdate`\nenforce this invariant."
+      },
       "ActivityItem": {
         "properties": {
           "id": {
@@ -41693,6 +42435,95 @@
         "type": "object",
         "title": "AdminUserUpdateRequest",
         "description": "Request schema for admin user updates.\n\nAttributes:\n    full_name: User's full name\n    is_admin: Whether user has admin privileges\n    is_active: Whether account is active\n    password_change_required: Whether user must change password on next login\n    password: New password (admin can reset without old password)\n\nExamples:\n    >>> request = AdminUserUpdateRequest(\n    ...     full_name=\"Updated Name\",\n    ...     is_admin=True,\n    ...     is_active=True\n    ... )\n    >>> request.full_name\n    'Updated Name'\n    >>> request.is_admin\n    True"
+      },
+      "AgentCard": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Agent or virtual server name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Agent description",
+            "default": ""
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "Endpoint URL of the agent"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Agent version"
+          },
+          "protocolVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocolversion",
+            "description": "A2A protocol version"
+          },
+          "defaultInputModes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Defaultinputmodes",
+            "description": "Default input modes"
+          },
+          "defaultOutputModes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Defaultoutputmodes",
+            "description": "Default output modes"
+          },
+          "capabilities": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Capabilities",
+            "description": "Declared agent capabilities"
+          },
+          "skills": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Skills",
+            "description": "Skills the agent advertises"
+          },
+          "supportsAuthenticatedExtendedCard": {
+            "type": "boolean",
+            "title": "Supportsauthenticatedextendedcard",
+            "description": "Whether an extended card exists",
+            "default": true
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name",
+          "version"
+        ],
+        "title": "AgentCard",
+        "description": "Schema for ``GET /v1/a2a/{agent_id}/card``.\n\nDescribes an A2A v1 AgentCard built from a standalone agent or from a\nvirtual server that exposes an A2A interface. Extra keys stay on the wire\nso the card can grow without a schema change."
       },
       "Annotations": {
         "properties": {
@@ -44385,6 +45216,19 @@
             "title": "Description",
             "description": "Gateway description"
           },
+          "toolValidationPolicy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolvalidationpolicy",
+            "description": "CEL expression that decides whether a tool from this gateway may be registered or updated. Variables: description, tool_name. Must evaluate to a boolean; true allows. Null inherits the global TOOL_DESCRIPTION_FORBIDDEN_PATTERNS settings."
+          },
           "transport": {
             "type": "string",
             "title": "Transport",
@@ -44778,6 +45622,16 @@
             "title": "Gatewayid",
             "description": "Exact registered gateway to use for transport, TLS, and stored-credential settings; combined with credential_mode to control whether stored credentials are applied. Also accepted as mcp_server_id"
           },
+          "validationMode": {
+            "type": "string",
+            "enum": [
+              "handshake",
+              "post_authorization"
+            ],
+            "title": "Validationmode",
+            "description": "'handshake' preserves existing negotiation success semantics. 'post_authorization' requires an exact enabled OAuth authorization_code gateway, gateways.read and gateways.update, and the caller's stored token without refresh. A live tools/list must succeed within ten seconds. No tokens or registered components are changed. Legacy Vault records without an exact gateway binding require authorization again.",
+            "default": "handshake"
+          },
           "credentialMode": {
             "type": "string",
             "enum": [
@@ -44939,6 +45793,69 @@
             ],
             "title": "Rawpreview",
             "description": "Size-capped JSON preview of the final handshake payload"
+          },
+          "stages": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "ok",
+                    "failed",
+                    "skipped",
+                    "unsupported"
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "token",
+                    "negotiation",
+                    "tools_list"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stages",
+            "description": "Post-authorization stage outcomes. Skipped or unsupported listing never proves live tools access."
+          },
+          "failedStage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "gateway",
+                  "token",
+                  "negotiation",
+                  "tools_list"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failedstage"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode",
+            "description": "Stable post-authorization codes: gateway_unavailable, permission_denied, unsupported_auth, authorization_missing, token_expired, invalid_token, token_storage_unavailable, insufficient_scope, tools_unsupported, tools_list_failed, mcp_handshake_failed, timeout, blocked, validation_failed. Callback codes also include redirect_uri_mismatch, token_exchange_failed, token_url_unreachable, invalid_client, oauth_error."
+          },
+          "reauthorizationRequired": {
+            "type": "boolean",
+            "title": "Reauthorizationrequired",
+            "description": "Whether the caller must authorize this gateway again",
+            "default": false
           }
         },
         "type": "object",
@@ -45141,6 +46058,18 @@
             ],
             "title": "Description",
             "description": "Gateway description"
+          },
+          "toolValidationPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolvalidationpolicy",
+            "description": "CEL tool-validation policy; null inherits"
           },
           "transport": {
             "type": "string",
@@ -46095,6 +47024,19 @@
             ],
             "title": "Description",
             "description": "Gateway description"
+          },
+          "toolValidationPolicy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolvalidationpolicy",
+            "description": "CEL expression that decides whether a tool from this gateway may be registered or updated. Variables: description, tool_name. Must evaluate to a boolean; true allows. Null inherits the global TOOL_DESCRIPTION_FORBIDDEN_PATTERNS settings."
           },
           "transport": {
             "anyOf": [
@@ -54955,6 +55897,19 @@
             "title": "Description",
             "description": "Tool description"
           },
+          "tool_validation_policy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Validation Policy",
+            "description": "CEL expression that decides whether this tool may be registered or updated. Variables: description, tool_name. Must evaluate to a boolean; true allows. Null inherits the gateway policy, then the global TOOL_DESCRIPTION_FORBIDDEN_PATTERNS settings."
+          },
           "integration_type": {
             "type": "string",
             "enum": [
@@ -55728,6 +56683,30 @@
             ],
             "title": "Description"
           },
+          "toolValidationPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolvalidationpolicy",
+            "description": "CEL tool-validation policy; null inherits"
+          },
+          "validationRefusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationrefusal",
+            "description": "Why the validation policy disabled this tool; null when it was not refused"
+          },
           "originalDescription": {
             "anyOf": [
               {
@@ -56375,6 +57354,19 @@
             ],
             "title": "Description",
             "description": "Tool description"
+          },
+          "toolValidationPolicy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolvalidationpolicy",
+            "description": "CEL expression that decides whether this tool may be registered or updated. Variables: description, tool_name. Must evaluate to a boolean; true allows. Null inherits the gateway policy, then the global TOOL_DESCRIPTION_FORBIDDEN_PATTERNS settings."
           },
           "integrationType": {
             "anyOf": [
