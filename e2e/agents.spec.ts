@@ -92,6 +92,43 @@ const FOUND_CARD = {
   warnings: [],
 };
 
+/** The same card, richer, for the expanded review. */
+const DETAILED_CARD = {
+  ...FOUND_CARD,
+  card: {
+    ...FOUND_CARD.card,
+    provider: { organization: "Objekts Developers", url: "https://objekts.ai/about" },
+    capabilities: { streaming: true, extensions: [{ uri: "https://x.example/ext" }] },
+    defaultInputModes: ["text", "application/pdf"],
+    defaultOutputModes: ["text", "application/json"],
+    skills: [
+      {
+        id: "fit",
+        name: "Vendor-fit routing",
+        description: "Matches briefs to vendors",
+        outputModes: ["text/plain"],
+      },
+      { id: "hybrid", name: "Hybrid production routing" },
+    ],
+    securitySchemes: {
+      key: { apiKeySecurityScheme: { name: "X-API-Key", location: "header" } },
+    },
+    securityRequirements: [{ schemes: { key: {} } }],
+  },
+  suggestedAgent: {
+    ...FOUND_CARD.suggestedAgent,
+    auth_type: "authheaders",
+    auth_header_key: "X-API-Key",
+  },
+};
+
+/** A card that declares no security, so no credentials are asked for. */
+const OPEN_CARD = {
+  ...FOUND_CARD,
+  card: { ...FOUND_CARD.card, securitySchemes: {}, securityRequirements: [] },
+  suggestedAgent: { ...FOUND_CARD.suggestedAgent, auth_type: undefined },
+};
+
 /** Stubs POST <anything>/a2a/fetch-card and records the request bodies. */
 async function mockFetchCard(page: Page, result: unknown, status = 200) {
   const bodies: unknown[] = [];
@@ -210,7 +247,7 @@ test.describe("Agents page", () => {
 
       // Authenticate and register
       await expect(page.getByRole("heading", { name: "Authenticate agent" })).toBeVisible();
-      await page.getByLabel(/Bearer token/i).fill("s3cret");
+      await page.getByPlaceholder("Add key from the agent provider").fill("s3cret");
       await page.getByRole("button", { name: "Connect" }).click();
 
       await expect(toast(page, /Connected Visual Router/)).toBeVisible();
@@ -227,6 +264,101 @@ test.describe("Agents page", () => {
           auth_token: "s3cret",
         },
         visibility: "public",
+      });
+    });
+
+    test("registers straight from the review when the card needs no credentials", async ({
+      page,
+    }) => {
+      let registered = false;
+      await mockAgentList(page, () =>
+        registered ? [makeAgent("visual-router", { name: "Visual Router" })] : [],
+      );
+      await mockFetchCard(page, OPEN_CARD);
+      const createBodies = await mockRegisterAgent(page, async (route) => {
+        registered = true;
+        await json(route, makeAgent("visual-router", { name: "Visual Router" }), 201);
+      });
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+
+      await expect(page.getByRole("heading", { name: "Visual Router" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Continue" })).toBeHidden();
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Visual Router/)).toBeVisible();
+      await expect(page.getByText("Visual Router", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Authenticate agent" })).toBeHidden();
+      expect(createBodies).toHaveLength(1);
+      expect(createBodies[0]).toMatchObject({
+        agent: { name: "Visual Router", endpoint_url: "https://agent.example.com/rpc" },
+        visibility: "public",
+      });
+      expect(createBodies[0].agent).not.toHaveProperty("auth_type");
+    });
+
+    test("shows the rest of the card under View more and registers under the edited name", async ({
+      page,
+    }) => {
+      await mockAgentList(page, []);
+      await mockFetchCard(page, DETAILED_CARD);
+      const createBodies = await mockRegisterAgent(page, (route) =>
+        json(route, makeAgent("objekts", { name: "objekts_visual_router" }), 201),
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await expect(page.getByText("API key in header", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "View more" }).click();
+
+      await expect(page.getByText("Agent requires API key in header")).toBeVisible();
+      await expect(page.getByText("Header name")).toBeVisible();
+      await expect(page.getByText("X-API-Key", { exact: true })).toBeVisible();
+      await expect(page.getByText("Objekts Developers")).toBeVisible();
+      await expect(page.getByText("objekts.ai", { exact: true })).toBeVisible();
+      await expect(page.getByText("agent.example.com/rpc")).toBeVisible();
+      await expect(page.getByText("Streaming")).toBeVisible();
+      await expect(page.getByText("text, application/pdf")).toBeVisible();
+      await expect(page.getByText("Matches briefs to vendors")).toBeVisible();
+
+      await page.getByLabel(/^Name/).fill("objekts_visual_router");
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByPlaceholder("Add key from the agent provider").fill("k-123");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected objekts_visual_router/)).toBeVisible();
+      expect(createBodies[0]).toMatchObject({
+        agent: {
+          name: "objekts_visual_router",
+          auth_type: "authheaders",
+          auth_headers: [{ key: "X-API-Key", value: "k-123" }],
+        },
+      });
+    });
+
+    test("keeps tags and a description under View more on the authenticate page", async ({
+      page,
+    }) => {
+      await mockAgentList(page, []);
+      await mockFetchCard(page, FOUND_CARD);
+      const createBodies = await mockRegisterAgent(page, (route) =>
+        json(route, makeAgent("visual-router", { name: "Visual Router" }), 201),
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page.getByPlaceholder("Add key from the agent provider").fill("s3cret");
+      await expect(page.getByPlaceholder("Add a tag")).toBeHidden();
+      await page.getByRole("button", { name: "View more" }).click();
+      await page.getByPlaceholder("Add a tag").fill("billing, ops");
+      await page.getByPlaceholder("Add an optional description...").fill("Our description");
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Visual Router/)).toBeVisible();
+      expect(createBodies[0]).toMatchObject({
+        agent: { tags: ["billing", "ops"], description: "Our description" },
       });
     });
 
@@ -256,7 +388,7 @@ test.describe("Agents page", () => {
       await page.goto(APP.AGENTS);
       await startConnect(page);
       await page.getByRole("button", { name: "Continue" }).click();
-      await page.getByLabel(/Bearer token/i).fill("s3cret");
+      await page.getByPlaceholder("Add key from the agent provider").fill("s3cret");
       await page.getByRole("button", { name: "Connect" }).click();
 
       await expect(page.getByText("Agent name already exists")).toBeVisible();

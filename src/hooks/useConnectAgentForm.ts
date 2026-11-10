@@ -73,7 +73,11 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
 
   const [visibility, setVisibilityState] = useState<Visibility>("public");
   const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(undefined);
-  const [tags, setTags] = useState<string[]>([]);
+  // Optional extras for an agent registered from its card. `cardDescription` replaces the
+  // card's own description when filled in.
+  const [agentName, setAgentNameState] = useState("");
+  const [cardTags, setCardTags] = useState<string[]>([]);
+  const [cardDescription, setCardDescription] = useState("");
 
   // "Enter manually": for agents that publish no card.
   const [manualOpen, setManualOpen] = useState(false);
@@ -159,6 +163,14 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     [clearError],
   );
 
+  const setAgentName = useCallback(
+    (value: string) => {
+      setAgentNameState(value);
+      clearError("name");
+    },
+    [clearError],
+  );
+
   const setManualAuthType = useCallback(
     (value: AgentAuthType) => {
       setManualAuthTypeState(value);
@@ -208,6 +220,9 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
         setResult(fetched);
         resetAuthValues(fetched.suggestedAgent);
+        setAgentNameState(fetched.suggestedAgent.name ?? fetched.card.name ?? "");
+        setCardTags([]);
+        setCardDescription("");
         setStep("review");
       } else {
         // A "found" outcome without a usable card is as good as no card.
@@ -263,45 +278,107 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     [onCreated, intl],
   );
 
-  /** Step 3 of the card flow: register the agent the card described. */
+  /** Registers the agent the card described, with the name, credentials and extras entered. */
   const submit = useCallback(async () => {
     const next: ConnectAgentErrors = {};
     if (!isAuthSupported) {
       next.submit = intl.formatMessage({ id: "agents.connect.auth.unsupported" });
+    }
+    if (!agentName.trim()) {
+      next.name = intl.formatMessage({ id: "agents.connect.review.name.required" });
     }
     next.credentials = missingAuthValues(authType);
     if (visibility === "team" && !teamId) {
       next.teamId = intl.formatMessage({ id: "agents.connect.auth.teamRequired" });
     }
     setErrors(next);
-    if (next.submit || next.credentials || next.teamId) return;
+    if (next.submit || next.name || next.credentials || next.teamId) return;
 
     if (!suggested.name || !suggested.endpoint_url) {
       setErrors({ submit: intl.formatMessage({ id: "agents.connect.error.incompleteCard" }) });
       return;
     }
 
+    const description = cardDescription.trim();
     // Everything the card yielded, plus only what a card cannot contain.
     const agent: A2AAgentCreate = {
       ...suggested,
-      name: suggested.name,
+      name: agentName.trim(),
       endpoint_url: suggested.endpoint_url,
-      ...(tags.length > 0 ? { tags } : {}),
+      ...(description ? { description } : {}),
+      ...(cardTags.length > 0 ? { tags: cardTags } : {}),
       ...credentialFields(authType, authValues),
     };
     await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
   }, [
     isAuthSupported,
+    agentName,
     missingAuthValues,
     authType,
     visibility,
     teamId,
     suggested,
-    tags,
+    cardDescription,
+    cardTags,
     authValues,
     create,
     intl,
   ]);
+
+  /** The card needs credentials, so the user is asked for them before registering. */
+  const requiresAuth = Boolean(authType && authType !== "none"); // pragma: allowlist secret
+
+  /**
+   * "Continue" on the review page. A card that needs credentials goes on to the
+   * authenticate page; one that does not is registered straight away.
+   */
+  const continueFromReview = useCallback(async () => {
+    if (!agentName.trim()) {
+      setErrors({ name: intl.formatMessage({ id: "agents.connect.review.name.required" }) });
+      return;
+    }
+    if (requiresAuth) {
+      setErrors({});
+      setStep("auth");
+      return;
+    }
+    await submit();
+  }, [agentName, requiresAuth, submit, intl]);
+
+  /**
+   * The single key the authenticate page asks for, when the card names where it goes
+   * (a bearer token, an API-key header or an API-key query parameter). This follows what
+   * the card said, not what the user has typed, so the layout does not change under them.
+   */
+  const keyName = (
+    authType === "authheaders"
+      ? (suggested.auth_header_key ?? "")
+      : authType === "query_param"
+        ? (suggested.auth_query_param_key ?? "")
+        : ""
+  ).trim();
+  const singleKey =
+    authType === "bearer" ||
+    ((authType === "authheaders" || authType === "query_param") && Boolean(keyName));
+  const keyValue =
+    authType === "bearer"
+      ? token
+      : authType === "authheaders"
+        ? (headers[0]?.value ?? "")
+        : authType === "query_param"
+          ? queryParamValue
+          : "";
+  const setKeyValue = useCallback(
+    (value: string) => {
+      clearError("credentials");
+      if (authType === "bearer") setToken(value);
+      else if (authType === "query_param") setQueryParamValue(value);
+      else if (authType === "authheaders") {
+        setHeaders((prev) => [{ id: prev[0]?.id ?? crypto.randomUUID(), key: keyName, value }]);
+      }
+    },
+    [authType, keyName, clearError],
+  );
 
   /** Registers an agent from the manually entered details. No card is stored for it. */
   const submitManual = useCallback(async () => {
@@ -382,8 +459,18 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     teams,
     teamId,
     setTeamId,
-    tags,
-    setTags,
+    agentName,
+    setAgentName,
+    cardTags,
+    setCardTags,
+    cardDescription,
+    setCardDescription,
+    requiresAuth,
+    continueFromReview,
+    singleKey,
+    keyName,
+    keyValue,
+    setKeyValue,
     manualOpen,
     setManualOpen,
     manualName,
