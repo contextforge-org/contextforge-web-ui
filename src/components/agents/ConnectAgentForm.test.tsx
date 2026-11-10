@@ -56,8 +56,17 @@ function foundResult(suggested: SuggestedAgent = {}, warnings: string[] = []): F
           protocolVersion: "1.0",
         },
       ],
+      provider: { organization: "Objekts Developers", url: "https://objekts.ai/about" },
+      capabilities: { streaming: true, extensions: [{ uri: "https://x.example/ext" }] },
+      defaultInputModes: ["text", "application/pdf"],
+      defaultOutputModes: ["text", "application/json"],
       skills: [
-        { id: "fit", name: "Vendor-fit routing" },
+        {
+          id: "fit",
+          name: "Vendor-fit routing",
+          description: "Matches briefs to vendors",
+          outputModes: ["text/plain"],
+        },
         { id: "hybrid", name: "Hybrid production routing" },
       ],
       securitySchemes: { bearerAuth: { httpAuthSecurityScheme: { scheme: "bearer" } } },
@@ -276,8 +285,42 @@ describe("ConnectAgentForm", () => {
       expect(screen.getByText("Vendor-fit routing")).toBeInTheDocument();
       expect(screen.getByText("A2A v1.0")).toBeInTheDocument();
       expect(screen.getByText("agent.example.com")).toBeInTheDocument();
-      expect(screen.getByText("JSONRPC 1.0 (preferred), HTTP+JSON 1.0")).toBeInTheDocument();
+      expect(screen.getByText("JSON-RPC (preferred), HTTP+JSON")).toBeInTheDocument();
       expect(screen.getByText("bearer")).toBeInTheDocument();
+    });
+
+    it("says the card is signed when it carries a signature", async () => {
+      const result = foundResult();
+      result.card!.signatures = [{ protected: "p", signature: "abc" }];
+      mockFetchCard(result);
+      const user = setup();
+
+      await submitUrl(user);
+
+      expect(await screen.findByText("signed")).toBeInTheDocument();
+    });
+
+    it("opens the rest of the card under View more", async () => {
+      mockFetchCard(foundResult({ auth_type: "authheaders", auth_header_key: "X-API-Key" }));
+      const user = setup();
+
+      await submitUrl(user);
+      await user.click(await screen.findByRole("button", { name: "View more" }));
+
+      expect(await screen.findByDisplayValue("Visual Router")).toBeInTheDocument();
+      expect(screen.getByText("Agent requires bearer")).toBeInTheDocument();
+      expect(screen.getByText("Header name")).toBeInTheDocument();
+      expect(screen.getByText("X-API-Key")).toBeInTheDocument();
+      expect(screen.getByText("Publisher")).toBeInTheDocument();
+      expect(screen.getByText("Objekts Developers")).toBeInTheDocument();
+      expect(screen.getByText("objekts.ai")).toBeInTheDocument();
+      expect(screen.getByText("agent.example.com/rpc")).toBeInTheDocument();
+      expect(screen.getByText("agent.example.com/http")).toBeInTheDocument();
+      expect(screen.getByText("Capabilities")).toBeInTheDocument();
+      expect(screen.getAllByText("yes")).toHaveLength(2);
+      expect(screen.getByText("text, application/pdf")).toBeInTheDocument();
+      expect(screen.getByText("Matches briefs to vendors")).toBeInTheDocument();
+      expect(screen.getByText("text/plain")).toBeInTheDocument();
     });
 
     it("lists the card's warnings under View more", async () => {
@@ -305,12 +348,113 @@ describe("ConnectAgentForm", () => {
       expect(await screen.findByPlaceholderText(URL_PLACEHOLDER)).toHaveValue(CARD_URL);
       expect(onCancel).not.toHaveBeenCalled();
     });
+
+    it("lets the user change the name the agent is registered under", async () => {
+      mockFetchCard(foundResult({ auth_type: null }));
+      const created = mockCreate();
+      const user = setup();
+
+      await submitUrl(user);
+      await user.click(await screen.findByRole("button", { name: "View more" }));
+      const name = await screen.findByDisplayValue("Visual Router");
+      await user.clear(name);
+      await user.type(name, "objekts_visual_router");
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect((created.body?.agent as Record<string, unknown>).name).toBe("objekts_visual_router");
+    });
+
+    it("needs a name, and opens View more to show the problem", async () => {
+      mockFetchCard(foundResult({ auth_type: null }));
+      const created = mockCreate();
+      const user = setup();
+
+      await submitUrl(user);
+      await user.click(await screen.findByRole("button", { name: "View more" }));
+      await user.clear(await screen.findByDisplayValue("Visual Router"));
+      await user.click(screen.getByRole("button", { name: "View more" }));
+      expect(screen.queryByText("Enter a name for the agent.")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      expect(await screen.findByText("Enter a name for the agent.")).toBeInTheDocument();
+      expect(created.count).toBe(0);
+    });
+
+    describe("Continue", () => {
+      it("goes on to the authenticate page when the card needs credentials", async () => {
+        mockFetchCard(foundResult({ auth_type: "bearer" }));
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText("Authenticate agent")).toBeInTheDocument();
+        expect(created.count).toBe(0);
+      });
+
+      it("registers straight away, as Connect, when the card needs none", async () => {
+        mockFetchCard(foundResult({ auth_type: null }));
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        expect(await screen.findByRole("button", { name: "Connect" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+        expect(screen.queryByText("Authenticate agent")).not.toBeInTheDocument();
+        expect(created.body).toEqual({
+          agent: expect.objectContaining({
+            name: "Visual Router",
+            endpoint_url: "https://agent.example.com/rpc",
+            protocol_version: "1.0",
+          }),
+          visibility: "public",
+        });
+        const agent = created.body?.agent as Record<string, unknown>;
+        expect(agent).not.toHaveProperty("auth_token");
+        expect(agent).not.toHaveProperty("tags");
+      });
+
+      it("shows the server's reason on the review page when that registration fails", async () => {
+        mockFetchCard(foundResult({ auth_type: null }));
+        mockCreate(() =>
+          HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }),
+        );
+        const user = setup();
+
+        await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Connect" }));
+
+        expect(await screen.findByText("Agent name already exists")).toBeInTheDocument();
+        expect(onCreated).not.toHaveBeenCalled();
+        expect(screen.getByRole("button", { name: "Connect" })).toBeEnabled();
+      });
+
+      it("explains a card that gave no name or endpoint", async () => {
+        const result = foundResult({ auth_type: null });
+        delete result.suggestedAgent!.endpoint_url;
+        mockFetchCard(result);
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Connect" }));
+
+        expect(await screen.findByText(/missing a name or endpoint/)).toBeInTheDocument();
+        expect(created.count).toBe(0);
+      });
+    });
   });
 
   describe("authenticate step", () => {
     async function toAuthStep(user: ReturnType<typeof userEvent.setup>) {
       await submitUrl(user);
       await user.click(await screen.findByRole("button", { name: "Continue" }));
+      await screen.findByText("Authenticate agent");
     }
 
     it("registers a bearer agent with the key, defaulting to internal visibility", async () => {
@@ -319,8 +463,8 @@ describe("ConnectAgentForm", () => {
       const user = setup();
 
       await toAuthStep(user);
-      expect(await screen.findByText("Authenticate agent")).toBeInTheDocument();
-      await user.type(screen.getByLabelText(/Bearer token/i), "s3cret");
+      expect(screen.getByText("Key")).toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "s3cret");
       await user.click(screen.getByRole("button", { name: "Connect" }));
 
       await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
@@ -336,13 +480,24 @@ describe("ConnectAgentForm", () => {
       });
     });
 
-    it("blocks registration until the required credentials are entered", async () => {
+    it("goes back to the review page", async () => {
+      mockFetchCard(foundResult({ auth_type: "bearer" }));
+      const user = setup();
+
+      await toAuthStep(user);
+      await user.click(screen.getByRole("button", { name: "Back" }));
+
+      expect(await screen.findByText("Skills (2)")).toBeInTheDocument();
+      expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it("blocks registration until the required key is entered", async () => {
       mockFetchCard(foundResult({ auth_type: "bearer" }));
       const created = mockCreate();
       const user = setup();
 
       await toAuthStep(user);
-      await user.click(await screen.findByRole("button", { name: "Connect" }));
+      await user.click(screen.getByRole("button", { name: "Connect" }));
 
       expect(
         await screen.findByText("Enter the credentials the agent requires."),
@@ -365,14 +520,15 @@ describe("ConnectAgentForm", () => {
       expect((created.body?.agent as Record<string, unknown>).auth_password).toBe("pw");
     });
 
-    it("prefills the header name for an API key sent in a header", async () => {
+    it("asks only for the key when the card names the header, and sends it under that name", async () => {
       mockFetchCard(foundResult({ auth_type: "authheaders", auth_header_key: "X-API-Key" }));
       const created = mockCreate();
       const user = setup();
 
       await toAuthStep(user);
-      expect(await screen.findByDisplayValue("X-API-Key")).toBeInTheDocument();
-      await user.type(screen.getByPlaceholderText("Add header value..."), "k-123");
+      expect(screen.queryByDisplayValue("X-API-Key")).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Add header value...")).not.toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "k-123");
       await user.click(screen.getByRole("button", { name: "Connect" }));
 
       await waitFor(() => expect(onCreated).toHaveBeenCalled());
@@ -381,19 +537,40 @@ describe("ConnectAgentForm", () => {
       ]);
     });
 
-    it("needs no credentials when the card declares none", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+    it("asks only for the key when the card names the query parameter", async () => {
+      mockFetchCard(foundResult({ auth_type: "query_param", auth_query_param_key: "api_key" }));
       const created = mockCreate();
       const user = setup();
 
       await toAuthStep(user);
-      expect(await screen.findByText("Agent settings")).toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "k-123");
       await user.click(screen.getByRole("button", { name: "Connect" }));
 
       await waitFor(() => expect(onCreated).toHaveBeenCalled());
-      const agent = created.body?.agent as Record<string, unknown>;
-      expect(agent).not.toHaveProperty("auth_token");
-      expect(agent).not.toHaveProperty("auth_password");
+      expect(created.body?.agent).toMatchObject({
+        auth_type: "query_param",
+        auth_query_param_key: "api_key",
+        auth_query_param_value: "k-123",
+      });
+    });
+
+    it("asks for the header name too when the card does not give one", async () => {
+      mockFetchCard(foundResult({ auth_type: "authheaders" }));
+      const created = mockCreate();
+      const user = setup();
+
+      await toAuthStep(user);
+      expect(
+        screen.queryByPlaceholderText("Add key from the agent provider"),
+      ).not.toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("e.g. X-API-Key..."), "X-Key");
+      await user.type(screen.getByPlaceholderText("Add header value..."), "k-123");
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect((created.body?.agent as Record<string, unknown>).auth_headers).toEqual([
+        { key: "X-Key", value: "k-123" },
+      ]);
     });
 
     it("cannot register an OAuth 2.0 agent from this form", async () => {
@@ -413,11 +590,12 @@ describe("ConnectAgentForm", () => {
     });
 
     it("sends the chosen visibility", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+      mockFetchCard(foundResult({ auth_type: "bearer" }));
       const created = mockCreate();
       const user = setup();
 
       await toAuthStep(user);
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "s3cret");
       await user.click(await screen.findByRole("combobox", { name: /Visibility/ }));
       await user.click(await screen.findByRole("option", { name: "Private" }));
       await user.click(screen.getByRole("button", { name: "Connect" }));
@@ -427,13 +605,53 @@ describe("ConnectAgentForm", () => {
       expect(created.body).not.toHaveProperty("team_id");
     });
 
+    it("keeps tags and a description under View more, and sends them", async () => {
+      mockFetchCard(foundResult({ auth_type: "bearer" }));
+      const created = mockCreate();
+      const user = setup();
+
+      await toAuthStep(user);
+      expect(screen.queryByPlaceholderText(TAG_PLACEHOLDER)).not.toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "s3cret");
+      await user.click(screen.getByRole("button", { name: "View more" }));
+      await user.type(
+        await screen.findByPlaceholderText(TAG_PLACEHOLDER),
+        "billing, internal ,Billing",
+      );
+      await user.type(
+        screen.getByPlaceholderText("Add an optional description..."),
+        "  Our own description ",
+      );
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect(created.body?.agent).toMatchObject({
+        tags: ["billing", "internal"],
+        description: "Our own description",
+      });
+    });
+
+    it("keeps the card's description when none is entered", async () => {
+      mockFetchCard(foundResult({ auth_type: "bearer" }));
+      const created = mockCreate();
+      const user = setup();
+
+      await toAuthStep(user);
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "s3cret");
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect(created.body?.agent).toMatchObject({ description: "Routes briefs to vendors." });
+    });
+
     it("keeps the form and shows the server's reason when registration fails", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+      mockFetchCard(foundResult({ auth_type: "bearer" }));
       mockCreate(() => HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }));
       const user = setup();
 
       await toAuthStep(user);
-      await user.click(await screen.findByRole("button", { name: "Connect" }));
+      await user.type(screen.getByPlaceholderText("Add key from the agent provider"), "s3cret");
+      await user.click(screen.getByRole("button", { name: "Connect" }));
 
       expect(await screen.findByText("Agent name already exists")).toBeInTheDocument();
       expect(onCreated).not.toHaveBeenCalled();
@@ -445,16 +663,16 @@ describe("ConnectAgentForm", () => {
       mockCreate(() => HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }));
       const user = setup();
 
-      await toAuthStep(user);
+      await submitUrl(user);
       await user.click(await screen.findByRole("button", { name: "Connect" }));
       await screen.findByText("Agent name already exists");
-      await user.click(screen.getByRole("button", { name: "Back" }));
       await user.click(screen.getByRole("button", { name: "Back" }));
 
       expect(await screen.findByPlaceholderText(URL_PLACEHOLDER)).toBeVisible();
       expect(screen.queryByText("Agent name already exists")).not.toBeInTheDocument();
     });
   });
+
   describe("manual entry", () => {
     async function openManual(user: ReturnType<typeof userEvent.setup>) {
       await user.click(await screen.findByRole("button", { name: "Enter manually" }));
