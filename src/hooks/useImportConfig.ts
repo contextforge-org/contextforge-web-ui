@@ -22,8 +22,8 @@ export type ImportRunOptions = Omit<ImportOptions, "data" | "dryRun">;
  * caller's job. Use `importOutcome` to judge an import result.
  */
 export interface ImportConfigState {
-  /** Reads + shape-checks a file; false when unusable (`error` set) or superseded by a newer load/reset. */
-  loadFile: (file: File) => Promise<boolean>;
+  /** Reads + shape-checks a file; null when unusable (`error` set) or superseded by a newer load/reset. */
+  loadFile: (file: File) => Promise<ConfigExport | null>;
   /** Validates the import server-side without writing anything. */
   dryRun: (opts?: ImportRunOptions) => Promise<ImportResult | null>;
   runImport: (opts?: ImportRunOptions) => Promise<ImportResult | null>;
@@ -73,6 +73,8 @@ export function useImportConfig(): ImportConfigState {
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Mirrors `data` so submit can run right after loadFile resolves, before a re-render.
+  const dataRef = useRef<ConfigExport | null>(null);
   // Bumped by every reset/new load; a file read that finishes under an older value is dropped.
   const loadGenRef = useRef(0);
 
@@ -87,6 +89,7 @@ export function useImportConfig(): ImportConfigState {
   // Shared by dryRun and runImport; only the flag and the result slot differ.
   const submit = useCallback(
     async (opts: ImportRunOptions, dryRun: boolean): Promise<ImportResult | null> => {
+      const data = dataRef.current;
       if (!data) return null;
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -112,12 +115,13 @@ export function useImportConfig(): ImportConfigState {
         }
       }
     },
-    [data, intl],
+    [intl],
   );
 
   const reset = useCallback(() => {
     loadGenRef.current += 1;
     abortCurrent();
+    dataRef.current = null;
     setData(null);
     setDryRunResult(null);
     setResult(null);
@@ -130,11 +134,12 @@ export function useImportConfig(): ImportConfigState {
       const gen = loadGenRef.current;
       try {
         const parsed = await parseImportFile(file);
-        if (gen !== loadGenRef.current) return false;
+        if (gen !== loadGenRef.current) return null;
+        dataRef.current = parsed;
         setData(parsed);
-        return true;
+        return parsed;
       } catch (err) {
-        if (gen !== loadGenRef.current) return false;
+        if (gen !== loadGenRef.current) return null;
         // Anything else is the browser failing to read the file.
         const id = !(err instanceof ImportFileError)
           ? "importExport.import.failed"
@@ -142,7 +147,7 @@ export function useImportConfig(): ImportConfigState {
             ? "importExport.import.invalidJson"
             : "importExport.import.invalidShape";
         setError(intl.formatMessage({ id }));
-        return false;
+        return null;
       }
     },
     [intl, reset],

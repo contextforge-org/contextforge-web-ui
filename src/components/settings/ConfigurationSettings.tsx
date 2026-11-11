@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import type { ConfigExport, ExportEntityType } from "@/api/importExport";
 import { importOutcome, useImportConfig } from "@/hooks/useImportConfig";
 
-const OUTCOME_TOAST = {
-  success: { fn: toast.success, id: "settings.configuration.import.success" },
-  partial: { fn: toast.warning, id: "settings.configuration.import.partial" },
-  failed: { fn: toast.error, id: "settings.configuration.import.allFailed" },
-} as const;
+const OUTCOME_TOAST = { success: toast.success, partial: toast.warning, failed: toast.error };
+const IMPORT_MESSAGE = {
+  success: "settings.configuration.import.success",
+  partial: "settings.configuration.import.partial",
+  failed: "settings.configuration.import.allFailed",
+};
 
 const TYPE_ORDER: ExportEntityType[] = [
   "gateways",
@@ -21,8 +22,7 @@ const TYPE_ORDER: ExportEntityType[] = [
   "roots",
 ];
 
-// Backend reports only aggregate counts (and none on dry run), so the per-type
-// split comes from the file; it matches what's processed since we never send selected_entities.
+// Per-type split of the file's contents; the backend reports only aggregate counts.
 function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
   const items = TYPE_ORDER.filter((t) => data.entities[t]?.length).map((t) =>
     intl.formatMessage(
@@ -36,30 +36,30 @@ function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
 export function ConfigurationSettings() {
   const intl = useIntl();
   const title = intl.formatMessage({ id: "settings.configuration.import.title" });
-  const { loadFile, runImport, dryRun, reset, data, isLoading, error, canImport } =
-    useImportConfig();
+  const { loadFile, runImport, dryRun, reset, isLoading, error, canImport } = useImportConfig();
   const inputRef = useRef<HTMLInputElement>(null);
   const dryRunRef = useRef(false); // which button opened the picker
 
-  // Submit as soon as a file parses; reset after so data can't re-trigger it.
-  useEffect(() => {
-    if (!data) return;
+  const submit = async (file: File) => {
     const isDry = dryRunRef.current;
+    const data = await loadFile(file);
+    if (!data) return;
     const items = typeSummary(data, intl);
-    void (isDry ? dryRun : runImport)().then((result) => {
-      if (!result) return;
-      const { fn, id } = OUTCOME_TOAST[importOutcome(result)];
-      fn(
-        !items
-          ? intl.formatMessage({ id: "settings.configuration.empty" })
-          : intl.formatMessage(
-              { id: isDry ? "settings.configuration.dryRun.result" : id },
-              { ...result.progress, items },
-            ),
-      );
-      reset();
-    });
-  }, [data, runImport, dryRun, reset, intl]);
+    if (!items) {
+      toast.info(intl.formatMessage({ id: "settings.configuration.empty" }));
+      return reset();
+    }
+    const result = await (isDry ? dryRun : runImport)();
+    if (!result) return;
+    const outcome = importOutcome(result);
+    const id = !isDry
+      ? IMPORT_MESSAGE[outcome]
+      : outcome === "success"
+        ? "settings.configuration.dryRun.result"
+        : "settings.configuration.dryRun.failed";
+    OUTCOME_TOAST[outcome](intl.formatMessage({ id }, { ...result.progress, items }));
+    reset();
+  };
 
   const pick = (isDry: boolean) => {
     dryRunRef.current = isDry;
@@ -90,7 +90,7 @@ export function ConfigurationSettings() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = ""; // allow re-picking the same file
-          if (file) void loadFile(file);
+          if (file) void submit(file);
         }}
       />
       <div className="flex gap-2">
