@@ -276,6 +276,29 @@ describe("CatalogOAuthForm", () => {
     );
   });
 
+  it("explains that empty endpoint URLs are discovered from the issuer", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const hintText = "Leave empty to discover from the issuer.";
+    const authorizationUrl = screen.getByLabelText(/^Authorization URL/i);
+    const tokenUrl = screen.getByLabelText(/^Token URL/i);
+    expect(
+      document.getElementById("catalog-oauth-authorization-url-persistent-hint"),
+    ).toHaveTextContent(hintText);
+    expect(document.getElementById("catalog-oauth-token-url-persistent-hint")).toHaveTextContent(
+      hintText,
+    );
+    expect(authorizationUrl).toHaveAccessibleDescription(hintText);
+    expect(tokenUrl).toHaveAccessibleDescription(hintText);
+
+    await user.type(authorizationUrl, "not-a-url");
+    fireEvent.submit(authorizationUrl.closest("form")!);
+    expect(authorizationUrl).toHaveAccessibleDescription(
+      `Enter a valid authorization URL. ${hintText}`,
+    );
+  });
+
   it.each([
     { data: undefined, isLoading: true, error: null },
     { data: undefined, isLoading: false, error: { message: "Unavailable" } },

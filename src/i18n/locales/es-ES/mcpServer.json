@@ -180,6 +180,7 @@
   "mcpServer.catalog.oauth.clientSecretRequired": "El secreto de cliente es obligatorio.",
   "mcpServer.catalog.oauth.authorizationUrlRequired": "Introduce una URL de autorización válida.",
   "mcpServer.catalog.oauth.tokenUrlRequired": "Introduce una URL de token válida.",
+  "mcpServer.catalog.oauth.endpointDiscoveryHint": "Déjalo vacío para descubrirlo a partir del emisor.",
   "mcpServer.catalog.oauth.needsAuthorization": "Necesita autorización",
   "mcpServer.catalog.oauth.nearExpiry": "La autorización caduca pronto",
   "mcpServer.catalog.oauth.expired": "La autorización caducó",
