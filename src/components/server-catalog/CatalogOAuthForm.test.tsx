@@ -145,8 +145,8 @@ describe("CatalogOAuthForm", () => {
     expect(screen.getByText("Enter at least one scope.")).toBeInTheDocument();
     expect(screen.getByText("Client ID is required.")).toBeInTheDocument();
     expect(screen.getByText("Client secret is required.")).toBeInTheDocument();
-    expect(screen.getByText("Enter a valid authorization URL.")).toBeInTheDocument();
-    expect(screen.getByText("Enter a valid token URL.")).toBeInTheDocument();
+    expect(screen.queryByText("Enter a valid authorization URL.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Enter a valid token URL.")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer URL/i)).toHaveAttribute("aria-required", "true");
     expect(screen.getByLabelText(/Issuer URL/i)).toHaveAttribute(
       "aria-describedby",
@@ -252,6 +252,51 @@ describe("CatalogOAuthForm", () => {
       }),
     );
     expect(onSuccess).toHaveBeenCalledOnce();
+  });
+
+  it("leaves authorization and token URLs empty when the backend discovers them", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+
+    await user.type(screen.getByLabelText(/Issuer URL/i), "http://github.com");
+    await user.type(screen.getByLabelText(/^Scopes/i), "repo");
+    await user.type(screen.getByLabelText(/^Client ID/i), "github-client");
+    await user.type(screen.getByLabelText(/^Client Secret/i), "github-secret");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          oauth_credentials: expect.objectContaining({
+            authorization_url: "",
+            token_url: "",
+          }),
+        }),
+      ),
+    );
+  });
+
+  it("explains that empty endpoint URLs are discovered from the issuer", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const hintText = "Leave empty to discover from the issuer.";
+    const authorizationUrl = screen.getByLabelText(/^Authorization URL/i);
+    const tokenUrl = screen.getByLabelText(/^Token URL/i);
+    expect(
+      document.getElementById("catalog-oauth-authorization-url-persistent-hint"),
+    ).toHaveTextContent(hintText);
+    expect(document.getElementById("catalog-oauth-token-url-persistent-hint")).toHaveTextContent(
+      hintText,
+    );
+    expect(authorizationUrl).toHaveAccessibleDescription(hintText);
+    expect(tokenUrl).toHaveAccessibleDescription(hintText);
+
+    await user.type(authorizationUrl, "not-a-url");
+    fireEvent.submit(authorizationUrl.closest("form")!);
+    expect(authorizationUrl).toHaveAccessibleDescription(
+      `Enter a valid authorization URL. ${hintText}`,
+    );
   });
 
   it.each([

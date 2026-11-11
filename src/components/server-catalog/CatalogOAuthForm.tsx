@@ -35,6 +35,11 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+function isOptionalHttpUrl(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed === "" || isHttpUrl(trimmed);
+}
+
 /**
  * OAuth catalog registration deliberately has its own small field set.
  *
@@ -119,14 +124,14 @@ export function CatalogOAuthForm({
               // prettier-ignore
               clientSecret: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientSecretRequired" }), // pragma: allowlist secret
             }),
-        ...(isHttpUrl(authorizationUrl.trim())
+        ...(isOptionalHttpUrl(authorizationUrl)
           ? {}
           : {
               authorizationUrl: intl.formatMessage({
                 id: "mcpServer.catalog.oauth.authorizationUrlRequired",
               }),
             }),
-        ...(isHttpUrl(tokenUrl.trim())
+        ...(isOptionalHttpUrl(tokenUrl)
           ? {}
           : { tokenUrl: intl.formatMessage({ id: "mcpServer.catalog.oauth.tokenUrlRequired" }) }),
         ...(visibility !== "team" || teamId
@@ -365,7 +370,9 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-authorization-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-              required
+              persistentHint={intl.formatMessage({
+                id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
+              })}
               error={errors.authorizationUrl}
             >
               {(controlProps) => (
@@ -389,7 +396,9 @@ export function CatalogOAuthForm({
             <Field
               id="catalog-oauth-token-url"
               label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-              required
+              persistentHint={intl.formatMessage({
+                id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
+              })}
               error={errors.tokenUrl}
             >
               {(controlProps) => (
