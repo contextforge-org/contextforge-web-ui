@@ -17,7 +17,7 @@
   "settings.configuration.dryRun.failed": "Dry run found problems importing {items}. Nothing was changed.",
   "settings.configuration.import.success": "Import complete: {created} created, {updated} updated, {skipped} skipped. File contained {items}.",
   "settings.configuration.import.partial": "Import partially applied: {created} created, {updated} updated, {skipped} skipped, {failed} failed. File contained {items}.",
-  "settings.configuration.import.allFailed": "Import failed: none of the {failed} items could be applied.",
+  "settings.configuration.import.allFailed": "Import failed: no items could be applied.",
   "settings.configuration.empty": "The file contains nothing to import.",
   "settings.configuration.type.gateways": "{count, plural, one {# MCP server} other {# MCP servers}}",
   "settings.configuration.type.servers": "{count, plural, one {# virtual server} other {# virtual servers}}",

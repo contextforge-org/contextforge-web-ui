@@ -17,7 +17,7 @@
   "settings.configuration.dryRun.failed": "A simulação encontrou problemas ao importar {items}. Nada foi alterado.",
   "settings.configuration.import.success": "Importação concluída: {created} criados, {updated} atualizados, {skipped} ignorados. O arquivo continha {items}.",
   "settings.configuration.import.partial": "Importação aplicada parcialmente: {created} criados, {updated} atualizados, {skipped} ignorados, {failed} com falha. O arquivo continha {items}.",
-  "settings.configuration.import.allFailed": "Falha na importação: nenhum dos {failed} itens pôde ser aplicado.",
+  "settings.configuration.import.allFailed": "Falha na importação: nenhum item pôde ser aplicado.",
   "settings.configuration.empty": "O arquivo não contém nada a importar.",
   "settings.configuration.type.gateways": "{count, plural, one {# servidor MCP} other {# servidores MCP}}",
   "settings.configuration.type.servers": "{count, plural, one {# servidor virtual} other {# servidores virtuais}}",

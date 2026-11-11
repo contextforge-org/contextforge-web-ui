@@ -109,7 +109,7 @@ describe("ConfigurationSettings", () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect(vi.mocked(toast.error).mock.calls[0][0]).toBe(
-      "Import failed: none of the 2 items could be applied.",
+      "Import failed: no items could be applied.",
     );
   });
 
