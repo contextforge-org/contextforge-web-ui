@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { Loader2 } from "lucide-react";
 import { AgentIcon } from "@/components/icons/AgentIcon";
@@ -6,24 +6,24 @@ import { BasicAuth } from "@/components/mcp-servers/BasicAuth";
 import { BearerTokenAuth } from "@/components/mcp-servers/BearerTokenAuth";
 import { CustomHeadersAuth } from "@/components/mcp-servers/CustomHeadersAuth";
 import { QueryParameterAuth } from "@/components/mcp-servers/QueryParameterAuth";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { BackButton } from "@/components/ui/back-button";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { ExpandableSection } from "@/components/ui/expandable-section";
+import { FormInput } from "@/components/ui/form-input";
 import { TagInput } from "@/components/ui/tag-input";
-import { useConnectAgentForm } from "@/hooks/useConnectAgentForm";
+import {
+  useConnectAgentForm,
+  type CardIssue,
+  type ConnectAgentFormState,
+} from "@/hooks/useConnectAgentForm";
 import { useTagSuggestions } from "@/hooks/useTagSuggestions";
 import { MAX_TAGS } from "@/utils/tags";
 import type { A2AAgentRead } from "@/generated/types";
 import { ManualAgentFields } from "./ManualAgentFields";
+import { getAgentSkillNames } from "./agentSkills";
 import { VisibilityFields } from "./VisibilityFields";
 import { summarizeEndpoint, summarizeInterfaces, summarizeRequirements } from "./agentCardSummary";
 
@@ -33,9 +33,6 @@ interface ConnectAgentFormProps {
   /** The agent was registered. */
   onCreated: (agent: A2AAgentRead) => void;
 }
-
-const INPUT_CLASS =
-  "rounded-md border-neutral-300 px-4 text-sm text-neutral-900 shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 placeholder:text-neutral-400 dark:border-neutral-700 dark:text-neutral-100 dark:placeholder:text-neutral-500";
 
 function StepHeader({ title, badge }: { title: string; badge?: ReactNode }) {
   return (
@@ -49,45 +46,15 @@ function StepHeader({ title, badge }: { title: string; badge?: ReactNode }) {
   );
 }
 
-function ExpandableSection({
-  label,
-  children,
-  open,
-  onOpenChange,
-}: {
-  label: string;
-  children: ReactNode;
-  /** Controlled when given; otherwise the section manages itself. */
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}) {
-  const controlled = open !== undefined;
-  return (
-    <Accordion
-      type="single"
-      collapsible
-      className="rounded-md border border-border"
-      {...(controlled
-        ? {
-            value: open ? "section" : "",
-            onValueChange: (value: string) => onOpenChange?.(value === "section"),
-          }
-        : {})}
-    >
-      <AccordionItem value="section" className="border-b-0">
-        <AccordionTrigger className="px-3 py-2.5 text-sm font-normal text-muted-foreground hover:no-underline">
-          {label}
-        </AccordionTrigger>
-        <AccordionContent className="space-y-5 px-3">{children}</AccordionContent>
-      </AccordionItem>
-    </Accordion>
-  );
-}
-
 function ViewMore({ children }: { children: ReactNode }) {
   const intl = useIntl();
+  const [open, setOpen] = useState(false);
   return (
-    <ExpandableSection label={intl.formatMessage({ id: "agents.connect.viewMore" })}>
+    <ExpandableSection
+      label={intl.formatMessage({ id: "agents.connect.viewMore" })}
+      open={open}
+      onOpenChange={setOpen}
+    >
       {children}
     </ExpandableSection>
   );
@@ -126,11 +93,28 @@ function FormActions({
   );
 }
 
+/** Why the card could not be read, as the message shown above "Enter manually". */
+const CARD_ISSUE_MESSAGE_IDS: Record<CardIssue, string> = {
+  no_card: "agents.connect.outcome.noCard",
+  auth_required: "agents.connect.outcome.authRequired",
+  unreachable: "agents.connect.outcome.unreachable",
+  error: "agents.connect.outcome.error",
+};
+
+/** With "Enter manually" open the button registers the typed details; otherwise it reads the card. */
+function urlStepButtonMessageId(form: ConnectAgentFormState): string {
+  if (form.manualOpen) {
+    return form.isSubmitting ? "agents.connect.auth.submitting" : "agents.connect.auth.submit";
+  }
+  return form.isFetching ? "agents.connect.checking" : "agents.connect.continue";
+}
+
 export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps) {
   const intl = useIntl();
   const form = useConnectAgentForm({ onCreated });
   const tagSuggestions = useTagSuggestions();
   const card = form.result?.card;
+  const skillNames = card ? getAgentSkillNames(card) : [];
 
   const handleBack = () => {
     if (!form.goBack()) onCancel();
@@ -167,7 +151,7 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                 labelProps={{ className: "inline-flex items-center gap-0.5" }}
               >
                 {(controlProps) => (
-                  <Input
+                  <FormInput
                     {...controlProps}
                     type="url"
                     inputMode="url"
@@ -176,14 +160,13 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                     value={form.url}
                     onChange={(event) => form.setUrl(event.target.value)}
                     placeholder={intl.formatMessage({ id: "agents.connect.url.placeholder" })}
-                    className={INPUT_CLASS}
                   />
                 )}
               </Field>
 
-              {form.cardUnavailable && (
+              {form.cardIssue && (
                 <Callout severity="warning">
-                  {intl.formatMessage({ id: "agents.connect.outcome.noCard" })}
+                  {intl.formatMessage({ id: CARD_ISSUE_MESSAGE_IDS[form.cardIssue] })}
                 </Callout>
               )}
 
@@ -208,15 +191,7 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
               <FormActions
                 onCancel={onCancel}
                 onContinue={() => undefined}
-                continueLabel={intl.formatMessage({
-                  id: form.manualOpen
-                    ? form.isSubmitting
-                      ? "agents.connect.auth.submitting"
-                      : "agents.connect.auth.submit"
-                    : form.isFetching
-                      ? "agents.connect.checking"
-                      : "agents.connect.continue",
-                })}
+                continueLabel={intl.formatMessage({ id: urlStepButtonMessageId(form) })}
                 isBusy={form.isFetching || form.isSubmitting}
               />
             </form>
@@ -244,17 +219,18 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
               <p className="text-xs leading-relaxed text-muted-foreground">{card.description}</p>
             )}
 
-            {(card.skills?.length ?? 0) > 0 && (
+            {skillNames.length > 0 && (
               <section aria-labelledby="agent-review-skills" className="space-y-2">
                 <h3 id="agent-review-skills" className="text-xs font-semibold text-foreground">
                   {intl.formatMessage(
                     { id: "agents.connect.review.skills" },
-                    { count: card.skills?.length ?? 0 },
+                    { count: skillNames.length },
                   )}
                 </h3>
                 <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  {card.skills?.map((skill, index) => (
-                    <li key={`${skill.id ?? skill.name}-${index}`}>{skill.name}</li>
+                  {skillNames.map((name, index) => (
+                    // Index in the key too: skill names aren't guaranteed unique on one agent.
+                    <li key={`${name}-${index}`}>{name}</li>
                   ))}
                 </ul>
               </section>
@@ -273,8 +249,8 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                       : "",
                   ],
                   ["agents.connect.review.endpoint", summarizeEndpoint(card)],
-                  ["agents.connect.review.interfaces", summarizeInterfaces(card)],
-                  ["agents.connect.review.requires", summarizeRequirements(card)],
+                  ["agents.connect.review.interfaces", summarizeInterfaces(card, intl)],
+                  ["agents.connect.review.requires", summarizeRequirements(card, intl)],
                 ] as const
               )
                 .filter(([, value]) => value)

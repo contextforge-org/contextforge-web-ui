@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useQuery";
 import { agentsApi } from "@/api/agents";
 import { ApiError } from "@/api/client";
 import { extractApiErrorDetail } from "@/utils/errors";
+import { getTagLabels } from "@/utils/tags";
 import type { Agent } from "@/types/agent";
 import type { A2AAgentRead } from "@/generated/types";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { ConnectAgentForm } from "@/components/agents/ConnectAgentForm";
-import { getAgentSkillNames } from "@/components/agents/agentSkills";
+import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/agentSkills";
 
 // Only the fields the card actually renders — `Agent` also carries credential
 // fields (authToken, authPassword, ...) that must never reach the UI. Typing
@@ -30,11 +31,9 @@ import { getAgentSkillNames } from "@/components/agents/agentSkills";
 // stray `{agent.authToken}` into a type error instead of a silent leak.
 type AgentCardFields = Pick<
   Agent,
-  "id" | "name" | "description" | "enabled" | "reachable" | "capabilities"
-> & {
-  /** Top-level skills list (IBM/mcp-context-forge#7433), not in the generated type yet. */
-  skills?: unknown;
-};
+  "id" | "name" | "description" | "enabled" | "reachable" | "capabilities" | "tags"
+> &
+  Pick<AgentSkillSource, "skills">;
 
 interface AgentCardProps {
   agent: AgentCardFields;
@@ -45,11 +44,13 @@ interface AgentCardProps {
 
 function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
   const intl = useIntl();
-  const MAX_VISIBLE_SKILLS = 8;
+  const MAX_VISIBLE_CHIPS = 8;
   const isActive = agent.enabled && agent.reachable;
   const skills = getAgentSkillNames(agent);
-  const visibleSkills = skills.slice(0, MAX_VISIBLE_SKILLS);
-  const remainingCount = skills.length - MAX_VISIBLE_SKILLS;
+  // Skills say what an agent does; tags only stand in for them when it lists none.
+  const chips = skills.length > 0 ? skills : getTagLabels(agent.tags ?? []);
+  const visibleChips = chips.slice(0, MAX_VISIBLE_CHIPS);
+  const remainingCount = chips.length - MAX_VISIBLE_CHIPS;
 
   return (
     <Card size="sm">
@@ -125,11 +126,11 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
             {agent.description}
           </Typography>
         )}
-        {skills.length > 0 && (
+        {chips.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {visibleSkills.map((skill, index) => (
-              // Index in the key too: skill names aren't guaranteed unique on one agent.
-              <CardTag key={`${skill}-${index}`}>{skill}</CardTag>
+            {visibleChips.map((chip, index) => (
+              // Index in the key too: names aren't guaranteed unique on one agent.
+              <CardTag key={`${chip}-${index}`}>{chip}</CardTag>
             ))}
             {remainingCount > 0 && <CardTag>+{remainingCount}</CardTag>}
           </div>

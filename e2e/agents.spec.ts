@@ -126,6 +126,11 @@ async function startConnect(page: Page, url = "https://agent.example.com") {
 }
 
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
+const CARD_AUTH_REQUIRED =
+  "The agent needs credentials to share its card: add the details for the agent manually.";
+const CARD_UNREACHABLE =
+  "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
+const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";
 
 const toast = (page: Page, text: RegExp) =>
   page.locator("[data-sonner-toast]").filter({ hasText: text });
@@ -295,25 +300,30 @@ test.describe("Agents page", () => {
       expect(fetchBodies).toHaveLength(0);
     });
 
-    for (const [name, respond] of [
-      ["publishes no card", (route: Route) => json(route, { found: false, outcome: "no_card" })],
+    for (const [name, respond, message] of [
+      [
+        "publishes no card",
+        (route: Route) => json(route, { found: false, outcome: "no_card" }),
+        CARD_UNAVAILABLE,
+      ],
       [
         "needs credentials to read its card",
         (route: Route) =>
           json(route, { found: false, outcome: "auth_required", authScheme: "Bearer" }),
+        CARD_AUTH_REQUIRED,
       ],
       [
         "cannot be reached",
         (route: Route) => json(route, { found: false, outcome: "unreachable" }),
+        CARD_UNREACHABLE,
       ],
       [
         "is refused by the gateway",
         (route: Route) => json(route, { detail: "Insufficient permissions" }, 403),
+        CARD_ERROR,
       ],
     ] as const) {
-      test(`says the card is not available and opens manual entry when the agent ${name}`, async ({
-        page,
-      }) => {
+      test(`says why and opens manual entry when the agent ${name}`, async ({ page }) => {
         await mockAgentList(page, []);
         await page.route(
           (url) => url.pathname.endsWith("/a2a/fetch-card"),
@@ -323,7 +333,7 @@ test.describe("Agents page", () => {
         await page.goto(APP.AGENTS);
         await startConnect(page);
 
-        await expect(page.getByText(CARD_UNAVAILABLE)).toBeVisible();
+        await expect(page.getByText(message)).toBeVisible();
         await expect(page.getByRole("button", { name: "Enter manually" })).toHaveAttribute(
           "aria-expanded",
           "true",
@@ -331,6 +341,40 @@ test.describe("Agents page", () => {
         await expect(page.getByPlaceholder("Add an agent name")).toBeVisible();
       });
     }
+  });
+
+  test.describe("correcting the URL after the card could not be read", () => {
+    test("puts manual entry away and reads the card again", async ({ page }) => {
+      await mockAgentList(page, []);
+      let reads = 0;
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/fetch-card"),
+        async (route) => {
+          reads += 1;
+          await (reads === 1
+            ? json(route, { found: false, outcome: "no_card" })
+            : json(route, FOUND_CARD));
+        },
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await expect(page.getByText(CARD_UNAVAILABLE)).toBeVisible();
+
+      await page
+        .getByPlaceholder("Add URL for a running agent...")
+        .fill("https://agent.example.com/v2");
+
+      await expect(page.getByText(CARD_UNAVAILABLE)).toBeHidden();
+      await expect(page.getByRole("button", { name: "Enter manually" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      await expect(page.getByRole("heading", { name: "Visual Router" })).toBeVisible();
+      expect(reads).toBe(2);
+    });
   });
 
   test.describe("enter an agent manually", () => {
@@ -377,7 +421,7 @@ test.describe("Agents page", () => {
       // The radio is visually hidden; users click its tab label.
       await page.locator('label[for="agent-auth-bearer"]').click();
       await page.getByPlaceholder("Paste bearer token...").fill("s3cret");
-      await page.getByPlaceholder("Add optional tags separated with commas").fill("testing, echo");
+      await page.getByPlaceholder("Add a tag").fill("testing, echo");
       await page.getByPlaceholder("Add an optional description...").fill("Echoes text back");
       await page.getByRole("button", { name: "Connect" }).click();
 
@@ -464,7 +508,9 @@ test.describe("Agents page", () => {
       await expect(page.getByRole("img", { name: "Inactive", exact: true })).toHaveCount(1);
     });
 
-    test("shows the agent's skills with a count, and not its tags", async ({ page }) => {
+    test("shows an agent's skills with a count, and its tags only when it lists no skills", async ({
+      page,
+    }) => {
       await mockAgentList(page, [
         makeAgent("skilled", {
           name: "Skilled agent",
@@ -481,15 +527,16 @@ test.describe("Agents page", () => {
 
       await page.goto(APP.AGENTS);
 
+      const plainCard = (target: Page) =>
+        target.locator('[data-slot="card"]').filter({ hasText: "Plain agent" });
       const skilled = page.locator('[data-slot="card"]').filter({ hasText: "Skilled agent" });
       await expect(skilled.getByText("2 skills")).toBeVisible();
       await expect(skilled.getByText("Echo")).toBeVisible();
       await expect(skilled.getByText("Route")).toBeVisible();
       await expect(page.getByText("billing")).toBeHidden();
-      await expect(page.getByText("ops", { exact: true })).toBeHidden();
+      await expect(plainCard(page).getByText("ops", { exact: true })).toBeVisible();
 
-      const plain = page.locator('[data-slot="card"]').filter({ hasText: "Plain agent" });
-      await expect(plain.getByText(/skills?$/)).toBeHidden();
+      await expect(plainCard(page).getByText(/skills?$/)).toBeHidden();
     });
 
     test("requests disabled agents too (include_inactive=true)", async ({ page }) => {

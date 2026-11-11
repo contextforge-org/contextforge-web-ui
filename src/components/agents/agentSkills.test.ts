@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { getAgentSkillNames } from "./agentSkills";
+import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
+
+/** API data is not checked at runtime, so tests feed it values the types forbid. */
+const untyped = (value: unknown) => value as AgentSkillSource;
 
 describe("getAgentSkillNames", () => {
   it("reads names from the top-level skills list", () => {
@@ -32,7 +35,7 @@ describe("getAgentSkillNames", () => {
 
   it("drops blank names and entries it cannot read", () => {
     expect(
-      getAgentSkillNames({ skills: [{ name: "  " }, null, 42, {}, { name: " Echo " }] }),
+      getAgentSkillNames(untyped({ skills: [{ name: "  " }, null, 42, {}, { name: " Echo " }] })),
     ).toEqual(["Echo"]);
   });
 
@@ -42,6 +45,6 @@ describe("getAgentSkillNames", () => {
     ["a non-array skills value", { skills: "echo", capabilities: { skills: "echo" } }],
     ["empty lists", { skills: [], capabilities: { skills: [] } }],
   ])("returns no skills for %s", (_name, agent) => {
-    expect(getAgentSkillNames(agent)).toEqual([]);
+    expect(getAgentSkillNames(untyped(agent))).toEqual([]);
   });
 });

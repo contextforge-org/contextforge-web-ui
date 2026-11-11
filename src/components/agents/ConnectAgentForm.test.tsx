@@ -25,6 +25,12 @@ import type { FetchCardResult, SuggestedAgent } from "@/types/agentCard";
 const CARD_URL = "https://agent.example.com";
 const URL_PLACEHOLDER = "Add URL for a running agent...";
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
+const CARD_AUTH_REQUIRED =
+  "The agent needs credentials to share its card: add the details for the agent manually.";
+const CARD_UNREACHABLE =
+  "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
+const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";
+const TAG_PLACEHOLDER = "Add a tag";
 const NAME_PLACEHOLDER = "Add an agent name";
 const ENDPOINT_PLACEHOLDER = "https://agents.example.com/a2a";
 
@@ -146,38 +152,58 @@ describe("ConnectAgentForm", () => {
     });
 
     it.each([
-      ["no card is published", () => HttpResponse.json({ found: false, outcome: "no_card" })],
+      [
+        "no card is published",
+        () => HttpResponse.json({ found: false, outcome: "no_card" }),
+        CARD_UNAVAILABLE,
+      ],
       [
         "credentials are needed to read it",
         () => HttpResponse.json({ found: false, outcome: "auth_required", authScheme: "Bearer" }),
+        CARD_AUTH_REQUIRED,
       ],
       [
         "the agent is unreachable",
         () => HttpResponse.json({ found: false, outcome: "unreachable" }),
+        CARD_UNREACHABLE,
       ],
       [
         "the request is refused",
         () => HttpResponse.json({ detail: "Insufficient permissions" }, { status: 403 }),
+        CARD_ERROR,
       ],
-      ["the gateway errors", () => HttpResponse.json({ detail: "boom" }, { status: 500 })],
-    ])("says the card is not available and opens manual entry when %s", async (_name, respond) => {
+      [
+        "the gateway errors",
+        () => HttpResponse.json({ detail: "boom" }, { status: 500 }),
+        CARD_ERROR,
+      ],
+    ])("says why and opens manual entry when %s", async (_name, respond, message) => {
       mockFetchCard(respond);
       const user = setup();
 
       await submitUrl(user);
 
-      expect(await screen.findByText(CARD_UNAVAILABLE)).toBeInTheDocument();
+      expect(await screen.findByText(message)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Enter manually" })).toHaveAttribute(
         "aria-expanded",
         "true",
       );
       expect(screen.getByPlaceholderText(NAME_PLACEHOLDER)).toBeVisible();
       expect(screen.queryByText("Visual Router")).not.toBeInTheDocument();
-      // The server's own wording is not shown; the message is the same for every failure.
+      // The server's own wording is not shown.
       expect(screen.queryByText("Insufficient permissions")).not.toBeInTheDocument();
     });
 
-    it("clears the message once the URL is edited, but keeps manual entry open", async () => {
+    it("treats a found outcome without a card like no card", async () => {
+      mockFetchCard({ found: true, outcome: "found" });
+      const user = setup();
+
+      await submitUrl(user);
+
+      expect(await screen.findByText(CARD_UNAVAILABLE)).toBeInTheDocument();
+    });
+
+    it("puts manual entry away when the URL is corrected, so Connect reads the card again", async () => {
       mockFetchCard({ found: false, outcome: "no_card" });
       const user = setup();
 
@@ -186,7 +212,44 @@ describe("ConnectAgentForm", () => {
       await user.type(screen.getByPlaceholderText(URL_PLACEHOLDER), "/x");
 
       expect(screen.queryByText(CARD_UNAVAILABLE)).not.toBeInTheDocument();
-      expect(screen.getByPlaceholderText(NAME_PLACEHOLDER)).toBeVisible();
+      expect(screen.getByRole("button", { name: "Enter manually" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    });
+
+    it("reads the card again after the URL is corrected", async () => {
+      let calls = 0;
+      mockFetchCard(() => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ found: false, outcome: "no_card" })
+          : HttpResponse.json(foundResult());
+      });
+      const user = setup();
+
+      await submitUrl(user);
+      await screen.findByText(CARD_UNAVAILABLE);
+      await user.type(screen.getByPlaceholderText(URL_PLACEHOLDER), "/x");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByText("Visual Router")).toBeInTheDocument();
+      expect(calls).toBe(2);
+    });
+
+    it("keeps manual entry open when the URL is edited after details were typed there", async () => {
+      mockFetchCard({ found: false, outcome: "no_card" });
+      const user = setup();
+
+      await submitUrl(user);
+      await screen.findByText(CARD_UNAVAILABLE);
+      await user.type(screen.getByPlaceholderText(NAME_PLACEHOLDER), "Echo");
+      await user.type(screen.getByPlaceholderText(URL_PLACEHOLDER), "/x");
+
+      expect(screen.queryByText(CARD_UNAVAILABLE)).not.toBeInTheDocument();
+      expect(screen.getByPlaceholderText(NAME_PLACEHOLDER)).toHaveValue("Echo");
+      expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
     });
 
     it("leaves the form from Cancel and from Back", async () => {
@@ -463,10 +526,7 @@ describe("ConnectAgentForm", () => {
 
       await openManual(user);
       await fillRequired(user);
-      await user.type(
-        screen.getByPlaceholderText("Add optional tags separated with commas"),
-        " testing, echo ,, testing ",
-      );
+      await user.type(screen.getByPlaceholderText(TAG_PLACEHOLDER), " testing, echo ,, Testing ");
       await user.type(
         screen.getByPlaceholderText("Add an optional description..."),
         "  Echoes text back  ",
@@ -486,10 +546,7 @@ describe("ConnectAgentForm", () => {
 
       await openManual(user);
       await fillRequired(user);
-      await user.type(
-        screen.getByPlaceholderText("Add optional tags separated with commas"),
-        " , ",
-      );
+      await user.type(screen.getByPlaceholderText(TAG_PLACEHOLDER), " , ");
       await user.type(screen.getByPlaceholderText("Add an optional description..."), "   ");
       await user.click(screen.getByRole("button", { name: "Connect" }));
 

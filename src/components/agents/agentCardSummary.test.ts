@@ -1,13 +1,18 @@
 import { describe, it, expect } from "vitest";
+import { createIntl } from "react-intl";
+import messages from "@/i18n/locales/en-US/agents.json";
 import { summarizeEndpoint, summarizeInterfaces, summarizeRequirements } from "./agentCardSummary";
 import type { AgentCard } from "@/types/agentCard";
 
+const intl = createIntl({ locale: "en-US", messages });
+const interfaces = (value: AgentCard) => summarizeInterfaces(value, intl);
+const requirements = (value: AgentCard) => summarizeRequirements(value, intl);
 const card = (overrides: Partial<AgentCard> = {}): AgentCard => ({ name: "Agent", ...overrides });
 
 describe("summarizeInterfaces", () => {
   it("marks the first of several interfaces as preferred", () => {
     expect(
-      summarizeInterfaces(
+      interfaces(
         card({
           supportedInterfaces: [
             { url: "https://a/rpc", protocolBinding: "JSONRPC", protocolVersion: "1.0" },
@@ -20,7 +25,7 @@ describe("summarizeInterfaces", () => {
 
   it("does not call a lone interface preferred", () => {
     expect(
-      summarizeInterfaces(
+      interfaces(
         card({
           supportedInterfaces: [
             { url: "https://a/rpc", protocolBinding: "JSONRPC", protocolVersion: "1.0" },
@@ -31,10 +36,10 @@ describe("summarizeInterfaces", () => {
   });
 
   it("falls back to the url when binding and version are missing, and to empty with none", () => {
-    expect(summarizeInterfaces(card({ supportedInterfaces: [{ url: "https://a/rpc" }] }))).toBe(
+    expect(interfaces(card({ supportedInterfaces: [{ url: "https://a/rpc" }] }))).toBe(
       "https://a/rpc",
     );
-    expect(summarizeInterfaces(card())).toBe("");
+    expect(interfaces(card())).toBe("");
   });
 });
 
@@ -64,7 +69,7 @@ describe("summarizeRequirements", () => {
 
   it("joins alternative requirements with 'or'", () => {
     expect(
-      summarizeRequirements(
+      requirements(
         card({
           securitySchemes: schemes,
           securityRequirements: [{ schemes: { bearerAuth: {} } }, { schemes: { oauth: {} } }],
@@ -75,7 +80,7 @@ describe("summarizeRequirements", () => {
 
   it("joins schemes that must all be met with 'and'", () => {
     expect(
-      summarizeRequirements(
+      requirements(
         card({
           securitySchemes: schemes,
           securityRequirements: [{ schemes: { bearerAuth: {}, key: {} } }], // pragma: allowlist secret
@@ -86,7 +91,7 @@ describe("summarizeRequirements", () => {
 
   it("drops duplicates and schemes it cannot name, and is empty with no requirements", () => {
     expect(
-      summarizeRequirements(
+      requirements(
         card({
           securitySchemes: schemes,
           securityRequirements: [
@@ -97,6 +102,6 @@ describe("summarizeRequirements", () => {
         }),
       ),
     ).toBe("bearer");
-    expect(summarizeRequirements(card())).toBe("");
+    expect(requirements(card())).toBe("");
   });
 });

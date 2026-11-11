@@ -183,6 +183,24 @@ describe("Agents", () => {
     expect(screen.queryByText("billing")).not.toBeInTheDocument();
   });
 
+  it("falls back to the tags, without a skills count, when the agent lists no skills", async () => {
+    const mockAgents = [
+      createMockAgent(1, {
+        tags: [
+          { id: "billing", label: "billing" },
+          { id: "ops", label: "ops" },
+        ],
+      }),
+    ];
+    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
+
+    renderWithProviders(<Agents />);
+
+    expect(await screen.findByText("billing")).toBeInTheDocument();
+    expect(screen.getByText("ops")).toBeInTheDocument();
+    expect(screen.queryByText(/skills?$/)).not.toBeInTheDocument();
+  });
+
   it("uses the singular for a single skill", async () => {
     const mockAgents = [createMockAgent(1, { capabilities: { skills: [{ name: "Echo" }] } })];
     server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));

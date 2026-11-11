@@ -1,11 +1,12 @@
-import type { AgentCard, AgentCardInterface } from "@/types/agentCard";
+import type { IntlShape } from "react-intl";
+import type { AgentCard, AgentCardInterface, AgentCardSecurityScheme } from "@/types/agentCard";
 
-/** Human-readable name for each oneof key a 1.0 card wraps a security scheme in. */
-const SCHEME_LABELS: Record<string, string> = {
-  apiKeySecurityScheme: "API key",
-  oauth2SecurityScheme: "OAuth 2.0",
-  openIdConnectSecurityScheme: "OpenID Connect",
-  mtlsSecurityScheme: "mTLS",
+/** Message id for the name of each oneof key a 1.0 card wraps a security scheme in. */
+const SCHEME_LABEL_IDS: Record<string, string> = {
+  apiKeySecurityScheme: "agents.connect.review.scheme.apiKey", // pragma: allowlist secret
+  oauth2SecurityScheme: "agents.connect.review.scheme.oauth2",
+  openIdConnectSecurityScheme: "agents.connect.review.scheme.openIdConnect",
+  mtlsSecurityScheme: "agents.connect.review.scheme.mtls",
 };
 
 function describeInterface(item: AgentCardInterface): string {
@@ -13,12 +14,15 @@ function describeInterface(item: AgentCardInterface): string {
 }
 
 /** "JSONRPC 1.0 (preferred), HTTP+JSON 1.0". The first interface is the card's preferred one. */
-export function summarizeInterfaces(card: AgentCard): string {
+export function summarizeInterfaces(card: AgentCard, intl: IntlShape): string {
   const interfaces = card.supportedInterfaces ?? [];
   return interfaces
     .map((item, index) =>
       index === 0 && interfaces.length > 1
-        ? `${describeInterface(item)} (preferred)`
+        ? intl.formatMessage(
+            { id: "agents.connect.review.preferred" },
+            { interface: describeInterface(item) },
+          )
         : describeInterface(item),
     )
     .join(", ");
@@ -35,15 +39,17 @@ export function summarizeEndpoint(card: AgentCard): string {
   }
 }
 
-function labelScheme(wrapped: Record<string, Record<string, unknown>> | undefined): string | null {
+function labelScheme(wrapped: AgentCardSecurityScheme | undefined, intl: IntlShape): string | null {
   if (!wrapped) return null;
-  const [key, body] = Object.entries(wrapped)[0] ?? [];
+  const key = Object.keys(wrapped)[0];
   if (!key) return null;
   if (key === "httpAuthSecurityScheme") {
-    const scheme = body?.scheme;
-    return typeof scheme === "string" && scheme ? scheme.toLowerCase() : "HTTP";
+    // The HTTP auth scheme's own name ("bearer", "basic"), not something to translate.
+    const scheme = wrapped.httpAuthSecurityScheme?.scheme;
+    return scheme ? scheme.toLowerCase() : "HTTP";
   }
-  return SCHEME_LABELS[key] ?? null;
+  const labelId = SCHEME_LABEL_IDS[key];
+  return labelId ? intl.formatMessage({ id: labelId }) : null;
 }
 
 /**
@@ -51,15 +57,17 @@ function labelScheme(wrapped: Record<string, Record<string, unknown>> | undefine
  * are alternatives, so they are joined with "or"; schemes inside one requirement
  * must all be met, so they are joined with "and". Empty when the card declares none.
  */
-export function summarizeRequirements(card: AgentCard): string {
+export function summarizeRequirements(card: AgentCard, intl: IntlShape): string {
   const schemes = card.securitySchemes ?? {};
   const alternatives = (card.securityRequirements ?? [])
     .map((requirement) =>
-      Object.keys(requirement.schemes ?? {})
-        .map((name) => labelScheme(schemes[name]))
-        .filter((label): label is string => Boolean(label))
-        .join(" and "),
+      intl.formatList(
+        Object.keys(requirement.schemes ?? {})
+          .map((name) => labelScheme(schemes[name], intl))
+          .filter((label): label is string => Boolean(label)),
+        { type: "conjunction" },
+      ),
     )
     .filter(Boolean);
-  return [...new Set(alternatives)].join(" or ");
+  return intl.formatList([...new Set(alternatives)], { type: "disjunction" });
 }

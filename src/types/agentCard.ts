@@ -7,9 +7,9 @@
  * once `openapi.json` is regenerated from a gateway that includes it.
  *
  * Top-level keys are camelCase like the rest of the API. `suggestedAgent` is a
- * plain mapping onto `A2AAgentCreate`, so its keys are that schema's snake_case
- * field names.
+ * plain mapping onto `A2AAgentCreate`, so it reuses that generated type.
  */
+import type { A2AAgentCreate } from "@/generated/types";
 
 export type FetchCardOutcome = "found" | "no_card" | "auth_required" | "unreachable";
 
@@ -18,6 +18,9 @@ export interface AgentCardSkill {
   name: string;
   description?: string;
   tags?: string[];
+  examples?: string[];
+  inputModes?: string[];
+  outputModes?: string[];
 }
 
 export interface AgentCardInterface {
@@ -31,6 +34,30 @@ export interface AgentCardProvider {
   url?: string;
 }
 
+export interface AgentCardExtension {
+  uri: string;
+  description?: string;
+  required?: boolean;
+}
+
+/** A JWS signature over the card. The gateway does not verify it. */
+export interface AgentCardSignature {
+  protected: string;
+  signature: string;
+}
+
+/**
+ * One security scheme. A 1.0 card wraps each scheme's body under exactly one of
+ * these keys (a protobuf `oneof`).
+ */
+export interface AgentCardSecurityScheme {
+  httpAuthSecurityScheme?: { scheme?: string; bearerFormat?: string; description?: string };
+  apiKeySecurityScheme?: { name?: string; location?: string; description?: string };
+  oauth2SecurityScheme?: { description?: string; flows?: Record<string, object> };
+  openIdConnectSecurityScheme?: { openIdConnectUrl?: string; description?: string };
+  mtlsSecurityScheme?: { description?: string };
+}
+
 /** An Agent Card normalized to the A2A 1.0 shape. Only the fields the UI reads are typed. */
 export interface AgentCard {
   name: string;
@@ -40,30 +67,24 @@ export interface AgentCard {
   documentationUrl?: string;
   supportedInterfaces?: AgentCardInterface[];
   skills?: AgentCardSkill[];
-  /**
-   * Keyed by scheme name. Each value wraps its body under one oneof key such as
-   * `httpAuthSecurityScheme`, `apiKeySecurityScheme` or `oauth2SecurityScheme`.
-   */
-  securitySchemes?: Record<string, Record<string, Record<string, unknown>>>;
+  /** Keyed by scheme name. */
+  securitySchemes?: Record<string, AgentCardSecurityScheme>;
   /** Alternatives: any one requirement, each naming schemes (with scopes) that must all be satisfied. */
   securityRequirements?: Array<{ schemes?: Record<string, { list?: string[] }> }>;
-  capabilities?: Record<string, unknown>;
+  capabilities?: {
+    streaming?: boolean;
+    pushNotifications?: boolean;
+    extensions?: AgentCardExtension[];
+  };
+  /** Media types the agent accepts and returns unless a skill says otherwise. */
+  defaultInputModes?: string[];
+  defaultOutputModes?: string[];
+  /** Present when the card is signed. */
+  signatures?: AgentCardSignature[];
 }
 
 /** Credential-free `A2AAgentCreate` fields derived from a card. */
-export interface SuggestedAgent {
-  name?: string;
-  description?: string;
-  endpoint_url?: string;
-  protocol_version?: string;
-  version?: string;
-  capabilities?: Record<string, unknown>;
-  auth_type?: string | null;
-  auth_query_param_key?: string;
-  auth_header_key?: string;
-  oauth_config?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+export type SuggestedAgent = Partial<A2AAgentCreate>;
 
 export interface FetchCardResult {
   found: boolean;
@@ -75,7 +96,6 @@ export interface FetchCardResult {
   /** Card format version detected: "1.0" or "0.3". */
   detectedVersion?: string | null;
   card?: AgentCard | null;
-  rawCard?: Record<string, unknown> | null;
   suggestedAgent?: SuggestedAgent | null;
   /** Card content ContextForge could not map. */
   warnings?: string[];

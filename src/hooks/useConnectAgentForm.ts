@@ -6,7 +6,6 @@ import { ApiError } from "@/api/client";
 import {
   credentialFields,
   hasRequiredCredentials,
-  parseList,
   type AgentAuthType,
   type AgentAuthValues,
   type ProtocolVersion,
@@ -16,7 +15,7 @@ import { resolveTeamId, useTeams } from "@/hooks/useTeams";
 import { extractApiErrorDetail } from "@/utils/errors";
 import type { A2AAgentCreate, A2AAgentRead, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
 import type { Visibility } from "@/types/server";
-import type { FetchCardResult, SuggestedAgent } from "@/types/agentCard";
+import type { FetchCardOutcome, FetchCardResult, SuggestedAgent } from "@/types/agentCard";
 
 export type ConnectAgentStep = "url" | "review" | "auth";
 
@@ -31,6 +30,9 @@ export function isHttpUrl(value: string): boolean {
     return false;
   }
 }
+
+/** Why no card was read: what the gateway reported, or `error` when the request itself failed. */
+export type CardIssue = Exclude<FetchCardOutcome, "found"> | "error";
 
 export interface ConnectAgentErrors {
   url?: string;
@@ -53,8 +55,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [step, setStep] = useState<ConnectAgentStep>("url");
   const [url, setUrlState] = useState("");
   const [isFetching, setIsFetching] = useState(false);
-  /** The card could not be read, for whatever reason: no card, credentials needed, unreachable or an error. */
-  const [cardUnavailable, setCardUnavailable] = useState(false);
+  /** Why the card could not be read, if it could not. */
+  const [cardIssue, setCardIssue] = useState<CardIssue | null>(null);
   const [result, setResult] = useState<FetchCardResult | null>(null);
 
   // Credentials are shared by the card flow and the manual form; only one is ever in use.
@@ -78,8 +80,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [manualName, setManualName] = useState("");
   const [manualEndpoint, setManualEndpoint] = useState("");
   const [manualDescription, setManualDescription] = useState("");
-  /** Comma-separated, as typed. */
-  const [manualTags, setManualTags] = useState("");
+  const [manualTags, setManualTags] = useState<string[]>([]);
   const [protocolVersion, setProtocolVersion] = useState<ProtocolVersion>("1.0");
   const [manualAuthType, setManualAuthTypeState] = useState<AgentAuthType>("none");
 
@@ -123,13 +124,23 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   }, []);
 
+  const manualUntouched =
+    !manualName &&
+    !manualEndpoint &&
+    !manualDescription &&
+    manualTags.length === 0 &&
+    manualAuthType === "none";
+
   const setUrl = useCallback(
     (value: string) => {
       setUrlState(value);
-      setCardUnavailable(false);
+      // A different URL deserves a fresh card read. If the manual form was only
+      // opened because the last read failed, put it away so Connect reads again.
+      if (cardIssue && manualUntouched) setManualOpen(false);
+      setCardIssue(null);
       clearError("url");
     },
-    [clearError],
+    [cardIssue, manualUntouched, clearError],
   );
 
   const setVisibility = useCallback(
@@ -173,9 +184,13 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     );
     setQueryParamName(next.auth_query_param_key ?? "");
     setQueryParamValue("");
+    setOauthTokenUrl("");
+    setOauthClientId("");
+    setOauthClientSecret("");
+    setOauthScopes("");
   }, []);
 
-  /** Step 1: read the card. Only a found card advances; anything else opens manual entry. */
+  /** Step 1: read the card. Only a found card advances; anything else opens manual entry, saying why. */
   const submitUrl = useCallback(async () => {
     const trimmed = url.trim();
     if (!isHttpUrl(trimmed)) {
@@ -187,7 +202,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     }
 
     setIsFetching(true);
-    setCardUnavailable(false);
+    setCardIssue(null);
     try {
       const fetched = await agentsApi.fetchCard(trimmed);
       if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
@@ -195,11 +210,12 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
         resetAuthValues(fetched.suggestedAgent);
         setStep("review");
       } else {
-        setCardUnavailable(true);
+        // A "found" outcome without a usable card is as good as no card.
+        setCardIssue(fetched.outcome === "found" ? "no_card" : fetched.outcome);
         setManualOpen(true);
       }
     } catch {
-      setCardUnavailable(true);
+      setCardIssue("error");
       setManualOpen(true);
     } finally {
       setIsFetching(false);
@@ -265,7 +281,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
 
     // Everything the card yielded, plus only what a card cannot contain.
     const agent: A2AAgentCreate = {
-      ...(suggested as unknown as A2AAgentCreate),
+      ...suggested,
       name: suggested.name,
       endpoint_url: suggested.endpoint_url,
       ...(tags.length > 0 ? { tags } : {}),
@@ -302,14 +318,13 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     if (Object.values(next).some(Boolean)) return;
 
     const description = manualDescription.trim();
-    const manualTagList = [...new Set(parseList(manualTags))];
     const agent: A2AAgentCreate = {
       name,
       endpoint_url: endpoint,
       protocol_version: protocolVersion,
       // TODO(IBM/mcp-context-forge#7383): also send the protocol binding once the API stores one.
       ...(description ? { description } : {}),
-      ...(manualTagList.length > 0 ? { tags: manualTagList } : {}),
+      ...(manualTags.length > 0 ? { tags: manualTags } : {}),
       ...credentialFields(manualAuthType, authValues),
     };
     await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
@@ -333,7 +348,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     url,
     setUrl,
     isFetching,
-    cardUnavailable,
+    cardIssue,
     result,
     submitUrl,
     goToAuth,
