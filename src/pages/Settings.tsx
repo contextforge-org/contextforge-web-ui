@@ -5,6 +5,7 @@ import { Redirect, useRouter } from "@/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SettingsTabsProvider } from "@/components/settings/settings-toolbar";
 import { SsoSettings } from "@/components/settings/SsoSettings";
+import { ConfigurationSettings } from "@/components/settings/ConfigurationSettings";
 import { Tokens } from "@/pages/Tokens";
 import { Users } from "@/pages/Users";
 import { Teams } from "@/pages/Teams";
@@ -32,7 +33,12 @@ export function Settings({ tab }: SettingsProps) {
   const tabsContext = useMemo(() => ({ toolbar: toolbarEl, setTabsHidden }), [toolbarEl]);
 
   const availableTabs = useMemo(
-    () => ["tokens", ...(isAdmin ? ["users", "teams"] : []), ...(showSsoTab ? ["sso"] : [])],
+    () => [
+      "tokens",
+      ...(isAdmin ? ["users", "teams"] : []),
+      ...(showSsoTab ? ["sso"] : []),
+      ...(isAdmin ? ["configuration"] : []),
+    ],
     [isAdmin, showSsoTab],
   );
 
@@ -67,6 +73,11 @@ export function Settings({ tab }: SettingsProps) {
                   {intl.formatMessage({ id: "settings.tabs.sso" })}
                 </TabsTrigger>
               )}
+              {isAdmin && (
+                <TabsTrigger variant="line" value="configuration">
+                  {intl.formatMessage({ id: "settings.tabs.configuration" })}
+                </TabsTrigger>
+              )}
             </TabsList>
             {/* min-h-10 reserves the toolbar's populated height so the tab row
                 keeps a constant height whether or not the active tab has filled
@@ -91,6 +102,11 @@ export function Settings({ tab }: SettingsProps) {
           {showSsoTab && (
             <TabsContent value="sso">
               <SsoSettings />
+            </TabsContent>
+          )}
+          {isAdmin && (
+            <TabsContent value="configuration">
+              <ConfigurationSettings />
             </TabsContent>
           )}
         </SettingsTabsProvider>

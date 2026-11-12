@@ -69,14 +69,11 @@
   "common.team.label": "Equipo",
   "common.team.placeholder": "Seleccione un equipo",
   "importExport.export.failed": "Error al exportar",
-  "importExport.import.success": "Importación completada: {created} creados, {updated} actualizados, {skipped} omitidos, {failed} con error",
   "importExport.import.failed": "Error al importar",
   "importExport.import.invalidJson": "El archivo seleccionado no es un JSON válido",
   "importExport.import.invalidShape": "El archivo seleccionado no es una exportación de ContextForge",
   "importExport.import.tooLarge": "El archivo es demasiado grande para importarlo",
   "importExport.import.conflict": "Importación detenida: algunos elementos ya existen",
   "importExport.import.validationFailed": "El archivo no superó la validación de importación",
-  "importExport.import.forbidden": "No tiene permiso para importar esta configuración",
-  "importExport.import.partial": "Importación aplicada parcialmente: {created} creados, {updated} actualizados, {skipped} omitidos, {failed} con error",
-  "importExport.import.allFailed": "Error al importar: no se pudo aplicar ninguno de los {failed} elementos"
+  "importExport.import.forbidden": "No tiene permiso para importar esta configuración"
 }
