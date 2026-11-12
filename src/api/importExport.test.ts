@@ -159,6 +159,11 @@ describe("parseImportFile", () => {
     await expect(parseImportFile(fileOf(JSON.stringify(empty)))).resolves.toEqual(empty);
   });
 
+  it("passes unknown entity types through for the backend to judge", async () => {
+    const withAgents = { ...EXPORT, entities: { a2a_agents: [{ name: "a" }] } };
+    await expect(parseImportFile(fileOf(JSON.stringify(withAgents)))).resolves.toEqual(withAgents);
+  });
+
   const envelope = { version: "2025-06-18", exported_at: "2026-11-02T10:00:00Z" };
 
   it.each([
@@ -173,11 +178,6 @@ describe("parseImportFile", () => {
     ["missing exported_at", JSON.stringify({ version: "x", entities: {} }), "missing exported_at"],
     ["missing entities", JSON.stringify(envelope), "entities must be an object"],
     ["array entities", JSON.stringify({ ...envelope, entities: [] }), "entities must be an object"],
-    [
-      "an unknown entity type",
-      JSON.stringify({ ...envelope, entities: { widgets: [] } }),
-      'unknown entity type "widgets"',
-    ],
     [
       "a null entity list",
       JSON.stringify({ ...envelope, entities: { tools: null } }),

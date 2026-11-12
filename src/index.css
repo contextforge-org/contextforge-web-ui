@@ -74,6 +74,7 @@
   --color-agent-icon-bg: var(--agent-icon-bg);
   --color-team-icon-bg: var(--team-icon-bg);
   --color-config-icon-bg: var(--config-icon-bg);
+  --color-config-export-icon-bg: var(--config-export-icon-bg);
   --color-catalog-icon-tile: var(--catalog-icon-tile);
   --color-catalog-icon-backing: var(--catalog-icon-backing);
   --color-tool-status-active: var(--tool-status-active);
@@ -167,6 +168,7 @@
   --team-icon-bg: #70f9ff;
   /* Chip background with black glyph; no .dark override. */
   --config-icon-bg: #ffa4ff;
+  --config-export-icon-bg: #baffd0;
   --catalog-icon-tile: oklch(1 0 0);
   --catalog-icon-backing: var(--color-white);
   /* emerald-400 falls under 3:1 on white; .dark restores it */
