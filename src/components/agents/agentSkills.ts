@@ -15,11 +15,12 @@ export interface AgentSkillSource {
  * The API exposes them as a top-level `skills` list (IBM/mcp-context-forge#7433)
  * and, for agents stored before that field existed, inside
  * `capabilities.skills`, which the generated type leaves untyped. The top-level
- * list wins when both are present. Anything unreadable, and blank names, are dropped.
+ * list wins when it has entries; an empty one falls back to the nested list.
+ * Anything unreadable, and blank names, are dropped.
  */
 export function getAgentSkillNames(agent: AgentSkillSource): string[] {
   const nested = agent.capabilities?.skills;
-  const source = Array.isArray(agent.skills) ? agent.skills : nested;
+  const source = agent.skills?.length ? agent.skills : nested;
   if (!Array.isArray(source)) return [];
 
   return source

@@ -439,6 +439,21 @@ describe("ConnectAgentForm", () => {
       expect(onCreated).not.toHaveBeenCalled();
       expect(screen.getByRole("button", { name: "Connect" })).toBeEnabled();
     });
+
+    it("drops the registration error when going back", async () => {
+      mockFetchCard(foundResult({ auth_type: null }));
+      mockCreate(() => HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }));
+      const user = setup();
+
+      await toAuthStep(user);
+      await user.click(await screen.findByRole("button", { name: "Connect" }));
+      await screen.findByText("Agent name already exists");
+      await user.click(screen.getByRole("button", { name: "Back" }));
+      await user.click(screen.getByRole("button", { name: "Back" }));
+
+      expect(await screen.findByPlaceholderText(URL_PLACEHOLDER)).toBeVisible();
+      expect(screen.queryByText("Agent name already exists")).not.toBeInTheDocument();
+    });
   });
   describe("manual entry", () => {
     async function openManual(user: ReturnType<typeof userEvent.setup>) {
@@ -742,6 +757,28 @@ describe("ConnectAgentForm", () => {
       expect(await screen.findByText("Agent name already exists")).toBeInTheDocument();
       expect(onCreated).not.toHaveBeenCalled();
       expect(screen.getByRole("button", { name: "Connect" })).toBeEnabled();
+    });
+
+    it("keeps showing the server's reason after manual entry is closed", async () => {
+      mockCreate(() => HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }));
+      const user = setup();
+
+      await openManual(user);
+      await fillRequired(user);
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+      await screen.findByText("Agent name already exists");
+      await user.click(screen.getByRole("button", { name: "Enter manually" }));
+
+      expect(screen.getByText("Agent name already exists")).toBeInTheDocument();
+    });
+
+    it("does not mark the URL as required while manual entry is open", async () => {
+      const user = setup();
+      const urlLabel = () => screen.getByText("URL", { selector: "label" });
+
+      expect(urlLabel()).toHaveTextContent("*");
+      await openManual(user);
+      expect(urlLabel()).not.toHaveTextContent("*");
     });
 
     it("can be used after the card could not be read", async () => {

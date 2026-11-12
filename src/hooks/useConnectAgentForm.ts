@@ -226,6 +226,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
 
   /** One step back. From the first step the caller leaves the form instead. */
   const goBack = useCallback((): boolean => {
+    // Errors belong to the step they came from; don't carry them to the one before.
+    setErrors({});
     if (step === "auth") {
       setStep("review");
       return true;

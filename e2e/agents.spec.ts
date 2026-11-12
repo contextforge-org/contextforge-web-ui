@@ -493,6 +493,10 @@ test.describe("Agents page", () => {
 
       await expect(page.getByText("Agent name already exists")).toBeVisible();
       await expect(page.getByPlaceholder("Add an agent name")).toHaveValue("Echo agent");
+
+      // Closing manual entry does not hide why registration failed.
+      await page.getByRole("button", { name: "Enter manually" }).click();
+      await expect(page.getByText("Agent name already exists")).toBeVisible();
     });
   });
 

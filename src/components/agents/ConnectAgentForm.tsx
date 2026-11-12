@@ -144,7 +144,8 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
 
               <Field
                 id="agent-url"
-                required
+                // Entering the details by hand does not read the URL, so it is optional then.
+                required={!form.manualOpen}
                 info={intl.formatMessage({ id: "agents.connect.url.info" })}
                 error={form.errors.url}
                 label={intl.formatMessage({ id: "agents.connect.url.label" })}
@@ -178,7 +179,7 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                 <ManualAgentFields form={form} />
               </ExpandableSection>
 
-              {form.manualOpen && form.errors.submit && (
+              {form.errors.submit && (
                 <div
                   role="alert"
                   aria-live="assertive"

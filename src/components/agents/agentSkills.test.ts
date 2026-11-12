@@ -29,6 +29,12 @@ describe("getAgentSkillNames", () => {
     ).toEqual(["New"]);
   });
 
+  it("falls back to capabilities.skills when the top-level list is empty", () => {
+    expect(
+      getAgentSkillNames({ skills: [], capabilities: { skills: [{ name: "Echo" }] } }),
+    ).toEqual(["Echo"]);
+  });
+
   it("uses the id when a skill has no name, and accepts plain strings", () => {
     expect(getAgentSkillNames({ skills: [{ id: "echo" }, "Route"] })).toEqual(["echo", "Route"]);
   });
