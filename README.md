@@ -29,7 +29,7 @@ This UI targets **ContextForge API v1.1.0**, matching [`openapi.json`](./openapi
 
 ## Getting Started
 
-> Running this in Docker instead? See [DOCKER.md](./DOCKER.md).
+> Running this in Docker instead? See [DOCKER.md](./docs/DOCKER.md).
 
 ### Prerequisites
 
