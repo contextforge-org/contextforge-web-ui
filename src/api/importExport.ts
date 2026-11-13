@@ -15,7 +15,8 @@ import type {
   ExportConfigurationV1ExportGetParams,
 } from "@/generated/types";
 
-const EXPORT_ENTITY_TYPES = [
+// Mirrors valid_entity_types in the backend's import_service; the OpenAPI spec types `types` as a plain string.
+export const EXPORT_ENTITY_TYPES = [
   "tools",
   "gateways",
   "servers",
@@ -23,7 +24,6 @@ const EXPORT_ENTITY_TYPES = [
   "resources",
   "roots",
 ] as const;
-
 export type ExportEntityType = (typeof EXPORT_ENTITY_TYPES)[number];
 
 /** Entity type -> IDs/names, used by selective export and selective import. */
@@ -118,9 +118,8 @@ function exportShapeError(value: unknown): string | null {
   if (typeof value.exported_at !== "string") return "missing exported_at";
   if (!isPlainObject(value.entities)) return "entities must be an object";
   for (const [type, list] of Object.entries(value.entities)) {
-    if (!(EXPORT_ENTITY_TYPES as readonly string[]).includes(type)) {
+    if (!(EXPORT_ENTITY_TYPES as readonly string[]).includes(type))
       return `unknown entity type "${type}"`;
-    }
     if (!Array.isArray(list) || !list.every(isPlainObject)) {
       return `"${type}" must be a list of objects`;
     }

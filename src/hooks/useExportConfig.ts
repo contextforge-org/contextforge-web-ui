@@ -12,9 +12,10 @@ import { downloadJson } from "@/lib/download";
 import { parseApiError } from "@/lib/errorUtils";
 
 /**
- * Requests + state only. Actions resolve true once the file is downloaded,
- * false on failure (`error` set) or abort; feedback (toasts etc.) is the
- * caller's job.
+ * Requests + state only. `exportAll`/`exportSelected` resolve true once the
+ * file is downloaded and `previewAll` resolves the data; both resolve
+ * false/null on failure (`error` set) or abort. Feedback (toasts etc.) is
+ * the caller's job.
  */
 export interface ExportConfigState {
   /** Full export, optionally filtered; downloads the result as JSON. */
@@ -24,6 +25,10 @@ export interface ExportConfigState {
     selection: EntitySelection,
     opts?: { includeDependencies?: boolean },
   ) => Promise<boolean>;
+  /** Fetches a full export without downloading it, so the caller can confirm first. */
+  previewAll: (filters?: ExportFilters) => Promise<ConfigExport | null>;
+  /** Downloads already-fetched export data as JSON. */
+  download: (data: ConfigExport) => void;
   isExporting: boolean;
   error: string | null;
   canExport: boolean;
@@ -43,7 +48,9 @@ export function useExportConfig(): ExportConfigState {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const run = useCallback(
-    async (fetchExport: (signal: AbortSignal) => Promise<ConfigExport>): Promise<boolean> => {
+    async (
+      fetchExport: (signal: AbortSignal) => Promise<ConfigExport>,
+    ): Promise<ConfigExport | null> => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -51,14 +58,12 @@ export function useExportConfig(): ExportConfigState {
       setError(null);
       try {
         const data = await fetchExport(controller.signal);
-        if (controller.signal.aborted) return false;
-        downloadJson(data, exportFilename());
-        return true;
+        return controller.signal.aborted ? null : data;
       } catch (err) {
         if (!controller.signal.aborted) {
           setError(parseApiError(err, intl.formatMessage({ id: "importExport.export.failed" })));
         }
-        return false;
+        return null;
       } finally {
         // A superseding call owns the loading state from here on.
         if (abortRef.current === controller) {
@@ -70,20 +75,35 @@ export function useExportConfig(): ExportConfigState {
     [intl],
   );
 
-  const exportAll = useCallback(
+  const download = useCallback((data: ConfigExport) => downloadJson(data, exportFilename()), []);
+  const saved = useCallback(
+    (data: ConfigExport | null) => {
+      if (data) download(data);
+      return !!data;
+    },
+    [download],
+  );
+
+  const previewAll = useCallback(
     (filters?: ExportFilters) => run((signal) => importExportApi.exportConfig(filters, signal)),
     [run],
+  );
+  const exportAll = useCallback(
+    async (filters?: ExportFilters) => saved(await previewAll(filters)),
+    [previewAll, saved],
   );
 
   const exportSelected = useCallback(
     (selection: EntitySelection, opts?: { includeDependencies?: boolean }) =>
-      run((signal) => importExportApi.exportSelective(selection, { ...opts, signal })),
-    [run],
+      run((signal) => importExportApi.exportSelective(selection, { ...opts, signal })).then(saved),
+    [run, saved],
   );
 
   return {
     exportAll,
     exportSelected,
+    previewAll,
+    download,
     isExporting,
     error,
     canExport: hasPermission("admin.export"),

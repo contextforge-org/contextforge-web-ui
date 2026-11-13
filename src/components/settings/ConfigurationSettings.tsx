@@ -1,10 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState, type ComponentType } from "react";
 import { useIntl, type IntlShape } from "react-intl";
 import { toast } from "sonner";
-import { ArrowDownFromLine } from "lucide-react";
+import {
+  ArrowDownFromLine,
+  ArrowUpFromLine,
+  Box,
+  ChevronRight,
+  FolderRoot,
+  MessageSquareCode,
+  Server,
+  TriangleAlert,
+  Wrench,
+} from "lucide-react";
+import { MCPIcon } from "@/components/icons/MCPIcon";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ConfigExport, ExportEntityType } from "@/api/importExport";
 import { importOutcome, useImportConfig } from "@/hooks/useImportConfig";
+import { useExportConfig } from "@/hooks/useExportConfig";
+import { useAuth } from "@/auth/useAuth";
 
 const OUTCOME_TOAST = { success: toast.success, partial: toast.warning, failed: toast.error };
 const IMPORT_MESSAGE = {
@@ -13,18 +37,24 @@ const IMPORT_MESSAGE = {
   failed: "settings.configuration.import.allFailed",
 };
 
-const TYPE_ORDER: ExportEntityType[] = [
-  "gateways",
-  "servers",
-  "tools",
-  "prompts",
-  "resources",
-  "roots",
+// Same icons as the sidebar. No agents row: the backend can't export or import A2A agents.
+const EXPORT_ROWS: { type: ExportEntityType; icon: ComponentType<{ className?: string }> }[] = [
+  { type: "gateways", icon: MCPIcon },
+  { type: "servers", icon: Server },
+  { type: "tools", icon: Wrench },
+  { type: "resources", icon: Box },
+  { type: "prompts", icon: MessageSquareCode },
+  { type: "roots", icon: FolderRoot },
 ];
+const EXPORT_TYPES = EXPORT_ROWS.map((r) => r.type);
+// Roots export needs DB is_admin; anyone else gets a 403.
+const NON_ROOT_ROWS = EXPORT_ROWS.filter((r) => r.type !== "roots");
+const NON_ROOT_TYPES = NON_ROOT_ROWS.map((r) => r.type);
+const CHECKBOX_CLASS = "size-4 [&_svg]:size-3.5";
 
 // Per-type split of the file's contents; the backend reports only aggregate counts.
 function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
-  const items = TYPE_ORDER.filter((t) => data.entities[t]?.length).map((t) =>
+  const items = EXPORT_TYPES.filter((t) => data.entities[t]?.length).map((t) =>
     intl.formatMessage(
       { id: `settings.configuration.type.${t}` },
       { count: data.entities[t]!.length },
@@ -34,6 +64,200 @@ function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
 }
 
 export function ConfigurationSettings() {
+  return (
+    <div className="mt-6 flex flex-col gap-6">
+      <ExportSection />
+      <ImportSection />
+    </div>
+  );
+}
+
+function ExportSection() {
+  const intl = useIntl();
+  const uid = useId();
+  const title = intl.formatMessage({ id: "settings.configuration.export.title" });
+  const { previewAll, download, isExporting, error, canExport } = useExportConfig();
+  const rows = useAuth().user?.is_admin ? EXPORT_ROWS : NON_ROOT_ROWS;
+  // Types snapshotted with the data, so the dialog lists what was actually requested.
+  const [preview, setPreview] = useState<{ data: ConfigExport; types: ExportEntityType[] } | null>(
+    null,
+  );
+  // Kept apart from `preview` so counts don't blank out during the close animation.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [types, setTypes] = useState<ExportEntityType[]>(NON_ROOT_TYPES);
+  const [includeInactive, setIncludeInactive] = useState(false);
+  const allState = types.length === rows.length ? true : types.length ? "indeterminate" : false;
+
+  const toggle = (type: ExportEntityType, on: boolean) =>
+    setTypes((prev) =>
+      on
+        ? EXPORT_TYPES.filter((t) => t === type || prev.includes(t))
+        : prev.filter((t) => t !== type),
+    );
+
+  const submit = async () => {
+    // All picked = unfiltered export, so types added server-side later aren't dropped.
+    // Fetch first; the dialog shows what's in it and Download saves this same data.
+    const data = await previewAll({
+      types: types.length === EXPORT_TYPES.length ? undefined : types,
+      includeInactive,
+    });
+    if (!data) return;
+    if (!Object.values(data.entities).some((list) => list?.length)) {
+      toast.info(intl.formatMessage({ id: "settings.configuration.export.empty" }));
+      return;
+    }
+    setPreview({ data, types });
+    setConfirmOpen(true);
+  };
+
+  const confirmDownload = () => {
+    setConfirmOpen(false);
+    if (!preview) return;
+    try {
+      download(preview.data);
+    } catch {
+      toast.error(intl.formatMessage({ id: "importExport.export.failed" }));
+      return;
+    }
+    toast.success(intl.formatMessage({ id: "settings.configuration.export.success" }));
+  };
+
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
+  return (
+    <section className="flex flex-col items-start gap-2 rounded-lg border p-6">
+      <div className="flex w-full flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <span className="flex size-6 items-center justify-center rounded-sm bg-config-export-icon-bg text-black">
+            <ArrowUpFromLine className="size-4" aria-hidden />
+          </span>
+          {title}
+        </h2>
+        <label className="flex items-center gap-3 text-[13px] leading-4 text-muted-foreground">
+          <Switch checked={includeInactive} onCheckedChange={setIncludeInactive} />
+          {intl.formatMessage({ id: "settings.configuration.export.includeInactive" })}
+        </label>
+      </div>
+      <p className="py-4 text-[13px] leading-4">
+        {intl.formatMessage({ id: "settings.configuration.export.description" })}
+      </p>
+      <div className="w-full pb-4">
+        <details className="group rounded-md border">
+          <summary className="flex h-10 cursor-pointer list-none items-center gap-2 px-3 text-[13px] leading-4 font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight
+              className="size-3.5 transition-transform group-open:rotate-90"
+              aria-hidden
+            />
+            {intl.formatMessage({ id: "settings.configuration.export.include" })}
+          </summary>
+          <div className="grid grid-cols-[1rem_9rem_minmax(0,1fr)] items-center gap-x-6 px-3 pb-2 text-[13px] leading-4 font-medium">
+            <label className="col-span-full grid h-8 grid-cols-subgrid items-center">
+              <Checkbox
+                className={CHECKBOX_CLASS}
+                checked={allState}
+                onCheckedChange={() => setTypes(allState === true ? [] : rows.map((r) => r.type))}
+              />
+              <span className="col-span-2">
+                {intl.formatMessage({ id: "settings.configuration.export.all" })}
+              </span>
+            </label>
+            {rows.map(({ type, icon: Icon }) => {
+              const desc = intl.formatMessage({ id: `settings.configuration.export.desc.${type}` });
+              return (
+                <label key={type} className="col-span-full grid h-8 grid-cols-subgrid items-center">
+                  <Checkbox
+                    className={CHECKBOX_CLASS}
+                    checked={types.includes(type)}
+                    onCheckedChange={(on) => toggle(type, on === true)}
+                    aria-labelledby={`${uid}-${type}-label`}
+                    aria-describedby={`${uid}-${type}-desc`}
+                  />
+                  <span
+                    id={`${uid}-${type}-label`}
+                    className="flex w-fit items-center gap-1.5 rounded-sm bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
+                  >
+                    <Icon className="size-3.5" aria-hidden />
+                    {intl.formatMessage({ id: `settings.configuration.export.label.${type}` })}
+                  </span>
+                  <span
+                    id={`${uid}-${type}-desc`}
+                    className="truncate text-muted-foreground"
+                    title={desc}
+                  >
+                    {desc}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </details>
+      </div>
+      <Button
+        size="sm"
+        disabled={!canExport || isExporting || !types.length}
+        aria-busy={isExporting}
+        onClick={submit}
+      >
+        {isExporting
+          ? intl.formatMessage({ id: "settings.configuration.export.exporting" })
+          : title}
+      </Button>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        {/* Fires after the close animation; frees the export data. */}
+        <DialogContent className="gap-4 rounded-xl p-6" onCloseAutoFocus={() => setPreview(null)}>
+          <DialogHeader className="space-y-4">
+            <DialogTitle className="flex items-center gap-2 text-sm font-medium leading-5 tracking-normal">
+              <span className="flex size-6 items-center justify-center rounded-sm bg-config-export-icon-bg text-black">
+                <ArrowUpFromLine className="size-4" aria-hidden />
+              </span>
+              {intl.formatMessage({ id: "settings.configuration.export.confirm.title" })}
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-4">
+              {intl.formatMessage({ id: "settings.configuration.export.confirm.description" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
+          >
+            <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+            <span>
+              {intl.formatMessage({
+                id: "settings.configuration.export.confirm.credentialsWarning",
+              })}
+            </span>
+          </div>
+          <dl className="grid grid-cols-[100px_1fr] items-center gap-x-2 gap-y-2 py-2 leading-4">
+            {EXPORT_ROWS.filter(({ type }) => preview?.types.includes(type)).map(({ type }) => (
+              <div key={type} className="contents">
+                <dt className="text-xs">
+                  {intl.formatMessage({ id: `settings.configuration.export.label.${type}` })}
+                </dt>
+                <dd className="text-[13px] text-secondary-foreground">
+                  {preview?.data.entities[type]?.length ?? 0}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <Separator />
+          <DialogFooter className="gap-4 py-1 sm:space-x-0">
+            <Button size="sm" variant="outline" onClick={() => setConfirmOpen(false)}>
+              {intl.formatMessage({ id: "common.button.cancel" })}
+            </Button>
+            <Button size="sm" onClick={confirmDownload}>
+              {intl.formatMessage({ id: "settings.configuration.export.confirm.download" })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function ImportSection() {
   const intl = useIntl();
   const title = intl.formatMessage({ id: "settings.configuration.import.title" });
   const { loadFile, runImport, dryRun, reset, isLoading, error, canImport } = useImportConfig();
@@ -71,7 +295,7 @@ export function ConfigurationSettings() {
   }, [error]);
 
   return (
-    <section className="flex flex-col items-start gap-2 rounded-lg border p-6 mt-6">
+    <section className="flex flex-col items-start gap-2 rounded-lg border p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold">
         <span className="flex size-6 items-center justify-center rounded-sm bg-config-icon-bg text-black">
           <ArrowDownFromLine className="size-4" aria-hidden />
