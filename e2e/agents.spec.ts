@@ -507,7 +507,7 @@ test.describe("Agents page", () => {
       await page.goto(APP.AGENTS);
 
       await expect(page.getByText("Agent alpha")).toBeVisible();
-      await expect(page.getByText("Description for alpha")).toBeVisible();
+      await expect(page.getByText("Description for alpha")).toHaveCount(0);
       await expect(page.getByRole("img", { name: "Active", exact: true })).toHaveCount(1);
       await expect(page.getByRole("img", { name: "Inactive", exact: true })).toHaveCount(1);
     });
@@ -714,14 +714,209 @@ test.describe("Agents page", () => {
       await expect(page.getByRole("menuitem", { name: "Disable" })).toBeHidden();
     });
 
-    test("shows no actions menu without update or delete permission", async ({ page, apiMock }) => {
+    test("offers only View details without update or delete permission", async ({
+      page,
+      apiMock,
+    }) => {
       await apiMock.mockPermissions({ permissions: ["a2a.read"] });
       await mockAgentList(page, [ALPHA]);
 
       await page.goto(APP.AGENTS);
+      await openActions(page, "Agent alpha");
 
-      await expect(page.getByText("Agent alpha")).toBeVisible();
-      await expect(page.getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
+      await expect(page.getByRole("menuitem", { name: "View details" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "Disable" })).toBeHidden();
+      await expect(page.getByRole("menuitem", { name: "Delete" })).toBeHidden();
+    });
+  });
+
+  test.describe("details panel", () => {
+    const DETAILED = makeAgent("alpha", {
+      name: "objekts router",
+      description: "Routes visual production briefs.",
+      endpointUrl: "https://objekts.example.com/a2a/v1",
+      authType: "bearer",
+      authToken: "super-secret-token", // pragma: allowlist secret
+      tags: [{ label: "development" }],
+      team: "Platform",
+      teamId: "team-1",
+      ownerEmail: "admin@example.com",
+      visibility: "public",
+    });
+    const REGISTERED_CARD = {
+      name: "objekts router",
+      defaultInputModes: ["text", "application/pdf"],
+      defaultOutputModes: ["text", "application/json"],
+      capabilities: { streaming: true },
+      skills: [{ name: "Vendor-fit routing" }],
+    };
+    const BINDINGS = {
+      total: 1,
+      bindings: [
+        {
+          id: "b1",
+          teamId: "team-1",
+          agentName: "objekts router",
+          pluginId: "pii-filter",
+          mode: "enforce",
+          priority: 10,
+          config: {},
+          createdAt: "2026-11-04T14:32:08Z",
+          createdBy: "a@example.com",
+          updatedAt: "2026-11-04T14:32:08Z",
+          updatedBy: "a@example.com",
+        },
+      ],
+    };
+
+    /** Stubs what the panel reads: the agent, its card and its team's plugin bindings. */
+    async function mockDetails(page: Page, agent: Agent = DETAILED) {
+      await mockAgentList(page, [agent]);
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/alpha"),
+        (route) => (route.request().method() === "GET" ? json(route, agent) : route.fallback()),
+      );
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/alpha/card"),
+        (route) => json(route, REGISTERED_CARD),
+      );
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a-agents/plugin-bindings/team-1"),
+        (route) => json(route, BINDINGS),
+      );
+    }
+
+    async function openDetails(page: Page) {
+      await page.goto(APP.AGENTS);
+      await openActions(page, "objekts router");
+      await page.getByRole("menuitem", { name: "View details" }).click();
+      return page.getByRole("region", { name: "objekts router" });
+    }
+
+    test("opens from the card menu and shows the configuration", async ({ page }) => {
+      await mockDetails(page);
+
+      const panel = await openDetails(page);
+
+      await expect(panel.getByText("Routes visual production briefs.")).toBeVisible();
+      await expect(panel.getByText("Platform")).toBeVisible();
+      await expect(panel.getByText("admin@example.com")).toBeVisible();
+      await expect(panel.getByText("A2A v1.0")).toBeVisible();
+      await expect(panel.getByText("generic")).toBeVisible();
+      await expect(panel.getByText("Vendor-fit routing")).toBeVisible();
+      await expect(panel.getByText("text, application/pdf")).toBeVisible();
+      await expect(panel.getByText("Bearer token in Authorization header")).toBeVisible();
+    });
+
+    test("never shows a credential value", async ({ page }) => {
+      await mockDetails(page);
+
+      const panel = await openDetails(page);
+      await expect(panel.getByText("Vendor-fit routing")).toBeVisible();
+
+      await expect(page.locator("body")).not.toContainText("super-secret-token");
+    });
+
+    test("does nothing when the card is clicked, and closes with Escape once opened", async ({
+      page,
+    }) => {
+      await mockDetails(page);
+      await page.goto(APP.AGENTS);
+
+      await page.getByText("objekts router").click();
+      await expect(page.getByText("Agent details")).toHaveCount(0);
+
+      await openActions(page, "objekts router");
+      await page.getByRole("menuitem", { name: "View details" }).click();
+      const panel = page.getByRole("region", { name: "objekts router" });
+      await expect(panel.getByText("Agent details")).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await expect(panel).toBeHidden();
+    });
+
+    test("updates the status after disabling the agent", async ({ page }) => {
+      await mockDetails(page);
+      await mockAgentMutation(page, "alpha", "state", "POST", (route) =>
+        json(route, { ...DETAILED, enabled: false }),
+      );
+
+      const panel = await openDetails(page);
+      await expect(panel.getByText("Enabled", { exact: true })).toBeVisible();
+
+      await panel.getByRole("button", { name: "Actions for objekts router" }).click();
+      await page.getByRole("menuitem", { name: "Disable" }).click();
+
+      await expect(panel.getByText("Disabled", { exact: true })).toBeVisible();
+    });
+
+    test("adds a tag and sends the full tag list", async ({ page }) => {
+      await mockDetails(page);
+      let body: unknown;
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/alpha"),
+        async (route) => {
+          if (route.request().method() !== "PUT") return route.fallback();
+          body = route.request().postDataJSON();
+          return json(route, {
+            ...DETAILED,
+            tags: [{ label: "development" }, { label: "alerts" }],
+          });
+        },
+      );
+
+      const panel = await openDetails(page);
+      await panel.getByRole("button", { name: "Add tags" }).click();
+      await panel.getByRole("textbox", { name: "Add tags" }).fill("alerts");
+      await panel.getByRole("button", { name: "Add", exact: true }).click();
+
+      await expect(panel.getByText("alerts")).toBeVisible();
+      expect(body).toEqual({ tags: ["development", "alerts"] });
+    });
+
+    test("shows the plugins bound to the agent and removes one", async ({ page }) => {
+      await mockDetails(page);
+      let deleted = false;
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a-agents/plugin-bindings/b1"),
+        (route) => {
+          deleted = route.request().method() === "DELETE";
+          return json(route, { id: "b1" });
+        },
+      );
+
+      const panel = await openDetails(page);
+      await expect(panel.getByText("pii-filter")).toBeVisible();
+      await panel.getByRole("button", { name: "Remove pii-filter" }).click();
+
+      await expect(panel.getByText("pii-filter")).toBeHidden();
+      expect(deleted).toBe(true);
+    });
+
+    test("hides the lifecycle actions and the add-tag option without a2a.update", async ({
+      page,
+      apiMock,
+    }) => {
+      await apiMock.mockPermissions({ permissions: ["a2a.read"] });
+      await mockDetails(page);
+
+      const panel = await openDetails(page);
+
+      await expect(panel.getByText("Agent details")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Actions for objekts router" })).toHaveCount(
+        0,
+      );
+      await expect(panel.getByRole("button", { name: "Add tags" })).toBeDisabled();
+    });
+
+    test("hides plugin removal without tools.manage_plugins", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["a2a.read", "tools.read"] });
+      await mockDetails(page);
+
+      const panel = await openDetails(page);
+
+      await expect(panel.getByText("pii-filter")).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Remove pii-filter" })).toHaveCount(0);
     });
   });
 });

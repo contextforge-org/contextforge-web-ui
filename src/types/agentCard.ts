@@ -100,3 +100,18 @@ export interface FetchCardResult {
   /** Card content ContextForge could not map. */
   warnings?: string[];
 }
+
+/**
+ * `GET /v1/a2a/{id}/card`: the card the gateway builds for a registered agent.
+ * It is generated from what the gateway stores, so unlike `AgentCard` it carries
+ * no security schemes; the agent's `authType` says how it is called.
+ */
+export interface RegisteredAgentCard {
+  name: string;
+  description?: string;
+  version?: string;
+  defaultInputModes?: string[];
+  defaultOutputModes?: string[];
+  capabilities?: Record<string, unknown>;
+  skills?: AgentCardSkill[];
+}
