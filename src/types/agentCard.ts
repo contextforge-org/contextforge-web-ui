@@ -79,7 +79,7 @@ export interface AgentCard {
   /** Media types the agent accepts and returns unless a skill says otherwise. */
   defaultInputModes?: string[];
   defaultOutputModes?: string[];
-  /** Present when the card is signed. */
+  /** Present when the card is signed. The gateway does not verify the signature. */
   signatures?: AgentCardSignature[];
 }
 

@@ -399,7 +399,7 @@ describe("Agents", () => {
         "https://agent.example.com",
       );
       await user.click(screen.getByRole("button", { name: "Continue" }));
-      await user.click(await screen.findByRole("button", { name: "Continue" }));
+      // The card needs no credentials, so the review page registers it.
       await user.click(await screen.findByRole("button", { name: "Connect" }));
 
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Connected Visual Router"));
