@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
+import { ConnectAgentForm } from "@/components/agents/ConnectAgentForm";
+import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/agentSkills";
 
 // Only the fields the card actually renders — `Agent` also carries credential
 // fields (authToken, authPassword, ...) that must never reach the UI. Typing
@@ -29,8 +31,9 @@ import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 // stray `{agent.authToken}` into a type error instead of a silent leak.
 type AgentCardFields = Pick<
   Agent,
-  "id" | "name" | "description" | "enabled" | "reachable" | "tags"
->;
+  "id" | "name" | "description" | "enabled" | "reachable" | "capabilities" | "tags"
+> &
+  Pick<AgentSkillSource, "skills">;
 
 interface AgentCardProps {
   agent: AgentCardFields;
@@ -41,11 +44,13 @@ interface AgentCardProps {
 
 function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
   const intl = useIntl();
-  const MAX_VISIBLE_TAGS = 8;
+  const MAX_VISIBLE_CHIPS = 8;
   const isActive = agent.enabled && agent.reachable;
-  const tags = getTagLabels(agent.tags ?? []);
-  const visibleTags = tags.slice(0, MAX_VISIBLE_TAGS);
-  const remainingCount = tags.length - MAX_VISIBLE_TAGS;
+  const skills = getAgentSkillNames(agent);
+  // Skills say what an agent does; tags only stand in for them when it lists none.
+  const chips = skills.length > 0 ? skills : getTagLabels(agent.tags ?? []);
+  const visibleChips = chips.slice(0, MAX_VISIBLE_CHIPS);
+  const remainingCount = chips.length - MAX_VISIBLE_CHIPS;
 
   return (
     <Card size="sm">
@@ -69,6 +74,11 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
               })}
               className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${isActive ? "bg-tool-status-active" : "bg-tool-status-inactive"}`}
             />
+            {skills.length > 0 && (
+              <span className="flex-shrink-0 text-sm font-semibold text-muted-foreground">
+                {intl.formatMessage({ id: "agents.card.skills.count" }, { count: skills.length })}
+              </span>
+            )}
           </div>
 
           {agent.id && (onToggle || onDelete) && (
@@ -116,12 +126,11 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
             {agent.description}
           </Typography>
         )}
-        {tags.length > 0 && (
+        {chips.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {visibleTags.map((tag, index) => (
-              // Index in the key too: labels aren't guaranteed unique, and the
-              // label alone would collide for a repeated tag on one agent.
-              <CardTag key={`${tag}-${index}`}>{tag}</CardTag>
+            {visibleChips.map((chip, index) => (
+              // Index in the key too: names aren't guaranteed unique on one agent.
+              <CardTag key={`${chip}-${index}`}>{chip}</CardTag>
             ))}
             {remainingCount > 0 && <CardTag>+{remainingCount}</CardTag>}
           </div>
@@ -131,12 +140,23 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
   );
 }
 
-// Styled like the Tools page's "Add tools" card. The connect form isn't built
-// yet, so the card is shown but not actionable.
-function ConnectAgentCard() {
+// Styled like the Tools page's "Add tools" card.
+function ConnectAgentCard({ onConnect }: { onConnect: () => void }) {
   const intl = useIntl();
   return (
-    <Card size="sm">
+    <Card
+      size="sm"
+      role="button"
+      tabIndex={0}
+      className="cursor-pointer transition-opacity hover:opacity-90"
+      onClick={onConnect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onConnect();
+        }
+      }}
+    >
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded bg-tool-add-icon-bg shadow-sm">
@@ -165,11 +185,13 @@ export function Agents() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const {
     data: agentsData,
     error,
     isLoading,
     setData: setAgentsData,
+    refetch,
   } = useQuery<A2AAgentRead[]>("/v1/a2a?limit=0&include_inactive=true");
 
   const agents = useMemo(
@@ -249,6 +271,25 @@ export function Agents() {
     }
   }, [deleteTarget, setAgentsData, intl]);
 
+  const handleConnected = useCallback(
+    (created: A2AAgentRead) => {
+      setIsConnecting(false);
+      toast.success(intl.formatMessage({ id: "agents.connect.success" }, { name: created?.name }));
+      // The list is the source of truth for what the gateway now holds; a failed
+      // refresh must not undo a registration that already succeeded.
+      refetch().catch(() => {});
+    },
+    [intl, refetch],
+  );
+
+  if (isConnecting) {
+    return (
+      <div className="p-6">
+        <ConnectAgentForm onCancel={() => setIsConnecting(false)} onCreated={handleConnected} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <h1 ref={headingRef} tabIndex={-1} className="mb-6 text-base font-semibold text-foreground">
@@ -293,7 +334,7 @@ export function Agents() {
 
       {!isLoading && !error && (agents.length > 0 || canCreate) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-          {canCreate && <ConnectAgentCard />}
+          {canCreate && <ConnectAgentCard onConnect={() => setIsConnecting(true)} />}
           {agents.map((agent, index) => (
             // `A2AAgentRead.id` types as string | null | undefined; fall back
             // to index so a null/missing id can't collide with another card.

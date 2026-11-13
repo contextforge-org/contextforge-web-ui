@@ -70,6 +70,7 @@ describe("Settings", () => {
     expect(screen.getByRole("tab", { name: "Users" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Teams" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "SSO" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Configuration" })).toBeInTheDocument();
     expect(screen.getByText("Tokens tab content")).toBeInTheDocument();
   });
 
@@ -121,6 +122,7 @@ describe("Settings", () => {
     expect(screen.queryByRole("tab", { name: "Users" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Teams" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "SSO" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Configuration" })).not.toBeInTheDocument();
     expect(screen.getByText("Tokens tab content")).toBeInTheDocument();
   });
 

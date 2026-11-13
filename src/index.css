@@ -73,6 +73,7 @@
   --color-server-icon-bg: var(--server-icon-bg);
   --color-agent-icon-bg: var(--agent-icon-bg);
   --color-team-icon-bg: var(--team-icon-bg);
+  --color-config-icon-bg: var(--config-icon-bg);
   --color-catalog-icon-tile: var(--catalog-icon-tile);
   --color-catalog-icon-backing: var(--catalog-icon-backing);
   --color-tool-status-active: var(--tool-status-active);
@@ -164,6 +165,8 @@
   /* Same rationale again: a chip background carrying a black glyph, so no
      `.dark` override. Brand cyan, as on the status headline. */
   --team-icon-bg: #70f9ff;
+  /* Chip background with black glyph; no .dark override. */
+  --config-icon-bg: #ffa4ff;
   --catalog-icon-tile: oklch(1 0 0);
   --catalog-icon-backing: var(--color-white);
   /* emerald-400 falls under 3:1 on white; .dark restores it */

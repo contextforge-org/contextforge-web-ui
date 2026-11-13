@@ -79,12 +79,12 @@ describe("useImportConfig", () => {
     it("holds the parsed export", async () => {
       const { result } = renderHook();
 
-      let ok!: boolean;
+      let ok!: ConfigExport | null;
       await act(async () => {
         ok = await result.current.loadFile(exportFile());
       });
 
-      expect(ok).toBe(true);
+      expect(ok).toEqual(EXPORT);
       expect(result.current.data).toEqual(EXPORT);
       expect(result.current.error).toBeNull();
     });
@@ -95,12 +95,12 @@ describe("useImportConfig", () => {
     ])("rejects %s with a localized error and no request", async (content, message) => {
       const { result } = renderHook();
 
-      let ok!: boolean;
+      let ok!: ConfigExport | null;
       await act(async () => {
         ok = await result.current.loadFile(fileOf(content));
       });
 
-      expect(ok).toBe(false);
+      expect(ok).toBeNull();
       expect(result.current.data).toBeNull();
       expect(result.current.error).toBe(message);
       expect(mockImportConfig).not.toHaveBeenCalled();
@@ -133,8 +133,8 @@ describe("useImportConfig", () => {
         const b = slowFile();
         const { result } = renderHook();
 
-        let loadA!: Promise<boolean>;
-        let loadB!: Promise<boolean>;
+        let loadA!: Promise<ConfigExport | null>;
+        let loadB!: Promise<ConfigExport | null>;
         act(() => {
           loadA = result.current.loadFile(a.file);
         });
@@ -142,19 +142,19 @@ describe("useImportConfig", () => {
           loadB = result.current.loadFile(b.file);
         });
 
-        let okB!: boolean;
+        let okB!: ConfigExport | null;
         await act(async () => {
           b.resolve(JSON.stringify(OTHER));
           okB = await loadB;
         });
-        let okA!: boolean;
+        let okA!: ConfigExport | null;
         await act(async () => {
           a.resolve(JSON.stringify(EXPORT));
           okA = await loadA;
         });
 
-        expect(okB).toBe(true);
-        expect(okA).toBe(false);
+        expect(okB).toEqual(OTHER);
+        expect(okA).toBeNull();
         expect(result.current.data).toEqual(OTHER);
       });
 
@@ -162,19 +162,19 @@ describe("useImportConfig", () => {
         const a = slowFile();
         const { result } = renderHook();
 
-        let load!: Promise<boolean>;
+        let load!: Promise<ConfigExport | null>;
         act(() => {
           load = result.current.loadFile(a.file);
         });
         act(() => result.current.reset());
 
-        let ok!: boolean;
+        let ok!: ConfigExport | null;
         await act(async () => {
           a.resolve(JSON.stringify(EXPORT));
           ok = await load;
         });
 
-        expect(ok).toBe(false);
+        expect(ok).toBeNull();
         expect(result.current.data).toBeNull();
       });
 
@@ -182,7 +182,7 @@ describe("useImportConfig", () => {
         const a = slowFile();
         const { result } = renderHook();
 
-        let loadA!: Promise<boolean>;
+        let loadA!: Promise<ConfigExport | null>;
         act(() => {
           loadA = result.current.loadFile(a.file);
         });
@@ -200,7 +200,7 @@ describe("useImportConfig", () => {
         const a = slowFile();
         const { result } = renderHook();
 
-        let load!: Promise<boolean>;
+        let load!: Promise<ConfigExport | null>;
         act(() => {
           load = result.current.loadFile(a.file);
         });
