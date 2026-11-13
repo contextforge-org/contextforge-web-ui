@@ -48,6 +48,7 @@ function isOptionalHttpUrl(value: string): boolean {
 }
 
 const TENANT_PLACEHOLDER = /\{tenantid\}/gi;
+const TENANT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 /**
  * OAuth catalog registration deliberately has its own small field set.
@@ -119,13 +120,23 @@ export function CatalogOAuthForm({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (isSubmitting) return;
+      const trimmedTenantId = tenantId.trim();
+      const resolvedIssuer = issuer.trim().replace(TENANT_PLACEHOLDER, () => trimmedTenantId);
       const nextErrors: FieldErrors = {
-        ...(isHttpUrl(issuer.trim())
+        ...(isHttpUrl(resolvedIssuer)
           ? {}
           : { issuer: intl.formatMessage({ id: "mcpServer.catalog.oauth.issuerRequired" }) }),
-        ...(!issuerNeedsTenant || tenantId.trim()
+        ...(!issuerNeedsTenant
           ? {}
-          : { tenantId: intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdRequired" }) }),
+          : trimmedTenantId === ""
+            ? { tenantId: intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdRequired" }) }
+            : TENANT_ID_PATTERN.test(trimmedTenantId)
+              ? {}
+              : {
+                  tenantId: intl.formatMessage({
+                    id: "mcpServer.catalog.oauth.tenantIdInvalid",
+                  }),
+                }),
         ...(scopesList.length > 0
           ? {}
           : { scopes: intl.formatMessage({ id: "mcpServer.catalog.oauth.scopesRequired" }) }),
@@ -162,7 +173,7 @@ export function CatalogOAuthForm({
         oauth_credentials: {
           // pragma: allowlist secret
           grant_type: "authorization_code",
-          issuer: issuer.trim().replace(TENANT_PLACEHOLDER, () => tenantId.trim()),
+          issuer: resolvedIssuer,
           client_id: clientId.trim(),
           client_secret: clientSecret, // pragma: allowlist secret
           authorization_url: authorizationUrl.trim(),

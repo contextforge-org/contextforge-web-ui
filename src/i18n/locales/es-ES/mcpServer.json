@@ -184,6 +184,7 @@
   "mcpServer.catalog.oauth.tenantIdLabel": "ID de tenant",
   "mcpServer.catalog.oauth.tenantIdPlaceholder": "p. ej. contoso.onmicrosoft.com",
   "mcpServer.catalog.oauth.tenantIdRequired": "El ID de tenant es obligatorio.",
+  "mcpServer.catalog.oauth.tenantIdInvalid": "El ID de tenant solo puede contener letras, números, puntos, guiones bajos y guiones.",
   "mcpServer.catalog.oauth.needsAuthorization": "Necesita autorización",
   "mcpServer.catalog.oauth.nearExpiry": "La autorización caduca pronto",
   "mcpServer.catalog.oauth.expired": "La autorización caducó",

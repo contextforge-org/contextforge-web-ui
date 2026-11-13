@@ -358,6 +358,31 @@ describe("CatalogOAuthForm", () => {
     expect(screen.queryByText("Tenant ID is required.")).not.toBeInTheDocument();
   });
 
+  it("rejects a tenant ID that would produce a malformed issuer", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({ server: microsoftServer });
+
+    await user.type(screen.getByLabelText(/^Client ID/i), "foundry-client");
+    await user.type(screen.getByLabelText(/^Client Secret/i), "foundry-secret");
+    await user.type(screen.getByLabelText(/Tenant ID/i), "foo/bar");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText(
+        "Tenant ID may only contain letters, numbers, dots, underscores, and hyphens.",
+      ),
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText(/Tenant ID/i));
+    await user.type(screen.getByLabelText(/Tenant ID/i), "contoso.onmicrosoft.com");
+    expect(
+      screen.queryByText(
+        "Tenant ID may only contain letters, numbers, dots, underscores, and hyphens.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("substitutes the tenant ID into the issuer before submitting", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm({ server: microsoftServer });
