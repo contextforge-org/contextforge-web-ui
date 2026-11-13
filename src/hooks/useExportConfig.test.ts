@@ -83,6 +83,24 @@ describe("useExportConfig", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("previewAll resolves the data without downloading; download saves it", async () => {
+    mockExportConfig.mockResolvedValueOnce(EXPORT);
+    const { result } = renderHook();
+
+    let data!: ConfigExport | null;
+    await act(async () => {
+      data = await result.current.previewAll({ includeInactive: true });
+    });
+    expect(data).toEqual(EXPORT);
+    expect(mockDownloadJson).not.toHaveBeenCalled();
+
+    result.current.download(EXPORT);
+    expect(mockDownloadJson).toHaveBeenCalledWith(
+      EXPORT,
+      "contextforge-export-2026-11-02T10-00-00-000Z.json",
+    );
+  });
+
   it("exportSelected passes selection and options through", async () => {
     mockExportSelective.mockResolvedValueOnce(EXPORT);
     const { result } = renderHook();
