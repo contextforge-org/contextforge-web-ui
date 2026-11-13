@@ -283,9 +283,13 @@ export function AgentDetailsPanel({
 
   const inputModes = joinModes(card?.defaultInputModes);
   const outputModes = joinModes(card?.defaultOutputModes);
-  const authType: AuthType | "none" = AUTH_TYPES.includes(current?.authType as AuthType)
-    ? (current?.authType as AuthType)
-    : "none";
+  // An empty type means no authentication. A type this list doesn't know is reported as such rather than as "none".
+  const rawAuthType = current?.authType;
+  const authType: AuthType | "none" | null = !rawAuthType
+    ? "none"
+    : AUTH_TYPES.includes(rawAuthType as AuthType)
+      ? (rawAuthType as AuthType)
+      : null;
   const yesNo = (enabled: boolean) =>
     intl.formatMessage({ id: enabled ? "agents.details.yes" : "agents.details.no" });
 
@@ -429,9 +433,15 @@ export function AgentDetailsPanel({
               )}
 
               <Section title={intl.formatMessage({ id: "agents.details.security" })}>
-                <Row label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}>
-                  {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
-                </Row>
+                {authType ? (
+                  <Row label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}>
+                    {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
+                  </Row>
+                ) : (
+                  <Row label={intl.formatMessage({ id: "agents.details.auth.name.unknown" })}>
+                    {notAvailable}
+                  </Row>
+                )}
               </Section>
 
               {canReadPlugins && teamId && (bindings.length > 0 || bindingsError) && (

@@ -166,6 +166,14 @@ describe("AgentDetailsPanel", () => {
     expect(screen.getByText("No authentication")).toBeInTheDocument();
   });
 
+  it("reports an authentication type it does not know instead of calling it none", () => {
+    useGateway();
+    renderPanel({ agent: { ...AGENT, authType: "mtls" } as AgentDetailsFields });
+
+    expect(screen.queryByText("No authentication")).not.toBeInTheDocument();
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+  });
+
   it("flags an enabled agent that cannot be reached", () => {
     useGateway();
     renderPanel({ agent: { ...AGENT, reachable: false } as AgentDetailsFields });

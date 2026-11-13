@@ -384,6 +384,7 @@ export function Agents() {
       )}
 
       <AgentDetailsPanel
+        key={detailsId ?? "none"}
         agent={detailsAgent}
         open={isDetailsOpen && detailsAgent !== null}
         onClose={handleCloseDetails}

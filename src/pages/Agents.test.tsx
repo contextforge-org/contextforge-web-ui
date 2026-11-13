@@ -336,6 +336,34 @@ describe("Agents", () => {
       expect(within(panel).getByText("Description for agent 1")).toBeInTheDocument();
     });
 
+    it("does not show the previous agent's details while the next one loads", async () => {
+      server.use(
+        http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1), createMockAgent(2)])),
+        http.get("/api/v1/a2a/agent-1", () => HttpResponse.json(createMockAgent(1))),
+        http.get("/api/v1/a2a/agent-1/card", () => HttpResponse.json({ name: "Agent 1" })),
+        http.get("/api/v1/a2a/agent-2", () =>
+          HttpResponse.json({ detail: "boom" }, { status: 500 }),
+        ),
+        http.get("/api/v1/a2a/agent-2/card", () => HttpResponse.json({ name: "Agent 2" })),
+      );
+      renderWithProviders(<Agents />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Actions for Agent 1" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "View details" }));
+      const first = await screen.findByRole("region", { name: "Agent 1" });
+      expect(await within(first).findByText("Description for agent 1")).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+
+      await userEvent.click(screen.getByRole("button", { name: "Actions for Agent 2" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "View details" }));
+      const second = await screen.findByRole("region", { name: "Agent 2" });
+
+      expect(
+        await within(second).findByText("Couldn't load the agent details."),
+      ).toBeInTheDocument();
+      expect(within(second).queryByText("Description for agent 1")).not.toBeInTheDocument();
+    });
+
     it("does nothing when the card itself is clicked", async () => {
       useAgentOne();
       renderWithProviders(<Agents />);
