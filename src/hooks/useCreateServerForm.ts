@@ -6,12 +6,15 @@ import type { Visibility } from "@/types/server";
 import { sanitizeString } from "@/lib/sanitize";
 import { MAX_TAGS } from "@/utils/tags";
 
-function createServerFormSchema(messages: {
+interface CreateServerFormMessages {
   nameRequired: string;
   nameMax: string;
   tagsMax: string;
   descriptionMax: string;
-}) {
+  teamRequired: string;
+}
+
+function createServerFormObjectSchema(messages: CreateServerFormMessages) {
   return z.object({
     name: z
       .string()
@@ -26,6 +29,19 @@ function createServerFormSchema(messages: {
       .string()
       .transform((value) => sanitizeString(value, 500))
       .pipe(z.string().max(500, messages.descriptionMax)),
+    teamId: z.string().optional(),
+  });
+}
+
+function createServerFormSchema(messages: CreateServerFormMessages) {
+  return createServerFormObjectSchema(messages).superRefine((data, ctx) => {
+    if (data.visibility === "team" && !data.teamId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: messages.teamRequired,
+        path: ["teamId"],
+      });
+    }
   });
 }
 
@@ -37,6 +53,7 @@ interface CreateServerFormValues {
   oauthEnabled: boolean;
   tags: string[];
   description: string;
+  teamId: string;
 }
 
 export interface CreateServerFormInitialValues {
@@ -45,6 +62,7 @@ export interface CreateServerFormInitialValues {
   oauthEnabled?: boolean;
   tags?: string[];
   description?: string;
+  teamId?: string;
 }
 
 export interface CreateServerFormErrors {
@@ -53,6 +71,7 @@ export interface CreateServerFormErrors {
   oauthEnabled?: string;
   tags?: string;
   description?: string;
+  teamId?: string;
   submit?: string;
 }
 
@@ -62,6 +81,7 @@ export interface UseCreateServerFormReturn {
   oauthEnabled: boolean;
   tags: string[];
   description: string;
+  teamId: string;
   errors: CreateServerFormErrors;
   isValid: boolean;
   setName: (value: string) => void;
@@ -69,6 +89,7 @@ export interface UseCreateServerFormReturn {
   setOAuthEnabled: (value: boolean) => void;
   setTags: (value: string[]) => void;
   setDescription: (value: string) => void;
+  setTeamId: (value: string) => void;
   validateField: (field: keyof CreateServerFormErrors, value: string | boolean | string[]) => void;
   validateForm: () => boolean;
   getFormData: () => CreateServerDetails;
@@ -85,6 +106,7 @@ const initialState: CreateServerFormValues = {
   oauthEnabled: false,
   tags: [],
   description: "",
+  teamId: "",
 };
 
 function toFieldErrors(error: z.ZodError): CreateServerFormErrors {
@@ -103,6 +125,7 @@ function getInitialState(initialValues?: CreateServerFormInitialValues): CreateS
     oauthEnabled: initialValues?.oauthEnabled ?? initialState.oauthEnabled,
     tags: initialValues?.tags ?? initialState.tags,
     description: initialValues?.description ?? initialState.description,
+    teamId: initialValues?.teamId ?? initialState.teamId,
   };
 }
 
@@ -113,26 +136,31 @@ export function useCreateServerForm(
   const invalidValueMessage = intl.formatMessage({
     id: "gateways.createServer.validation.invalid",
   });
-  const schema = useMemo(
-    () =>
-      createServerFormSchema({
-        nameRequired: intl.formatMessage({
-          id: "gateways.createServer.validation.nameRequired",
-        }),
-        nameMax: intl.formatMessage({ id: "gateways.createServer.validation.nameMax" }),
-        tagsMax: intl.formatMessage({ id: "gateways.createServer.validation.tagsMax" }),
-        descriptionMax: intl.formatMessage({
-          id: "gateways.createServer.validation.descriptionMax",
-        }),
+  const messages = useMemo(
+    (): CreateServerFormMessages => ({
+      nameRequired: intl.formatMessage({
+        id: "gateways.createServer.validation.nameRequired",
       }),
+      nameMax: intl.formatMessage({ id: "gateways.createServer.validation.nameMax" }),
+      tagsMax: intl.formatMessage({ id: "gateways.createServer.validation.tagsMax" }),
+      descriptionMax: intl.formatMessage({
+        id: "gateways.createServer.validation.descriptionMax",
+      }),
+      teamRequired: intl.formatMessage({
+        id: "gateways.createServer.validation.teamRequired",
+      }),
+    }),
     [intl],
   );
+  const objectSchema = useMemo(() => createServerFormObjectSchema(messages), [messages]);
+  const schema = useMemo(() => createServerFormSchema(messages), [messages]);
   const resolvedInitialState = useMemo(() => getInitialState(initialValues), [initialValues]);
   const [name, setName] = useState(resolvedInitialState.name);
   const [visibility, setVisibility] = useState<Visibility>(resolvedInitialState.visibility);
   const [oauthEnabled, setOAuthEnabled] = useState(resolvedInitialState.oauthEnabled);
   const [tags, setTags] = useState<string[]>(resolvedInitialState.tags);
   const [description, setDescription] = useState(resolvedInitialState.description);
+  const [teamId, setTeamId] = useState(resolvedInitialState.teamId);
   const [errors, setErrors] = useState<CreateServerFormErrors>({});
 
   const getFormValues = useCallback(
@@ -142,8 +170,9 @@ export function useCreateServerForm(
       oauthEnabled,
       tags,
       description,
+      teamId,
     }),
-    [name, visibility, oauthEnabled, tags, description],
+    [name, visibility, oauthEnabled, tags, description, teamId],
   );
 
   const getFormData = useCallback((): CreateServerDetails => {
@@ -152,6 +181,7 @@ export function useCreateServerForm(
       name: parsed.name,
       visibility: parsed.visibility,
       oauthEnabled: parsed.oauthEnabled,
+      teamId: parsed.teamId || undefined,
       tags: parsed.tags.length > 0 ? parsed.tags : undefined,
       description: parsed.description || undefined,
     };
@@ -162,7 +192,7 @@ export function useCreateServerForm(
       if (field === "submit") return;
 
       try {
-        const fieldSchema = schema.shape[field as keyof typeof schema.shape];
+        const fieldSchema = objectSchema.shape[field as keyof typeof objectSchema.shape];
         if (!fieldSchema) return;
 
         fieldSchema.parse(value);
@@ -180,7 +210,7 @@ export function useCreateServerForm(
         }
       }
     },
-    [invalidValueMessage, schema],
+    [invalidValueMessage, objectSchema],
   );
 
   const validateForm = useCallback((): boolean => {
@@ -202,6 +232,7 @@ export function useCreateServerForm(
     setOAuthEnabled(resolvedInitialState.oauthEnabled);
     setTags(resolvedInitialState.tags);
     setDescription(resolvedInitialState.description);
+    setTeamId(resolvedInitialState.teamId);
     setErrors({});
   }, [resolvedInitialState]);
 
@@ -233,6 +264,7 @@ export function useCreateServerForm(
     oauthEnabled,
     tags,
     description,
+    teamId,
     errors,
     isValid,
     setName,
@@ -240,6 +272,7 @@ export function useCreateServerForm(
     setOAuthEnabled,
     setTags,
     setDescription,
+    setTeamId,
     validateField,
     validateForm,
     getFormData,
