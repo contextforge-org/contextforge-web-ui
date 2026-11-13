@@ -607,6 +607,10 @@ describe("ToolForm", () => {
       await user.click(screen.getByRole("button", { name: /Generate/i }));
 
       expect(screen.getByRole("button", { name: /Generating/i })).toBeInTheDocument();
+      // Let the request settle so no state update lands after teardown.
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /Regenerate/i })).toBeInTheDocument(),
+      );
     });
 
     it("displays Regenerate schema when schemaMode is generated", async () => {
@@ -660,6 +664,7 @@ describe("ToolForm", () => {
           output_schema: { type: "object" },
         }),
       );
+      await waitFor(() => expect(screen.queryByText("Generating...")).not.toBeInTheDocument());
     });
   });
 

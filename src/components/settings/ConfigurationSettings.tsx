@@ -260,12 +260,14 @@ function ExportSection() {
 function ImportSection() {
   const intl = useIntl();
   const title = intl.formatMessage({ id: "settings.configuration.import.title" });
-  const { loadFile, runImport, dryRun, reset, isLoading, error, canImport } = useImportConfig();
+  const { loadFile, runImport, dryRun, reset, data, dryRunResult, isLoading, error, canImport } =
+    useImportConfig();
   const inputRef = useRef<HTMLInputElement>(null);
-  const dryRunRef = useRef(false); // which button opened the picker
+  // Kept apart from the hook's data so the dialog doesn't blank out during the close animation.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Dry run first; the dialog shows what it would change and Import applies it.
   const submit = async (file: File) => {
-    const isDry = dryRunRef.current;
     const data = await loadFile(file);
     if (!data) return;
     const items = typeSummary(data, intl);
@@ -273,21 +275,26 @@ function ImportSection() {
       toast.info(intl.formatMessage({ id: "settings.configuration.empty" }));
       return reset();
     }
-    const result = await (isDry ? dryRun : runImport)();
+    const result = await dryRun();
     if (!result) return;
-    const outcome = importOutcome(result);
-    const id = !isDry
-      ? IMPORT_MESSAGE[outcome]
-      : outcome === "success"
-        ? "settings.configuration.dryRun.result"
-        : "settings.configuration.dryRun.failed";
-    OUTCOME_TOAST[outcome](intl.formatMessage({ id }, { ...result.progress, items }));
-    reset();
+    if (importOutcome(result) === "failed") {
+      toast.error(intl.formatMessage({ id: "settings.configuration.dryRun.failed" }, { items }));
+      return reset();
+    }
+    setConfirmOpen(true);
   };
 
-  const pick = (isDry: boolean) => {
-    dryRunRef.current = isDry;
-    inputRef.current?.click();
+  const confirmImport = async () => {
+    const result = await runImport();
+    setConfirmOpen(false);
+    if (!result || !data) return;
+    const outcome = importOutcome(result);
+    OUTCOME_TOAST[outcome](
+      intl.formatMessage(
+        { id: IMPORT_MESSAGE[outcome] },
+        { ...result.progress, items: typeSummary(data, intl) },
+      ),
+    );
   };
 
   useEffect(() => {
@@ -317,19 +324,71 @@ function ImportSection() {
           if (file) void submit(file);
         }}
       />
-      <div className="flex gap-2">
-        <Button size="sm" disabled={!canImport || isLoading} onClick={() => pick(false)}>
-          {title}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canImport || isLoading}
-          onClick={() => pick(true)}
-        >
-          {intl.formatMessage({ id: "settings.configuration.dryRun.title" })}
-        </Button>
-      </div>
+      <Button
+        size="sm"
+        disabled={!canImport || isLoading}
+        aria-busy={isLoading}
+        onClick={() => inputRef.current?.click()}
+      >
+        {title}
+      </Button>
+      {/* No closing mid-import: aborting the request wouldn't stop the server. */}
+      <Dialog open={confirmOpen} onOpenChange={(open) => !isLoading && setConfirmOpen(open)}>
+        {/* Fires after the close animation; frees the file data. */}
+        <DialogContent className="gap-4 rounded-xl p-6" onCloseAutoFocus={reset}>
+          <DialogHeader className="space-y-4">
+            <DialogTitle className="flex items-center gap-2 text-sm font-medium leading-5 tracking-normal">
+              <span className="flex size-6 items-center justify-center rounded-sm bg-config-icon-bg text-black">
+                <ArrowDownFromLine className="size-4" aria-hidden />
+              </span>
+              {title}
+            </DialogTitle>
+            <DialogDescription className="text-[13px] leading-4">
+              {intl.formatMessage({ id: "settings.configuration.import.confirm.description" })}
+            </DialogDescription>
+          </DialogHeader>
+          <dl className="grid grid-cols-[100px_1fr] items-center gap-x-2 gap-y-2 py-2 leading-4">
+            {EXPORT_ROWS.filter(({ type }) => data?.entities[type]?.length).map(({ type }) => (
+              <div key={type} className="contents">
+                <dt className="text-xs">
+                  {intl.formatMessage({ id: `settings.configuration.export.label.${type}` })}
+                </dt>
+                <dd className="text-[13px] text-secondary-foreground">
+                  {data?.entities[type]?.length}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {/* Backend dry run only validates; it never counts creates/updates/skips. */}
+          <p role="status" className="text-xs leading-4">
+            {intl.formatMessage(
+              { id: "settings.configuration.import.confirm.changes" },
+              {
+                count: (dryRunResult?.progress.total ?? 0) - (dryRunResult?.progress.failed ?? 0),
+                total: dryRunResult?.progress.total ?? 0,
+              },
+            )}
+          </p>
+          <Separator />
+          <DialogFooter className="gap-4 py-1 sm:space-x-0">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => setConfirmOpen(false)}
+            >
+              {intl.formatMessage({ id: "common.button.cancel" })}
+            </Button>
+            <Button size="sm" disabled={isLoading} aria-busy={isLoading} onClick={confirmImport}>
+              {intl.formatMessage({
+                id: isLoading
+                  ? "settings.configuration.import.confirm.importing"
+                  : "settings.configuration.import.confirm.import",
+              })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
