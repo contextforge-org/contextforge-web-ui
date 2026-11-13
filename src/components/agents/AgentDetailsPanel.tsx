@@ -155,9 +155,14 @@ export function AgentDetailsPanel({
     isLoading,
   } = useQuery<Agent>(open && agentId ? `/v1/a2a/${agentId}` : null);
   // The list entry is what a toggle updates, so its state and tags win over the read made on open.
-  const current: AgentDetailsFields | null = fetched
-    ? { ...fetched, enabled: agent?.enabled ?? fetched.enabled, tags: agent?.tags ?? fetched.tags }
-    : agent;
+  const current: AgentDetailsFields | null =
+    agent && fetched
+      ? {
+          ...fetched,
+          enabled: agent?.enabled ?? fetched.enabled,
+          tags: agent?.tags ?? fetched.tags,
+        }
+      : agent;
 
   // The card has the agent's modes and skills. Without it the panel still shows the rest.
   const { data: card } = useQuery<RegisteredAgentCard>(

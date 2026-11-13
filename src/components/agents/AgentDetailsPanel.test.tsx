@@ -351,4 +351,11 @@ describe("AgentDetailsPanel", () => {
       expect(screen.getByRole("button", { name: "Add tags" })).toBeDisabled();
     });
   });
+
+  it("renders nothing for a selected agent that is not there", () => {
+    useGateway();
+    renderPanel({ agent: null });
+
+    expect(screen.queryByText("Agent details")).not.toBeInTheDocument();
+  });
 });
