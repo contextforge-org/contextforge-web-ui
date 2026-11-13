@@ -15,7 +15,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 let upstream: Server;
 let upstreamOrigin: string;
 let lastRequest:
-  { path: string; authorization: string | undefined; accept: string | undefined } | undefined;
+  | {
+      path: string;
+      authorization: string | undefined;
+      accept: string | undefined;
+      headers: IncomingMessage["headers"];
+    }
+  | undefined;
 
 beforeAll(async () => {
   upstream = createServer((req: IncomingMessage, res) => {
@@ -23,6 +29,7 @@ beforeAll(async () => {
       path: req.url ?? "",
       authorization: req.headers.authorization,
       accept: req.headers.accept,
+      headers: req.headers,
     };
 
     if (req.url?.startsWith("/oauth/authorize/missing-config")) {
@@ -110,6 +117,33 @@ describe("GET /oauth/authorize/:gatewayId", () => {
     // never sees it.
     expect(lastRequest?.path).toBe("/oauth/authorize/gw-1?popup=true");
     expect(lastRequest?.authorization).toBe("Bearer test-bearer-token");
+  });
+
+  it("forwards an external proxy's identity header for trusted-proxy auth", async () => {
+    const app = await buildApp();
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: `/oauth/authorize/gw-1?nonce=${nonce}`,
+      headers: {
+        cookie,
+        "cf-access-authenticated-user-email": "user@example.com",
+        "x-forwarded-host": "attacker.example.test",
+        authorization: "Bearer attacker-supplied-token", // pragma: allowlist secret
+      },
+    });
+
+    expect(response.statusCode).toBe(302);
+    // In trusted-proxy mode mcpgateway authenticates /oauth/authorize from
+    // this inbound header, not from the bearer token the BFF injects; without
+    // it the popup lands on /admin/login instead of the provider.
+    expect(lastRequest?.headers["cf-access-authenticated-user-email"]).toBe("user@example.com");
+    // BFF-only and infra headers still don't cross the boundary.
+    expect(lastRequest?.headers.cookie).toBeUndefined();
+    expect(lastRequest?.headers["x-forwarded-host"]).toBeUndefined();
+    expect(lastRequest?.headers.authorization).toBe("Bearer test-bearer-token");
   });
 
   it("never lets the browser override the injected Authorization header", async () => {

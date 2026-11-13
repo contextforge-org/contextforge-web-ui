@@ -21,6 +21,7 @@ import type {
 } from "fastify";
 
 import { config } from "../../config.js";
+import { stripInboundHeaders } from "../../lib/inbound-headers.js";
 import { clearSessionCookie, deleteSession } from "../../lib/session-store.js";
 import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
@@ -47,37 +48,6 @@ function toBrowserPath(upstreamPath: string): string {
   return UPSTREAM_API_PREFIXES.some((prefix) => upstreamPath.startsWith(`/api/${prefix}`))
     ? upstreamPath
     : `/api${upstreamPath}`;
-}
-
-// Inbound headers that must never reach upstream verbatim: bff_sid/bff_csrf
-// (Cookie) are BFF-only secrets; the rest are infra/auth headers mcpgateway
-// trusts for request-URL construction (Forwarded/X-Forwarded-*, including
-// OAuth redirect URLs) or for the bearer token itself (Authorization / the
-// configured CONTEXTFORGE_AUTH_HEADER_NAME). None of these are on the Fetch
-// spec's forbidden-header list, so a browser tab can set them via fetch()
-// directly — strip all of them and let the BFF inject its own values below,
-// rather than only overwriting the ones we happen to already set.
-const STRIPPED_INBOUND_HEADERS = new Set([
-  "cookie",
-  "authorization",
-  "forwarded",
-  "x-forwarded-for",
-  "x-forwarded-host",
-  "x-forwarded-proto",
-  "x-forwarded-port",
-  "x-real-ip",
-]);
-
-function stripInboundHeaders(
-  headers: Record<string, string | string[] | undefined>,
-): Record<string, string | string[] | undefined> {
-  const authHeaderKey = config.contextforgeAuthHeaderName.toLowerCase();
-  const result: Record<string, string | string[] | undefined> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    if (STRIPPED_INBOUND_HEADERS.has(key) || key === authHeaderKey) continue;
-    result[key] = value;
-  }
-  return result;
 }
 
 // FastAPI/Starlette 307s bare "/teams" -> "/teams/" (redirect_slashes) with an

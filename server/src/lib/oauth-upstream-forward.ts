@@ -34,6 +34,8 @@
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { stripInboundHeaders } from "./inbound-headers.js";
+
 const OAUTH_POPUP_ERROR_MESSAGES: Record<number, { error: string; errorDescription: string }> = {
   401: {
     error: "unauthenticated",
@@ -90,11 +92,27 @@ export async function forwardOAuthGet(
   upstreamUrl: string,
   { headers = {}, timeoutMs, logLabel }: ForwardOAuthGetOptions,
 ): Promise<FastifyReply> {
+  // Keep the inbound headers the /api/* proxy keeps. In trusted-proxy
+  // deployments mcpgateway authenticates /oauth/authorize from the external
+  // proxy's identity header, not from the injected bearer, so building the
+  // upstream request from scratch here would 401 the popup. BFF-owned values
+  // below are merged last and always win over anything inbound.
+  const inbound = stripInboundHeaders(request.headers);
+  const forwardedHeaders: Record<string, string> = {};
+  for (const [key, value] of Object.entries(inbound)) {
+    if (typeof value === "string") {
+      forwardedHeaders[key] = value;
+    } else if (Array.isArray(value)) {
+      forwardedHeaders[key] = value.join(", ");
+    }
+  }
+
   let upstreamResponse: Response;
   try {
     upstreamResponse = await fetch(upstreamUrl, {
       method: "GET",
       headers: {
+        ...forwardedHeaders,
         accept: "text/html",
         // Preserve real client IP for upstream audit logging, same as catch-all.ts.
         "x-forwarded-for": request.ip,
