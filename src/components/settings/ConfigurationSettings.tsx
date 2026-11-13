@@ -9,6 +9,7 @@ import {
   FolderRoot,
   MessageSquareCode,
   Server,
+  TriangleAlert,
   Wrench,
 } from "lucide-react";
 import { MCPIcon } from "@/components/icons/MCPIcon";
@@ -27,6 +28,7 @@ import {
 import type { ConfigExport, ExportEntityType } from "@/api/importExport";
 import { importOutcome, useImportConfig } from "@/hooks/useImportConfig";
 import { useExportConfig } from "@/hooks/useExportConfig";
+import { useAuth } from "@/auth/useAuth";
 
 const OUTCOME_TOAST = { success: toast.success, partial: toast.warning, failed: toast.error };
 const IMPORT_MESSAGE = {
@@ -35,7 +37,7 @@ const IMPORT_MESSAGE = {
   failed: "settings.configuration.import.allFailed",
 };
 
-// Same icons as the sidebar. No agents row: the backend can't export A2A agents.
+// Same icons as the sidebar. No agents row: the backend can't export or import A2A agents.
 const EXPORT_ROWS: { type: ExportEntityType; icon: ComponentType<{ className?: string }> }[] = [
   { type: "gateways", icon: MCPIcon },
   { type: "servers", icon: Server },
@@ -45,13 +47,10 @@ const EXPORT_ROWS: { type: ExportEntityType; icon: ComponentType<{ className?: s
   { type: "roots", icon: FolderRoot },
 ];
 const EXPORT_TYPES = EXPORT_ROWS.map((r) => r.type);
+// Roots export needs DB is_admin; anyone else gets a 403.
+const NON_ROOT_ROWS = EXPORT_ROWS.filter((r) => r.type !== "roots");
+const NON_ROOT_TYPES = NON_ROOT_ROWS.map((r) => r.type);
 const CHECKBOX_CLASS = "size-4 [&_svg]:size-3.5";
-
-// Entities of types the UI doesn't list yet (e.g. A2A agents once the backend exports them).
-const otherCount = (data: ConfigExport) =>
-  Object.entries(data.entities)
-    .filter(([type]) => !EXPORT_TYPES.includes(type as ExportEntityType))
-    .reduce((sum, [, list]) => sum + (list?.length ?? 0), 0);
 
 // Per-type split of the file's contents; the backend reports only aggregate counts.
 function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
@@ -61,9 +60,6 @@ function typeSummary(data: ConfigExport, intl: IntlShape): string | null {
       { count: data.entities[t]!.length },
     ),
   );
-  const others = otherCount(data);
-  if (others)
-    items.push(intl.formatMessage({ id: "settings.configuration.type.other" }, { count: others }));
   return items.length ? intl.formatList(items, { type: "conjunction" }) : null;
 }
 
@@ -81,16 +77,16 @@ function ExportSection() {
   const uid = useId();
   const title = intl.formatMessage({ id: "settings.configuration.export.title" });
   const { previewAll, download, isExporting, error, canExport } = useExportConfig();
+  const rows = useAuth().user?.is_admin ? EXPORT_ROWS : NON_ROOT_ROWS;
   // Types snapshotted with the data, so the dialog lists what was actually requested.
   const [preview, setPreview] = useState<{ data: ConfigExport; types: ExportEntityType[] } | null>(
     null,
   );
   // Kept apart from `preview` so counts don't blank out during the close animation.
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [types, setTypes] = useState<ExportEntityType[]>(EXPORT_TYPES);
+  const [types, setTypes] = useState<ExportEntityType[]>(NON_ROOT_TYPES);
   const [includeInactive, setIncludeInactive] = useState(false);
-  const allState =
-    types.length === EXPORT_TYPES.length ? true : types.length ? "indeterminate" : false;
+  const allState = types.length === rows.length ? true : types.length ? "indeterminate" : false;
 
   const toggle = (type: ExportEntityType, on: boolean) =>
     setTypes((prev) =>
@@ -126,7 +122,6 @@ function ExportSection() {
     }
     toast.success(intl.formatMessage({ id: "settings.configuration.export.success" }));
   };
-  const others = preview ? otherCount(preview.data) : 0;
 
   useEffect(() => {
     if (error) toast.error(error);
@@ -163,13 +158,13 @@ function ExportSection() {
               <Checkbox
                 className={CHECKBOX_CLASS}
                 checked={allState}
-                onCheckedChange={() => setTypes(allState === true ? [] : EXPORT_TYPES)}
+                onCheckedChange={() => setTypes(allState === true ? [] : rows.map((r) => r.type))}
               />
               <span className="col-span-2">
                 {intl.formatMessage({ id: "settings.configuration.export.all" })}
               </span>
             </label>
-            {EXPORT_ROWS.map(({ type, icon: Icon }) => {
+            {rows.map(({ type, icon: Icon }) => {
               const desc = intl.formatMessage({ id: `settings.configuration.export.desc.${type}` });
               return (
                 <label key={type} className="col-span-full grid h-8 grid-cols-subgrid items-center">
@@ -224,6 +219,17 @@ function ExportSection() {
               {intl.formatMessage({ id: "settings.configuration.export.confirm.description" })}
             </DialogDescription>
           </DialogHeader>
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-sm bg-muted px-3 py-3 text-[12px] leading-4 text-muted-foreground"
+          >
+            <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+            <span>
+              {intl.formatMessage({
+                id: "settings.configuration.export.confirm.credentialsWarning",
+              })}
+            </span>
+          </div>
           <dl className="grid grid-cols-[100px_1fr] items-center gap-x-2 gap-y-2 py-2 leading-4">
             {EXPORT_ROWS.filter(({ type }) => preview?.types.includes(type)).map(({ type }) => (
               <div key={type} className="contents">
@@ -235,14 +241,6 @@ function ExportSection() {
                 </dd>
               </div>
             ))}
-            {others > 0 && (
-              <div className="contents">
-                <dt className="text-xs">
-                  {intl.formatMessage({ id: "settings.configuration.export.label.other" })}
-                </dt>
-                <dd className="text-[13px] text-secondary-foreground">{others}</dd>
-              </div>
-            )}
           </dl>
           <Separator />
           <DialogFooter className="gap-4 py-1 sm:space-x-0">

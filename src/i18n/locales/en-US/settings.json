@@ -25,7 +25,6 @@
   "settings.configuration.type.prompts": "{count, plural, one {# prompt} other {# prompts}}",
   "settings.configuration.type.resources": "{count, plural, one {# resource} other {# resources}}",
   "settings.configuration.type.roots": "{count, plural, one {# root} other {# roots}}",
-  "settings.configuration.type.other": "{count, plural, one {# other item} other {# other items}}",
   "settings.configuration.export.title": "Export configuration",
   "settings.configuration.export.description": "Export configuration as a JSON file to import into another ContextForge instance.",
   "settings.configuration.export.include": "Include in export",
@@ -46,8 +45,8 @@
   "settings.configuration.export.includeInactive": "Include disabled components",
   "settings.configuration.export.confirm.title": "Download configuration",
   "settings.configuration.export.confirm.description": "Download JSON file to import into another ContextForge instance.",
+  "settings.configuration.export.confirm.credentialsWarning": "The file may contain credentials, such as MCP server auth values. Store and share it securely.",
   "settings.configuration.export.confirm.download": "Download",
   "settings.configuration.export.empty": "Nothing to export for the selected types.",
-  "settings.configuration.export.exporting": "Exporting…",
-  "settings.configuration.export.label.other": "Other"
+  "settings.configuration.export.exporting": "Exporting…"
 }

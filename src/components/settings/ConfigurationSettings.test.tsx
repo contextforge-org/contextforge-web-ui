@@ -13,7 +13,10 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 let canImport = true;
-vi.mock("@/auth/useAuth", () => ({ useAuth: () => ({ hasPermission: () => canImport }) }));
+let isAdmin = false;
+vi.mock("@/auth/useAuth", () => ({
+  useAuth: () => ({ hasPermission: () => canImport, user: { is_admin: isAdmin } }),
+}));
 vi.mock("@/api/importExport", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/importExport")>();
   return { ...actual, importExportApi: { importConfig: vi.fn(), exportConfig: vi.fn() } };
@@ -62,6 +65,7 @@ describe("ConfigurationSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     canImport = true;
+    isAdmin = false;
     vi.mocked(importExportApi.importConfig).mockResolvedValue(RESULT);
     vi.mocked(importExportApi.exportConfig).mockResolvedValue(EXPORT);
   });
@@ -80,7 +84,7 @@ describe("ConfigurationSettings", () => {
     expect(downloadJson).toHaveBeenCalledWith(EXPORT, expect.stringMatching(/\.json$/));
     expect(toast.success).toHaveBeenCalledWith("Configuration exported.");
     expect(vi.mocked(importExportApi.exportConfig).mock.calls[0][0]).toEqual({
-      types: undefined,
+      types: ["gateways", "servers", "tools", "resources", "prompts"],
       includeInactive: false,
     });
   });
@@ -98,7 +102,6 @@ describe("ConfigurationSettings", () => {
   it("exports only the checked entity types", async () => {
     const { getByRole } = renderSettings();
     fireEvent.click(getByRole("checkbox", { name: "Tools" }));
-    fireEvent.click(getByRole("checkbox", { name: "Roots" }));
     fireEvent.click(getByRole("switch", { name: "Include disabled components" }));
     fireEvent.click(getByRole("button", { name: "Export configuration" }));
 
@@ -123,18 +126,35 @@ describe("ConfigurationSettings", () => {
     expect(exportBtn).toBeDisabled();
   });
 
-  it("preview lists only the checked types, plus unknown types as Other", async () => {
-    vi.mocked(importExportApi.exportConfig).mockResolvedValue({
-      ...EXPORT,
-      entities: { ...EXPORT.entities, a2a_agents: [{}, {}, {}] },
-    } as never);
+  it("hides Roots from non-admins", () => {
+    const { queryByRole } = renderSettings();
+    expect(queryByRole("checkbox", { name: "Roots" })).toBeNull();
+  });
+
+  it("offers Roots to admins unchecked, and exports unfiltered once everything is picked", async () => {
+    isAdmin = true;
+    const { getByRole } = renderSettings();
+    const roots = getByRole("checkbox", { name: "Roots" });
+    expect(roots).toHaveAttribute("data-state", "unchecked");
+    expect(getByRole("checkbox", { name: "All" })).toHaveAttribute("data-state", "indeterminate");
+
+    fireEvent.click(roots);
+    fireEvent.click(getByRole("button", { name: "Export configuration" }));
+    await waitFor(() => expect(importExportApi.exportConfig).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(importExportApi.exportConfig).mock.calls[0][0]).toEqual({
+      types: undefined,
+      includeInactive: false,
+    });
+  });
+
+  it("preview lists only the checked types and warns about credentials", async () => {
     const { getByRole, findByRole } = renderSettings();
     fireEvent.click(getByRole("checkbox", { name: "Tools" }));
     fireEvent.click(getByRole("button", { name: "Export configuration" }));
 
     const dialog = await findByRole("dialog");
     expect(dialog).not.toHaveTextContent("Tools");
-    expect(dialog).toHaveTextContent("Other3");
+    expect(dialog).toHaveTextContent("may contain credentials");
   });
 
   it("toasts instead of offering an empty export", async () => {
@@ -171,17 +191,14 @@ describe("ConfigurationSettings", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it("imports a file whose only entities are of a type the UI doesn't list", async () => {
+  it("rejects a file with an entity type the backend can't import", async () => {
     pickVia(
       "Import configuration",
       fileOf(JSON.stringify({ ...EXPORT, entities: { a2a_agents: [{}, {}] } })),
     );
 
-    await waitFor(() => expect(importExportApi.importConfig).toHaveBeenCalledTimes(1));
-    expect(toast.info).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(vi.mocked(toast.success).mock.calls[0][0]).toContain("2 other items"),
-    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(importExportApi.importConfig).not.toHaveBeenCalled();
   });
 
   it("type checkboxes are named by label and described by their description", () => {
