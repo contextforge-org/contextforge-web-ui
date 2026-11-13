@@ -34,6 +34,22 @@ const server: CatalogServer = {
   is_registered: false,
 };
 
+const microsoftServer: CatalogServer = {
+  ...server,
+  id: "microsoft-foundry",
+  name: "Microsoft Foundry",
+  provider: "Microsoft",
+  description: "Microsoft Foundry OAuth server",
+  oauth: {
+    issuer: "https://login.microsoftonline.com/{tenantid}/v2.0",
+    authorization_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+    token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    scopes: ["https://mcp.ai.azure.com/Foundry.Mcp.Tools"],
+    supports_dcr: false,
+    resource: "https://mcp.ai.azure.com",
+  },
+};
+
 const mockUseQuery = vi.mocked(useQuery);
 
 function renderForm(
@@ -296,6 +312,96 @@ describe("CatalogOAuthForm", () => {
     fireEvent.submit(authorizationUrl.closest("form")!);
     expect(authorizationUrl).toHaveAccessibleDescription(
       `Enter a valid authorization URL. ${hintText}`,
+    );
+  });
+
+  it("shows a required Tenant ID field when the catalog issuer contains a placeholder", () => {
+    renderForm({ server: microsoftServer });
+
+    expect(screen.getByLabelText(/Issuer URL/i)).toHaveValue(
+      "https://login.microsoftonline.com/{tenantid}/v2.0",
+    );
+    const tenant = screen.getByLabelText(/Tenant ID/i);
+    expect(tenant).toBeInTheDocument();
+    expect(tenant).toHaveAttribute("aria-required", "true");
+  });
+
+  it("hides the tenant field for issuers without a placeholder", () => {
+    renderForm();
+
+    expect(screen.queryByLabelText(/Tenant ID/i)).not.toBeInTheDocument();
+  });
+
+  it("hides the tenant field once the issuer no longer contains the placeholder", async () => {
+    const user = userEvent.setup();
+    renderForm({ server: microsoftServer });
+
+    const issuer = screen.getByLabelText(/Issuer URL/i);
+    await user.clear(issuer);
+    await user.type(issuer, "https://login.microsoftonline.com/contoso.onmicrosoft.com/v2.0");
+
+    expect(screen.queryByLabelText(/Tenant ID/i)).not.toBeInTheDocument();
+  });
+
+  it("blocks submission until the tenant placeholder is resolved", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({ server: microsoftServer });
+
+    await user.type(screen.getByLabelText(/^Client ID/i), "foundry-client");
+    await user.type(screen.getByLabelText(/^Client Secret/i), "foundry-secret");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Tenant ID is required.")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/Tenant ID/i), "contoso.onmicrosoft.com");
+    expect(screen.queryByText("Tenant ID is required.")).not.toBeInTheDocument();
+  });
+
+  it("rejects a tenant ID that would produce a malformed issuer", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({ server: microsoftServer });
+
+    await user.type(screen.getByLabelText(/^Client ID/i), "foundry-client");
+    await user.type(screen.getByLabelText(/^Client Secret/i), "foundry-secret");
+    await user.type(screen.getByLabelText(/Tenant ID/i), "foo/bar");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText(
+        "Tenant ID may only contain letters, numbers, dots, underscores, and hyphens.",
+      ),
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText(/Tenant ID/i));
+    await user.type(screen.getByLabelText(/Tenant ID/i), "contoso.onmicrosoft.com");
+    expect(
+      screen.queryByText(
+        "Tenant ID may only contain letters, numbers, dots, underscores, and hyphens.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("substitutes the tenant ID into the issuer before submitting", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({ server: microsoftServer });
+
+    await user.type(screen.getByLabelText(/^Client ID/i), "foundry-client");
+    await user.type(screen.getByLabelText(/^Client Secret/i), "foundry-secret");
+    await user.type(screen.getByLabelText(/Tenant ID/i), "72f988bf-86f1-41af-91ab-2d7cd011db47");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          oauth_credentials: expect.objectContaining({
+            issuer: "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0",
+            authorization_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          }),
+        }),
+      ),
     );
   });
 
