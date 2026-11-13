@@ -88,4 +88,35 @@ describe("agentsApi", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
+
+  describe("updateTags", () => {
+    it("PUTs only the tags to /v1/a2a/:id", async () => {
+      mockFetch.mockResolvedValueOnce(json({ id: "a1", tags: ["x"] }));
+
+      await expect(agentsApi.updateTags("a1", ["x"])).resolves.toEqual({ id: "a1", tags: ["x"] });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/v1\/a2a\/a1$/),
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ tags: ["x"] }) }),
+      );
+    });
+  });
+
+  describe("deletePluginBinding", () => {
+    it("DELETEs /v1/a2a-agents/plugin-bindings/:id", async () => {
+      mockFetch.mockResolvedValueOnce(json({ id: "b1" }));
+
+      await agentsApi.deletePluginBinding("b1");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/v1\/a2a-agents\/plugin-bindings\/b1$/),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+
+    it("rejects an unsafe id before any request", () => {
+      expect(() => agentsApi.deletePluginBinding("../x")).toThrow("Invalid agent ID format");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
 });

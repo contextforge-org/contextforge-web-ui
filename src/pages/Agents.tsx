@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
+import { AgentDetailsPanel } from "@/components/agents/AgentDetailsPanel";
 import { ConnectAgentForm } from "@/components/agents/ConnectAgentForm";
 import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/agentSkills";
 
@@ -31,18 +32,20 @@ import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/a
 // stray `{agent.authToken}` into a type error instead of a silent leak.
 type AgentCardFields = Pick<
   Agent,
-  "id" | "name" | "description" | "enabled" | "reachable" | "capabilities" | "tags"
+  "id" | "name" | "enabled" | "reachable" | "capabilities" | "tags"
 > &
   Pick<AgentSkillSource, "skills">;
 
 interface AgentCardProps {
   agent: AgentCardFields;
+  /** Opens the agent's details panel. */
+  onOpen?: (id: string) => void;
   /** Omit to hide the action; the caller decides from the user's permissions. */
   onToggle?: (id: string, currentEnabled: boolean) => void;
   onDelete?: (id: string) => void;
 }
 
-function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
+function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
   const intl = useIntl();
   const MAX_VISIBLE_CHIPS = 8;
   const isActive = agent.enabled && agent.reachable;
@@ -81,7 +84,7 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
             )}
           </div>
 
-          {agent.id && (onToggle || onDelete) && (
+          {agent.id && (onOpen || onToggle || onDelete) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -97,6 +100,11 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {onOpen && (
+                  <DropdownMenuItem onClick={() => onOpen(agent.id as string)}>
+                    {intl.formatMessage({ id: "agents.card.actions.viewDetails" })}
+                  </DropdownMenuItem>
+                )}
                 {onToggle && (
                   <DropdownMenuItem onClick={() => onToggle(agent.id as string, agent.enabled)}>
                     {intl.formatMessage({
@@ -121,11 +129,6 @@ function AgentCard({ agent, onToggle, onDelete }: AgentCardProps) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2">
-        {agent.description && (
-          <Typography variant="caption" className="line-clamp-2">
-            {agent.description}
-          </Typography>
-        )}
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {visibleChips.map((chip, index) => (
@@ -186,6 +189,8 @@ export function Agents() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const {
     data: agentsData,
     error,
@@ -244,6 +249,34 @@ export function Agents() {
     [agents, setAgentsData, intl],
   );
 
+  const handleOpenDetails = useCallback((id: string) => {
+    setDetailsId(id);
+    setIsDetailsOpen(true);
+  }, []);
+  const handleCloseDetails = useCallback(() => setIsDetailsOpen(false), []);
+  // Read from the list so a toggle made in the panel shows up in it straight away.
+  const detailsAgent = useMemo(
+    () => agents.find((a) => a.id === detailsId) ?? null,
+    [agents, detailsId],
+  );
+
+  const handleAddTag = useCallback(
+    async (id: string, tags: string[]) => {
+      try {
+        const updated = await agentsApi.updateTags(id, tags);
+        setAgentsData((prev) =>
+          prev?.map((a) => (a?.id === id ? { ...a, tags: updated?.tags } : a)),
+        );
+      } catch (err) {
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        toast.error(detail || intl.formatMessage({ id: "agents.tags.addError" }));
+        // The inline editor stays open for a retry when this rejects.
+        throw err;
+      }
+    },
+    [setAgentsData, intl],
+  );
+
   const handleDeleteRequest = useCallback(
     (id: string) => {
       setDeleteTarget({ id, name: agents.find((a) => a.id === id)?.name ?? id });
@@ -258,6 +291,7 @@ export function Agents() {
     try {
       await agentsApi.delete(id);
       setAgentsData((prev) => prev?.filter((a) => a?.id !== id));
+      if (id === detailsId) setIsDetailsOpen(false);
       toast.success(intl.formatMessage({ id: "agents.delete.success" }, { name }));
       setDeleteTarget(null);
       // The card that held focus is gone; keep keyboard users anchored.
@@ -269,7 +303,7 @@ export function Agents() {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteTarget, setAgentsData, intl]);
+  }, [deleteTarget, detailsId, setAgentsData, intl]);
 
   const handleConnected = useCallback(
     (created: A2AAgentRead) => {
@@ -341,12 +375,23 @@ export function Agents() {
             <AgentCard
               key={agent.id ?? index}
               agent={agent}
+              onOpen={handleOpenDetails}
               onToggle={canUpdate ? handleToggle : undefined}
               onDelete={canDelete ? handleDeleteRequest : undefined}
             />
           ))}
         </div>
       )}
+
+      <AgentDetailsPanel
+        key={detailsId ?? "none"}
+        agent={detailsAgent}
+        open={isDetailsOpen && detailsAgent !== null}
+        onClose={handleCloseDetails}
+        onToggle={canUpdate ? handleToggle : undefined}
+        onDelete={canDelete ? handleDeleteRequest : undefined}
+        onAddTag={canUpdate ? handleAddTag : undefined}
+      />
 
       <ConfirmDialog
         open={deleteTarget !== null}

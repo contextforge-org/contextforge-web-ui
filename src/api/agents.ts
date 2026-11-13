@@ -57,6 +57,19 @@ export const agentsApi = {
   },
 
   /**
+   * Replace an agent's tags. The update route takes partial bodies, so only
+   * `tags` is sent. Returns the agent as stored, for its normalized tags.
+   */
+  updateTags: (id: string, tags: string[]): Promise<A2AAgentRead> => {
+    return api.put(`/v1/a2a/${validateAgentId(id)}`, { tags });
+  },
+
+  /** Remove one plugin binding. */
+  deletePluginBinding: (bindingId: string): Promise<void> => {
+    return api.delete(`/v1/a2a-agents/plugin-bindings/${validateAgentId(bindingId)}`);
+  },
+
+  /**
    * Delete an agent
    */
   delete: (id: string): Promise<void> => {

@@ -117,7 +117,7 @@ describe("Agents", () => {
     expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
   });
 
-  it("renders a card per agent with its name and description", async () => {
+  it("renders a card per agent with its name, and not its description", async () => {
     const mockAgents = [createMockAgent(1), createMockAgent(2)];
     server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
 
@@ -127,20 +127,9 @@ describe("Agents", () => {
       expect(screen.getByText("Agent 1")).toBeInTheDocument();
     });
     expect(screen.getByText("Agent 2")).toBeInTheDocument();
-    expect(screen.getByText("Description for agent 1")).toBeInTheDocument();
-    expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
-  });
-
-  it("omits the description when an agent has none", async () => {
-    const mockAgents = [createMockAgent(1, { description: "" })];
-    server.use(http.get("/api/v1/a2a", () => HttpResponse.json(mockAgents)));
-
-    renderWithProviders(<Agents />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Agent 1")).toBeInTheDocument();
-    });
+    // The description is for the details panel; the card stays compact.
     expect(screen.queryByText("Description for agent 1")).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
   });
 
   it("shows an active status indicator when the agent is enabled and reachable", async () => {
@@ -321,6 +310,119 @@ describe("Agents", () => {
     expect(gridContainer).toHaveClass("lg:grid-cols-2");
     expect(gridContainer).toHaveClass("2xl:grid-cols-3");
   });
+  describe("details panel", () => {
+    function useAgentOne(extra: Array<ReturnType<typeof http.put>> = []) {
+      server.use(
+        http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])),
+        http.get("/api/v1/a2a/agent-1", () => HttpResponse.json(createMockAgent(1))),
+        http.get("/api/v1/a2a/agent-1/card", () => HttpResponse.json({ name: "Agent 1" })),
+        ...extra,
+      );
+    }
+
+    async function openPanel() {
+      renderWithProviders(<Agents />);
+      await userEvent.click(await screen.findByRole("button", { name: "Actions for Agent 1" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "View details" }));
+      return screen.findByRole("region", { name: "Agent 1" });
+    }
+
+    it("opens the details panel from the View details menu item", async () => {
+      useAgentOne();
+
+      const panel = await openPanel();
+
+      expect(within(panel).getByText("Agent details")).toBeInTheDocument();
+      expect(within(panel).getByText("Description for agent 1")).toBeInTheDocument();
+    });
+
+    it("does not show the previous agent's details while the next one loads", async () => {
+      server.use(
+        http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1), createMockAgent(2)])),
+        http.get("/api/v1/a2a/agent-1", () => HttpResponse.json(createMockAgent(1))),
+        http.get("/api/v1/a2a/agent-1/card", () => HttpResponse.json({ name: "Agent 1" })),
+        http.get("/api/v1/a2a/agent-2", () =>
+          HttpResponse.json({ detail: "boom" }, { status: 500 }),
+        ),
+        http.get("/api/v1/a2a/agent-2/card", () => HttpResponse.json({ name: "Agent 2" })),
+      );
+      renderWithProviders(<Agents />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Actions for Agent 1" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "View details" }));
+      const first = await screen.findByRole("region", { name: "Agent 1" });
+      expect(await within(first).findByText("Description for agent 1")).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+
+      await userEvent.click(screen.getByRole("button", { name: "Actions for Agent 2" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "View details" }));
+      const second = await screen.findByRole("region", { name: "Agent 2" });
+
+      expect(
+        await within(second).findByText("Couldn't load the agent details."),
+      ).toBeInTheDocument();
+      expect(within(second).queryByText("Description for agent 1")).not.toBeInTheDocument();
+    });
+
+    it("does nothing when the card itself is clicked", async () => {
+      useAgentOne();
+      renderWithProviders(<Agents />);
+
+      await userEvent.click(await screen.findByText("Agent 1"));
+
+      expect(screen.queryByText("Agent details")).not.toBeInTheDocument();
+    });
+
+    it("does not open the panel when Disable or Delete is chosen", async () => {
+      useAgentOne();
+      renderWithProviders(<Agents />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Actions for Agent 1" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+      expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+      expect(screen.queryByText("Agent details")).not.toBeInTheDocument();
+    });
+
+    it("adds a tag from the panel and shows it", async () => {
+      let body: unknown;
+      useAgentOne([
+        http.put("/api/v1/a2a/agent-1", async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json(createMockAgent(1, { tags: [{ label: "fresh" }] }));
+        }),
+      ]);
+
+      const panel = await openPanel();
+      await userEvent.click(within(panel).getByRole("button", { name: "Add tags" }));
+      await userEvent.type(
+        within(panel).getByRole("textbox", { name: "Add tags" }),
+        "fresh{Enter}",
+      );
+
+      expect(await within(panel).findByText("fresh")).toBeInTheDocument();
+      expect(body).toEqual({ tags: ["fresh"] });
+    });
+
+    it("reports a failed tag save and keeps the editor open", async () => {
+      useAgentOne([
+        http.put("/api/v1/a2a/agent-1", () =>
+          HttpResponse.json({ detail: "Nope" }, { status: 422 }),
+        ),
+      ]);
+
+      const panel = await openPanel();
+      await userEvent.click(within(panel).getByRole("button", { name: "Add tags" }));
+      await userEvent.type(
+        within(panel).getByRole("textbox", { name: "Add tags" }),
+        "fresh{Enter}",
+      );
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(within(panel).getByRole("textbox", { name: "Add tags" })).toHaveValue("fresh");
+    });
+  });
+
   describe("connect agent card", () => {
     it("shows only the Connect agent card when nothing is connected and the user can create", async () => {
       mockHasPermission.mockImplementation(() => true);
@@ -508,14 +610,16 @@ describe("Agents", () => {
       expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
     });
 
-    it("renders no actions menu without update or delete permission", async () => {
+    it("offers only View details without update or delete permission", async () => {
       mockHasPermission.mockImplementation(() => false);
       server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
+      await openMenu("Agent 1");
 
-      await screen.findByText("Agent 1");
-      expect(screen.queryByRole("button", { name: /Actions for/ })).not.toBeInTheDocument();
+      expect(await screen.findByRole("menuitem", { name: "View details" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Disable" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
     });
   });
 });
