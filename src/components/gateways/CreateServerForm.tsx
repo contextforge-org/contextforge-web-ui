@@ -168,19 +168,6 @@ export function CreateServerForm({
           </div>
         </fieldset>
 
-        {visibility === "team" && (
-          <TeamSelect
-            id="server-team"
-            teams={teams}
-            value={teamId || undefined}
-            onChange={(nextTeamId) => {
-              onTeamChange(nextTeamId);
-              if (errors.teamId) validateField("teamId", nextTeamId);
-            }}
-            error={errors.teamId}
-          />
-        )}
-
         <Field
           id="server-name"
           required
@@ -202,6 +189,19 @@ export function CreateServerForm({
             />
           )}
         </Field>
+
+        {visibility === "team" && (
+          <TeamSelect
+            id="server-team"
+            teams={teams}
+            value={teamId || undefined}
+            onChange={(nextTeamId) => {
+              onTeamChange(nextTeamId);
+              if (errors.teamId) validateField("teamId", nextTeamId);
+            }}
+            error={errors.teamId}
+          />
+        )}
 
         <Field
           id="oauth-enabled"
