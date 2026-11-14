@@ -11,10 +11,12 @@ import {
   useCreateServerForm,
   type CreateServerFormInitialValues,
 } from "@/hooks/useCreateServerForm";
+import { useTeamScope } from "@/hooks/useTeams";
 import { useTagSuggestions } from "@/hooks/useTagSuggestions";
 import { MAX_TAGS } from "@/utils/tags";
 import type { CreateServerDetails } from "@/components/gateways/types";
 import type { Visibility } from "@/types/server";
+import { TeamSelect } from "@/components/common/TeamSelect";
 import { VisibilityInfoPopover } from "@/components/common/VisibilityInfoPopover";
 import { STATUS_ICON } from "@/lib/status";
 
@@ -67,15 +69,23 @@ export function CreateServerForm({
     oauthEnabled,
     tags,
     description,
+    teamId,
     errors,
     setName,
     setVisibility,
     setOAuthEnabled,
     setTags,
     setDescription,
+    setTeamId,
     validateField,
     handleSubmit,
   } = useCreateServerForm(initialValues);
+  const { teams, onTeamChange } = useTeamScope({
+    visibility,
+    teamId,
+    onTeamIdChange: setTeamId,
+    recordTeamId: initialValues?.teamId,
+  });
   const tagSuggestions = useTagSuggestions();
   const resolvedTitle = title ?? intl.formatMessage({ id: "gateways.createServer.title" });
   const resolvedDescription =
@@ -179,6 +189,19 @@ export function CreateServerForm({
             />
           )}
         </Field>
+
+        {visibility === "team" && (
+          <TeamSelect
+            id="server-team"
+            teams={teams}
+            value={teamId || undefined}
+            onChange={(nextTeamId) => {
+              onTeamChange(nextTeamId);
+              if (errors.teamId) validateField("teamId", nextTeamId);
+            }}
+            error={errors.teamId}
+          />
+        )}
 
         <Field
           id="oauth-enabled"

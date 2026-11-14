@@ -259,4 +259,103 @@ describe("useCreateServerForm", () => {
     });
     expect(data!.name).toBe("My Server");
   });
+
+  it("initializes teamId from initialValues", () => {
+    const { result } = renderHook(
+      () => useCreateServerForm({ visibility: "team", teamId: "team-shared" }),
+      { wrapper },
+    );
+    expect(result.current.teamId).toBe("team-shared");
+  });
+
+  it("setTeamId updates teamId", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setTeamId("team-shared");
+    });
+    expect(result.current.teamId).toBe("team-shared");
+  });
+
+  it("getFormData includes the picked team", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+      result.current.setVisibility("team");
+      result.current.setTeamId("team-shared");
+    });
+    let data: ReturnType<typeof result.current.getFormData> | null = null;
+    act(() => {
+      data = result.current.getFormData();
+    });
+    expect(data!.teamId).toBe("team-shared");
+  });
+
+  it("getFormData omits teamId when it is empty", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+    });
+    let data: ReturnType<typeof result.current.getFormData> | null = null;
+    act(() => {
+      data = result.current.getFormData();
+    });
+    expect(data!.teamId).toBeUndefined();
+  });
+
+  it("validateForm sets a teamId error for team visibility without a team", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+      result.current.setVisibility("team");
+    });
+    let valid = true;
+    act(() => {
+      valid = result.current.validateForm();
+    });
+    expect(valid).toBe(false);
+    expect(result.current.errors.teamId).toBeTruthy();
+  });
+
+  it("validateForm accepts team visibility with a team", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+      result.current.setVisibility("team");
+      result.current.setTeamId("team-shared");
+    });
+    let valid = false;
+    act(() => {
+      valid = result.current.validateForm();
+    });
+    expect(valid).toBe(true);
+    expect(result.current.errors).toEqual({});
+  });
+
+  it("does not require a team for non-team visibility", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+    });
+    let valid = false;
+    act(() => {
+      valid = result.current.validateForm();
+    });
+    expect(valid).toBe(true);
+  });
+
+  it("validateField clears the teamId error when a team is picked", () => {
+    const { result } = renderHook(() => useCreateServerForm(), { wrapper });
+    act(() => {
+      result.current.setName("My Server");
+      result.current.setVisibility("team");
+    });
+    act(() => {
+      result.current.validateForm();
+    });
+    expect(result.current.errors.teamId).toBeTruthy();
+    act(() => {
+      result.current.validateField("teamId", "team-shared");
+    });
+    expect(result.current.errors.teamId).toBeUndefined();
+  });
 });
