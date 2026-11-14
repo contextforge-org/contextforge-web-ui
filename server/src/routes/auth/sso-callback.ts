@@ -12,6 +12,7 @@ import { config } from "../../config.js";
 import { establishSession, PasswordChangeStillRequiredError } from "../../lib/establish-session.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
+import { applyGatewaySsoProfile } from "../../lib/sso-gateway-profile.js";
 import { loginErrorRedirect } from "../../lib/sso-login-error-redirect.js";
 import { consumeSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 import { exchangeSsoCode } from "../../lib/sso-token-exchange.js";
@@ -133,6 +134,12 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
           ),
         );
       }
+
+      // The gateway owns the Keycloak-role -> platform_admin mapping, so
+      // replace the ID-token fallback with its view before minting the
+      // session. This never fails the login: a lookup failure keeps the
+      // non-admin fallback because permissions are enforced gateway-side.
+      user = await applyGatewaySsoProfile(request, tokens.accessToken, user);
 
       try {
         await establishSession(

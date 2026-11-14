@@ -99,13 +99,29 @@ function mockDiscoveryFetch(): void {
 
 // Discovery is cached after the login call, so this only needs to serve the
 // token and JWKS endpoints for the callback -- anything else is a test-setup bug.
-function mockTokenExchange(idTokenClaims: Record<string, unknown>, ok = true, status = 400): void {
+const GATEWAY_PROFILE_URL = "http://127.0.0.1:4444/auth/email/me";
+let gatewayProfileHeaders: Record<string, string> | undefined;
+
+function mockTokenExchange(
+  idTokenClaims: Record<string, unknown>,
+  ok = true,
+  status = 400,
+  profile: Record<string, unknown> | null = null,
+): void {
+  gatewayProfileHeaders = undefined;
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init?: { headers?: Record<string, string> }) => {
       const href = String(url);
       if (href === JWKS_ENDPOINT) {
         return { ok: true, status: 200, json: async () => ({ keys: [publicJwk()] }) };
+      }
+      if (href === GATEWAY_PROFILE_URL) {
+        gatewayProfileHeaders = init?.headers;
+        if (!profile) {
+          return { ok: false, status: 503, json: async () => ({ detail: "unavailable" }) };
+        }
+        return { ok: true, status: 200, json: async () => profile };
       }
       if (href !== TOKEN_ENDPOINT) {
         throw new Error(`unexpected fetch during callback test: ${url}`);
@@ -185,6 +201,93 @@ describe("GET /auth/sso/callback", () => {
     expect(sessionResponse.json()).toMatchObject({
       authenticated: true,
       user: { email: "user@example.com", auth_provider: "sso" },
+    });
+  });
+
+  it("uses the gateway's role mapping for admin-only UI", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+    const { state, nonce, binding } = await performLogin(app, "/app/admin/users");
+
+    mockTokenExchange(
+      {
+        email: "admin@example.com",
+        email_verified: true,
+        name: "Keycloak Display Name",
+        nonce,
+      },
+      true,
+      400,
+      {
+        email: "admin@example.com",
+        full_name: "Gateway Admin",
+        is_admin: true,
+        auth_provider: "keycloak",
+      },
+    );
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ code: "auth-code", state }),
+      headers: { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` },
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe("/app/admin/users");
+    expect(gatewayProfileHeaders?.authorization).toBe("Bearer keycloak-access-token");
+
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    const sessionResponse = await app.fastify.inject({
+      method: "GET",
+      url: "/auth/session",
+      headers: { cookie: `bff_sid=${sessionCookie!.value}` },
+    });
+    expect(sessionResponse.json()).toMatchObject({
+      authenticated: true,
+      user: {
+        email: "admin@example.com",
+        full_name: "Gateway Admin",
+        is_admin: true,
+        auth_provider: "keycloak",
+      },
+    });
+  });
+
+  it("keeps the non-admin fallback when the gateway profile lookup fails", async () => {
+    enableSso();
+    mockDiscoveryFetch();
+    const buildTestApp = await freshBuildTestApp();
+    const app = await buildTestApp();
+    const { state, nonce, binding } = await performLogin(app);
+
+    mockTokenExchange({
+      email: "user@example.com",
+      email_verified: true,
+      name: "Test User",
+      nonce,
+    });
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: callbackUrl({ code: "auth-code", state }),
+      headers: { cookie: `${SSO_LOGIN_BINDING_COOKIE}=${binding}` },
+    });
+
+    expect(response.statusCode).toBe(302);
+    const sessionCookie = response.cookies.find((c) => c.name === "bff_sid");
+    const sessionResponse = await app.fastify.inject({
+      method: "GET",
+      url: "/auth/session",
+      headers: { cookie: `bff_sid=${sessionCookie!.value}` },
+    });
+    expect(sessionResponse.json()).toMatchObject({
+      authenticated: true,
+      user: {
+        email: "user@example.com",
+        full_name: "Test User",
+        is_admin: false,
+        auth_provider: "sso",
+      },
     });
   });
 
