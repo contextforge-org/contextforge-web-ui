@@ -67,6 +67,7 @@
   "gateways.createServer.validation.nameMax": "Name must be less than 100 characters",
   "gateways.createServer.validation.tagsMax": "Use 20 tags or fewer.",
   "gateways.createServer.validation.descriptionMax": "Description must be less than 500 characters",
+  "gateways.createServer.validation.teamRequired": "Team selection is required when visibility is set to team",
   "gateways.createServer.validation.invalid": "Invalid value",
   "gateways.card.enabled": "Enabled",
   "gateways.card.disabled": "Disabled",
