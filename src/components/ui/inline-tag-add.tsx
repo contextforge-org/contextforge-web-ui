@@ -139,7 +139,7 @@ export function InlineTagAdd({
             onClick={() => setEditing(true)}
             aria-label={ariaLabel}
             className={cn(
-              "flex items-center gap-1 rounded text-[12px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+              "flex items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
               triggerClassName,
             )}
           >
@@ -160,7 +160,7 @@ export function InlineTagAdd({
             placeholder={placeholder}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-8 w-full text-[12px] focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
+            className="h-8 w-full text-xs md:text-xs focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0"
           />
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={close}>
