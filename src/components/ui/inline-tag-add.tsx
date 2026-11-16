@@ -126,7 +126,7 @@ export function InlineTagAdd({
   };
 
   return (
-    <div className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-x-4 gap-y-3">
+    <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-x-4 gap-y-3">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="flex min-w-0 flex-wrap items-center gap-2 text-foreground">
         {children}
