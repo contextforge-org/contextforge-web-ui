@@ -5,11 +5,18 @@ import { http, HttpResponse } from "msw";
 import { createElement, type ComponentType } from "react";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders, byTextContent } from "@/test/test-utils";
+import { AuthProvider } from "@/auth/AuthContext";
 import { createVirtualServer, updateVirtualServer } from "@/api/virtualServers";
 import { ApiError } from "@/api/client";
 import { truncateMiddle } from "@/components/gateways/utils";
 import type { Tool } from "@/types/tool";
 import { CreateServer } from "./CreateServer";
+
+// `useTeamScope` in the rendered form reads the sidebar team from AuthContext,
+// so every render needs the provider even when the test never touches teams.
+function renderForm(ui: React.ReactElement) {
+  return renderWithProviders(<AuthProvider>{ui}</AuthProvider>);
+}
 
 // Full `GET /tools` item (ToolRead); typed so a contract change breaks the build.
 function makeRestTool(overrides: Partial<Tool> = {}): Tool {
@@ -173,7 +180,7 @@ describe("CreateServer", () => {
           : undefined,
       ),
     );
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.click(await screen.findByRole("checkbox", { name: "Select random_joke" }));
     expect(screen.queryByRole("checkbox", { name: "Select agent_tool" })).not.toBeInTheDocument();
@@ -189,7 +196,7 @@ describe("CreateServer", () => {
   });
 
   it("renders accessible form fields", () => {
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     expect(screen.getByRole("heading", { name: "Create server" })).toBeInTheDocument();
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
@@ -244,7 +251,7 @@ describe("CreateServer", () => {
       ),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     expect(await screen.findByTestId("mock-create-server-form")).toBeInTheDocument();
     await waitFor(() => {
@@ -302,7 +309,7 @@ describe("CreateServer", () => {
       ),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("HTTP 404");
     expect(screen.queryByRole("heading", { name: "Edit server" })).not.toBeInTheDocument();
@@ -350,7 +357,7 @@ describe("CreateServer", () => {
       ),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     expect(await screen.findByTestId("mock-create-server-form")).toBeInTheDocument();
     await act(async () => {
@@ -373,7 +380,7 @@ describe("CreateServer", () => {
 
   it("shows optional configuration fields when expanded", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.click(screen.getByRole("button", { name: "Optional configuration" }));
 
@@ -387,7 +394,7 @@ describe("CreateServer", () => {
 
   it("opens source selection actions without creating a virtual server", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.click(screen.getByRole("button", { name: "Optional configuration" }));
     await user.clear(screen.getByLabelText(/Name/));
@@ -471,7 +478,7 @@ describe("CreateServer", () => {
       }),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -518,7 +525,7 @@ describe("CreateServer", () => {
 
   it("creates a virtual server with optional details when skipping source selection", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.click(screen.getByRole("button", { name: "Optional configuration" }));
     await user.type(screen.getByLabelText(/Name/), "Research server");
@@ -551,7 +558,7 @@ describe("CreateServer", () => {
   it("shows an error when skip creation fails", async () => {
     const user = userEvent.setup();
     mockCreateVirtualServer.mockRejectedValueOnce(new Error("Create failed"));
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -582,7 +589,7 @@ describe("CreateServer", () => {
       http.get("*/prompts", () => HttpResponse.json({ prompts: [] })),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -605,7 +612,7 @@ describe("CreateServer", () => {
 
   it("opens the MCP server connection form from the post-create source selection", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -620,7 +627,7 @@ describe("CreateServer", () => {
     const user = userEvent.setup();
     const apiError = new ApiError(400, { message: "Api message error" }, "");
     mockCreateVirtualServer.mockRejectedValueOnce(apiError);
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -634,7 +641,7 @@ describe("CreateServer", () => {
     const user = userEvent.setup();
     const apiError = new ApiError(400, { detail: "Api detail string error" }, "");
     mockCreateVirtualServer.mockRejectedValueOnce(apiError);
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -648,7 +655,7 @@ describe("CreateServer", () => {
     const user = userEvent.setup();
     const apiError = new ApiError(400, { detail: [{ msg: "Msg 1" }, "String msg 2"] }, "");
     mockCreateVirtualServer.mockRejectedValueOnce(apiError);
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -661,7 +668,7 @@ describe("CreateServer", () => {
   it("shows fallback message when error is arbitrary object", async () => {
     const user = userEvent.setup();
     mockCreateVirtualServer.mockRejectedValueOnce({ raw: "some raw error" });
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
 
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -717,7 +724,7 @@ describe("CreateServer", () => {
       ),
     );
 
-    renderWithProviders(<CreateServer />);
+    renderForm(<CreateServer />);
     await user.type(screen.getByLabelText(/Name/), "Research server");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
     await screen.findByRole("heading", { name: "Connect a source" });
@@ -757,7 +764,7 @@ describe("CreateServer", () => {
     componentMockState.mockForm = true;
     componentMockState.mockSourceSelection = true;
     try {
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       // Step 1: Trigger success on the form with null details
       act(() => {
@@ -791,7 +798,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
       expect(screen.getAllByRole("status").length).toBeGreaterThan(0);
       expect(screen.getByText("Loading...")).toBeInTheDocument();
     });
@@ -804,7 +811,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -830,7 +837,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         // "Edit server" is the title in Edit mode
@@ -877,7 +884,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByRole("heading", { name: "Edit server" })).toBeInTheDocument();
@@ -940,7 +947,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() =>
         expect(screen.getByRole("heading", { name: "Edit server" })).toBeInTheDocument(),
@@ -970,7 +977,7 @@ describe("CreateServer", () => {
         http.get("*/prompts", () => HttpResponse.json({ prompts: [] })),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByText("MCP Server 1")).toBeInTheDocument();
@@ -1026,7 +1033,7 @@ describe("CreateServer", () => {
         ),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() =>
         expect(screen.getByRole("heading", { name: "Edit server" })).toBeInTheDocument(),
@@ -1059,7 +1066,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -1097,7 +1104,7 @@ describe("CreateServer", () => {
         http.get("*/prompts", () => HttpResponse.json({ prompts: [] })),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByText("MCP Server Err")).toBeInTheDocument();
@@ -1127,7 +1134,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByRole("alert")).toBeInTheDocument();
@@ -1154,7 +1161,7 @@ describe("CreateServer", () => {
 
       componentMockState.mockForm = true;
       try {
-        renderWithProviders(<CreateServer />);
+        renderForm(<CreateServer />);
 
         await waitFor(() => {
           expect(screen.getByTestId("mock-create-server-form")).toBeInTheDocument();
@@ -1198,7 +1205,7 @@ describe("CreateServer", () => {
 
       componentMockState.mockForm = true;
       try {
-        renderWithProviders(<CreateServer />);
+        renderForm(<CreateServer />);
 
         await waitFor(() => {
           expect(screen.getByTestId("mock-create-server-form")).toBeInTheDocument();
@@ -1240,7 +1247,7 @@ describe("CreateServer", () => {
         }),
       );
 
-      renderWithProviders(<CreateServer />);
+      renderForm(<CreateServer />);
 
       await waitFor(() => {
         expect(screen.getByRole("heading", { name: "Edit server" })).toBeInTheDocument();
