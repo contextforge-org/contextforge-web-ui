@@ -51,9 +51,10 @@ const renderSettings = () =>
   );
 
 function pickVia(buttonName: string, file = FILE) {
-  const { getByRole, getByTestId } = renderSettings();
-  fireEvent.click(getByRole("button", { name: buttonName }));
-  fireEvent.change(getByTestId("import-config-input"), { target: { files: [file] } });
+  const utils = renderSettings();
+  fireEvent.click(utils.getByRole("button", { name: buttonName }));
+  fireEvent.change(utils.getByTestId("import-config-input"), { target: { files: [file] } });
+  return utils;
 }
 
 const withProgress = (progress: Partial<ImportResult["progress"]>): ImportResult => ({
@@ -208,37 +209,54 @@ describe("ConfigurationSettings", () => {
     );
   });
 
-  it("imports the picked file and toasts the outcome", async () => {
-    pickVia("Import configuration");
+  // Picks FILE, waits for the dry-run dialog and confirms it.
+  async function importViaDialog() {
+    const { findByRole, getByRole } = pickVia("Import configuration");
+    const dialog = await findByRole("dialog", { name: "Import configuration" });
+    fireEvent.click(getByRole("button", { name: "Import" }));
+    return dialog;
+  }
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(toast.success).mock.calls[0][0]).toBe(
-      "Import complete: 1 created, 1 updated, 0 skipped. File contained 1 MCP server and 2 virtual servers.",
-    );
+  it("dry-runs the file, shows the proposed changes and imports only after confirming", async () => {
+    const { findByRole, getByRole } = pickVia("Import configuration");
+
+    const dialog = await findByRole("dialog", { name: "Import configuration" });
     expect(importExportApi.importConfig).toHaveBeenCalledTimes(1);
     expect(vi.mocked(importExportApi.importConfig).mock.calls[0][0]).toMatchObject({
       data: EXPORT,
-      dryRun: false,
-    });
-  });
-
-  it("dry run summarises the file by type and says nothing changed", async () => {
-    pickVia("Dry run");
-
-    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(importExportApi.importConfig).mock.calls[0][0]).toMatchObject({
       dryRun: true,
     });
+    expect(dialog).toHaveTextContent("2 out of 2 entities will be imported.");
+    expect(dialog).toHaveTextContent("MCP servers1");
+    expect(dialog).toHaveTextContent("Virtual servers2");
+    expect(dialog).not.toHaveTextContent("Tools");
+
+    fireEvent.click(getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(importExportApi.importConfig).mock.calls[1][0]).toMatchObject({
+      data: EXPORT,
+      dryRun: false,
+    });
     expect(vi.mocked(toast.success).mock.calls[0][0]).toBe(
-      "Dry run: would import 1 MCP server and 2 virtual servers. Nothing was changed.",
+      "Import complete: 1 created, 1 updated, 0 skipped. File contained 1 MCP server and 2 virtual servers.",
     );
+  });
+
+  it("cancelling the dialog imports nothing", async () => {
+    const { findByRole, getByRole, queryByRole } = pickVia("Import configuration");
+    await findByRole("dialog");
+
+    fireEvent.click(getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(queryByRole("dialog")).toBeNull());
+    expect(importExportApi.importConfig).toHaveBeenCalledTimes(1);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("warns on a partial import", async () => {
     vi.mocked(importExportApi.importConfig).mockResolvedValue(
       withProgress({ created: 1, updated: 0, failed: 1 }),
     );
-    pickVia("Import configuration");
+    await importViaDialog();
 
     await waitFor(() => expect(toast.warning).toHaveBeenCalledTimes(1));
     expect(vi.mocked(toast.warning).mock.calls[0][0]).toBe(
@@ -247,10 +265,10 @@ describe("ConfigurationSettings", () => {
   });
 
   it("errors when every item fails", async () => {
-    vi.mocked(importExportApi.importConfig).mockResolvedValue(
-      withProgress({ created: 0, updated: 0, failed: 2 }),
-    );
-    pickVia("Import configuration");
+    vi.mocked(importExportApi.importConfig)
+      .mockResolvedValueOnce(RESULT)
+      .mockResolvedValueOnce(withProgress({ created: 0, updated: 0, failed: 2 }));
+    await importViaDialog();
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect(vi.mocked(toast.error).mock.calls[0][0]).toBe(
@@ -258,14 +276,15 @@ describe("ConfigurationSettings", () => {
     );
   });
 
-  it("does not claim success when a dry run fails", async () => {
+  it("skips the dialog and imports nothing when the dry run fails", async () => {
     vi.mocked(importExportApi.importConfig).mockResolvedValue({ ...RESULT, status: "failed" });
-    pickVia("Dry run");
+    pickVia("Import configuration");
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect(vi.mocked(toast.error).mock.calls[0][0]).toBe(
       "Dry run found problems importing 1 MCP server and 2 virtual servers. Nothing was changed.",
     );
+    expect(importExportApi.importConfig).toHaveBeenCalledTimes(1);
   });
 
   it("toasts an invalid file without calling the API", async () => {
@@ -285,11 +304,11 @@ describe("ConfigurationSettings", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it("disables both buttons without the import permission", () => {
+  it("disables import without the import permission", () => {
     canImport = false;
-    const { getByRole } = renderSettings();
+    const { getByRole, queryByRole } = renderSettings();
 
     expect(getByRole("button", { name: "Import configuration" })).toBeDisabled();
-    expect(getByRole("button", { name: "Dry run" })).toBeDisabled();
+    expect(queryByRole("button", { name: "Dry run" })).toBeNull();
   });
 });
