@@ -64,6 +64,7 @@ function newRow(overrides: Partial<MemberRow> = {}): MemberRow {
 describe("ManageTeamMembersDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     hookState.members = [];
     hookState.memberOptions = [];
     hookState.isLoading = false;
@@ -211,6 +212,22 @@ describe("ManageTeamMembersDialog", () => {
 
     await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: "owner" }));
+
+    expect(hookState.changeRole).toHaveBeenCalledWith("new-1", "owner");
+  });
+
+  it("translates the role labels and keeps the API role values", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("user-locale", "pt-BR");
+    hookState.members = [newRow({ id: "new-1", role: "member" })];
+    renderDialog(<ManageTeamMembersDialog {...baseProps()} />);
+
+    const roleTrigger = screen.getAllByRole("combobox")[1];
+    expect(roleTrigger).toHaveTextContent("membro");
+
+    await user.click(roleTrigger);
+    expect(await screen.findByRole("option", { name: "membro" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "proprietário" }));
 
     expect(hookState.changeRole).toHaveBeenCalledWith("new-1", "owner");
   });
