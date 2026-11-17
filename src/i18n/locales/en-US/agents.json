@@ -161,6 +161,10 @@
   "agents.details.plugins.remove": "Remove {plugin}",
   "agents.details.plugins.removeSuccess": "Removed {plugin}",
   "agents.details.plugins.removeError": "Failed to remove {plugin}",
+  "agents.details.plugins.confirm.title": "Remove plugin?",
+  "agents.details.plugins.confirm.description": "{plugin} will no longer apply to {agent}.",
+  "agents.details.plugins.confirm.teamWide": "{plugin} applies to every agent in this team. Removing it stops it applying to all of them.",
+  "agents.details.plugins.confirm.button": "Remove",
   "agents.card.actions.viewDetails": "View details",
   "agents.tags.addError": "Failed to add tag. Please try again."
 }

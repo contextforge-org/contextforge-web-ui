@@ -161,6 +161,10 @@
   "agents.details.plugins.remove": "Quitar {plugin}",
   "agents.details.plugins.removeSuccess": "Se quitó {plugin}",
   "agents.details.plugins.removeError": "No se pudo quitar {plugin}",
+  "agents.details.plugins.confirm.title": "¿Quitar el plugin?",
+  "agents.details.plugins.confirm.description": "{plugin} dejará de aplicarse a {agent}.",
+  "agents.details.plugins.confirm.teamWide": "{plugin} se aplica a todos los agentes de este equipo. Al quitarlo, dejará de aplicarse a todos ellos.",
+  "agents.details.plugins.confirm.button": "Quitar",
   "agents.card.actions.viewDetails": "Ver detalles",
   "agents.tags.addError": "No se pudo añadir la etiqueta. Inténtelo de nuevo."
 }

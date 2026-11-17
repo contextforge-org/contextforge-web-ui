@@ -32,7 +32,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getAgentSkillNames } from "./agentSkills";
+import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
+import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
 
 // Only what the panel renders. `Agent` also carries credential fields
 // (authToken, authPassword, ...) that must never reach the UI, so the panel
@@ -58,7 +59,8 @@ export type AgentDetailsFields = Pick<
   | "createdAt"
   | "updatedAt"
   | "lastInteraction"
->;
+> &
+  Pick<AgentSkillSource, "skills">;
 
 const AUTH_TYPES = ["bearer", "basic", "authheaders", "query_param", "oauth"] as const;
 type AuthType = (typeof AUTH_TYPES)[number];
@@ -103,8 +105,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function joinModes(modes?: string[]): string {
-  return (modes ?? []).filter(Boolean).join(", ");
+function joinModes(modes?: unknown): string {
+  return Array.isArray(modes)
+    ? modes.filter((mode): mode is string => typeof mode === "string" && Boolean(mode)).join(", ")
+    : "";
 }
 
 /** Whether a declared capability is on: a flag, or a non-empty list such as `extensions`. */
@@ -180,6 +184,8 @@ export function AgentDetailsPanel({
     open && teamId && canReadPlugins ? `/v1/a2a-agents/plugin-bindings/${teamId}` : null,
   );
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [bindingToRemove, setBindingToRemove] =
+    useState<NonNullable<A2AAgentPluginBindingResponse> | null>(null);
 
   // Bindings are kept per team; this agent's are the ones that name it, plus team-wide ones.
   const bindings = useMemo(
@@ -218,6 +224,7 @@ export function AgentDetailsPanel({
         );
       } finally {
         setRemovingId(null);
+        setBindingToRemove(null);
       }
     },
     [intl, setBindingList],
@@ -238,7 +245,8 @@ export function AgentDetailsPanel({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // A nested editor or dialog that already handled Escape keeps the panel open.
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -271,18 +279,19 @@ export function AgentDetailsPanel({
       : current.agentType
     : notAvailable;
 
-  const skillNames = current ? getAgentSkillNames({ capabilities: current.capabilities }) : [];
-  const skills = card?.skills?.length
-    ? card.skills.map((skill) => skill.name || skill.id || "").filter(Boolean)
-    : skillNames;
+  // The card is only served for enabled agents, so a disabled one falls back to what the agent lists.
+  const cardSkills = getAgentSkillNames({ skills: card?.skills });
+  const skills = cardSkills.length > 0 ? cardSkills : current ? getAgentSkillNames(current) : [];
 
   const capabilitySource = card?.capabilities ?? current?.capabilities ?? {};
   const capabilityRows = [...CAPABILITY_KEYS, "extensions" as const]
     .filter((key) => key in capabilitySource)
     .map((key) => ({ key, enabled: isEnabled(capabilitySource[key]) }));
 
-  const inputModes = joinModes(card?.defaultInputModes);
-  const outputModes = joinModes(card?.defaultOutputModes);
+  const inputModes = joinModes(card?.defaultInputModes ?? current?.capabilities?.defaultInputModes);
+  const outputModes = joinModes(
+    card?.defaultOutputModes ?? current?.capabilities?.defaultOutputModes,
+  );
   // An empty type means no authentication. A type this list doesn't know is reported as such rather than as "none".
   const rawAuthType = current?.authType;
   const authType: AuthType | "none" | null = !rawAuthType
@@ -474,12 +483,12 @@ export function AgentDetailsPanel({
                             variant="ghost"
                             size="icon-xs"
                             className="text-muted-foreground"
-                            disabled={removingId === binding.id}
+                            disabled={removingId !== null}
                             aria-label={intl.formatMessage(
                               { id: "agents.details.plugins.remove" },
                               { plugin: binding.pluginId },
                             )}
-                            onClick={() => void removeBinding(binding)}
+                            onClick={() => setBindingToRemove(binding)}
                           >
                             <X className="size-3.5" aria-hidden="true" />
                           </Button>
@@ -602,6 +611,29 @@ export function AgentDetailsPanel({
           </div>
         )}
       </aside>
+
+      <ConfirmDialog
+        open={bindingToRemove !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setBindingToRemove(null);
+        }}
+        onConfirm={() => (bindingToRemove ? removeBinding(bindingToRemove) : undefined)}
+        title={intl.formatMessage({ id: "agents.details.plugins.confirm.title" })}
+        description={intl.formatMessage(
+          {
+            id:
+              bindingToRemove?.agentName === "*"
+                ? "agents.details.plugins.confirm.teamWide"
+                : "agents.details.plugins.confirm.description",
+          },
+          { plugin: bindingToRemove?.pluginId, agent: current?.name },
+        )}
+        confirmLabel={intl.formatMessage({ id: "agents.details.plugins.confirm.button" })}
+        variant="destructive"
+        role="alertdialog"
+        closeOnConfirm={false}
+        isLoading={removingId !== null}
+      />
     </>
   );
 }

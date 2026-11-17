@@ -984,12 +984,12 @@ test.describe("Agents page", () => {
       await page.goto(APP.AGENTS);
 
       await page.getByText("objekts router").click();
-      await expect(page.getByText("Agent details")).toHaveCount(0);
+      await expect(page.getByText("Agent details", { exact: true })).toHaveCount(0);
 
       await openActions(page, "objekts router");
       await page.getByRole("menuitem", { name: "View details" }).click();
       const panel = page.getByRole("region", { name: "objekts router" });
-      await expect(panel.getByText("Agent details")).toBeVisible();
+      await expect(panel.getByText("Agent details", { exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
 
       await expect(panel).toBeHidden();
@@ -1048,6 +1048,7 @@ test.describe("Agents page", () => {
       const panel = await openDetails(page);
       await expect(panel.getByText("pii-filter")).toBeVisible();
       await panel.getByRole("button", { name: "Remove pii-filter" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
 
       await expect(panel.getByText("pii-filter")).toBeHidden();
       expect(deleted).toBe(true);
@@ -1062,7 +1063,7 @@ test.describe("Agents page", () => {
 
       const panel = await openDetails(page);
 
-      await expect(panel.getByText("Agent details")).toBeVisible();
+      await expect(panel.getByText("Agent details", { exact: true })).toBeVisible();
       await expect(panel.getByRole("button", { name: "Actions for objekts router" })).toHaveCount(
         0,
       );

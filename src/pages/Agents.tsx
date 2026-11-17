@@ -54,6 +54,9 @@ function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
   const chips = skills.length > 0 ? skills : getTagLabels(agent.tags ?? []);
   const visibleChips = chips.slice(0, MAX_VISIBLE_CHIPS);
   const remainingCount = chips.length - MAX_VISIBLE_CHIPS;
+  // The panel opens after the menu has closed, and focus returns to this trigger, not the removed item.
+  const actionsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const pendingOpenRef = useRef(false);
 
   return (
     <Card size="sm">
@@ -88,6 +91,7 @@ function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  ref={actionsTriggerRef}
                   variant="ghost"
                   size="sm"
                   className="h-7 w-7 flex-shrink-0 p-0"
@@ -99,9 +103,22 @@ function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
                   <EllipsisVertical className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={(event) => {
+                  if (!pendingOpenRef.current) return;
+                  pendingOpenRef.current = false;
+                  event.preventDefault();
+                  actionsTriggerRef.current?.focus();
+                  window.setTimeout(() => onOpen?.(agent.id as string), 0);
+                }}
+              >
                 {onOpen && (
-                  <DropdownMenuItem onClick={() => onOpen(agent.id as string)}>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      pendingOpenRef.current = true;
+                    }}
+                  >
                     {intl.formatMessage({ id: "agents.card.actions.viewDetails" })}
                   </DropdownMenuItem>
                 )}
@@ -224,7 +241,10 @@ export function Agents() {
 
       try {
         const updated = await agentsApi.setState(id, nextEnabled);
-        setAgentsData((prev) => prev?.map((a) => (a?.id === id ? { ...a, ...updated } : a)));
+        // Keep the row's tags: a tag save may have finished while this request was pending.
+        setAgentsData((prev) =>
+          prev?.map((a) => (a?.id === id ? { ...a, ...updated, tags: a.tags } : a)),
+        );
         toast.success(
           intl.formatMessage(
             { id: nextEnabled ? "agents.toast.enableSuccess" : "agents.toast.disableSuccess" },

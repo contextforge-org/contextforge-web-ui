@@ -364,6 +364,17 @@ describe("Agents", () => {
       expect(within(second).queryByText("Description for agent 1")).not.toBeInTheDocument();
     });
 
+    it("returns focus to the Actions button when the panel closes", async () => {
+      useAgentOne();
+
+      await openPanel();
+      await userEvent.keyboard("{Escape}");
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Actions for Agent 1" })).toHaveFocus(),
+      );
+    });
+
     it("does nothing when the card itself is clicked", async () => {
       useAgentOne();
       renderWithProviders(<Agents />);
@@ -526,6 +537,23 @@ describe("Agents", () => {
       await user.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
       return user;
     }
+
+    it("keeps the row's tags when the state response carries older ones", async () => {
+      const agent = createMockAgent(1, { tags: [{ label: "kept" }] });
+      server.use(
+        http.get("/api/v1/a2a", () => HttpResponse.json([agent])),
+        http.post("/api/v1/a2a/:id/state", () =>
+          HttpResponse.json({ ...agent, enabled: false, tags: [] }),
+        ),
+      );
+
+      renderWithProviders(<Agents />);
+      const user = await openMenu("Agent 1");
+      await user.click(await screen.findByRole("menuitem", { name: "Disable" }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Disabled Agent 1"));
+      expect(screen.getByText("kept")).toBeInTheDocument();
+    });
 
     it("disables an enabled agent and reflects the new state", async () => {
       const agent = createMockAgent(1, { enabled: true });

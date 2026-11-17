@@ -207,9 +207,42 @@ describe("AgentDetailsPanel", () => {
     renderPanel();
 
     await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    expect(
+      await screen.findByText("pii-filter will no longer apply to objekts router."),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(screen.queryByText("pii-filter")).not.toBeInTheDocument());
     expect(toast.success).toHaveBeenCalledWith("Removed pii-filter");
+  });
+
+  it("asks before removing, and removes nothing when cancelled", async () => {
+    let deletes = 0;
+    useGateway({
+      list: bindings({ id: "b1", agentName: "objekts router", pluginId: "pii-filter" }),
+    });
+    server.use(
+      http.delete("/api/v1/a2a-agents/plugin-bindings/b1", () => {
+        deletes += 1;
+        return HttpResponse.json({ id: "b1" });
+      }),
+    );
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(deletes).toBe(0);
+    expect(screen.getByText("pii-filter")).toBeInTheDocument();
+  });
+
+  it("says a team-wide binding applies to every agent in the team", async () => {
+    useGateway({ list: bindings({ id: "b2", agentName: "*", pluginId: "rate-limit" }) });
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove rate-limit" }));
+
+    expect(await screen.findByText(/applies to every agent in this team/)).toBeVisible();
   });
 
   it("keeps the binding and reports a failed removal", async () => {
@@ -224,6 +257,7 @@ describe("AgentDetailsPanel", () => {
     renderPanel();
 
     await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(screen.getByText("pii-filter")).toBeInTheDocument();
@@ -291,6 +325,42 @@ describe("AgentDetailsPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Close agent details" }));
     await userEvent.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not close when Escape only dismisses the tag editor", async () => {
+    useGateway();
+    const onClose = vi.fn();
+    renderPanel({ onClose, onAddTag: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "Add tags" }));
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("textbox", { name: "Add tags" })).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("shows the agent's own skills and modes when the card isn't served", async () => {
+    // A disabled agent has no card: the gateway answers 404.
+    useGateway({
+      agent: {
+        ...AGENT,
+        enabled: false,
+        skills: [{ name: "Tender support" }],
+        capabilities: { defaultInputModes: ["text"], defaultOutputModes: ["application/json"] },
+      },
+    });
+    server.use(http.get("/api/v1/a2a/agent-1/card", () => new HttpResponse(null, { status: 404 })));
+    renderPanel({
+      agent: {
+        ...AGENT,
+        enabled: false,
+        skills: [{ name: "Tender support" }],
+        capabilities: { defaultInputModes: ["text"], defaultOutputModes: ["application/json"] },
+      } as AgentDetailsFields,
+    });
+
+    expect(await screen.findByText("Tender support")).toBeInTheDocument();
+    expect(screen.getByText("application/json")).toBeInTheDocument();
   });
 
   it("reports a failed read but keeps showing the list entry", async () => {
