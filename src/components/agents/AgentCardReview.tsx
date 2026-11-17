@@ -286,14 +286,7 @@ export function AgentCardReview({ form, onCancel }: AgentCardReviewProps) {
         <FormActions
           onCancel={onCancel}
           onContinue={() => void form.continueFromReview()}
-          continueLabel={intl.formatMessage({
-            id: form.isSubmitting
-              ? "agents.connect.auth.submitting"
-              : form.requiresAuth
-                ? "agents.connect.continue"
-                : "agents.connect.auth.submit",
-          })}
-          isBusy={form.isSubmitting}
+          continueLabel={intl.formatMessage({ id: "agents.connect.continue" })}
         />
       </CardContent>
     </Card>

@@ -85,6 +85,13 @@ function foundResult(suggested: SuggestedAgent = {}, warnings: string[] = []): F
   };
 }
 
+/** A card that declares no security, so there are no credentials to ask for. */
+function openResult(suggested: SuggestedAgent = {}): FetchCardResult {
+  const result = foundResult({ auth_type: null, ...suggested });
+  result.card = { ...result.card!, securitySchemes: {}, securityRequirements: [] };
+  return result;
+}
+
 function mockFetchCard(result: FetchCardResult | (() => Response)) {
   server.use(
     http.post("/api/v1/a2a/fetch-card", () =>
@@ -350,7 +357,7 @@ describe("ConnectAgentForm", () => {
     });
 
     it("lets the user change the name the agent is registered under", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+      mockFetchCard(openResult());
       const created = mockCreate();
       const user = setup();
 
@@ -359,14 +366,15 @@ describe("ConnectAgentForm", () => {
       const name = await screen.findByDisplayValue("Visual Router");
       await user.clear(name);
       await user.type(name, "objekts_visual_router");
-      await user.click(screen.getByRole("button", { name: "Connect" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await user.click(await screen.findByRole("button", { name: "Connect" }));
 
       await waitFor(() => expect(onCreated).toHaveBeenCalled());
       expect((created.body?.agent as Record<string, unknown>).name).toBe("objekts_visual_router");
     });
 
     it("needs a name, and opens View more to show the problem", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+      mockFetchCard(openResult());
       const created = mockCreate();
       const user = setup();
 
@@ -375,7 +383,7 @@ describe("ConnectAgentForm", () => {
       await user.clear(await screen.findByDisplayValue("Visual Router"));
       await user.click(screen.getByRole("button", { name: "View more" }));
       expect(screen.queryByText("Enter a name for the agent.")).not.toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Connect" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
 
       expect(await screen.findByText("Enter a name for the agent.")).toBeInTheDocument();
       expect(created.count).toBe(0);
@@ -394,18 +402,23 @@ describe("ConnectAgentForm", () => {
         expect(created.count).toBe(0);
       });
 
-      it("registers straight away, as Connect, when the card needs none", async () => {
-        mockFetchCard(foundResult({ auth_type: null }));
+      it("still asks for visibility, without a Key field, when the card needs no credentials", async () => {
+        mockFetchCard(openResult());
         const created = mockCreate();
         const user = setup();
 
         await submitUrl(user);
-        expect(await screen.findByRole("button", { name: "Connect" })).toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText("Set agent visibility")).toBeInTheDocument();
+        expect(screen.getByText("Choose who can access this agent.")).toBeInTheDocument();
+        expect(screen.queryByText("Authenticate agent")).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText("Add key from the agent provider")).toBeNull();
+        expect(created.count).toBe(0);
         await user.click(screen.getByRole("button", { name: "Connect" }));
 
         await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
-        expect(screen.queryByText("Authenticate agent")).not.toBeInTheDocument();
         expect(created.body).toEqual({
           agent: expect.objectContaining({
             name: "Visual Router",
@@ -419,14 +432,15 @@ describe("ConnectAgentForm", () => {
         expect(agent).not.toHaveProperty("tags");
       });
 
-      it("shows the server's reason on the review page when that registration fails", async () => {
-        mockFetchCard(foundResult({ auth_type: null }));
+      it("shows the server's reason on the visibility page when that registration fails", async () => {
+        mockFetchCard(openResult());
         mockCreate(() =>
           HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }),
         );
         const user = setup();
 
         await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
         await user.click(await screen.findByRole("button", { name: "Connect" }));
 
         expect(await screen.findByText("Agent name already exists")).toBeInTheDocument();
@@ -435,13 +449,14 @@ describe("ConnectAgentForm", () => {
       });
 
       it("explains a card that gave no name or endpoint", async () => {
-        const result = foundResult({ auth_type: null });
+        const result = openResult();
         delete result.suggestedAgent!.endpoint_url;
         mockFetchCard(result);
         const created = mockCreate();
         const user = setup();
 
         await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
         await user.click(await screen.findByRole("button", { name: "Connect" }));
 
         expect(await screen.findByText(/missing a name or endpoint/)).toBeInTheDocument();
@@ -573,6 +588,27 @@ describe("ConnectAgentForm", () => {
       ]);
     });
 
+    it("cannot register an agent whose card requires security the gateway can't map", async () => {
+      // An mTLS requirement leaves `auth_type` empty, which must not read as "no security".
+      const result = foundResult({ auth_type: null });
+      result.card = {
+        ...result.card!,
+        securitySchemes: { mtls: { mtlsSecurityScheme: {} } },
+        securityRequirements: [{ schemes: { mtls: {} } }],
+      };
+      mockFetchCard(result);
+      const created = mockCreate();
+      const user = setup();
+
+      await toAuthStep(user);
+
+      expect(
+        await screen.findByText(/security requirements can't be set up from this form yet/),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
+      expect(created.count).toBe(0);
+    });
+
     it("cannot register an OAuth 2.0 agent from this form", async () => {
       mockFetchCard(
         foundResult({ auth_type: "oauth", oauth_config: { grant_type: "client_credentials" } }),
@@ -659,16 +695,17 @@ describe("ConnectAgentForm", () => {
     });
 
     it("drops the registration error when going back", async () => {
-      mockFetchCard(foundResult({ auth_type: null }));
+      mockFetchCard(openResult());
       mockCreate(() => HttpResponse.json({ detail: "Agent name already exists" }, { status: 409 }));
       const user = setup();
 
       await submitUrl(user);
+      await user.click(await screen.findByRole("button", { name: "Continue" }));
       await user.click(await screen.findByRole("button", { name: "Connect" }));
       await screen.findByText("Agent name already exists");
       await user.click(screen.getByRole("button", { name: "Back" }));
 
-      expect(await screen.findByPlaceholderText(URL_PLACEHOLDER)).toBeVisible();
+      expect(await screen.findByRole("button", { name: "Continue" })).toBeVisible();
       expect(screen.queryByText("Agent name already exists")).not.toBeInTheDocument();
     });
   });

@@ -136,16 +136,26 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                 void form.submit();
               }}
             >
-              <StepHeader title={intl.formatMessage({ id: "agents.connect.auth.title" })} />
+              <StepHeader
+                title={intl.formatMessage({
+                  id: form.requiresAuth
+                    ? "agents.connect.auth.title"
+                    : "agents.connect.visibility.title",
+                })}
+              />
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {intl.formatMessage({
-                  id: form.singleKey ? "agents.connect.auth.introKey" : "agents.connect.auth.intro",
+                  id: !form.requiresAuth
+                    ? "agents.connect.visibility.intro"
+                    : form.singleKey
+                      ? "agents.connect.auth.introKey"
+                      : "agents.connect.auth.intro",
                 })}
               </p>
 
               {!form.isAuthSupported && (
                 <Callout severity="warning">
-                  {intl.formatMessage({ id: "agents.connect.auth.unsupported" })}
+                  {intl.formatMessage({ id: form.authUnsupportedMessageId })}
                 </Callout>
               )}
 

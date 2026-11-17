@@ -93,7 +93,17 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
 
   const suggested: SuggestedAgent = useMemo(() => result?.suggestedAgent ?? {}, [result]);
   const authType = (suggested.auth_type ?? null) as AgentAuthType | null;
-  const isAuthSupported = !authType || SUPPORTED_CARD_AUTH_TYPES.has(authType);
+  // No mapped `auth_type` does not mean no security: the gateway leaves it out when the card's
+  // requirements can't be stored (mTLS, OpenID Connect, a cookie key, several schemes at once...).
+  const declaresSecurity = (result?.card?.securityRequirements ?? []).some(
+    (requirement) => Object.keys(requirement.schemes ?? {}).length > 0,
+  );
+  const hasAuthType = Boolean(authType && authType !== "none"); // pragma: allowlist secret
+  const isAuthSupported = hasAuthType
+    ? SUPPORTED_CARD_AUTH_TYPES.has(authType as AgentAuthType)
+    : !declaresSecurity;
+  const authUnsupportedMessageId =
+    authType === "oauth" ? "agents.connect.auth.unsupported" : "agents.connect.auth.unmapped";
   const teamId =
     visibility === "team" ? resolveTeamId(teams, selectedTeamId, chosenTeamId) : undefined;
 
@@ -282,7 +292,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const submit = useCallback(async () => {
     const next: ConnectAgentErrors = {};
     if (!isAuthSupported) {
-      next.submit = intl.formatMessage({ id: "agents.connect.auth.unsupported" });
+      next.submit = intl.formatMessage({ id: authUnsupportedMessageId });
     }
     if (!agentName.trim()) {
       next.name = intl.formatMessage({ id: "agents.connect.review.name.required" });
@@ -312,6 +322,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
   }, [
     isAuthSupported,
+    authUnsupportedMessageId,
     agentName,
     missingAuthValues,
     authType,
@@ -325,25 +336,18 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     intl,
   ]);
 
-  /** The card needs credentials, so the user is asked for them before registering. */
-  const requiresAuth = Boolean(authType && authType !== "none"); // pragma: allowlist secret
+  /** The card asks for security, so the next page is for authenticating rather than only for visibility. */
+  const requiresAuth = hasAuthType || declaresSecurity; // pragma: allowlist secret
 
-  /**
-   * "Continue" on the review page. A card that needs credentials goes on to the
-   * authenticate page; one that does not is registered straight away.
-   */
+  /** "Continue" on the review page. Always goes on to the page that sets visibility and credentials. */
   const continueFromReview = useCallback(async () => {
     if (!agentName.trim()) {
       setErrors({ name: intl.formatMessage({ id: "agents.connect.review.name.required" }) });
       return;
     }
-    if (requiresAuth) {
-      setErrors({});
-      setStep("auth");
-      return;
-    }
-    await submit();
-  }, [agentName, requiresAuth, submit, intl]);
+    setErrors({});
+    setStep("auth");
+  }, [agentName, intl]);
 
   /**
    * The single key the authenticate page asks for, when the card names where it goes
@@ -434,6 +438,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     goBack,
     authType,
     isAuthSupported,
+    authUnsupportedMessageId,
     token,
     setToken,
     username,

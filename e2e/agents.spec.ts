@@ -267,7 +267,7 @@ test.describe("Agents page", () => {
       });
     });
 
-    test("registers straight from the review when the card needs no credentials", async ({
+    test("still sets visibility, without a key, when the card needs no credentials", async ({
       page,
     }) => {
       let registered = false;
@@ -284,7 +284,11 @@ test.describe("Agents page", () => {
       await startConnect(page);
 
       await expect(page.getByRole("heading", { name: "Visual Router" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Continue" })).toBeHidden();
+      await expect(page.getByRole("button", { name: "Connect" })).toBeHidden();
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      await expect(page.getByRole("heading", { name: "Set agent visibility" })).toBeVisible();
+      await expect(page.getByPlaceholder("Add key from the agent provider")).toBeHidden();
       await page.getByRole("button", { name: "Connect" }).click();
 
       await expect(toast(page, /Connected Visual Router/)).toBeVisible();
@@ -296,6 +300,30 @@ test.describe("Agents page", () => {
         visibility: "public",
       });
       expect(createBodies[0].agent).not.toHaveProperty("auth_type");
+    });
+
+    test("will not register a card whose security the gateway cannot map", async ({ page }) => {
+      await mockAgentList(page, []);
+      // mTLS leaves `auth_type` empty, which must not read as "no security".
+      await mockFetchCard(page, {
+        ...OPEN_CARD,
+        card: {
+          ...OPEN_CARD.card,
+          securitySchemes: { mtls: { mtlsSecurityScheme: {} } },
+          securityRequirements: [{ schemes: { mtls: {} } }],
+        },
+      });
+      const createBodies = await mockRegisterAgent(page, (route) =>
+        json(route, makeAgent("visual-router", { name: "Visual Router" }), 201),
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      await expect(page.getByText(/security requirements can't be set up/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Connect" })).toBeDisabled();
+      expect(createBodies).toHaveLength(0);
     });
 
     test("shows the rest of the card under View more and registers under the edited name", async ({
