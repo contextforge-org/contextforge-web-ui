@@ -125,7 +125,8 @@ test.describe("Server catalog page", () => {
       );
       await form.getByRole("button", { name: "Save" }).click();
       await expect(form.getByLabel(/Issuer URL/)).toHaveAttribute("aria-invalid", "true");
-      await expect(form.getByText("Client secret is required.")).toBeVisible();
+      // Client ID/secret are optional: blank means the gateway registers a client itself (DCR).
+      await expect(form.getByText("Client secret is required.")).toHaveCount(0);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);
