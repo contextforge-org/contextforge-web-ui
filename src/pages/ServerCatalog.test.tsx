@@ -588,6 +588,48 @@ describe("ServerCatalog", () => {
     });
   });
 
+  it("registers a mixed-auth entry with an API key without opening the OAuth popup", async () => {
+    const user = userEvent.setup();
+    const stripe: CatalogServer = {
+      ...oauthServer,
+      id: "stripe",
+      name: "Stripe",
+      auth_type: "OAuth2.1 & API Key",
+    };
+    mockUseQuery.mockImplementation((path) => {
+      if (path === "/v1/catalog?limit=1000") {
+        return queryResult({ data: { ...response, servers: [stripe], total: 1 } });
+      }
+      if (path === "/oauth/callback-url") {
+        return queryResult({ data: { redirectUri: "http://localhost:3000/oauth/callback" } });
+      }
+      return queryResult({ data: undefined });
+    });
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      server_id: "stripe-gateway",
+      message: "Registered",
+    });
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Stripe" }));
+    const form = await screen.findByRole("form", { name: "Add Stripe" });
+    await user.click(within(form).getByRole("radio", { name: "API key" }));
+    await user.type(within(form).getByPlaceholderText("Enter API key"), "agent-key");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mockRegisterCatalogServer).toHaveBeenCalledWith("stripe", {
+        name: null,
+        api_key: "agent-key", // pragma: allowlist secret
+        visibility: "private",
+        team_id: null,
+      }),
+    );
+    expect(mockOpenOAuthAuthorizationPopup).not.toHaveBeenCalled();
+    expect(mockTriggerOAuthAuthorization).not.toHaveBeenCalled();
+  });
+
   it("does not register OAuth credentials when popup creation is blocked", async () => {
     const user = userEvent.setup();
     mockOpenOAuthAuthorizationPopup.mockImplementation(() => {

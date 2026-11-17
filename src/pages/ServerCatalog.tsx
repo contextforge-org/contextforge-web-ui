@@ -829,6 +829,18 @@ export function ServerCatalog() {
     async (body: CatalogServerRegisterBody) => {
       if (!oauthServer) return false;
       setOAuthFormNotification(undefined);
+
+      // A mixed-auth entry registered with an API key is a bearer gateway: there is
+      // nothing to authorize, so skip the popup (the gateway answers 'not configured
+      // for OAuth') and just register, like the API key dialog does.
+      if (body.api_key) {
+        const { success } = await registerServer(oauthServer, body, {
+          reportNotification: (notification) => setOAuthFormNotification(notification),
+        });
+        if (success) setFocusActionsForServerId(oauthServer.id);
+        return success;
+      }
+
       let authWindow: Window;
       try {
         // Must happen before the first await below. Browsers only allow popups

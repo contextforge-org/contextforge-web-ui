@@ -9,6 +9,7 @@ import { MCPIcon } from "@/components/icons/MCPIcon";
 import { Field } from "@/components/ui/field";
 import { InlineNotification } from "@/components/ui/inline-notification";
 import { Input } from "@/components/ui/input";
+import { SegmentedRadio } from "@/components/ui/segmented-radio";
 import {
   Select,
   SelectContent,
@@ -21,16 +22,11 @@ import type { CatalogServer, CatalogServerRegisterBody } from "@/generated/types
 import { useQuery } from "@/hooks/useQuery";
 import { useTeamScope } from "@/hooks/useTeams";
 import type { Visibility } from "@/types/server";
+import { isMixedAuthType } from "@/utils/catalogAuthTypes";
 
+type AuthMethod = "oauth" | "apiKey";
 type OAuthField =
-  | "issuer"
-  | "tenantId"
-  | "scopes"
-  | "clientId"
-  | "clientSecret"
-  | "authorizationUrl"
-  | "tokenUrl"
-  | "team";
+  "issuer" | "tenantId" | "scopes" | "authorizationUrl" | "tokenUrl" | "team" | "apiKey";
 type FieldErrors = Partial<Record<OAuthField, string>>;
 
 function isHttpUrl(value: string): boolean {
@@ -80,6 +76,9 @@ export function CatalogOAuthForm({
     headingRef.current?.focus();
   }, []);
   const oauth = server.oauth; // pragma: allowlist secret
+  const canUseApiKey = isMixedAuthType(server.auth_type);
+  const [method, setMethod] = useState<AuthMethod>("oauth");
+  const [apiKey, setApiKey] = useState(""); // pragma: allowlist secret
   const [name, setName] = useState("");
   const [issuer, setIssuer] = useState(oauth?.issuer ?? "");
   const [tenantId, setTenantId] = useState("");
@@ -120,6 +119,29 @@ export function CatalogOAuthForm({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       if (isSubmitting) return;
+
+      if (method === "apiKey") {
+        const nextErrors: FieldErrors = {
+          ...(apiKey.trim()
+            ? {}
+            : { apiKey: intl.formatMessage({ id: "mcpServer.catalog.apiKey.required" }) }), // pragma: allowlist secret
+          ...(visibility !== "team" || teamId
+            ? {}
+            : { team: intl.formatMessage({ id: "mcpServer.catalog.apiKey.teamRequired" }) }),
+        };
+        setErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) return;
+        // Only the selected method is sent: the gateway keeps one credential per registration.
+        const registered = await onSubmit({
+          name: name.trim() || null,
+          api_key: apiKey, // pragma: allowlist secret
+          visibility,
+          team_id: visibility === "team" ? teamId : null,
+        });
+        if (registered) onSuccess();
+        return;
+      }
+
       const trimmedTenantId = tenantId.trim();
       const resolvedIssuer = issuer.trim().replace(TENANT_PLACEHOLDER, () => trimmedTenantId);
       const nextErrors: FieldErrors = {
@@ -140,15 +162,6 @@ export function CatalogOAuthForm({
         ...(scopesList.length > 0
           ? {}
           : { scopes: intl.formatMessage({ id: "mcpServer.catalog.oauth.scopesRequired" }) }),
-        ...(clientId.trim()
-          ? {}
-          : { clientId: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientIdRequired" }) }),
-        ...(clientSecret.trim()
-          ? {}
-          : {
-              // prettier-ignore
-              clientSecret: intl.formatMessage({ id: "mcpServer.catalog.oauth.clientSecretRequired" }), // pragma: allowlist secret
-            }),
         ...(isOptionalHttpUrl(authorizationUrl)
           ? {}
           : {
@@ -174,8 +187,9 @@ export function CatalogOAuthForm({
           // pragma: allowlist secret
           grant_type: "authorization_code",
           issuer: resolvedIssuer,
-          client_id: clientId.trim(),
-          client_secret: clientSecret, // pragma: allowlist secret
+          // Left out when blank so the gateway registers a client itself (DCR).
+          ...(clientId.trim() ? { client_id: clientId.trim() } : {}),
+          ...(clientSecret ? { client_secret: clientSecret } : {}), // pragma: allowlist secret
           authorization_url: authorizationUrl.trim(),
           token_url: tokenUrl.trim(),
           redirect_uri: callbackUrl,
@@ -185,8 +199,10 @@ export function CatalogOAuthForm({
       if (registered) onSuccess();
     },
     [
+      apiKey,
       authorizationUrl,
       callbackUrl,
+      method,
       clientId,
       clientSecret,
       onSuccess,
@@ -223,7 +239,12 @@ export function CatalogOAuthForm({
             </h2>
           </div>
           <p id="catalog-oauth-description" className="text-sm leading-6 text-muted-foreground">
-            {intl.formatMessage({ id: "mcpServer.catalog.oauth.description" })}
+            {intl.formatMessage({
+              id:
+                method === "apiKey"
+                  ? "mcpServer.catalog.apiKey.description"
+                  : "mcpServer.catalog.oauth.description",
+            })}
           </p>
         </div>
         <form
@@ -260,47 +281,49 @@ export function CatalogOAuthForm({
               )}
             </Field>
 
-            <Field
-              id="catalog-oauth-issuer"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
-              required
-              error={errors.issuer}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  type="url"
-                  inputMode="url"
-                  value={issuer}
-                  onChange={(event) => {
-                    setIssuer(event.target.value);
-                    setErrors((current) => ({ ...current, issuer: undefined }));
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: "mcpServer.auth.oauth.issuerUrlPlaceholder",
-                  })}
-                  disabled={isSubmitting}
-                />
-              )}
-            </Field>
+            {canUseApiKey && (
+              <SegmentedRadio
+                idPrefix="catalog-auth"
+                label={intl.formatMessage({ id: "mcpServer.advanced.authTypeLabel" })}
+                options={[
+                  {
+                    value: "oauth",
+                    label: intl.formatMessage({ id: "mcpServer.advanced.authType.oauth" }),
+                  },
+                  {
+                    value: "apiKey",
+                    label: intl.formatMessage({ id: "mcpServer.catalog.authMethod.apiKey" }),
+                  },
+                ]}
+                value={method}
+                onChange={(next) => {
+                  setMethod(next);
+                  setErrors({});
+                }}
+              />
+            )}
 
-            {issuerNeedsTenant && (
+            {method === "apiKey" && (
               <Field
-                id="catalog-oauth-tenant-id"
-                label={intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdLabel" })}
+                id="catalog-oauth-api-key"
                 required
-                error={errors.tenantId}
+                error={errors.apiKey}
+                label={intl.formatMessage({ id: "mcpServer.catalog.apiKey.keyLabel" })}
+                hint={intl.formatMessage({ id: "mcpServer.catalog.authMethod.apiKeyHint" })}
               >
                 {(controlProps) => (
                   <Input
                     {...controlProps}
-                    value={tenantId}
+                    type="password"
+                    autoComplete="off"
+                    maxLength={4096}
+                    value={apiKey}
                     onChange={(event) => {
-                      setTenantId(event.target.value);
-                      setErrors((current) => ({ ...current, tenantId: undefined }));
+                      setApiKey(event.target.value);
+                      setErrors((current) => ({ ...current, apiKey: undefined })); // pragma: allowlist secret
                     }}
                     placeholder={intl.formatMessage({
-                      id: "mcpServer.catalog.oauth.tenantIdPlaceholder",
+                      id: "mcpServer.catalog.apiKey.keyPlaceholder",
                     })}
                     disabled={isSubmitting}
                   />
@@ -308,167 +331,217 @@ export function CatalogOAuthForm({
               </Field>
             )}
 
-            <Field
-              id="catalog-oauth-scopes"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesLabel" })}
-              required
-              error={errors.scopes}
-            >
-              {(controlProps) => (
-                <>
-                  <Input
-                    {...controlProps}
-                    aria-describedby={[
-                      controlProps["aria-describedby"],
-                      "catalog-oauth-scopes-hint",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    value={scopes}
-                    onChange={(event) => {
-                      setScopes(event.target.value);
-                      setErrors((current) => ({ ...current, scopes: undefined }));
-                    }}
-                    placeholder={intl.formatMessage({
-                      id: "mcpServer.auth.oauth.scopesPlaceholder",
-                    })}
-                    disabled={isSubmitting}
-                  />
-                  <p id="catalog-oauth-scopes-hint" className="text-xs text-muted-foreground">
-                    {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
+            {method === "oauth" && (
+              <>
+                <Field
+                  id="catalog-oauth-issuer"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.issuerUrlLabel" })}
+                  required
+                  error={errors.issuer}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="url"
+                      inputMode="url"
+                      value={issuer}
+                      onChange={(event) => {
+                        setIssuer(event.target.value);
+                        setErrors((current) => ({ ...current, issuer: undefined }));
+                      }}
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.issuerUrlPlaceholder",
+                      })}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Field>
+
+                {issuerNeedsTenant && (
+                  <Field
+                    id="catalog-oauth-tenant-id"
+                    label={intl.formatMessage({ id: "mcpServer.catalog.oauth.tenantIdLabel" })}
+                    required
+                    error={errors.tenantId}
+                  >
+                    {(controlProps) => (
+                      <Input
+                        {...controlProps}
+                        value={tenantId}
+                        onChange={(event) => {
+                          setTenantId(event.target.value);
+                          setErrors((current) => ({ ...current, tenantId: undefined }));
+                        }}
+                        placeholder={intl.formatMessage({
+                          id: "mcpServer.catalog.oauth.tenantIdPlaceholder",
+                        })}
+                        disabled={isSubmitting}
+                      />
+                    )}
+                  </Field>
+                )}
+
+                <Field
+                  id="catalog-oauth-scopes"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.scopesLabel" })}
+                  required
+                  error={errors.scopes}
+                >
+                  {(controlProps) => (
+                    <>
+                      <Input
+                        {...controlProps}
+                        aria-describedby={[
+                          controlProps["aria-describedby"],
+                          "catalog-oauth-scopes-hint",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        value={scopes}
+                        onChange={(event) => {
+                          setScopes(event.target.value);
+                          setErrors((current) => ({ ...current, scopes: undefined }));
+                        }}
+                        placeholder={intl.formatMessage({
+                          id: "mcpServer.auth.oauth.scopesPlaceholder",
+                        })}
+                        disabled={isSubmitting}
+                      />
+                      <p id="catalog-oauth-scopes-hint" className="text-xs text-muted-foreground">
+                        {intl.formatMessage({ id: "mcpServer.auth.oauth.scopesDescription" })}
+                      </p>
+                    </>
+                  )}
+                </Field>
+
+                <div className="space-y-2.5">
+                  <p className="text-sm font-medium leading-none">
+                    {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
                   </p>
-                </>
-              )}
-            </Field>
+                  {isCallbackUrlReady && callbackUrl ? (
+                    <>
+                      <CopyValue
+                        label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
+                        value={callbackUrl}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
+                      </p>
+                    </>
+                  ) : isCallbackLoading ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoading" })}
+                    </p>
+                  ) : (
+                    <InlineNotification
+                      type="error"
+                      message={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.redirectUriLoadError",
+                      })}
+                      action={{
+                        label: intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriRetry" }),
+                        onClick: () => void retryCallback().catch(() => {}),
+                      }}
+                    />
+                  )}
+                </div>
 
-            <div className="space-y-2.5">
-              <p className="text-sm font-medium leading-none">
-                {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
-              </p>
-              {isCallbackUrlReady && callbackUrl ? (
-                <>
-                  <CopyValue
-                    label={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLabel" })}
-                    value={callbackUrl}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriHelp" })}
-                  </p>
-                </>
-              ) : isCallbackLoading ? (
-                <p role="status" className="text-sm text-muted-foreground">
-                  {intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoading" })}
-                </p>
-              ) : (
-                <InlineNotification
-                  type="error"
-                  message={intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriLoadError" })}
-                  action={{
-                    label: intl.formatMessage({ id: "mcpServer.auth.oauth.redirectUriRetry" }),
-                    onClick: () => void retryCallback().catch(() => {}),
-                  }}
-                />
-              )}
-            </div>
+                <Field
+                  id="catalog-oauth-client-id"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdLabel" })}
+                  hint={intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      autoComplete="off"
+                      value={clientId}
+                      onChange={(event) => {
+                        setClientId(event.target.value);
+                      }}
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.clientIdPlaceholder",
+                      })}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Field>
 
-            <Field
-              id="catalog-oauth-client-id"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientIdLabel" })}
-              required
-              error={errors.clientId}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  autoComplete="off"
-                  value={clientId}
-                  onChange={(event) => {
-                    setClientId(event.target.value);
-                    setErrors((current) => ({ ...current, clientId: undefined }));
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: "mcpServer.auth.oauth.clientIdPlaceholder",
+                <Field
+                  id="catalog-oauth-client-secret"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretLabel" })}
+                  hint={intl.formatMessage({ id: "mcpServer.auth.oauth.dcrHelp" })}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="password"
+                      autoComplete="new-password"
+                      value={clientSecret}
+                      onChange={(event) => {
+                        setClientSecret(event.target.value);
+                      }}
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.clientSecretPlaceholder",
+                      })}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Field>
+
+                <Field
+                  id="catalog-oauth-authorization-url"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
+                  persistentHint={intl.formatMessage({
+                    id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
                   })}
-                  disabled={isSubmitting}
-                />
-              )}
-            </Field>
+                  error={errors.authorizationUrl}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="url"
+                      inputMode="url"
+                      value={authorizationUrl}
+                      onChange={(event) => {
+                        setAuthorizationUrl(event.target.value);
+                        setErrors((current) => ({ ...current, authorizationUrl: undefined }));
+                      }}
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.authorizationUrlPlaceholder",
+                      })}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Field>
 
-            <Field
-              id="catalog-oauth-client-secret"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.clientSecretLabel" })}
-              required
-              error={errors.clientSecret}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  type="password"
-                  autoComplete="new-password"
-                  value={clientSecret}
-                  onChange={(event) => {
-                    setClientSecret(event.target.value);
-                    setErrors((current) => ({ ...current, clientSecret: undefined })); // pragma: allowlist secret
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: "mcpServer.auth.oauth.clientSecretPlaceholder",
+                <Field
+                  id="catalog-oauth-token-url"
+                  label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
+                  persistentHint={intl.formatMessage({
+                    id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
                   })}
-                  disabled={isSubmitting}
-                />
-              )}
-            </Field>
-
-            <Field
-              id="catalog-oauth-authorization-url"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.authorizationUrlLabel" })}
-              persistentHint={intl.formatMessage({
-                id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
-              })}
-              error={errors.authorizationUrl}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  type="url"
-                  inputMode="url"
-                  value={authorizationUrl}
-                  onChange={(event) => {
-                    setAuthorizationUrl(event.target.value);
-                    setErrors((current) => ({ ...current, authorizationUrl: undefined }));
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: "mcpServer.auth.oauth.authorizationUrlPlaceholder",
-                  })}
-                  disabled={isSubmitting}
-                />
-              )}
-            </Field>
-
-            <Field
-              id="catalog-oauth-token-url"
-              label={intl.formatMessage({ id: "mcpServer.auth.oauth.tokenUrlLabel" })}
-              persistentHint={intl.formatMessage({
-                id: "mcpServer.catalog.oauth.endpointDiscoveryHint",
-              })}
-              error={errors.tokenUrl}
-            >
-              {(controlProps) => (
-                <Input
-                  {...controlProps}
-                  type="url"
-                  inputMode="url"
-                  value={tokenUrl}
-                  onChange={(event) => {
-                    setTokenUrl(event.target.value);
-                    setErrors((current) => ({ ...current, tokenUrl: undefined }));
-                  }}
-                  placeholder={intl.formatMessage({
-                    id: "mcpServer.auth.oauth.tokenUrlPlaceholder",
-                  })}
-                  disabled={isSubmitting}
-                />
-              )}
-            </Field>
+                  error={errors.tokenUrl}
+                >
+                  {(controlProps) => (
+                    <Input
+                      {...controlProps}
+                      type="url"
+                      inputMode="url"
+                      value={tokenUrl}
+                      onChange={(event) => {
+                        setTokenUrl(event.target.value);
+                        setErrors((current) => ({ ...current, tokenUrl: undefined }));
+                      }}
+                      placeholder={intl.formatMessage({
+                        id: "mcpServer.auth.oauth.tokenUrlPlaceholder",
+                      })}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </Field>
+              </>
+            )}
 
             <Field
               id="catalog-oauth-visibility"
@@ -522,7 +595,7 @@ export function CatalogOAuthForm({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !isCallbackUrlReady}
+              disabled={isSubmitting || (method === "oauth" && !isCallbackUrlReady)}
               aria-busy={isSubmitting || isCallbackLoading}
             >
               {isSubmitting

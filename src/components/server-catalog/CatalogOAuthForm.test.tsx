@@ -159,8 +159,8 @@ describe("CatalogOAuthForm", () => {
 
     expect(await screen.findByText("Enter a valid issuer URL.")).toBeInTheDocument();
     expect(screen.getByText("Enter at least one scope.")).toBeInTheDocument();
-    expect(screen.getByText("Client ID is required.")).toBeInTheDocument();
-    expect(screen.getByText("Client secret is required.")).toBeInTheDocument();
+    expect(screen.queryByText("Client ID is required.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Client secret is required.")).not.toBeInTheDocument();
     expect(screen.queryByText("Enter a valid authorization URL.")).not.toBeInTheDocument();
     expect(screen.queryByText("Enter a valid token URL.")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Issuer URL/i)).toHaveAttribute("aria-required", "true");
@@ -270,6 +270,23 @@ describe("CatalogOAuthForm", () => {
     expect(onSuccess).toHaveBeenCalledOnce();
   });
 
+  it("omits client ID and secret when blank so the gateway can register the client", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+    const form = screen.getByRole("form", { name: "Add GitHub" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "http://github.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "repo");
+    expect(within(form).getByLabelText(/^Client ID/i)).not.toBeRequired();
+    expect(within(form).getByLabelText(/^Client Secret/i)).not.toBeRequired();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    const { oauth_credentials } = onSubmit.mock.calls[0][0];
+    expect(oauth_credentials).not.toHaveProperty("client_id");
+    expect(oauth_credentials).not.toHaveProperty("client_secret");
+    expect(oauth_credentials).toMatchObject({ issuer: "http://github.com", scopes: ["repo"] });
+  });
+
   it("leaves authorization and token URLs empty when the backend discovers them", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();
@@ -280,14 +297,10 @@ describe("CatalogOAuthForm", () => {
     await user.type(screen.getByLabelText(/^Client Secret/i), "github-secret");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
+    const expectedEmptyUrls = expect.objectContaining({ authorization_url: "", token_url: "" });
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          oauth_credentials: expect.objectContaining({
-            authorization_url: "",
-            token_url: "",
-          }),
-        }),
+        expect.objectContaining({ oauth_credentials: expectedEmptyUrls }), // pragma: allowlist secret
       ),
     );
   });
@@ -392,15 +405,14 @@ describe("CatalogOAuthForm", () => {
     await user.type(screen.getByLabelText(/Tenant ID/i), "72f988bf-86f1-41af-91ab-2d7cd011db47");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
+    const expectedEndpoints = expect.objectContaining({
+      issuer: "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0",
+      authorization_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    });
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          oauth_credentials: expect.objectContaining({
-            issuer: "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0",
-            authorization_url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-            token_url: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-          }),
-        }),
+        expect.objectContaining({ oauth_credentials: expectedEndpoints }), // pragma: allowlist secret
       ),
     );
   });
@@ -529,5 +541,66 @@ describe("CatalogOAuthForm", () => {
       ),
     );
     expect(teamScopeState.onTeamChange).toHaveBeenCalledWith("team-alpha");
+  });
+
+  describe("mixed OAuth / API key entries", () => {
+    const mixedServer: CatalogServer = {
+      ...server,
+      id: "stripe",
+      name: "Stripe",
+      auth_type: "OAuth2.1 & API Key",
+    };
+
+    it("offers no method choice for OAuth-only entries", () => {
+      renderForm();
+      expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    });
+
+    it("defaults to OAuth and shows the OAuth fields", () => {
+      renderForm({ server: mixedServer });
+      expect(screen.getByRole("radio", { name: "OAuth 2.0" })).toBeChecked();
+      expect(screen.getByLabelText(/Issuer URL/i)).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Enter API key")).not.toBeInTheDocument();
+    });
+
+    it("submits only api_key when API key is selected", async () => {
+      const user = userEvent.setup();
+      const { onSubmit } = renderForm({ server: mixedServer });
+      await user.type(screen.getByLabelText(/^Issuer URL/i), "http://stripe.test");
+      await user.click(screen.getByRole("radio", { name: "API key" }));
+
+      expect(screen.queryByLabelText(/Issuer URL/i)).not.toBeInTheDocument();
+      await user.type(screen.getByPlaceholderText("Enter API key"), "agent-key-123");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+      const body = onSubmit.mock.calls[0][0];
+      expect(body).toMatchObject({ api_key: "agent-key-123", visibility: "private" }); // pragma: allowlist secret
+      expect(body).not.toHaveProperty("oauth_credentials");
+    });
+
+    it("requires a key in API key mode and does not submit", async () => {
+      const user = userEvent.setup();
+      const { onSubmit } = renderForm({ server: mixedServer });
+      await user.click(screen.getByRole("radio", { name: "API key" }));
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      expect(await screen.findByText("API key is required.")).toBeInTheDocument();
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("submits only oauth_credentials after switching back to OAuth", async () => {
+      const user = userEvent.setup();
+      const { onSubmit } = renderForm({ server: mixedServer });
+      await user.click(screen.getByRole("radio", { name: "API key" }));
+      await user.type(screen.getByPlaceholderText("Enter API key"), "agent-key-123");
+      await user.click(screen.getByRole("radio", { name: "OAuth 2.0" }));
+      await user.type(screen.getByLabelText(/Issuer URL/i), "http://stripe.test");
+      await user.type(screen.getByLabelText(/^Scopes/i), "mcp");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+      expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("api_key");
+      expect(onSubmit.mock.calls[0][0].oauth_credentials).toMatchObject({ scopes: ["mcp"] });
+    });
   });
 });
