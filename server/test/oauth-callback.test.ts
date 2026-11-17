@@ -117,6 +117,33 @@ describe("GET /oauth/callback", () => {
     expect(lastRequest?.headers["x-browser-hop"]).toBeUndefined();
   });
 
+  it("closes an orphaned popup (no opener) after a successful callback", async () => {
+    const app = await buildApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?code=abc123&state=popup.xyz",
+    });
+
+    // Upstream's own script is kept; ours is appended inside <body>.
+    expect(response.body).toContain("window.opener&&window.opener.postMessage");
+    expect(response.body).toMatch(
+      /if\(!window\.opener\)\{setTimeout\(function\(\)\{window\.close\(\)\}.*<\/script><\/body>/,
+    );
+  });
+
+  it("does not append the close script to error pages", async () => {
+    const app = await buildApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?structured-error=1&state=popup.xyz",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).not.toContain("setTimeout");
+  });
+
   it("strips upstream Set-Cookie so mcpgateway's own cookie never reaches the browser", async () => {
     const app = await buildApp();
 

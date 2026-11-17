@@ -78,6 +78,26 @@ export async function htmlizeOAuthPopupErrors(
   return oauthPopupErrorHtml(mapped.error, mapped.errorDescription);
 }
 
+// mcpgateway's callback page only posts the result and closes the popup when
+// `window.opener` is set. A provider that sends Cross-Origin-Opener-Policy
+// (e.g. Stripe) severs it, leaving the popup stranded on "will close
+// automatically". The opener learns the outcome by polling token status
+// (src/api/servers.ts), so just close the orphaned window.
+const CLOSE_SEVERED_POPUP_SCRIPT =
+  "<script>if(!window.opener){setTimeout(function(){window.close()},1500)}</script>";
+
+export async function closeSeveredOAuthPopup(
+  _request: FastifyRequest,
+  reply: FastifyReply,
+  payload: unknown,
+): Promise<unknown> {
+  const isHtml = String(reply.getHeader("content-type") ?? "").includes("text/html");
+  if (reply.statusCode !== 200 || !isHtml || typeof payload !== "string") return payload;
+  return payload.includes("</body>")
+    ? payload.replace("</body>", `${CLOSE_SEVERED_POPUP_SCRIPT}</body>`)
+    : payload + CLOSE_SEVERED_POPUP_SCRIPT;
+}
+
 interface ForwardOAuthGetOptions {
   /** Extra headers merged into the upstream request (e.g. the injected bearer token). */
   headers?: Record<string, string>;

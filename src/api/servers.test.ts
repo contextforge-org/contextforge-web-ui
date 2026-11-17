@@ -447,6 +447,82 @@ describe("serversApi", () => {
 
       vi.useRealTimers();
     });
+
+    describe("popup severed by Cross-Origin-Opener-Policy", () => {
+      type Stamp = { authorized: boolean; updated_at: string | null };
+
+      // Serves the nonce, then whatever `current()` returns for each status read.
+      function serve(current: () => Stamp) {
+        mockFetch.mockImplementation(async (url: string) =>
+          url.includes("/oauth/authorize-nonce")
+            ? nonceResponse()
+            : new Response(
+                JSON.stringify({
+                  "server-123": {
+                    oauth_enabled: true,
+                    user_token_status: { status: "valid", ...current() },
+                  },
+                }),
+                { status: 200, headers: { "Content-Type": "application/json" } },
+              ),
+        );
+      }
+
+      function start() {
+        vi.useFakeTimers();
+        const popup = mockAuthPopup();
+        vi.spyOn(window, "open").mockReturnValue(popup);
+        return { popup, promise: serversApi.triggerOAuthAuthorization("server-123") };
+      }
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("resolves when the popup reads as closed but the token was issued meanwhile", async () => {
+        let stamp: Stamp = { authorized: false, updated_at: null };
+        serve(() => stamp);
+        const { popup, promise } = start();
+        await vi.advanceTimersByTimeAsync(0); // nonce + baseline read
+
+        (popup as { closed: boolean }).closed = true; // COOP: reads closed mid-flow
+        await vi.advanceTimersByTimeAsync(1000);
+        stamp = { authorized: true, updated_at: "2026-11-16T12:40:00" }; // user finishes at Stripe
+        await vi.advanceTimersByTimeAsync(4000);
+
+        await expect(promise).resolves.toMatchObject({
+          type: "oauth_callback",
+          status: "success",
+          gatewayId: "server-123",
+        });
+      });
+
+      it("resolves when an existing token was refreshed during the flow", async () => {
+        let stamp: Stamp = { authorized: true, updated_at: "2026-11-01T00:00:00" };
+        serve(() => stamp);
+        const { popup, promise } = start();
+        await vi.advanceTimersByTimeAsync(0);
+
+        (popup as { closed: boolean }).closed = true;
+        await vi.advanceTimersByTimeAsync(1000);
+        stamp = { authorized: true, updated_at: "2026-11-16T12:40:00" };
+        await vi.advanceTimersByTimeAsync(4000);
+
+        await expect(promise).resolves.toMatchObject({ status: "success" });
+      });
+
+      it("still cancels after the grace period when the token never changes", async () => {
+        serve(() => ({ authorized: true, updated_at: "2026-11-01T00:00:00" }));
+        const { popup, promise } = start();
+        const settled = expect(promise).rejects.toThrow("OAuth authorization was cancelled");
+        await vi.advanceTimersByTimeAsync(0);
+
+        (popup as { closed: boolean }).closed = true; // an old valid token must not count
+        await vi.advanceTimersByTimeAsync(70_000);
+
+        await settled;
+      });
+    });
   });
 
   describe("updateTags", () => {

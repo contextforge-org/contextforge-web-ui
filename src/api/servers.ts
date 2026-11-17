@@ -6,6 +6,7 @@
  */
 
 import { api } from "./client";
+import { getOAuthStatuses, type OAuthUserTokenStatus } from "./oauth";
 import type { ServersResponse, MCPServer } from "../types/server";
 import type {
   GatewayHandshakeRequest,
@@ -68,6 +69,29 @@ export class OAuthPopupBlockedError extends Error {
     super("Failed to open OAuth authorization window. Please check your popup blocker settings.");
     this.name = "OAuthPopupBlockedError";
   }
+}
+
+// Providers that send Cross-Origin-Opener-Policy (e.g. Stripe) sever the popup
+// from this page: `window.opener` is null in the popup, so no postMessage
+// arrives, and `authWindow.closed` reads true while the user is still
+// authorizing. So a closed popup isn't proof of cancellation; keep checking the
+// caller's token state for a while before reporting it.
+const OAUTH_CLOSED_GRACE_MS = 60_000;
+const OAUTH_CLOSED_POLL_MS = 2_000;
+
+async function readOAuthTokenStatus(id: string): Promise<OAuthUserTokenStatus | null> {
+  try {
+    const { statuses } = await getOAuthStatuses([id]);
+    return statuses[id]?.user_token_status ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the token was issued or refreshed after `baseline` was read. */
+function authorizedSince(baseline: OAuthUserTokenStatus, current: OAuthUserTokenStatus | null) {
+  if (!current?.authorized) return false;
+  return !baseline.authorized || current.updated_at !== baseline.updated_at;
 }
 
 function openOAuthAuthorizationPopup(): Window {
@@ -328,15 +352,40 @@ export const serversApi = {
 
       window.addEventListener("message", messageHandler);
 
-      // Detect when the user closes the popup without completing OAuth.
-      // 1 s is fast enough to feel responsive while not burning cycles.
-      const pollInterval = setInterval(() => {
-        if (authWindow.closed) {
-          if (!settled) {
+      // Token state before the flow starts, read once the nonce is minted and
+      // before the popup navigates, so it can't already include this attempt.
+      let baseline: Promise<OAuthUserTokenStatus | null> = Promise.resolve(null);
+
+      // The popup reads as closed: either the user closed it, or the provider's
+      // COOP cut it loose mid-flow. Tell them apart by whether the token changed.
+      const settleAfterClose = async () => {
+        const before = await baseline;
+        const deadline = Date.now() + OAUTH_CLOSED_GRACE_MS;
+        while (!settled) {
+          // Without a baseline an old valid token can't be told from a new one.
+          if (before && authorizedSince(before, await readOAuthTokenStatus(validId))) {
+            if (settled) return;
             settled = true;
             cleanup();
-            reject(new OAuthCancelledError());
+            resolve({ type: "oauth_callback", status: "success", gatewayId: validId });
+            return;
           }
+          if (!before || Date.now() >= deadline) break;
+          await new Promise((r) => setTimeout(r, OAUTH_CLOSED_POLL_MS));
+        }
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new OAuthCancelledError());
+      };
+
+      // Detect when the popup closes without a result message.
+      // 1 s is fast enough to feel responsive while not burning cycles.
+      let closing = false;
+      const pollInterval = setInterval(() => {
+        if (authWindow.closed && !settled && !closing) {
+          closing = true;
+          void settleAfterClose();
         }
       }, 1000);
 
@@ -348,6 +397,7 @@ export const serversApi = {
         .post<{ nonce: string }>("/oauth/authorize-nonce", {})
         .then(({ nonce }) => {
           if (settled) return;
+          baseline = readOAuthTokenStatus(validId);
           authWindow.location.href = `/oauth/authorize/${validId}?popup=true&nonce=${encodeURIComponent(nonce)}`;
         })
         .catch((err: unknown) => {
