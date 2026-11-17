@@ -40,3 +40,39 @@ export function stripInboundHeaders(
   }
   return result;
 }
+
+// The /api/* proxy hands these headers to @fastify/reply-from, which owns
+// Host and hop-by-hop framing itself. The OAuth popup builds a bare fetch()
+// request instead, so Host and every hop-by-hop header have to be dropped
+// here: forwarding the BFF's Host would override mcpgateway's own virtual
+// host, and undici rejects some connection-level headers outright.
+// Conditional headers go too -- a 304 on the authorize hop would leave the
+// popup with an empty body instead of the provider redirect.
+const OAUTH_STRIPPED_INBOUND_HEADERS = new Set([
+  "host",
+  "connection",
+  "keep-alive",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+  "content-length",
+  "expect",
+  "if-match",
+  "if-none-match",
+  "if-modified-since",
+  "if-unmodified-since",
+  "if-range",
+  "range",
+]);
+
+export function stripOAuthInboundHeaders(
+  headers: Record<string, string | string[] | undefined>,
+): Record<string, string | string[] | undefined> {
+  const result: Record<string, string | string[] | undefined> = {};
+  for (const [key, value] of Object.entries(stripInboundHeaders(headers))) {
+    if (OAUTH_STRIPPED_INBOUND_HEADERS.has(key) || key.startsWith("proxy-")) continue;
+    result[key] = value;
+  }
+  return result;
+}

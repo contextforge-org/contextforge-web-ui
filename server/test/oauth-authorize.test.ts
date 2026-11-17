@@ -146,6 +146,34 @@ describe("GET /oauth/authorize/:gatewayId", () => {
     expect(lastRequest?.headers.authorization).toBe("Bearer test-bearer-token");
   });
 
+  it("drops Host, hop-by-hop and conditional headers from the browser", async () => {
+    const app = await buildApp();
+    const { cookie, sessionId } = await seedSession(app);
+    const nonce = await mintNonce(app, sessionId);
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: `/oauth/authorize/gw-1?nonce=${nonce}`,
+      headers: {
+        cookie,
+        host: "bff.example.test",
+        connection: "x-browser-hop",
+        "if-none-match": '"etag"',
+        "proxy-authorization": "Basic attacker", // pragma: allowlist secret
+      },
+    });
+
+    expect(response.statusCode).toBe(302);
+    // fetch() must own Host and hop-by-hop framing for the upstream request;
+    // forwarding the BFF's Host would override mcpgateway's virtual host.
+    expect(lastRequest?.headers.host).not.toBe("bff.example.test");
+    // undici sets its own connection header, but the browser's value must not survive.
+    expect(lastRequest?.headers.connection).not.toBe("x-browser-hop");
+    // A 304 here would leave the popup with an empty body instead of a redirect.
+    expect(lastRequest?.headers["if-none-match"]).toBeUndefined();
+    expect(lastRequest?.headers["proxy-authorization"]).toBeUndefined();
+  });
+
   it("never lets the browser override the injected Authorization header", async () => {
     const app = await buildApp();
     const { cookie, sessionId } = await seedSession(app);

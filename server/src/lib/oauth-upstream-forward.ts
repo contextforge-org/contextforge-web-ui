@@ -34,7 +34,7 @@
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { stripInboundHeaders } from "./inbound-headers.js";
+import { stripOAuthInboundHeaders } from "./inbound-headers.js";
 
 const OAUTH_POPUP_ERROR_MESSAGES: Record<number, { error: string; errorDescription: string }> = {
   401: {
@@ -92,12 +92,16 @@ export async function forwardOAuthGet(
   upstreamUrl: string,
   { headers = {}, timeoutMs, logLabel }: ForwardOAuthGetOptions,
 ): Promise<FastifyReply> {
-  // Keep the inbound headers the /api/* proxy keeps. In trusted-proxy
-  // deployments mcpgateway authenticates /oauth/authorize from the external
-  // proxy's identity header, not from the injected bearer, so building the
-  // upstream request from scratch here would 401 the popup. BFF-owned values
-  // below are merged last and always win over anything inbound.
-  const inbound = stripInboundHeaders(request.headers);
+  // Keep the inbound headers the /api/* proxy keeps, minus the ones a bare
+  // fetch() must own (Host, hop-by-hop framing, conditional request headers).
+  // In trusted-proxy deployments mcpgateway authenticates /oauth/authorize
+  // from the external proxy's identity header, not from the injected bearer,
+  // so building the upstream request from scratch here would 401 the popup.
+  // That header is client-supplied: forwarding it is only safe because those
+  // deployments require the external proxy to overwrite it (TRUST_PROXY_AUTH);
+  // the BFF does not validate it. BFF-owned values below are merged last and
+  // always win over anything inbound.
+  const inbound = stripOAuthInboundHeaders(request.headers);
   const forwardedHeaders: Record<string, string> = {};
   for (const [key, value] of Object.entries(inbound)) {
     if (typeof value === "string") {
