@@ -81,6 +81,12 @@ export async function htmlizeOAuthPopupErrors(
 interface ForwardOAuthGetOptions {
   /** Extra headers merged into the upstream request (e.g. the injected bearer token). */
   headers?: Record<string, string>;
+  /**
+   * Relay the caller's non-sensitive inbound headers. Only the session-guarded
+   * authorize hop needs this (external proxy identity header); the callback
+   * hop is authenticated by its HMAC state and must not relay caller headers.
+   */
+  forwardInboundHeaders?: boolean;
   timeoutMs: number;
   /** Included in the network-failure log line, e.g. "OAuth authorize". */
   logLabel: string;
@@ -90,24 +96,27 @@ export async function forwardOAuthGet(
   request: FastifyRequest,
   reply: FastifyReply,
   upstreamUrl: string,
-  { headers = {}, timeoutMs, logLabel }: ForwardOAuthGetOptions,
+  { headers = {}, forwardInboundHeaders = false, timeoutMs, logLabel }: ForwardOAuthGetOptions,
 ): Promise<FastifyReply> {
   // Keep the inbound headers the /api/* proxy keeps, minus the ones a bare
   // fetch() must own (Host, hop-by-hop framing, conditional request headers).
   // In trusted-proxy deployments mcpgateway authenticates /oauth/authorize
   // from the external proxy's identity header, not from the injected bearer,
-  // so building the upstream request from scratch here would 401 the popup.
-  // That header is client-supplied: forwarding it is only safe because those
-  // deployments require the external proxy to overwrite it (TRUST_PROXY_AUTH);
-  // the BFF does not validate it. BFF-owned values below are merged last and
-  // always win over anything inbound.
-  const inbound = stripOAuthInboundHeaders(request.headers);
+  // so building the upstream request from scratch on that hop would 401 the
+  // popup. That header is client-supplied: forwarding it is only safe because
+  // those deployments require the external proxy to overwrite it
+  // (TRUST_PROXY_AUTH); the BFF does not validate it. Only the authorize hop
+  // opts in -- the callback hop has no session and must not relay caller
+  // headers. BFF-owned values below are merged last and always win.
   const forwardedHeaders: Record<string, string> = {};
-  for (const [key, value] of Object.entries(inbound)) {
-    if (typeof value === "string") {
-      forwardedHeaders[key] = value;
-    } else if (Array.isArray(value)) {
-      forwardedHeaders[key] = value.join(", ");
+  if (forwardInboundHeaders) {
+    const inbound = stripOAuthInboundHeaders(request.headers);
+    for (const [key, value] of Object.entries(inbound)) {
+      if (typeof value === "string") {
+        forwardedHeaders[key] = value;
+      } else if (Array.isArray(value)) {
+        forwardedHeaders[key] = value.join(", ");
+      }
     }
   }
 
