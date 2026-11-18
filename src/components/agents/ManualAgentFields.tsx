@@ -3,17 +3,13 @@ import { BasicAuth } from "@/components/mcp-servers/BasicAuth";
 import { BearerTokenAuth } from "@/components/mcp-servers/BearerTokenAuth";
 import { CustomHeadersAuth } from "@/components/mcp-servers/CustomHeadersAuth";
 import { QueryParameterAuth } from "@/components/mcp-servers/QueryParameterAuth";
-import { Field } from "@/components/ui/field";
-import { FormInput } from "@/components/ui/form-input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SegmentedRadio } from "@/components/ui/segmented-radio";
-import { TagInput } from "@/components/ui/tag-input";
-import { Textarea } from "@/components/ui/textarea";
 import type { ConnectAgentFormState } from "@/hooks/useConnectAgentForm";
-import { useTagSuggestions } from "@/hooks/useTagSuggestions";
-import { MAX_TAGS } from "@/utils/tags";
 import { VisibilityFields } from "./VisibilityFields";
+import { TextField } from "./agentFormParts";
+import { TagsAndDescriptionFields } from "./TagsAndDescriptionFields";
 import {
   AGENT_AUTH_TYPES,
   PROTOCOL_VERSIONS,
@@ -30,50 +26,6 @@ const AUTH_TAB_LABEL_IDS: Record<AgentAuthType, string> = {
   oauth: "mcpServer.advanced.authType.oauth", // pragma: allowlist secret
   query_param: "mcpServer.advanced.authType.query",
 };
-
-function TextField({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-  error,
-  info,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  type?: string;
-  required?: boolean;
-  error?: string;
-  info?: string;
-}) {
-  return (
-    <Field
-      id={id}
-      label={label}
-      required={required}
-      error={error}
-      info={info}
-      labelProps={info ? { className: "inline-flex items-center gap-0.5" } : undefined}
-    >
-      {(controlProps) => (
-        <FormInput
-          {...controlProps}
-          type={type}
-          autoComplete="off"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-        />
-      )}
-    </Field>
-  );
-}
 
 function OAuthClientCredentialsFields({ form }: { form: ConnectAgentFormState }) {
   const intl = useIntl();
@@ -128,7 +80,6 @@ function OAuthClientCredentialsFields({ form }: { form: ConnectAgentFormState })
 /** The fields for registering an agent that publishes no Agent Card. */
 export function ManualAgentFields({ form }: { form: ConnectAgentFormState }) {
   const intl = useIntl();
-  const tagSuggestions = useTagSuggestions();
 
   const renderAuth = () => {
     switch (form.manualAuthType) {
@@ -280,42 +231,13 @@ export function ManualAgentFields({ form }: { form: ConnectAgentFormState }) {
         </p>
       )}
 
-      <div className="space-y-4">
-        <Field
-          id="agent-manual-tags"
-          label={intl.formatMessage({ id: "agents.connect.manual.tags.label" })}
-        >
-          {(controlProps) => (
-            <TagInput
-              {...controlProps}
-              value={form.manualTags}
-              onChange={form.setManualTags}
-              suggestions={tagSuggestions}
-              maxTags={MAX_TAGS}
-              placeholder={intl.formatMessage({ id: "common.tagInput.placeholder" })}
-            />
-          )}
-        </Field>
-
-        {/* The design shows the description without a visible label; keep one for screen readers. */}
-        <Field
-          id="agent-manual-description"
-          label={intl.formatMessage({ id: "agents.connect.manual.description.label" })}
-          labelProps={{ className: "sr-only" }}
-        >
-          {(controlProps) => (
-            <Textarea
-              {...controlProps}
-              value={form.manualDescription}
-              onChange={(event) => form.setManualDescription(event.target.value)}
-              placeholder={intl.formatMessage({
-                id: "agents.connect.manual.description.placeholder",
-              })}
-              className="min-h-20 rounded-md border-neutral-300 px-4 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 dark:border-neutral-700"
-            />
-          )}
-        </Field>
-      </div>
+      <TagsAndDescriptionFields
+        idPrefix="agent-manual"
+        tags={form.manualTags}
+        onTagsChange={form.setManualTags}
+        description={form.manualDescription}
+        onDescriptionChange={form.setManualDescription}
+      />
     </div>
   );
 }
