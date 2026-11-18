@@ -34,10 +34,11 @@ export const agentsApi = {
    *
    * A reachable host that publishes no card, one that wants credentials, and an
    * unreachable one all come back as 200 with a distinct `outcome`; only a
-   * missing permission or a malformed request is an error.
+   * missing permission or a malformed request is an error. `headers` carry a
+   * credential for a card that needs one.
    */
-  fetchCard: (baseUrl: string): Promise<FetchCardResult> => {
-    return api.post("/v1/a2a/fetch-card", { baseUrl });
+  fetchCard: (baseUrl: string, headers?: Record<string, string>): Promise<FetchCardResult> => {
+    return api.post("/v1/a2a/fetch-card", headers ? { baseUrl, headers } : { baseUrl });
   },
 
   /**

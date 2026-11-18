@@ -29,6 +29,8 @@ export interface AgentAuthValues {
   oauthClientId: string;
   oauthClientSecret: string;
   oauthScopes: string;
+  /** RFC 8707 resource indicator; left out of the request when empty. */
+  oauthResource?: string;
 }
 
 /** "a, b ,, c" → ["a", "b", "c"]. Splits on commas or whitespace when `whitespace` is set. */
@@ -87,6 +89,7 @@ export function credentialFields(
           client_secret: c.oauthClientSecret, // pragma: allowlist secret
           token_url: c.oauthTokenUrl.trim(),
           scopes: parseList(c.oauthScopes, true),
+          ...(c.oauthResource?.trim() ? { resource: c.oauthResource.trim() } : {}),
         },
       };
     default:

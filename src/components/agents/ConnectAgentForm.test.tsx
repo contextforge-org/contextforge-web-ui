@@ -26,7 +26,8 @@ const CARD_URL = "https://agent.example.com";
 const URL_PLACEHOLDER = "Add URL for a running agent...";
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
 const CARD_AUTH_REQUIRED =
-  "The agent needs credentials to share its card: add the details for the agent manually.";
+  "The agent needs a credential to share its card. Enter it below to read the card.";
+const CARD_CREDENTIAL_REJECTED = "The agent rejected that credential. Check it and try again.";
 const CARD_UNREACHABLE =
   "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
 const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";
@@ -174,11 +175,6 @@ describe("ConnectAgentForm", () => {
         CARD_UNAVAILABLE,
       ],
       [
-        "credentials are needed to read it",
-        () => HttpResponse.json({ found: false, outcome: "auth_required", authScheme: "Bearer" }),
-        CARD_AUTH_REQUIRED,
-      ],
-      [
         "the agent is unreachable",
         () => HttpResponse.json({ found: false, outcome: "unreachable" }),
         CARD_UNREACHABLE,
@@ -208,6 +204,84 @@ describe("ConnectAgentForm", () => {
       expect(screen.queryByText("Visual Router")).not.toBeInTheDocument();
       // The server's own wording is not shown.
       expect(screen.queryByText("Insufficient permissions")).not.toBeInTheDocument();
+    });
+
+    describe("a card behind authentication", () => {
+      function mockAuthGated(accept: string | null) {
+        const seen: Array<Record<string, string> | undefined> = [];
+        server.use(
+          http.post("/api/v1/a2a/fetch-card", async ({ request }) => {
+            const body = (await request.json()) as { headers?: Record<string, string> };
+            seen.push(body.headers);
+            if (accept && body.headers?.Authorization === `Bearer ${accept}`) {
+              return HttpResponse.json(foundResult({ auth_type: "bearer" }));
+            }
+            return HttpResponse.json({
+              found: false,
+              outcome: "auth_required",
+              authScheme: "Bearer",
+            });
+          }),
+        );
+        return seen;
+      }
+
+      it("asks for a credential on the URL step and fetches again with it", async () => {
+        const seen = mockAuthGated("good");
+        const user = setup();
+
+        await submitUrl(user);
+        expect(await screen.findByText(CARD_AUTH_REQUIRED)).toBeInTheDocument();
+
+        await user.type(screen.getByLabelText(/Credential/), "good");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText("Visual Router")).toBeInTheDocument();
+        expect(seen).toEqual([undefined, { Authorization: "Bearer good" }]);
+      });
+
+      it("does not ask again at registration for a credential that worked", async () => {
+        mockAuthGated("good");
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.type(await screen.findByLabelText(/Credential/), "good");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText("Authenticate agent")).toBeInTheDocument();
+        expect(screen.queryByLabelText(/^Key/)).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        expect((created.body!.agent as Record<string, unknown>).auth_token).toBe("good");
+      });
+
+      it("reports a rejected credential and keeps the URL and credential", async () => {
+        mockAuthGated("good");
+        const user = setup();
+
+        await submitUrl(user);
+        await user.type(await screen.findByLabelText(/Credential/), "bad");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText(CARD_CREDENTIAL_REJECTED)).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(URL_PLACEHOLDER)).toHaveValue(CARD_URL);
+        expect(screen.getByLabelText(/Credential/)).toHaveValue("bad");
+        expect(screen.queryByText(CARD_UNAVAILABLE)).not.toBeInTheDocument();
+      });
+
+      it("drops the credential when the URL changes", async () => {
+        mockAuthGated("good");
+        const user = setup();
+
+        await submitUrl(user);
+        await screen.findByLabelText(/Credential/);
+        await user.type(screen.getByPlaceholderText(URL_PLACEHOLDER), "/other");
+
+        expect(screen.queryByLabelText(/Credential/)).not.toBeInTheDocument();
+      });
     });
 
     it("treats a found outcome without a card like no card", async () => {
@@ -609,20 +683,106 @@ describe("ConnectAgentForm", () => {
       expect(created.count).toBe(0);
     });
 
-    it("cannot register an OAuth 2.0 agent from this form", async () => {
-      mockFetchCard(
-        foundResult({ auth_type: "oauth", oauth_config: { grant_type: "client_credentials" } }),
-      );
-      const created = mockCreate();
-      const user = setup();
+    describe("OAuth 2.0 card", () => {
+      const oauthCard = (overrides: Record<string, unknown> = {}) =>
+        foundResult(
+          {
+            auth_type: "oauth",
+            oauth_config: {
+              grant_type: "client_credentials",
+              token_url: "https://agent.example.com/token",
+              scopes: ["read", "write"],
+            },
+            ...overrides,
+          },
+          [
+            "The card's OAuth token_url points to 'idp.other.com', which differs from the agent host.",
+          ],
+        );
 
-      await toAuthStep(user);
+      it("shows the card's token URL and scopes and sends oauth_config with the resource", async () => {
+        mockFetchCard(oauthCard());
+        const created = mockCreate();
+        const user = setup();
 
-      expect(
-        await screen.findByText(/uses OAuth 2.0, which can't be set up from this form yet/),
-      ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
-      expect(created.count).toBe(0);
+        await toAuthStep(user);
+
+        expect(await screen.findByText("https://agent.example.com/token")).toBeInTheDocument();
+        expect(screen.getByText("read write")).toBeInTheDocument();
+        expect(screen.getByText(/differs from the agent host/)).toBeInTheDocument();
+        expect(screen.getByLabelText("Resource")).toHaveValue("https://agent.example.com");
+
+        await user.type(screen.getByLabelText(/Client ID/), "cid");
+        await user.type(screen.getByLabelText(/Client secret/), "shh");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        const agent = created.body!.agent as Record<string, unknown>;
+        expect(agent.auth_type).toBe("oauth");
+        expect(agent.oauth_config).toEqual({
+          grant_type: "client_credentials",
+          client_id: "cid",
+          client_secret: "shh", // pragma: allowlist secret
+          token_url: "https://agent.example.com/token",
+          scopes: ["read", "write"],
+          resource: "https://agent.example.com",
+        });
+      });
+
+      it("shows only the OAuth warnings on the authenticate step", async () => {
+        mockFetchCard(
+          foundResult(
+            {
+              auth_type: "oauth",
+              oauth_config: { grant_type: "client_credentials", token_url: "http://a/t" },
+            },
+            [
+              "The card's OAuth token_url uses 'http', not https. Verify it before entering a client secret.",
+              "No JSONRPC interface is declared.",
+            ],
+          ),
+        );
+        const user = setup();
+
+        await toAuthStep(user);
+
+        expect(await screen.findByText(/token_url uses 'http', not https/)).toBeInTheDocument();
+        expect(screen.queryByText(/No JSONRPC interface/)).not.toBeInTheDocument();
+      });
+
+      it("leaves resource out when it is cleared", async () => {
+        mockFetchCard(oauthCard());
+        const created = mockCreate();
+        const user = setup();
+
+        await toAuthStep(user);
+        await user.clear(await screen.findByLabelText("Resource"));
+        await user.type(screen.getByLabelText(/Client ID/), "cid");
+        await user.type(screen.getByLabelText(/Client secret/), "shh");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        const agent = created.body!.agent as { oauth_config: Record<string, unknown> };
+        expect(agent.oauth_config).not.toHaveProperty("resource");
+      });
+
+      it("cannot register a card that only offers another OAuth flow", async () => {
+        mockFetchCard(
+          oauthCard({
+            oauth_config: { grant_type: "authorization_code", token_url: "https://a/t" },
+          }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await toAuthStep(user);
+
+        expect(
+          await screen.findByText(/uses OAuth 2.0, which can't be set up from this form yet/),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
+        expect(created.count).toBe(0);
+      });
     });
 
     it("sends the chosen visibility", async () => {

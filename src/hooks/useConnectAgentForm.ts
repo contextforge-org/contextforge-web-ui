@@ -20,7 +20,13 @@ import type { FetchCardOutcome, FetchCardResult, SuggestedAgent } from "@/types/
 export type ConnectAgentStep = "url" | "review" | "auth";
 
 /** Auth types the card flow can collect credentials for. Anything else blocks registration. */
-const SUPPORTED_CARD_AUTH_TYPES = new Set(["bearer", "basic", "authheaders", "query_param"]);
+const SUPPORTED_CARD_AUTH_TYPES = new Set([
+  "bearer",
+  "basic",
+  "authheaders",
+  "query_param",
+  "oauth",
+]);
 
 export function isHttpUrl(value: string): boolean {
   try {
@@ -32,7 +38,25 @@ export function isHttpUrl(value: string): boolean {
 }
 
 /** Why no card was read: what the gateway reported, or `error` when the request itself failed. */
-export type CardIssue = Exclude<FetchCardOutcome, "found"> | "error";
+export type CardIssue = Exclude<FetchCardOutcome, "found"> | "credential_rejected" | "error";
+
+/** The `Authorization` header value for a credential typed on the URL step. */
+function authorizationValue(scheme: string | null, credential: string): string {
+  if (scheme?.toLowerCase() === "basic") {
+    const bytes = new TextEncoder().encode(credential);
+    return `Basic ${btoa(String.fromCharCode(...bytes))}`;
+  }
+  return `${scheme || "Bearer"} ${credential}`;
+}
+
+/** The origin of an endpoint, the default OAuth resource indicator. Empty when it isn't a URL. */
+function originOf(value: string | undefined): string {
+  try {
+    return value ? new URL(value).origin : "";
+  } catch {
+    return "";
+  }
+}
 
 export interface ConnectAgentErrors {
   url?: string;
@@ -58,6 +82,12 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   /** Why the card could not be read, if it could not. */
   const [cardIssue, setCardIssue] = useState<CardIssue | null>(null);
   const [result, setResult] = useState<FetchCardResult | null>(null);
+  // A card behind authentication: the scheme the agent asked for and the credential typed for it.
+  const [authScheme, setAuthScheme] = useState<string | null>(null);
+  const [needsCredential, setNeedsCredential] = useState(false);
+  const [fetchCredential, setFetchCredentialState] = useState("");
+  /** The credential that read the card is also the agent's, so registration does not ask again. */
+  const [credentialReused, setCredentialReused] = useState(false);
 
   // Credentials are shared by the card flow and the manual form; only one is ever in use.
   const [token, setToken] = useState("");
@@ -70,6 +100,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [oauthClientId, setOauthClientId] = useState("");
   const [oauthClientSecret, setOauthClientSecret] = useState("");
   const [oauthScopes, setOauthScopes] = useState("");
+  const [oauthResource, setOauthResource] = useState("");
 
   const [visibility, setVisibilityState] = useState<Visibility>("public");
   const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(undefined);
@@ -99,11 +130,16 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     (requirement) => Object.keys(requirement.schemes ?? {}).length > 0,
   );
   const hasAuthType = Boolean(authType && authType !== "none"); // pragma: allowlist secret
+  // Only client credentials can be registered; a card offering another OAuth flow cannot.
+  const oauthSupported = suggested.oauth_config?.grant_type === "client_credentials";
   const isAuthSupported = hasAuthType
-    ? SUPPORTED_CARD_AUTH_TYPES.has(authType as AgentAuthType)
+    ? SUPPORTED_CARD_AUTH_TYPES.has(authType as AgentAuthType) &&
+      (authType !== "oauth" || oauthSupported)
     : !declaresSecurity;
   const authUnsupportedMessageId =
-    authType === "oauth" ? "agents.connect.auth.unsupported" : "agents.connect.auth.unmapped";
+    authType === "oauth" && !oauthSupported
+      ? "agents.connect.auth.unsupported"
+      : "agents.connect.auth.unmapped";
   const teamId =
     visibility === "team" ? resolveTeamId(teams, selectedTeamId, chosenTeamId) : undefined;
 
@@ -119,6 +155,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       oauthClientId,
       oauthClientSecret,
       oauthScopes,
+      oauthResource,
     }),
     [
       token,
@@ -131,6 +168,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       oauthClientId,
       oauthClientSecret,
       oauthScopes,
+      oauthResource,
     ],
   );
 
@@ -148,6 +186,10 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const setUrl = useCallback(
     (value: string) => {
       setUrlState(value);
+      // A credential was typed for one host; never send it to another.
+      setNeedsCredential(false);
+      setAuthScheme(null);
+      setFetchCredentialState("");
       // A different URL deserves a fresh card read. If the manual form was only
       // opened because the last read failed, put it away so Connect reads again.
       if (cardIssue && manualUntouched) setManualOpen(false);
@@ -195,6 +237,14 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     [clearError],
   );
 
+  const setFetchCredential = useCallback(
+    (value: string) => {
+      setFetchCredentialState(value);
+      clearError("credentials");
+    },
+    [clearError],
+  );
+
   const resetAuthValues = useCallback((next: SuggestedAgent) => {
     setToken("");
     setUsername("");
@@ -206,11 +256,39 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     );
     setQueryParamName(next.auth_query_param_key ?? "");
     setQueryParamValue("");
-    setOauthTokenUrl("");
+    // The card's token URL and scopes are shown read-only; only the client is entered.
+    setOauthTokenUrl(String(next.oauth_config?.token_url ?? ""));
     setOauthClientId("");
     setOauthClientSecret("");
-    setOauthScopes("");
+    setOauthScopes(
+      Array.isArray(next.oauth_config?.scopes) ? next.oauth_config.scopes.join(" ") : "",
+    );
+    setOauthResource(originOf(next.endpoint_url));
   }, []);
+
+  /**
+   * A credential that read the card also authenticates the agent when the card asks for the
+   * same scheme, so carry it over instead of asking for it twice.
+   */
+  const reuseCredential = useCallback(
+    (next: SuggestedAgent, credential: string) => {
+      const scheme = (authScheme ?? "bearer").toLowerCase(); // pragma: allowlist secret
+      const reuse =
+        Boolean(credential) &&
+        ((next.auth_type === "bearer" && scheme === "bearer") ||
+          (next.auth_type === "basic" && scheme === "basic" && credential.includes(":")));
+      setCredentialReused(reuse);
+      if (!reuse) return;
+      if (next.auth_type === "bearer") {
+        setToken(credential);
+      } else {
+        const split = credential.indexOf(":");
+        setUsername(credential.slice(0, split));
+        setPassword(credential.slice(split + 1));
+      }
+    },
+    [authScheme],
+  );
 
   /** Step 1: read the card. Only a found card advances; anything else opens manual entry, saying why. */
   const submitUrl = useCallback(async () => {
@@ -223,18 +301,37 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       return;
     }
 
+    const credential = fetchCredential.trim();
+    if (needsCredential && !credential) {
+      setErrors((prev) => ({
+        ...prev,
+        credentials: intl.formatMessage({ id: "agents.connect.auth.credentialsRequired" }), // pragma: allowlist secret
+      }));
+      return;
+    }
+
     setIsFetching(true);
     setCardIssue(null);
     try {
-      const fetched = await agentsApi.fetchCard(trimmed);
-      if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
+      const fetched = await agentsApi.fetchCard(
+        trimmed,
+        needsCredential ? { Authorization: authorizationValue(authScheme, credential) } : undefined,
+      );
+      if (fetched.outcome === "auth_required") {
+        // Asked again with a credential in hand: the credential is what was refused.
+        setCardIssue(needsCredential ? "credential_rejected" : "auth_required");
+        setAuthScheme(fetched.authScheme ?? authScheme);
+        setNeedsCredential(true);
+      } else if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
         setResult(fetched);
         resetAuthValues(fetched.suggestedAgent);
+        reuseCredential(fetched.suggestedAgent, needsCredential ? credential : "");
         setAgentNameState(fetched.suggestedAgent.name ?? fetched.card.name ?? "");
         setCardTags([]);
         setCardDescription("");
         setStep("review");
       } else {
+        setNeedsCredential(false);
         // A "found" outcome without a usable card is as good as no card.
         setCardIssue(fetched.outcome === "found" ? "no_card" : fetched.outcome);
         setManualOpen(true);
@@ -245,7 +342,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     } finally {
       setIsFetching(false);
     }
-  }, [url, intl, resetAuthValues]);
+  }, [url, intl, resetAuthValues, reuseCredential, fetchCredential, needsCredential, authScheme]);
 
   const goToAuth = useCallback(() => setStep("auth"), []);
 
@@ -437,6 +534,11 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     goToAuth,
     goBack,
     authType,
+    authScheme,
+    needsCredential,
+    fetchCredential,
+    setFetchCredential,
+    credentialReused,
     isAuthSupported,
     authUnsupportedMessageId,
     token,
@@ -459,6 +561,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     setOauthClientSecret,
     oauthScopes,
     setOauthScopes,
+    oauthResource,
+    setOauthResource,
     visibility,
     setVisibility,
     teams,
