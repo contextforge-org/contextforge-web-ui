@@ -14,11 +14,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 let upstream: Server;
 let upstreamOrigin: string;
-let lastRequest: { path: string } | undefined;
+let lastRequest: { path: string; headers: IncomingMessage["headers"] } | undefined;
 
 beforeAll(async () => {
   upstream = createServer((req: IncomingMessage, res) => {
-    lastRequest = { path: req.url ?? "" };
+    lastRequest = { path: req.url ?? "", headers: req.headers };
 
     if (req.url?.startsWith("/oauth/callback?network-error")) {
       // No response at all -- destroying the socket is what makes fetch()
@@ -96,6 +96,25 @@ describe("GET /oauth/callback", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain("window.opener");
     expect(lastRequest?.path).toBe("/oauth/callback?code=abc123&state=popup.xyz");
+  });
+
+  it("does not relay caller headers on the unauthenticated callback hop", async () => {
+    const app = await buildApp();
+
+    const response = await app.fastify.inject({
+      method: "GET",
+      url: "/oauth/callback?code=abc123&state=popup.xyz",
+      headers: {
+        "cf-access-authenticated-user-email": "attacker@example.com",
+        "x-browser-hop": "keep-alive",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // The callback hop is authenticated by its HMAC state, not a session, so
+    // header forwarding is opt-in and stays off here.
+    expect(lastRequest?.headers["cf-access-authenticated-user-email"]).toBeUndefined();
+    expect(lastRequest?.headers["x-browser-hop"]).toBeUndefined();
   });
 
   it("strips upstream Set-Cookie so mcpgateway's own cookie never reaches the browser", async () => {
