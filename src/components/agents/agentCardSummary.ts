@@ -1,31 +1,47 @@
 import type { IntlShape } from "react-intl";
-import type { AgentCard, AgentCardInterface, AgentCardSecurityScheme } from "@/types/agentCard";
+import type {
+  AgentCard,
+  AgentCardInterface,
+  AgentCardSecurityScheme,
+  AgentCardSkill,
+} from "@/types/agentCard";
 
-/** Message id for the name of each oneof key a 1.0 card wraps a security scheme in. */
-const SCHEME_LABEL_IDS: Record<string, string> = {
-  apiKeySecurityScheme: "agents.connect.review.scheme.apiKey", // pragma: allowlist secret
-  oauth2SecurityScheme: "agents.connect.review.scheme.oauth2",
-  openIdConnectSecurityScheme: "agents.connect.review.scheme.openIdConnect",
-  mtlsSecurityScheme: "agents.connect.review.scheme.mtls",
-};
+/** Display names for protocol bindings; anything else is shown as the card spells it. */
+const BINDING_LABELS: Record<string, string> = { JSONRPC: "JSON-RPC" };
 
-function describeInterface(item: AgentCardInterface): string {
-  return [item.protocolBinding, item.protocolVersion].filter(Boolean).join(" ") || item.url;
+function bindingLabel(item: AgentCardInterface): string {
+  const binding = item.protocolBinding ?? "";
+  return BINDING_LABELS[binding.toUpperCase()] ?? binding;
 }
 
-/** "JSONRPC 1.0 (preferred), HTTP+JSON 1.0". The first interface is the card's preferred one. */
+/** "JSON-RPC (preferred), HTTP+JSON". The first interface is the card's preferred one. */
 export function summarizeInterfaces(card: AgentCard, intl: IntlShape): string {
   const interfaces = card.supportedInterfaces ?? [];
   return interfaces
-    .map((item, index) =>
-      index === 0 && interfaces.length > 1
-        ? intl.formatMessage(
-            { id: "agents.connect.review.preferred" },
-            { interface: describeInterface(item) },
-          )
-        : describeInterface(item),
-    )
+    .map((item, index) => {
+      const label = bindingLabel(item) || item.url;
+      return index === 0 && interfaces.length > 1
+        ? intl.formatMessage({ id: "agents.connect.review.preferred" }, { interface: label })
+        : label;
+    })
     .join(", ");
+}
+
+export interface InterfaceRow {
+  binding: string;
+  /** The A2A protocol version, e.g. "1.0". Empty when the card gives none. */
+  version: string;
+  /** The interface address without its scheme, e.g. "agents.example.com/a2a/v1". */
+  address: string;
+}
+
+/** One row per declared interface, for the expanded card. */
+export function interfaceRows(card: AgentCard): InterfaceRow[] {
+  return (card.supportedInterfaces ?? []).map((item) => ({
+    binding: bindingLabel(item) || item.url,
+    version: item.protocolVersion ?? "",
+    address: item.url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").replace(/\/$/, ""),
+  }));
 }
 
 /** The host of the card's first interface, which is where the agent is called. */
@@ -43,17 +59,30 @@ function labelScheme(wrapped: AgentCardSecurityScheme | undefined, intl: IntlSha
   if (!wrapped) return null;
   const key = Object.keys(wrapped)[0];
   if (!key) return null;
-  if (key === "httpAuthSecurityScheme") {
-    // The HTTP auth scheme's own name ("bearer", "basic"), not something to translate.
-    const scheme = wrapped.httpAuthSecurityScheme?.scheme;
-    return scheme ? scheme.toLowerCase() : "HTTP";
+  switch (key) {
+    case "httpAuthSecurityScheme": {
+      // The HTTP auth scheme's own name ("bearer", "basic"), not something to translate.
+      const scheme = wrapped.httpAuthSecurityScheme?.scheme;
+      return scheme ? scheme.toLowerCase() : "HTTP";
+    }
+    case "apiKeySecurityScheme":
+      return intl.formatMessage(
+        { id: "agents.connect.review.scheme.apiKey" }, // pragma: allowlist secret
+        { location: wrapped.apiKeySecurityScheme?.location?.toLowerCase() ?? "header" },
+      );
+    case "oauth2SecurityScheme":
+      return intl.formatMessage({ id: "agents.connect.review.scheme.oauth2" });
+    case "openIdConnectSecurityScheme":
+      return intl.formatMessage({ id: "agents.connect.review.scheme.openIdConnect" });
+    case "mtlsSecurityScheme":
+      return intl.formatMessage({ id: "agents.connect.review.scheme.mtls" });
+    default:
+      return null;
   }
-  const labelId = SCHEME_LABEL_IDS[key];
-  return labelId ? intl.formatMessage({ id: labelId }) : null;
 }
 
 /**
- * The credential kinds a card asks for, e.g. "bearer or OAuth 2.0". Requirements
+ * The credential kinds a card asks for, e.g. "bearer or oauth2". Requirements
  * are alternatives, so they are joined with "or"; schemes inside one requirement
  * must all be met, so they are joined with "and". Empty when the card declares none.
  */
@@ -70,4 +99,56 @@ export function summarizeRequirements(card: AgentCard, intl: IntlShape): string 
     )
     .filter(Boolean);
   return intl.formatList([...new Set(alternatives)], { type: "disjunction" });
+}
+
+/** Who publishes the agent: the organization and the host of its site. */
+export function summarizePublisher(card: AgentCard): { name: string; site: string } | null {
+  const name = card.provider?.organization?.trim() ?? "";
+  const url = card.provider?.url?.trim() ?? "";
+  let site = url;
+  if (url) {
+    try {
+      site = new URL(url).host;
+    } catch {
+      site = url;
+    }
+  }
+  return name || site ? { name, site } : null;
+}
+
+export interface CapabilityRow {
+  /** Message id suffix: `streaming` or `extensions`. */
+  key: "streaming" | "extensions";
+  enabled: boolean;
+}
+
+/** The capabilities the card states, so a missing one is not shown as "no". */
+export function capabilityRows(card: AgentCard): CapabilityRow[] {
+  const capabilities = card.capabilities ?? {};
+  const rows: CapabilityRow[] = [];
+  if (typeof capabilities.streaming === "boolean") {
+    rows.push({ key: "streaming", enabled: capabilities.streaming });
+  }
+  if (Array.isArray(capabilities.extensions)) {
+    rows.push({ key: "extensions", enabled: capabilities.extensions.length > 0 });
+  }
+  return rows;
+}
+
+/** "text, application/pdf" or an empty string. */
+export function joinModes(modes: string[] | undefined): string {
+  return (modes ?? []).filter(Boolean).join(", ");
+}
+
+/** True when the card carries a signature. This is not a verification. */
+export function isCardSigned(card: AgentCard): boolean {
+  return Array.isArray(card.signatures) && card.signatures.length > 0;
+}
+
+/** Skills with something to say beyond their name, for the expanded card. */
+export function describedSkills(card: AgentCard): AgentCardSkill[] {
+  return (card.skills ?? []).filter(
+    (skill) =>
+      skill.description?.trim() || joinModes(skill.inputModes) || joinModes(skill.outputModes),
+  );
 }
