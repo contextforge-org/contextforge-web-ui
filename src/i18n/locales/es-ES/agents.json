@@ -166,5 +166,11 @@
   "agents.details.plugins.confirm.teamWide": "{plugin} se aplica a todos los agentes de este equipo. Al quitarlo, dejará de aplicarse a todos ellos.",
   "agents.details.plugins.confirm.button": "Quitar",
   "agents.card.actions.viewDetails": "Ver detalles",
-  "agents.tags.addError": "No se pudo añadir la etiqueta. Inténtelo de nuevo."
+  "agents.tags.addError": "No se pudo añadir la etiqueta. Inténtelo de nuevo.",
+  "agents.details.card.source": "Origen",
+  "agents.details.card.version": "Versión",
+  "agents.details.card.provider": "Proveedor",
+  "agents.details.card.documentation": "Documentación",
+  "agents.details.card.binding": "Enlace de protocolo",
+  "agents.details.card.notStated": "No indicado"
 }

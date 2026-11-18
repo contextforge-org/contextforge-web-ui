@@ -27,6 +27,14 @@ export function summarizeInterfaces(card: AgentCard, intl: IntlShape): string {
     .join(", ");
 }
 
+/** "JSON-RPC, HTTP+JSON": each protocol binding the card declares, once. Empty when it names none. */
+export function summarizeBindings(card: AgentCard): string {
+  const labels = (card.supportedInterfaces ?? [])
+    .map((item) => (typeof item?.protocolBinding === "string" ? bindingLabel(item) : ""))
+    .filter(Boolean);
+  return [...new Set(labels)].join(", ");
+}
+
 export interface InterfaceRow {
   binding: string;
   /** The A2A protocol version, e.g. "1.0". Empty when the card gives none. */
@@ -151,4 +159,22 @@ export function describedSkills(card: AgentCard): AgentCardSkill[] {
     (skill) =>
       skill.description?.trim() || joinModes(skill.inputModes) || joinModes(skill.outputModes),
   );
+}
+
+const SOURCE_URL_MIN_LENGTH = 24;
+const SOURCE_URL_MAX_LENGTH = 56;
+// A 12px monospace glyph, and the copy button with the gap before it.
+const MONO_GLYPH_PX = 7.3;
+const COPY_BUTTON_PX = 28;
+
+/**
+ * How many characters of the Source URL to show in a column `width` px wide: as many as
+ * fit, never fewer than a sidebar value shows (24) and never more than 56. A middle-cut
+ * URL keeps a tail that does not shrink, so showing more than fits would clip the end of
+ * the URL, which is the part that says what it is. Undefined until the column is measured.
+ */
+export function sourceUrlLength(width: number): number | undefined {
+  if (!width) return undefined;
+  const fits = Math.floor((width - COPY_BUTTON_PX) / MONO_GLYPH_PX);
+  return Math.min(SOURCE_URL_MAX_LENGTH, Math.max(SOURCE_URL_MIN_LENGTH, fits));
 }

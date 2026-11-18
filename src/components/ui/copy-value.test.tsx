@@ -24,6 +24,21 @@ describe("CopyValue", () => {
     expect(screen.getByText("p-1")).toBeInTheDocument();
   });
 
+  it("shows more of a long value when given a larger maxLength", () => {
+    const value = "https://agents.example.com/.well-known/agent-card.json";
+    // The whole value sits in a screen-reader span only when the visible text is cut.
+    const hasHiddenCopy = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll(".sr-only")).some((node) => node.textContent === value);
+
+    const { container, unmount } = render(<CopyValue label="Source" value={value} />);
+    expect(hasHiddenCopy(container)).toBe(true);
+    unmount();
+
+    const wide = render(<CopyValue label="Source" value={value} maxLength={80} />);
+    expect(hasHiddenCopy(wide.container)).toBe(false);
+    expect(wide.container).toHaveTextContent(value);
+  });
+
   it("middle-truncates long values in the display", () => {
     const longValue = "abcdefghijklmnopqrstuvwxyz0123456789";
     render(<CopyValue label="ID" value={longValue} />);
