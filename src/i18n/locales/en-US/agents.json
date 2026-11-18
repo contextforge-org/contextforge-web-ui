@@ -174,5 +174,11 @@
   "agents.connect.credential.basicPlaceholder": "Add username:password for the agent card",
   "agents.connect.auth.oauth.resource": "Resource",
   "agents.connect.auth.oauth.resourceInfo": "Specify the resource to request the token for, or leave empty to use the agent's origin.",
-  "agents.connect.auth.oauth.resourcePlaceholder": "https://agent.example.com"
+  "agents.connect.auth.oauth.resourcePlaceholder": "https://agent.example.com",
+  "agents.details.card.source": "Source",
+  "agents.details.card.version": "Version",
+  "agents.details.card.provider": "Provider",
+  "agents.details.card.documentation": "Documentation",
+  "agents.details.card.binding": "Protocol binding",
+  "agents.details.card.notStated": "Not stated"
 }
