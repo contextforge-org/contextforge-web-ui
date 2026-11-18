@@ -187,6 +187,7 @@
   "mcpServer.catalog.oauth.tenantIdRequired": "Tenant ID is required.",
   "mcpServer.catalog.oauth.tenantIdInvalid": "Tenant ID may only contain letters, numbers, dots, underscores, and hyphens.",
   "mcpServer.catalog.oauth.needsAuthorization": "Needs authorization",
+  "mcpServer.catalog.oauth.pendingApiKeyBlocked": "{name} was already registered with OAuth. Finish authorizing it, or remove it from MCP Servers before registering it with an API key.",
   "mcpServer.catalog.oauth.nearExpiry": "Authorization expires soon",
   "mcpServer.catalog.oauth.expired": "Authorization expired",
   "mcpServer.catalog.oauth.statusChecking": "Checking authorization",

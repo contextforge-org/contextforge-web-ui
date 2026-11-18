@@ -630,6 +630,51 @@ describe("ServerCatalog", () => {
     expect(mockTriggerOAuthAuthorization).not.toHaveBeenCalled();
   });
 
+  it("blocks switching to an API key after OAuth registration succeeded but authorization was cancelled", async () => {
+    const user = userEvent.setup();
+    const stripe: CatalogServer = {
+      ...oauthServer,
+      id: "stripe",
+      name: "Stripe",
+      auth_type: "OAuth2.1 & API Key",
+    };
+    mockUseQuery.mockImplementation((path) => {
+      if (path === "/v1/catalog?limit=1000") {
+        return queryResult({ data: { ...response, servers: [stripe], total: 1 } });
+      }
+      if (path === "/oauth/callback-url") {
+        return queryResult({ data: { redirectUri: "http://localhost:3000/oauth/callback" } });
+      }
+      return queryResult({ data: undefined });
+    });
+    mockRegisterCatalogServer.mockResolvedValue({
+      success: true,
+      server_id: "stripe-gateway",
+      message: "Registered",
+    });
+    mockTriggerOAuthAuthorization.mockRejectedValue(new OAuthCancelledError());
+    renderWithRouter(<ServerCatalog />);
+
+    await user.click(screen.getByRole("button", { name: "Add Stripe" }));
+    const form = await screen.findByRole("form", { name: "Add Stripe" });
+    await user.type(within(form).getByLabelText(/Issuer URL/i), "https://stripe.example.com");
+    await user.type(within(form).getByLabelText(/^Scopes/i), "read");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockTriggerOAuthAuthorization).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
+
+    await user.click(within(form).getByRole("radio", { name: "API key" }));
+    await user.type(within(form).getByPlaceholderText("Enter API key"), "agent-key");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    // No second registration (the gateway would 409, reported as success): the form stays
+    // open and explains what to do instead of pretending the key was saved.
+    expect(await within(form).findByText(/already registered with OAuth/)).toBeVisible();
+    expect(mockRegisterCatalogServer).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("form", { name: "Add Stripe" })).toBeInTheDocument();
+  });
+
   it("does not register OAuth credentials when popup creation is blocked", async () => {
     const user = userEvent.setup();
     mockOpenOAuthAuthorizationPopup.mockImplementation(() => {

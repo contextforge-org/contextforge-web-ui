@@ -187,6 +187,7 @@
   "mcpServer.catalog.oauth.tenantIdRequired": "ID do tenant obrigatório.",
   "mcpServer.catalog.oauth.tenantIdInvalid": "O ID do tenant pode conter apenas letras, números, pontos, sublinhados e hífens.",
   "mcpServer.catalog.oauth.needsAuthorization": "Precisa de autorização",
+  "mcpServer.catalog.oauth.pendingApiKeyBlocked": "{name} já foi registrado com OAuth. Conclua a autorização ou remova-o de MCP Servers antes de registrá-lo com uma chave de API.",
   "mcpServer.catalog.oauth.nearExpiry": "A autorização expira em breve",
   "mcpServer.catalog.oauth.expired": "A autorização expirou",
   "mcpServer.catalog.oauth.statusChecking": "Verificando autorização",

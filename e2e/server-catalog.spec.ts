@@ -126,7 +126,15 @@ test.describe("Server catalog page", () => {
       await form.getByRole("button", { name: "Save" }).click();
       await expect(form.getByLabel(/Issuer URL/)).toHaveAttribute("aria-invalid", "true");
       // Client ID/secret are optional: blank means the gateway registers a client itself (DCR).
-      await expect(form.getByText("Client secret is required.")).toHaveCount(0);
+      // The submit above failed only on Issuer URL, so they must not be flagged, and each
+      // carries the automatic-registration hint.
+      await expect(form.getByLabel(/^Client ID/)).not.toHaveAttribute("aria-invalid", "true");
+      await expect(form.getByLabel(/^Client Secret/)).not.toHaveAttribute("aria-invalid", "true");
+      await expect(
+        form.getByText("Optional. Some authorization servers issue these automatically", {
+          exact: false,
+        }),
+      ).toHaveCount(2);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true);

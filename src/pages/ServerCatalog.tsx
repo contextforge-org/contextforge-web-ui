@@ -834,6 +834,20 @@ export function ServerCatalog() {
       // nothing to authorize, so skip the popup (the gateway answers 'not configured
       // for OAuth') and just register, like the API key dialog does.
       if (body.api_key) {
+        // An earlier OAuth attempt already registered this entry. Registering it again
+        // would hit the gateway's duplicate check (a 409 that registerServer reports as
+        // success), closing the form without ever storing the key.
+        if (pendingOAuthGatewayId) {
+          setOAuthFormNotification({
+            id: `oauth:${oauthServer.id}`,
+            type: "error",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.oauth.pendingApiKeyBlocked" },
+              { name: oauthServer.name },
+            ),
+          });
+          return false;
+        }
         const { success } = await registerServer(oauthServer, body, {
           reportNotification: (notification) => setOAuthFormNotification(notification),
         });
