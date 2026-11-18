@@ -132,7 +132,7 @@ describe("GET /oauth/callback", () => {
     );
   });
 
-  it("does not append the close script to error pages", async () => {
+  it("broadcasts the failure and closes an orphaned popup on error pages", async () => {
     const app = await buildApp();
 
     const response = await app.fastify.inject({
@@ -141,7 +141,10 @@ describe("GET /oauth/callback", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.body).not.toContain("setTimeout");
+    // Not the success-path close script: the error is broadcast first.
+    expect(response.body).toContain('new BroadcastChannel("contextforge_oauth_callback")');
+    expect(response.body).toContain('status:"error"');
+    expect(response.body).toMatch(/if\(!window\.opener\)\{try\{/);
   });
 
   it("strips upstream Set-Cookie so mcpgateway's own cookie never reaches the browser", async () => {

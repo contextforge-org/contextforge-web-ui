@@ -477,6 +477,7 @@ describe("serversApi", () => {
 
       afterEach(() => {
         vi.useRealTimers();
+        vi.unstubAllGlobals();
       });
 
       it("resolves when the popup reads as closed but the token was issued meanwhile", async () => {
@@ -509,6 +510,44 @@ describe("serversApi", () => {
         await vi.advanceTimersByTimeAsync(4000);
 
         await expect(promise).resolves.toMatchObject({ status: "success" });
+      });
+
+      it("rejects with the provider's error broadcast by the severed popup", async () => {
+        const channels: { onmessage: ((e: MessageEvent) => void) | null }[] = [];
+        vi.stubGlobal(
+          "BroadcastChannel",
+          class {
+            onmessage: ((e: MessageEvent) => void) | null = null;
+            constructor() {
+              channels.push(this);
+            }
+            close() {}
+          },
+        );
+        serve(() => ({ authorized: false, updated_at: null }));
+        const { popup, promise } = start();
+        const settled = expect(promise).rejects.toMatchObject({
+          name: "OAuthAuthorizationError",
+          message: "The user denied access",
+          code: "access_denied",
+        });
+        await vi.advanceTimersByTimeAsync(0);
+
+        (popup as { closed: boolean }).closed = true;
+        await vi.advanceTimersByTimeAsync(1000);
+        // A popup on the same origin posts the failure; deliver it synchronously.
+        channels.forEach((c) =>
+          c.onmessage?.({
+            data: {
+              type: "oauth_callback",
+              status: "error",
+              error: "access_denied",
+              errorDescription: "The user denied access",
+            },
+          } as MessageEvent),
+        );
+
+        await settled;
       });
 
       it("still cancels after the grace period when the token never changes", async () => {

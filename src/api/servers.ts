@@ -78,11 +78,25 @@ export class OAuthPopupBlockedError extends Error {
 // caller's token state for a while before reporting it.
 const OAUTH_CLOSED_GRACE_MS = 60_000;
 const OAUTH_CLOSED_POLL_MS = 2_000;
+// With the opener severed the callback page can't postMessage a failure, so it
+// broadcasts it on this same-origin channel instead (server/src/lib/oauth-upstream-forward.ts).
+const OAUTH_CALLBACK_CHANNEL = "contextforge_oauth_callback";
+// Upper bound on a single status read, so a stalled request can't hold the flow open.
+const OAUTH_STATUS_READ_TIMEOUT_MS = 5_000;
 
+/**
+ * The caller's token state, or null when it can't be read. The gateway reports
+ * `unknown` when the lookup itself failed, which says nothing about the token,
+ * so it counts as unavailable (same as useOAuthStatuses).
+ */
 async function readOAuthTokenStatus(id: string): Promise<OAuthUserTokenStatus | null> {
   try {
-    const { statuses } = await getOAuthStatuses([id]);
-    return statuses[id]?.user_token_status ?? null;
+    const { statuses } = await getOAuthStatuses(
+      [id],
+      AbortSignal.timeout(OAUTH_STATUS_READ_TIMEOUT_MS),
+    );
+    const tokenStatus = statuses[id]?.user_token_status;
+    return tokenStatus && tokenStatus.status !== "unknown" ? tokenStatus : null;
   } catch {
     return null;
   }
@@ -329,6 +343,7 @@ export const serversApi = {
 
       const cleanup = () => {
         window.removeEventListener("message", messageHandler);
+        channel?.close();
         clearInterval(pollInterval);
       };
 
@@ -352,14 +367,30 @@ export const serversApi = {
 
       window.addEventListener("message", messageHandler);
 
+      // Failures reported by a popup whose opener was severed (see above).
+      let channel: BroadcastChannel | undefined;
+      try {
+        channel = new BroadcastChannel(OAUTH_CALLBACK_CHANNEL);
+        channel.onmessage = (event: MessageEvent) => {
+          const data = event.data as OAuthCallbackResult;
+          if (!data || data.type !== "oauth_callback" || data.status !== "error") return;
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new OAuthAuthorizationError(data.error, data.errorDescription, data));
+        };
+      } catch {
+        // No BroadcastChannel: severed-popup failures fall back to "cancelled".
+      }
+
       // Token state before the flow starts, read once the nonce is minted and
-      // before the popup navigates, so it can't already include this attempt.
-      let baseline: Promise<OAuthUserTokenStatus | null> = Promise.resolve(null);
+      // awaited before the popup navigates, so it can't already include this attempt.
+      let baseline: OAuthUserTokenStatus | null = null;
 
       // The popup reads as closed: either the user closed it, or the provider's
       // COOP cut it loose mid-flow. Tell them apart by whether the token changed.
       const settleAfterClose = async () => {
-        const before = await baseline;
+        const before = baseline;
         const deadline = Date.now() + OAUTH_CLOSED_GRACE_MS;
         while (!settled) {
           // Without a baseline an old valid token can't be told from a new one.
@@ -395,9 +426,9 @@ export const serversApi = {
         // rejects with FST_ERR_CTP_EMPTY_JSON_BODY before the route handler
         // (or even sessionAuth) ever runs. Same reasoning as /auth/logout.
         .post<{ nonce: string }>("/oauth/authorize-nonce", {})
-        .then(({ nonce }) => {
-          if (settled) return;
-          baseline = readOAuthTokenStatus(validId);
+        .then(async ({ nonce }) => {
+          baseline = await readOAuthTokenStatus(validId);
+          if (settled || authWindow.closed) return;
           authWindow.location.href = `/oauth/authorize/${validId}?popup=true&nonce=${encodeURIComponent(nonce)}`;
         })
         .catch((err: unknown) => {
