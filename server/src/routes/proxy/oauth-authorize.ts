@@ -104,6 +104,7 @@ export default async function oauthAuthorizeProxyRoute(fastify: FastifyInstance)
 
       return forwardOAuthGet(request, reply, upstreamUrl, {
         headers: upstreamAuthHeader(bearerToken),
+        forwardInboundHeaders: true,
         timeoutMs: config.oauthProxyTimeoutMs,
         logLabel: "OAuth authorize",
       });
