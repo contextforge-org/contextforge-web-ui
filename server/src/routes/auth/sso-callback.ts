@@ -20,6 +20,7 @@ import {
   SsoIdTokenError,
   verifySsoIdToken,
 } from "../../lib/sso-user-resolution.js";
+import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
 interface SsoCallbackQuerystring {
   code?: string | string[];
@@ -132,6 +133,29 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
             loginState.returnTo,
           ),
         );
+      }
+
+      // The gateway owns the Keycloak-role -> platform_admin mapping. Ask for
+      // its view before minting the session; only the admin bit changes, so
+      // the Keycloak display name stays. A failed lookup keeps today's
+      // non-admin fallback because permissions are enforced gateway-side.
+      try {
+        const res = await fetch(`${config.contextforgeUrl}/auth/email/me`, {
+          headers: {
+            ...upstreamAuthHeader(tokens.accessToken),
+            "x-forwarded-for": request.ip,
+            "x-real-ip": request.ip,
+          },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const profile = (await res.json()) as { is_admin?: unknown } | null;
+          user.is_admin = profile?.is_admin === true;
+        } else {
+          request.log.warn({ status: res.status }, "SSO admin lookup rejected");
+        }
+      } catch (err) {
+        request.log.warn({ err }, "SSO admin lookup failed");
       }
 
       try {
