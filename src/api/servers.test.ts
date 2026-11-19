@@ -561,6 +561,28 @@ describe("serversApi", () => {
 
         await settled;
       });
+
+      it("cancels the pending attempt when a new one starts for the same gateway", async () => {
+        serve(() => ({ authorized: true, updated_at: "2026-11-01T00:00:00" }));
+        const first = start();
+        const firstSettled = expect(first.promise).rejects.toThrow(
+          "OAuth authorization was cancelled",
+        );
+        await vi.advanceTimersByTimeAsync(0);
+
+        (first.popup as { closed: boolean }).closed = true; // user closed it and retries
+        await vi.advanceTimersByTimeAsync(1000);
+        const second = start();
+        const secondSettled = expect(second.promise).rejects.toThrow(
+          "OAuth authorization was cancelled",
+        );
+
+        await firstSettled; // no waiting out the grace period
+        await vi.advanceTimersByTimeAsync(0);
+        (second.popup as { closed: boolean }).closed = true;
+        await vi.advanceTimersByTimeAsync(70_000);
+        await secondSettled;
+      });
     });
   });
 

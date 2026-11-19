@@ -108,6 +108,10 @@ function authorizedSince(baseline: OAuthUserTokenStatus, current: OAuthUserToken
   return !baseline.authorized || current.updated_at !== baseline.updated_at;
 }
 
+// One live attempt per gateway. A new trigger ends the pending one as cancelled,
+// so retrying after closing the popup doesn't wait out the severed-popup grace period.
+const activeOAuthAttempts = new Map<string, () => void>();
+
 function openOAuthAuthorizationPopup(): Window {
   const width = 600;
   const height = 700;
@@ -331,6 +335,7 @@ export const serversApi = {
     existingAuthWindow?: Window,
   ): Promise<OAuthCallbackResult> => {
     const validId = validateServerId(id);
+    activeOAuthAttempts.get(validId)?.();
 
     return new Promise((resolve, reject) => {
       const authWindow = existingAuthWindow ?? openOAuthAuthorizationPopup();
@@ -345,7 +350,16 @@ export const serversApi = {
         window.removeEventListener("message", messageHandler);
         channel?.close();
         clearInterval(pollInterval);
+        if (activeOAuthAttempts.get(validId) === supersede) activeOAuthAttempts.delete(validId);
       };
+
+      const supersede = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new OAuthCancelledError());
+      };
+      activeOAuthAttempts.set(validId, supersede);
 
       const messageHandler = (event: MessageEvent) => {
         // Verify the message came from our specific popup rather than checking
@@ -383,8 +397,8 @@ export const serversApi = {
         // No BroadcastChannel: severed-popup failures fall back to "cancelled".
       }
 
-      // Token state before the flow starts, read once the nonce is minted and
-      // awaited before the popup navigates, so it can't already include this attempt.
+      // Token state before the flow starts, awaited before the popup navigates
+      // so it can't already include this attempt.
       let baseline: OAuthUserTokenStatus | null = null;
 
       // The popup reads as closed: either the user closed it, or the provider's
@@ -420,14 +434,19 @@ export const serversApi = {
         }
       }, 1000);
 
-      api
+      const nonceRequest = api
         // {} — not omitted — so this isn't a Content-Type: application/json
         // POST with a truly empty body, which Fastify's default JSON parser
         // rejects with FST_ERR_CTP_EMPTY_JSON_BODY before the route handler
         // (or even sessionAuth) ever runs. Same reasoning as /auth/logout.
-        .post<{ nonce: string }>("/oauth/authorize-nonce", {})
+        .post<{ nonce: string }>("/oauth/authorize-nonce", {});
+      // Read the baseline alongside the nonce request rather than after it, so
+      // the popup isn't left blank for an extra round-trip.
+      const baselineRead = readOAuthTokenStatus(validId);
+
+      nonceRequest
         .then(async ({ nonce }) => {
-          baseline = await readOAuthTokenStatus(validId);
+          baseline = await baselineRead;
           if (settled || authWindow.closed) return;
           authWindow.location.href = `/oauth/authorize/${validId}?popup=true&nonce=${encodeURIComponent(nonce)}`;
         })
