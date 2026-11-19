@@ -252,9 +252,10 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                     id="agent-oauth-resource"
                     label={intl.formatMessage({ id: "agents.connect.auth.oauth.resource" })}
                     info={intl.formatMessage({ id: "agents.connect.auth.oauth.resourceInfo" })}
-                    placeholder={intl.formatMessage({
-                      id: "agents.connect.auth.oauth.resourcePlaceholder",
-                    })}
+                    placeholder={
+                      form.oauthResourceDefault ||
+                      intl.formatMessage({ id: "agents.connect.auth.oauth.resourcePlaceholder" })
+                    }
                     value={form.oauthResource}
                     onChange={form.setOauthResource}
                   />

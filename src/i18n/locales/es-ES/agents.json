@@ -173,6 +173,6 @@
   "agents.connect.credential.basicLabel": "Credencial (usuario:contraseña)",
   "agents.connect.credential.basicPlaceholder": "Añada usuario:contraseña para la tarjeta del agente",
   "agents.connect.auth.oauth.resource": "Recurso",
-  "agents.connect.auth.oauth.resourceInfo": "Opcional. El recurso para el que se solicita el token (RFC 8707). Por defecto, el origen del agente; bórrelo para omitirlo.",
+  "agents.connect.auth.oauth.resourceInfo": "Opcional. El recurso para el que se solicita el token (RFC 8707). Déjelo vacío para usar el origen del agente.",
   "agents.connect.auth.oauth.resourcePlaceholder": "https://agent.example.com"
 }

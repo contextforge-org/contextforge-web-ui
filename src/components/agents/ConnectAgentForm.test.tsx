@@ -700,7 +700,7 @@ describe("ConnectAgentForm", () => {
           ],
         );
 
-      it("shows the card's token URL and scopes and sends oauth_config with the resource", async () => {
+      it("shows the card's token URL and scopes and sends oauth_config without a resource by default", async () => {
         mockFetchCard(oauthCard());
         const created = mockCreate();
         const user = setup();
@@ -710,7 +710,12 @@ describe("ConnectAgentForm", () => {
         expect(await screen.findByText("https://agent.example.com/token")).toBeInTheDocument();
         expect(screen.getByText("read write")).toBeInTheDocument();
         expect(screen.getByText(/differs from the agent host/)).toBeInTheDocument();
-        expect(screen.getByLabelText("Resource")).toHaveValue("https://agent.example.com");
+        // Empty, with the agent's origin as the placeholder; the gateway applies it.
+        expect(screen.getByLabelText("Resource")).toHaveValue("");
+        expect(screen.getByLabelText("Resource")).toHaveAttribute(
+          "placeholder",
+          "https://agent.example.com",
+        );
 
         await user.type(screen.getByLabelText(/Client ID/), "cid");
         await user.type(screen.getByLabelText(/Client secret/), "shh");
@@ -725,8 +730,23 @@ describe("ConnectAgentForm", () => {
           client_secret: "shh", // pragma: allowlist secret
           token_url: "https://agent.example.com/token",
           scopes: ["read", "write"],
-          resource: "https://agent.example.com",
         });
+      });
+
+      it("sends the resource when one is entered", async () => {
+        mockFetchCard(oauthCard());
+        const created = mockCreate();
+        const user = setup();
+
+        await toAuthStep(user);
+        await user.type(await screen.findByLabelText("Resource"), "https://api.example.com");
+        await user.type(screen.getByLabelText(/Client ID/), "cid");
+        await user.type(screen.getByLabelText(/Client secret/), "shh");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        const agent = created.body!.agent as { oauth_config: Record<string, unknown> };
+        expect(agent.oauth_config.resource).toBe("https://api.example.com");
       });
 
       it("shows only the OAuth warnings on the authenticate step", async () => {
@@ -750,13 +770,13 @@ describe("ConnectAgentForm", () => {
         expect(screen.queryByText(/No JSONRPC interface/)).not.toBeInTheDocument();
       });
 
-      it("leaves resource out when it is cleared", async () => {
+      it("leaves resource out when it is left empty", async () => {
         mockFetchCard(oauthCard());
         const created = mockCreate();
         const user = setup();
 
         await toAuthStep(user);
-        await user.clear(await screen.findByLabelText("Resource"));
+        await screen.findByLabelText("Resource");
         await user.type(screen.getByLabelText(/Client ID/), "cid");
         await user.type(screen.getByLabelText(/Client secret/), "shh");
         await user.click(screen.getByRole("button", { name: "Connect" }));

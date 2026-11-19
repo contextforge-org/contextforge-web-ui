@@ -49,7 +49,7 @@ function authorizationValue(scheme: string | null, credential: string): string {
   return `${scheme || "Bearer"} ${credential}`;
 }
 
-/** The origin of an endpoint, the default OAuth resource indicator. Empty when it isn't a URL. */
+/** The origin of an endpoint, which the gateway uses as the OAuth resource when none is set. Empty when it isn't a URL. */
 function originOf(value: string | undefined): string {
   try {
     return value ? new URL(value).origin : "";
@@ -100,7 +100,10 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [oauthClientId, setOauthClientId] = useState("");
   const [oauthClientSecret, setOauthClientSecret] = useState("");
   const [oauthScopes, setOauthScopes] = useState("");
+  // Left empty unless the user types one: the gateway defaults an empty resource to the
+  // agent's origin, so that origin is only shown as the placeholder.
   const [oauthResource, setOauthResource] = useState("");
+  const [oauthResourceDefault, setOauthResourceDefault] = useState("");
 
   const [visibility, setVisibilityState] = useState<Visibility>("public");
   const [chosenTeamId, setChosenTeamId] = useState<string | undefined>(undefined);
@@ -263,7 +266,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     setOauthScopes(
       Array.isArray(next.oauth_config?.scopes) ? next.oauth_config.scopes.join(" ") : "",
     );
-    setOauthResource(originOf(next.endpoint_url));
+    setOauthResource("");
+    setOauthResourceDefault(originOf(next.endpoint_url));
   }, []);
 
   /**
@@ -563,6 +567,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     setOauthScopes,
     oauthResource,
     setOauthResource,
+    oauthResourceDefault,
     visibility,
     setVisibility,
     teams,
