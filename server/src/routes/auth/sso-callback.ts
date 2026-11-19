@@ -12,7 +12,6 @@ import { config } from "../../config.js";
 import { establishSession, PasswordChangeStillRequiredError } from "../../lib/establish-session.js";
 import { setNoStore } from "../../lib/no-store.js";
 import { getDiscoveryDocument } from "../../lib/oidc-discovery.js";
-import { applyGatewaySsoProfile } from "../../lib/sso-gateway-profile.js";
 import { loginErrorRedirect } from "../../lib/sso-login-error-redirect.js";
 import { consumeSsoLoginState, SSO_LOGIN_BINDING_COOKIE } from "../../lib/sso-login-state.js";
 import { exchangeSsoCode } from "../../lib/sso-token-exchange.js";
@@ -21,6 +20,7 @@ import {
   SsoIdTokenError,
   verifySsoIdToken,
 } from "../../lib/sso-user-resolution.js";
+import { upstreamAuthHeader } from "../../lib/upstream-auth.js";
 
 interface SsoCallbackQuerystring {
   code?: string | string[];
@@ -135,11 +135,28 @@ export default async function ssoCallbackRoute(fastify: FastifyInstance): Promis
         );
       }
 
-      // The gateway owns the Keycloak-role -> platform_admin mapping, so
-      // replace the ID-token fallback with its view before minting the
-      // session. This never fails the login: a lookup failure keeps the
+      // The gateway owns the Keycloak-role -> platform_admin mapping. Ask for
+      // its view before minting the session; only the admin bit changes, so
+      // the Keycloak display name stays. A failed lookup keeps today's
       // non-admin fallback because permissions are enforced gateway-side.
-      user = await applyGatewaySsoProfile(request, tokens.accessToken, user);
+      try {
+        const res = await fetch(`${config.contextforgeUrl}/auth/email/me`, {
+          headers: {
+            ...upstreamAuthHeader(tokens.accessToken),
+            "x-forwarded-for": request.ip,
+            "x-real-ip": request.ip,
+          },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (res.ok) {
+          const profile = (await res.json()) as { is_admin?: unknown } | null;
+          user.is_admin = profile?.is_admin === true;
+        } else {
+          request.log.warn({ status: res.status }, "SSO admin lookup rejected");
+        }
+      } catch (err) {
+        request.log.warn({ err }, "SSO admin lookup failed");
+      }
 
       try {
         await establishSession(

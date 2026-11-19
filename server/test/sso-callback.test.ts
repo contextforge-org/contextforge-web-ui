@@ -220,12 +220,7 @@ describe("GET /auth/sso/callback", () => {
       },
       true,
       400,
-      {
-        email: "admin@example.com",
-        full_name: "Gateway Admin",
-        is_admin: true,
-        auth_provider: "keycloak",
-      },
+      { is_admin: true },
     );
     const response = await app.fastify.inject({
       method: "GET",
@@ -247,9 +242,9 @@ describe("GET /auth/sso/callback", () => {
       authenticated: true,
       user: {
         email: "admin@example.com",
-        full_name: "Gateway Admin",
+        full_name: "Keycloak Display Name",
         is_admin: true,
-        auth_provider: "keycloak",
+        auth_provider: "sso",
       },
     });
   });
