@@ -6,6 +6,14 @@ export const OPEN_AUTH_TYPE = "Open";
 export const API_KEY_AUTH_TYPES = new Set(["API Key", "API"]);
 export const OAUTH_AUTH_TYPES = new Set(["OAuth", "OAuth2.1", "OAuth2.1 & API Key"]);
 
+// Entries that accept either credential, but only one per registration: the gateway
+// stores a single auth_type, so the add form must submit one method, never both.
+const MIXED_AUTH_TYPES = new Set(["OAuth2.1 & API Key"]);
+
+export function isMixedAuthType(rawAuthType: string): boolean {
+  return MIXED_AUTH_TYPES.has(rawAuthType);
+}
+
 export type AuthTypeGroupId = "open" | "apiKey" | "oauth";
 
 interface AuthTypeGroup {
@@ -42,6 +50,7 @@ export function isCatalogOAuthServer(server: {
 }
 
 export function getAuthTypeGroupLabelId(rawAuthType: string): string | null {
+  if (isMixedAuthType(rawAuthType)) return "mcpServer.catalog.authType.oauthAndApiKey";
   const groupId = getAuthTypeGroupId(rawAuthType);
   return groupId ? AUTH_TYPE_GROUPS.find((group) => group.id === groupId)!.labelId : null;
 }

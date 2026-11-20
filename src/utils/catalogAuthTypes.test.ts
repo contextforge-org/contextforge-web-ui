@@ -32,6 +32,12 @@ describe("getAuthTypeGroupId", () => {
 });
 
 describe("getAuthTypeGroupLabelId", () => {
+  it("labels mixed OAuth / API key entries as supporting both", () => {
+    expect(getAuthTypeGroupLabelId("OAuth2.1 & API Key")).toBe(
+      "mcpServer.catalog.authType.oauthAndApiKey",
+    );
+  });
+
   it("resolves both API-key spellings to the same label id", () => {
     expect(getAuthTypeGroupLabelId("API Key")).toBe(getAuthTypeGroupLabelId("API"));
   });

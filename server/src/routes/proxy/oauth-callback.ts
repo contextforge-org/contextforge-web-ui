@@ -36,13 +36,17 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import { config } from "../../config.js";
-import { forwardOAuthGet, htmlizeOAuthPopupErrors } from "../../lib/oauth-upstream-forward.js";
+import {
+  closeSeveredOAuthPopup,
+  forwardOAuthGet,
+  htmlizeOAuthPopupErrors,
+} from "../../lib/oauth-upstream-forward.js";
 import { setNoStore } from "../../lib/no-store.js";
 
 export default async function oauthCallbackProxyRoute(fastify: FastifyInstance): Promise<void> {
   fastify.get(
     "/oauth/callback",
-    { onSend: htmlizeOAuthPopupErrors },
+    { onSend: [htmlizeOAuthPopupErrors, closeSeveredOAuthPopup] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       setNoStore(reply);
 
