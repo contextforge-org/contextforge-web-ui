@@ -31,6 +31,7 @@ interface ConnectAgentFormProps {
 const CARD_ISSUE_MESSAGE_IDS: Record<CardIssue, string> = {
   no_card: "agents.connect.outcome.noCard",
   auth_required: "agents.connect.outcome.authRequired",
+  credential_rejected: "agents.connect.outcome.credentialRejected",
   unreachable: "agents.connect.outcome.unreachable",
   error: "agents.connect.outcome.error",
 };
@@ -43,9 +44,26 @@ function urlStepButtonMessageId(form: ConnectAgentFormState): string {
   return form.isFetching ? "agents.connect.checking" : "agents.connect.continue";
 }
 
+/** A value taken from the card that the user can read but not change. */
+function ReadOnlyValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-foreground">{label}</p>
+      <p className="break-all rounded border bg-muted px-3 py-2 text-xs text-muted-foreground">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps) {
   const intl = useIntl();
   const form = useConnectAgentForm({ onCreated });
+  // The client secret goes to the card's OAuth URLs, so a foreign host or plain http matters here.
+  const oauthWarnings =
+    form.authType === "oauth"
+      ? (form.result?.warnings ?? []).filter((warning) => warning.includes("OAuth"))
+      : [];
 
   const handleBack = () => {
     if (!form.goBack()) onCancel();
@@ -100,6 +118,29 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                 <Callout severity="warning">
                   {intl.formatMessage({ id: CARD_ISSUE_MESSAGE_IDS[form.cardIssue] })}
                 </Callout>
+              )}
+
+              {form.needsCredential && (
+                <TextField
+                  id="agent-card-credential"
+                  required
+                  type="password"
+                  label={intl.formatMessage({
+                    id:
+                      form.authScheme?.toLowerCase() === "basic"
+                        ? "agents.connect.credential.basicLabel"
+                        : "agents.connect.credential.label",
+                  })}
+                  placeholder={intl.formatMessage({
+                    id:
+                      form.authScheme?.toLowerCase() === "basic"
+                        ? "agents.connect.credential.basicPlaceholder"
+                        : "agents.connect.credential.placeholder",
+                  })}
+                  value={form.fetchCredential}
+                  onChange={form.setFetchCredential}
+                  error={form.errors.credentials}
+                />
               )}
 
               <ExpandableSection
@@ -159,7 +200,69 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                 </Callout>
               )}
 
-              {form.singleKey && (
+              {oauthWarnings.map((warning) => (
+                <Callout key={warning} severity="warning">
+                  {warning}
+                </Callout>
+              ))}
+
+              {form.authType === "oauth" && form.isAuthSupported && (
+                <>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {intl.formatMessage({ id: "agents.connect.manual.oauth.intro" })}
+                  </p>
+                  <ReadOnlyValue
+                    label={intl.formatMessage({ id: "agents.connect.manual.oauth.tokenUrl" })}
+                    value={form.oauthTokenUrl}
+                  />
+                  {form.oauthScopes && (
+                    <ReadOnlyValue
+                      label={intl.formatMessage({ id: "agents.connect.manual.oauth.scopes" })}
+                      value={form.oauthScopes}
+                    />
+                  )}
+                  <TextField
+                    id="agent-oauth-client-id"
+                    required
+                    label={intl.formatMessage({ id: "agents.connect.manual.oauth.clientId" })}
+                    placeholder={intl.formatMessage({
+                      id: "agents.connect.manual.oauth.clientIdPlaceholder",
+                    })}
+                    value={form.oauthClientId}
+                    onChange={(value) => {
+                      form.clearError("credentials");
+                      form.setOauthClientId(value);
+                    }}
+                  />
+                  <TextField
+                    id="agent-oauth-client-secret"
+                    required
+                    type="password"
+                    label={intl.formatMessage({ id: "agents.connect.manual.oauth.clientSecret" })}
+                    placeholder={intl.formatMessage({
+                      id: "agents.connect.manual.oauth.clientSecretPlaceholder",
+                    })}
+                    value={form.oauthClientSecret}
+                    onChange={(value) => {
+                      form.clearError("credentials");
+                      form.setOauthClientSecret(value);
+                    }}
+                  />
+                  <TextField
+                    id="agent-oauth-resource"
+                    label={intl.formatMessage({ id: "agents.connect.auth.oauth.resource" })}
+                    info={intl.formatMessage({ id: "agents.connect.auth.oauth.resourceInfo" })}
+                    placeholder={
+                      form.oauthResourceDefault ||
+                      intl.formatMessage({ id: "agents.connect.auth.oauth.resourcePlaceholder" })
+                    }
+                    value={form.oauthResource}
+                    onChange={form.setOauthResource}
+                  />
+                </>
+              )}
+
+              {form.singleKey && !form.credentialReused && (
                 <TextField
                   id="agent-key"
                   required
@@ -170,7 +273,7 @@ export function ConnectAgentForm({ onCancel, onCreated }: ConnectAgentFormProps)
                   onChange={form.setKeyValue}
                 />
               )}
-              {form.authType === "basic" && (
+              {form.authType === "basic" && !form.credentialReused && (
                 <BasicAuth
                   username={form.username}
                   password={form.password}
