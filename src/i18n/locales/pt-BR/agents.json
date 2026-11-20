@@ -166,5 +166,11 @@
   "agents.details.plugins.confirm.teamWide": "{plugin} é aplicado a todos os agentes desta equipe. Ao removê-lo, ele deixará de ser aplicado a todos eles.",
   "agents.details.plugins.confirm.button": "Remover",
   "agents.card.actions.viewDetails": "Ver detalhes",
-  "agents.tags.addError": "Falha ao adicionar a tag. Tente novamente."
+  "agents.tags.addError": "Falha ao adicionar a tag. Tente novamente.",
+  "agents.details.card.source": "Origem",
+  "agents.details.card.version": "Versão",
+  "agents.details.card.provider": "Provedor",
+  "agents.details.card.documentation": "Documentação",
+  "agents.details.card.binding": "Vínculo de protocolo",
+  "agents.details.card.notStated": "Não informado"
 }

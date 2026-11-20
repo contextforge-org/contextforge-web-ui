@@ -83,6 +83,13 @@ export interface AgentCard {
   signatures?: AgentCardSignature[];
 }
 
+/**
+ * `A2AAgentCreate` plus `card_url`, which the gateway accepts on registration but the
+ * generated client does not have yet. The gateway fetches the card from it itself and
+ * stores it; a card sent by the client is never accepted.
+ */
+export type A2AAgentCreateWithCard = A2AAgentCreate & { card_url?: string };
+
 /** Credential-free `A2AAgentCreate` fields derived from a card. */
 export type SuggestedAgent = Partial<A2AAgentCreate>;
 
@@ -114,4 +121,19 @@ export interface RegisteredAgentCard {
   defaultOutputModes?: string[];
   capabilities?: Record<string, unknown>;
   skills?: AgentCardSkill[];
+}
+
+/**
+ * `GET /v1/a2a/{id}/stored-card`: the card stored for a registered agent, as
+ * fetched. `card` is the document the remote agent published (0.3 or 1.0),
+ * so only read the fields `AgentCard` types, and only when `detectedVersion` is "1.0".
+ */
+export interface StoredAgentCard {
+  version: number;
+  card: AgentCard;
+  detectedVersion: string;
+  sourceUrl: string;
+  etag?: string | null;
+  maxAge?: number | null;
+  fetchedAt: string;
 }

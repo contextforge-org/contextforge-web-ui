@@ -15,7 +15,12 @@ import { resolveTeamId, useTeams } from "@/hooks/useTeams";
 import { extractApiErrorDetail } from "@/utils/errors";
 import type { A2AAgentCreate, A2AAgentRead, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
 import type { Visibility } from "@/types/server";
-import type { FetchCardOutcome, FetchCardResult, SuggestedAgent } from "@/types/agentCard";
+import type {
+  A2AAgentCreateWithCard,
+  FetchCardOutcome,
+  FetchCardResult,
+  SuggestedAgent,
+} from "@/types/agentCard";
 
 export type ConnectAgentStep = "url" | "review" | "auth";
 
@@ -311,10 +316,12 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
 
     const description = cardDescription.trim();
     // Everything the card yielded, plus only what a card cannot contain.
-    const agent: A2AAgentCreate = {
+    const agent: A2AAgentCreateWithCard = {
       ...suggested,
       name: agentName.trim(),
       endpoint_url: suggested.endpoint_url,
+      // The gateway fetches the card again from here and stores it, so the agent keeps its card.
+      card_url: result?.sourceUrl || url.trim(),
       ...(description ? { description } : {}),
       ...(cardTags.length > 0 ? { tags: cardTags } : {}),
       ...credentialFields(authType, authValues),
@@ -329,6 +336,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     visibility,
     teamId,
     suggested,
+    result,
+    url,
     cardDescription,
     cardTags,
     authValues,

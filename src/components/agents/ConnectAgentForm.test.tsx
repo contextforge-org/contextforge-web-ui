@@ -424,6 +424,8 @@ describe("ConnectAgentForm", () => {
             name: "Visual Router",
             endpoint_url: "https://agent.example.com/rpc",
             protocol_version: "1.0",
+            // The gateway fetches the card again from here, which is what stores it for the agent.
+            card_url: `${CARD_URL}/.well-known/agent-card.json`,
           }),
           visibility: "public",
         });
