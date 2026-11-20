@@ -163,9 +163,8 @@ async function startConnect(page: Page, url = "https://agent.example.com") {
 }
 
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
-const CARD_AUTH_REQUIRED =
-  "The agent needs a credential to share its card. Enter it below to read the card.";
-const CARD_CREDENTIAL_REJECTED = "The agent rejected that credential. Check it and try again.";
+const CARD_AUTH_REQUIRED = "Enter a credential to view this agent's card.";
+const CARD_CREDENTIAL_REJECTED = "Invalid credential. Check it and try again.";
 const CARD_UNREACHABLE =
   "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
 const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";

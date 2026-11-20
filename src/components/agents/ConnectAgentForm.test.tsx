@@ -25,9 +25,8 @@ import type { FetchCardResult, SuggestedAgent } from "@/types/agentCard";
 const CARD_URL = "https://agent.example.com";
 const URL_PLACEHOLDER = "Add URL for a running agent...";
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
-const CARD_AUTH_REQUIRED =
-  "The agent needs a credential to share its card. Enter it below to read the card.";
-const CARD_CREDENTIAL_REJECTED = "The agent rejected that credential. Check it and try again.";
+const CARD_AUTH_REQUIRED = "Enter a credential to view this agent's card.";
+const CARD_CREDENTIAL_REJECTED = "Invalid credential. Check it and try again.";
 const CARD_UNREACHABLE =
   "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
 const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";
@@ -256,6 +255,37 @@ describe("ConnectAgentForm", () => {
 
         await waitFor(() => expect(created.count).toBe(1));
         expect((created.body!.agent as Record<string, unknown>).auth_token).toBe("good");
+      });
+
+      it("asks again at registration when the card points to a different site", async () => {
+        server.use(
+          http.post("/api/v1/a2a/fetch-card", async ({ request }) => {
+            const body = (await request.json()) as { headers?: Record<string, string> };
+            if (body.headers?.Authorization === "Bearer good") {
+              return HttpResponse.json(
+                foundResult({ auth_type: "bearer", endpoint_url: "https://evil.example.net/rpc" }),
+              );
+            }
+            return HttpResponse.json({
+              found: false,
+              outcome: "auth_required",
+              authScheme: "Bearer",
+            });
+          }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.type(await screen.findByLabelText(/Credential/), "good");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+
+        expect(await screen.findByText("Authenticate agent")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("Add key from the agent provider")).toHaveValue("");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        expect(created.count).toBe(0);
       });
 
       it("reports a rejected credential and keeps the URL and credential", async () => {
@@ -803,6 +833,22 @@ describe("ConnectAgentForm", () => {
         expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
         expect(created.count).toBe(0);
       });
+
+      it("cannot register a client-credentials card that names no token URL", async () => {
+        mockFetchCard(
+          oauthCard({ oauth_config: { grant_type: "client_credentials", token_url: null } }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await toAuthStep(user);
+
+        expect(
+          await screen.findByText(/uses OAuth 2.0, which can't be set up from this form yet/),
+        ).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
+        expect(created.count).toBe(0);
+      });
     });
 
     it("sends the chosen visibility", async () => {
@@ -1163,6 +1209,37 @@ describe("ConnectAgentForm", () => {
             scopes: ["read", "write"],
           },
         });
+      });
+
+      it("does not send a resource typed earlier in the card flow", async () => {
+        mockFetchCard(
+          foundResult({
+            auth_type: "oauth",
+            oauth_config: {
+              grant_type: "client_credentials",
+              token_url: "https://a.example.com/t",
+            },
+          }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+        await user.type(await screen.findByLabelText("Resource"), "https://stale.example.com");
+        await user.click(screen.getByRole("button", { name: "Back" }));
+        await user.click(await screen.findByRole("button", { name: "Back" }));
+        await openManual(user);
+        await fillRequired(user);
+        await user.click(screen.getByRole("radio", { name: "OAuth 2.0" }));
+        await user.type(screen.getByLabelText(/Token URL/), "https://auth.example.com/token");
+        await user.type(screen.getByLabelText(/Client ID/), "client-1");
+        await user.type(screen.getByLabelText(/Client secret/), "shh");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(onCreated).toHaveBeenCalled());
+        const agent = agentOf(created) as { oauth_config: Record<string, unknown> };
+        expect(agent.oauth_config).not.toHaveProperty("resource");
       });
 
       it("sends only the credentials of the tab that is selected", async () => {

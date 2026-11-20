@@ -134,7 +134,11 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   );
   const hasAuthType = Boolean(authType && authType !== "none"); // pragma: allowlist secret
   // Only client credentials can be registered; a card offering another OAuth flow cannot.
-  const oauthSupported = suggested.oauth_config?.grant_type === "client_credentials";
+  // The token URL comes from the card and is not editable, so without one it cannot be set up here.
+  const oauthSupported =
+    suggested.oauth_config?.grant_type === "client_credentials" &&
+    typeof suggested.oauth_config.token_url === "string" &&
+    suggested.oauth_config.token_url.trim() !== "";
   const isAuthSupported = hasAuthType
     ? SUPPORTED_CARD_AUTH_TYPES.has(authType as AgentAuthType) &&
       (authType !== "oauth" || oauthSupported)
@@ -275,10 +279,14 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
    * same scheme, so carry it over instead of asking for it twice.
    */
   const reuseCredential = useCallback(
-    (next: SuggestedAgent, credential: string) => {
+    (next: SuggestedAgent, credential: string, enteredUrl: string) => {
       const scheme = (authScheme ?? "bearer").toLowerCase(); // pragma: allowlist secret
+      // The card names the agent's endpoint; only send the credential there if it is the
+      // site the user typed it for. Otherwise the authenticate step asks for it again.
+      const sameSite = originOf(next.endpoint_url) === originOf(enteredUrl);
       const reuse =
         Boolean(credential) &&
+        sameSite &&
         ((next.auth_type === "bearer" && scheme === "bearer") ||
           (next.auth_type === "basic" && scheme === "basic" && credential.includes(":")));
       setCredentialReused(reuse);
@@ -329,7 +337,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       } else if (fetched.outcome === "found" && fetched.card && fetched.suggestedAgent) {
         setResult(fetched);
         resetAuthValues(fetched.suggestedAgent);
-        reuseCredential(fetched.suggestedAgent, needsCredential ? credential : "");
+        reuseCredential(fetched.suggestedAgent, needsCredential ? credential : "", trimmed);
         setAgentNameState(fetched.suggestedAgent.name ?? fetched.card.name ?? "");
         setCardTags([]);
         setCardDescription("");
@@ -509,7 +517,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       // TODO(IBM/mcp-context-forge#7383): also send the protocol binding once the API stores one.
       ...(description ? { description } : {}),
       ...(manualTags.length > 0 ? { tags: manualTags } : {}),
-      ...credentialFields(manualAuthType, authValues),
+      // The manual form has no Resource field, so one typed in the card flow must not leak in.
+      ...credentialFields(manualAuthType, { ...authValues, oauthResource: "" }),
     };
     await create({ agent, visibility, ...(teamId ? { team_id: teamId } : {}) });
   }, [
