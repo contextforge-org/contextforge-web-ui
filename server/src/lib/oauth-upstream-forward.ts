@@ -78,6 +78,44 @@ export async function htmlizeOAuthPopupErrors(
   return oauthPopupErrorHtml(mapped.error, mapped.errorDescription);
 }
 
+// mcpgateway's callback page only posts the result and closes the popup when
+// `window.opener` is set. A provider that sends Cross-Origin-Opener-Policy
+// (e.g. Stripe) severs it, leaving the popup stranded.
+//  - Success: the opener learns the outcome by polling token status
+//    (src/api/servers.ts), so just close the orphaned window.
+//  - Failure: nothing can be polled, so broadcast the error over a
+//    same-origin BroadcastChannel, which survives the severed opener, then
+//    close. The provider's `error`/`error_description` redirect params are
+//    used when present; a failure further in (e.g. the token exchange) falls
+//    back to a generic message. Keep the channel name in sync with
+//    src/api/servers.ts.
+const CLOSE_SEVERED_POPUP_SCRIPT =
+  "<script>if(!window.opener){setTimeout(function(){window.close()},1500)}</script>";
+const BROADCAST_SEVERED_POPUP_ERROR_SCRIPT = `<script>if(!window.opener){try{
+  var p=new URLSearchParams(location.search);
+  var c=new BroadcastChannel("contextforge_oauth_callback");
+  c.postMessage({type:"oauth_callback",status:"error",
+    error:(p.get("error")||"authorization_failed").slice(0,200),
+    errorDescription:(p.get("error_description")||"Authorization failed. Please try again.").slice(0,500)});
+  c.close();
+}catch(e){}setTimeout(function(){window.close()},1500)}</script>`;
+
+export async function closeSeveredOAuthPopup(
+  _request: FastifyRequest,
+  reply: FastifyReply,
+  payload: unknown,
+): Promise<unknown> {
+  const isHtml = String(reply.getHeader("content-type") ?? "").includes("text/html");
+  if (!isHtml || typeof payload !== "string") return payload;
+  let script: string;
+  if (reply.statusCode === 200) script = CLOSE_SEVERED_POPUP_SCRIPT;
+  else if (reply.statusCode >= 400) script = BROADCAST_SEVERED_POPUP_ERROR_SCRIPT;
+  else return payload;
+  return payload.includes("</body>")
+    ? payload.replace("</body>", `${script}</body>`)
+    : payload + script;
+}
+
 interface ForwardOAuthGetOptions {
   /** Extra headers merged into the upstream request (e.g. the injected bearer token). */
   headers?: Record<string, string>;
