@@ -162,19 +162,19 @@ export function describedSkills(card: AgentCard): AgentCardSkill[] {
 }
 
 const SOURCE_URL_MIN_LENGTH = 24;
-const SOURCE_URL_MAX_LENGTH = 56;
 // A 12px monospace glyph, and the copy button with the gap before it.
 const MONO_GLYPH_PX = 7.3;
 const COPY_BUTTON_PX = 28;
 
 /**
  * How many characters of the Source URL to show in a column `width` px wide: as many as
- * fit, never fewer than a sidebar value shows (24) and never more than 56. A middle-cut
- * URL keeps a tail that does not shrink, so showing more than fits would clip the end of
- * the URL, which is the part that says what it is. Undefined until the column is measured.
+ * fit, and never fewer than a sidebar value shows (24). There is no upper cap, so a wide
+ * panel shows the whole URL. A middle-cut URL keeps a tail that does not shrink, so showing
+ * more than fits would clip the end of the URL, which is the part that says what it is.
+ * Undefined until the column is measured.
  */
 export function sourceUrlLength(width: number): number | undefined {
   if (!width) return undefined;
   const fits = Math.floor((width - COPY_BUTTON_PX) / MONO_GLYPH_PX);
-  return Math.min(SOURCE_URL_MAX_LENGTH, Math.max(SOURCE_URL_MIN_LENGTH, fits));
+  return Math.max(SOURCE_URL_MIN_LENGTH, fits);
 }
