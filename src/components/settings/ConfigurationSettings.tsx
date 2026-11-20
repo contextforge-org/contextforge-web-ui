@@ -195,16 +195,23 @@ function ExportSection() {
           </div>
         </details>
       </div>
-      <Button
-        size="sm"
-        disabled={!canExport || isExporting || !types.length}
-        aria-busy={isExporting}
-        onClick={submit}
-      >
-        {isExporting
-          ? intl.formatMessage({ id: "settings.configuration.export.exporting" })
-          : title}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          size="sm"
+          disabled={!canExport || isExporting || !types.length}
+          aria-busy={isExporting}
+          onClick={submit}
+        >
+          {isExporting
+            ? intl.formatMessage({ id: "settings.configuration.export.exporting" })
+            : title}
+        </Button>
+        {!types.length && (
+          <p className="text-[13px] leading-4 text-muted-foreground animate-in fade-in duration-150">
+            {intl.formatMessage({ id: "settings.configuration.export.noneSelected" })}
+          </p>
+        )}
+      </div>
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         {/* Fires after the close animation; frees the export data. */}
         <DialogContent className="gap-4 rounded-xl p-6" onCloseAutoFocus={() => setPreview(null)}>

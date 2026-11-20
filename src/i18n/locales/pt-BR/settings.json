@@ -50,5 +50,6 @@
   "settings.configuration.export.confirm.credentialsWarning": "O arquivo pode conter credenciais, como valores de autenticação de servidores MCP. Armazene e compartilhe com segurança.",
   "settings.configuration.export.confirm.download": "Baixar",
   "settings.configuration.export.empty": "Nada a exportar para os tipos selecionados.",
-  "settings.configuration.export.exporting": "Exportando…"
+  "settings.configuration.export.exporting": "Exportando…",
+  "settings.configuration.export.noneSelected": "Selecione as entidades a incluir na exportação."
 }
