@@ -829,6 +829,32 @@ export function ServerCatalog() {
     async (body: CatalogServerRegisterBody) => {
       if (!oauthServer) return false;
       setOAuthFormNotification(undefined);
+
+      // A mixed-auth entry registered with an API key is a bearer gateway: there is
+      // nothing to authorize, so skip the popup (the gateway answers 'not configured
+      // for OAuth') and just register, like the API key dialog does.
+      if (body.api_key) {
+        // An earlier OAuth attempt already registered this entry. Registering it again
+        // would hit the gateway's duplicate check (a 409 that registerServer reports as
+        // success), closing the form without ever storing the key.
+        if (pendingOAuthGatewayId) {
+          setOAuthFormNotification({
+            id: `oauth:${oauthServer.id}`,
+            type: "error",
+            message: intl.formatMessage(
+              { id: "mcpServer.catalog.oauth.pendingApiKeyBlocked" },
+              { name: oauthServer.name },
+            ),
+          });
+          return false;
+        }
+        const { success } = await registerServer(oauthServer, body, {
+          reportNotification: (notification) => setOAuthFormNotification(notification),
+        });
+        if (success) setFocusActionsForServerId(oauthServer.id);
+        return success;
+      }
+
       let authWindow: Window;
       try {
         // Must happen before the first await below. Browsers only allow popups
