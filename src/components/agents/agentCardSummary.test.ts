@@ -269,7 +269,8 @@ describe("sourceUrlLength", () => {
     expect(sourceUrlLength(120)).toBe(24);
   });
 
-  it("never shows more than 56", () => {
-    expect(sourceUrlLength(1200)).toBe(56);
+  it("keeps growing with the column so a wide panel shows the whole URL", () => {
+    // (1200 - 28) / 7.3 = 160
+    expect(sourceUrlLength(1200)).toBe(160);
   });
 });
