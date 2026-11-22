@@ -32,6 +32,7 @@ interface SessionResponse {
   csrfToken?: string;
   ssoEnabled: boolean;
   providerName?: string;
+  ssoAutoRedirect?: boolean;
 }
 
 interface LoginResponse {
@@ -91,6 +92,7 @@ interface AuthContextValue extends AuthState {
    */
   ssoEnabled?: boolean;
   ssoProviderName?: string;
+  ssoAutoRedirect?: boolean;
 }
 
 interface PermissionsState {
@@ -102,6 +104,7 @@ interface PermissionsState {
 interface SsoState {
   enabled: boolean;
   providerName?: string;
+  autoRedirect?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +144,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .get<SessionResponse>("/auth/session")
       .then((data) => {
         if (cancelled) return;
-        setSso({ enabled: data.ssoEnabled, providerName: data.providerName });
+        setSso({
+          enabled: data.ssoEnabled,
+          providerName: data.providerName,
+          autoRedirect: data.ssoAutoRedirect === true,
+        });
         if (version !== authVersion.current) return;
         setCsrfToken(data.csrfToken ?? null);
         if (data.authenticated && data.user) {
@@ -303,6 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasPermission,
       ssoEnabled: sso.enabled,
       ssoProviderName: sso.providerName,
+      ssoAutoRedirect: sso.autoRedirect,
     }),
     [
       state,

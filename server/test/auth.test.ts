@@ -13,6 +13,7 @@ const SSO_ENV_KEYS = [
   "SSO_KEYCLOAK_REALM",
   "SSO_KEYCLOAK_CLIENT_ID",
   "SSO_KEYCLOAK_CLIENT_SECRET",
+  "SSO_AUTO_REDIRECT",
 ] as const;
 
 // Sets SSO env vars, runs `run` against a freshly-imported build-app.js (config.ts
@@ -572,6 +573,23 @@ describe("GET /auth/session", () => {
         authenticated: false,
         ssoEnabled: true,
         providerName: "Keycloak",
+      });
+    });
+  });
+
+  it("includes ssoAutoRedirect only when SSO_AUTO_REDIRECT=true", async () => {
+    process.env.SSO_AUTO_REDIRECT = "true";
+    await withSsoEnabled(async () => {
+      const { buildTestApp: freshBuildTestApp } = await import("./helpers/build-app.js");
+      const app = await freshBuildTestApp();
+
+      const response = await app.fastify.inject({ method: "GET", url: "/auth/session" });
+
+      expect(response.json()).toEqual({
+        authenticated: false,
+        ssoEnabled: true,
+        providerName: "Keycloak",
+        ssoAutoRedirect: true,
       });
     });
   });

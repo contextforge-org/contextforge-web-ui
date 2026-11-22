@@ -89,6 +89,9 @@ export const config = {
   ssoKeycloakClientId: optionalUnset("SSO_KEYCLOAK_CLIENT_ID"),
   ssoKeycloakClientSecret: optionalUnset("SSO_KEYCLOAK_CLIENT_SECRET"), // pragma: allowlist secret
   ssoKeycloakScopes: optionalUnset("SSO_KEYCLOAK_SCOPES") ?? "openid profile email",
+  // Login page starts SSO on its own instead of waiting for the button;
+  // /app/login?local=1 still shows the password form.
+  ssoAutoRedirect: optional("SSO_AUTO_REDIRECT", "false") === "true",
   // TTL for the one-time PKCE verifier/state/nonce minted by the login route
   // and consumed by the callback route — same pattern as the nonce above.
   ssoLoginStateTtlSeconds: Number(optional("SSO_LOGIN_STATE_TTL_SECONDS", "300")),
@@ -209,6 +212,10 @@ if (
   config.ssoTokenRefreshLeewaySeconds < 0
 ) {
   throw new Error("SSO_TOKEN_REFRESH_LEEWAY_SECONDS must be a non-negative integer");
+}
+
+if (config.ssoAutoRedirect && !config.ssoEnabled) {
+  throw new Error("SSO_AUTO_REDIRECT=true requires SSO_ENABLED=true");
 }
 
 // Fail fast at boot, not at the first /auth/sso/login request.

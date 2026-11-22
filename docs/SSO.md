@@ -92,6 +92,17 @@ form.
 
 ---
 
+### Skipping the login form — `SSO_AUTO_REDIRECT`
+
+With `SSO_AUTO_REDIRECT=true` (and `SSO_ENABLED=true`, which it requires), `GET /auth/session` also returns
+`ssoAutoRedirect: true`, and the login page starts this flow on its own instead of waiting for the button, keeping
+`next`. The password form is still shown:
+
+- at `/app/login?local=1`, for a local account when the identity provider is unavailable;
+- after a failed SSO attempt (`?error=sso_…`);
+- when an automatic attempt already happened in this tab within the last minute, so a session the app rejects right
+  after a successful sign-in cannot loop through the identity provider.
+
 ## 3. Callback — `GET /auth/sso/callback`
 
 **File:** `server/src/routes/auth/sso-callback.ts`
