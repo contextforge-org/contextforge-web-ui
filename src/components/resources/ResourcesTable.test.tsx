@@ -11,6 +11,7 @@ type Resource = NonNullable<ResourceRead>;
 // Helper to create mock resources
 function createMockResource(id: number, overrides?: Partial<Resource>): Resource {
   return {
+    mcpServerId: null,
     id: `resource-${id}`,
     name: `Resource ${id}`,
     description: `Description for resource ${id}`,

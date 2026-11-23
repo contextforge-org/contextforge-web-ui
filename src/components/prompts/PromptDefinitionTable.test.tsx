@@ -7,6 +7,7 @@ import type { PromptRead } from "@/generated/types";
 
 function mockPrompt(overrides?: Partial<NonNullable<PromptRead>>): NonNullable<PromptRead> {
   return {
+    mcpServerId: null,
     id: "p1",
     name: "greet_user",
     originalName: "greet_user",
