@@ -52,6 +52,7 @@ type Resource = NonNullable<ResourceRead>;
 // tests, so buildGroups() falls back to using it verbatim as the slug.
 function createMockResource(id: number, gatewayId: string | null, enabled = true): Resource {
   return {
+    mcpServerId: null,
     id: `resource-${id}`,
     name: `Resource ${id}`,
     description: `Description for resource ${id}`,

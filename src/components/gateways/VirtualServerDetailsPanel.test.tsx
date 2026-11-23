@@ -64,6 +64,7 @@ function makeServer(overrides: Partial<VirtualServer> = {}): VirtualServer {
 
 function makeTool(overrides: Partial<Tool> = {}): Tool {
   return {
+    mcpServerId: null,
     id: "tool-search",
     name: "github.search_issues",
     originalName: "search_issues",

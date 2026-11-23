@@ -21,6 +21,7 @@ function renderForm(ui: React.ReactElement) {
 // Full `GET /tools` item (ToolRead); typed so a contract change breaks the build.
 function makeRestTool(overrides: Partial<Tool> = {}): Tool {
   return {
+    mcpServerId: null,
     id: "rest-1",
     name: "random_joke",
     originalName: "random_joke",

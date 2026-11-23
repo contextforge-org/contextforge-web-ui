@@ -13,6 +13,7 @@ import type { Tool } from "@/types/tool";
 
 function createMockTool(overrides: Partial<Tool> = {}): Tool {
   return {
+    mcpServerId: null,
     id: "tool-1",
     name: "my-tool",
     originalName: "my-tool",
