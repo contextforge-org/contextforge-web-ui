@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ContextForge",
-    "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
+    "description": "ContextForge AI Gateway \u2014 an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
     "version": "1.1.2"
   },
   "paths": {
@@ -6104,7 +6104,7 @@
           "Servers"
         ],
         "summary": "Test Server Mcp Handshake",
-        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL — it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
         "operationId": "test_server_mcp_handshake_v1_servers__server_id__test_handshake_post",
         "security": [
           {
@@ -7972,7 +7972,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "List Tool Plugin Bindings",
-        "description": "List all tool plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings)\n    True",
+        "description": "List all tool plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings)\n    True",
         "operationId": "list_tool_plugin_bindings_v1_tools_plugin_bindings__get",
         "security": [
           {
@@ -8041,7 +8041,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "Delete Tool Plugin Bindings By Reference",
-        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched — not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_tool_plugin_bindings_by_reference)\n    True",
+        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched \u2014 not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_tool_plugin_bindings_by_reference)\n    True",
         "operationId": "delete_tool_plugin_bindings_by_reference_v1_tools_plugin_bindings__delete",
         "security": [
           {
@@ -8108,7 +8108,7 @@
           "Tool Plugin Bindings"
         ],
         "summary": "List Tool Plugin Bindings For Team",
-        "description": "List all tool plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings_for_team)\n    True",
+        "description": "List all tool plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    ToolPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_tool_plugin_bindings_for_team)\n    True",
         "operationId": "list_tool_plugin_bindings_for_team_v1_tools_plugin_bindings__team_id__get",
         "security": [
           {
@@ -15259,7 +15259,7 @@
           "llmchat"
         ],
         "summary": "Chat",
-        "description": "Send a message to the user's active chat session and receive a response.\n\nProcesses user messages through the configured LLM with MCP tool integration.\nSupports both streaming (SSE) and non-streaming response modes. Chat history\nis managed automatically via the unified ChatHistoryManager.\n\nArgs:\n    input_data: ChatInput containing user_id, message, and streaming preference.\n    user: Authenticated user context.\n\nReturns:\n    For streaming=False:\n        dict: Response containing:\n            - user_id: Session identifier\n            - response: Complete LLM response text\n            - tool_used: Boolean indicating if tools were invoked\n            - tools: List of tool names used\n            - tool_invocations: Detailed tool call information\n            - elapsed_ms: Processing time in milliseconds\n    For streaming=True:\n        StreamingResponse: SSE stream of token and event data.\n\nRaises:\n    HTTPException: Raised when an HTTP-related error occurs.\n        400: Missing user_id, empty message, or no active session.\n        503: Session not initialized, chat service error, or connection lost.\n        504: Request timeout.\n        500: Unexpected error.\n\n    Examples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n\n    Example non-streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"What's the weather like?\",\n        \"streaming\": false\n    }\n\n    Example non-streaming response:\n\n    {\n        \"user_id\": \"user123\",\n        \"response\": \"The weather is sunny and 72°F.\",\n        \"tool_used\": true,\n        \"tools\": [\"weather\"],\n        \"tool_invocations\": 1,\n        \"elapsed_ms\": 450\n    }\n\n    Example streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"Tell me a story\",\n        \"streaming\": true\n    }\n\nNote:\n    Streaming responses use Server-Sent Events (SSE) with 'text/event-stream' MIME type.\n    Client must maintain persistent connection for streaming.",
+        "description": "Send a message to the user's active chat session and receive a response.\n\nProcesses user messages through the configured LLM with MCP tool integration.\nSupports both streaming (SSE) and non-streaming response modes. Chat history\nis managed automatically via the unified ChatHistoryManager.\n\nArgs:\n    input_data: ChatInput containing user_id, message, and streaming preference.\n    user: Authenticated user context.\n\nReturns:\n    For streaming=False:\n        dict: Response containing:\n            - user_id: Session identifier\n            - response: Complete LLM response text\n            - tool_used: Boolean indicating if tools were invoked\n            - tools: List of tool names used\n            - tool_invocations: Detailed tool call information\n            - elapsed_ms: Processing time in milliseconds\n    For streaming=True:\n        StreamingResponse: SSE stream of token and event data.\n\nRaises:\n    HTTPException: Raised when an HTTP-related error occurs.\n        400: Missing user_id, empty message, or no active session.\n        503: Session not initialized, chat service error, or connection lost.\n        504: Request timeout.\n        500: Unexpected error.\n\n    Examples:\n    This endpoint is called via HTTP POST and cannot be directly tested with doctest.\n\n    Example non-streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"What's the weather like?\",\n        \"streaming\": false\n    }\n\n    Example non-streaming response:\n\n    {\n        \"user_id\": \"user123\",\n        \"response\": \"The weather is sunny and 72\u00b0F.\",\n        \"tool_used\": true,\n        \"tools\": [\"weather\"],\n        \"tool_invocations\": 1,\n        \"elapsed_ms\": 450\n    }\n\n    Example streaming request:\n\n    {\n        \"user_id\": \"user123\",\n        \"message\": \"Tell me a story\",\n        \"streaming\": true\n    }\n\nNote:\n    Streaming responses use Server-Sent Events (SSE) with 'text/event-stream' MIME type.\n    Client must maintain persistent connection for streaming.",
         "operationId": "chat_v1_llmchat_chat_post",
         "security": [
           {
@@ -35814,7 +35814,7 @@
           "Servers"
         ],
         "summary": "Test Server Mcp Handshake",
-        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL — it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
+        "description": "Test whether a virtual server's own MCP endpoint speaks MCP via a protocol handshake.\n\nUnlike ``POST /gateways/test-handshake``, the target isn't an arbitrary\ncaller-supplied URL \u2014 it's this server's own ``/servers/{server_id}/mcp``\ntransport, resolved from a server ID the caller already has read access to.\nThe handshake runs in-process (no outbound network call, no SSRF allowlist),\nreusing the caller's own forwarded credentials by default so the result\nreflects what that caller would actually see.\n\nArgs:\n    server_id (str): The ID of the virtual server to test.\n    request (Request): The incoming request, used for scoped access validation and to forward the caller's own credentials.\n    body (ServerHandshakeRequest): Optional header overrides for the handshake.\n    db (Session): The database session used to interact with the data store.\n    user: Authenticated user context.\n\nReturns:\n    GatewayHandshakeResponse: The handshake outcome, including negotiation path,\n        server identity, capabilities, component counts, and failure classification.\n\nRaises:\n    HTTPException: If the server is not found or the caller lacks visibility.",
         "operationId": "test_server_mcp_handshake_v1_virtual_servers__server_id__test_handshake_post",
         "security": [
           {
@@ -37756,7 +37756,7 @@
           "oauth"
         ],
         "summary": "Get Gateway Oauth Token",
-        "description": "Return the caller's own current OAuth access token for a gateway.\n\nThis endpoint is **disabled by default** and must be explicitly enabled via\n``OAUTH_TOKEN_RETRIEVAL_ENABLED=true``. It resolves the stored OAuth\ntoken for the *authenticated caller's own* session against the given gateway,\nrefreshing it first if it is within ``OAUTH_TOKEN_REFRESH_THRESHOLD_SECONDS``\n(600 seconds by default) of expiring, and returns only the ``access_token`` -- the\n``refresh_token`` is never included in the response. Operators configure the threshold\nserver-side within 0–3600 seconds. Callers cannot override it per request.\n``SecurityHeadersMiddleware`` marks the response non-cacheable. Every outcome after\nthe feature check is recorded in the audit trail (gateway and user, never the token).\n\nArgs:\n    gateway_id: ID of the gateway whose stored token to resolve.\n    request: Request with token-scoping context, forwarded to gateway access checks.\n    current_user: Authenticated user (enforces authentication).\n    db: Database session.\n\nReturns:\n    OAuthAccessTokenResponse: ``gateway_id``, ``access_token``, ``token_type``,\n        ``expires_at``, and ``scopes`` for the caller's own token.\n\nRaises:\n    HTTPException:\n        404 if the feature flag is disabled, the gateway is not found, or no token is stored;\n        400 if the gateway has no OAuth configuration or does not use the Authorization Code grant;\n        401 or 403 if the caller's identity or access is not accepted for this gateway;\n        409 if OAuth reauthorization is required;\n        502 if the provider fails;\n        503 if token storage fails or holds an unreadable token.",
+        "description": "Return the caller's own current OAuth access token for a gateway.\n\nThis endpoint is **disabled by default** and must be explicitly enabled via\n``OAUTH_TOKEN_RETRIEVAL_ENABLED=true``. It resolves the stored OAuth\ntoken for the *authenticated caller's own* session against the given gateway,\nrefreshing it first if it is within ``OAUTH_TOKEN_REFRESH_THRESHOLD_SECONDS``\n(600 seconds by default) of expiring, and returns only the ``access_token`` -- the\n``refresh_token`` is never included in the response. Operators configure the threshold\nserver-side within 0\u20133600 seconds. Callers cannot override it per request.\n``SecurityHeadersMiddleware`` marks the response non-cacheable. Every outcome after\nthe feature check is recorded in the audit trail (gateway and user, never the token).\n\nArgs:\n    gateway_id: ID of the gateway whose stored token to resolve.\n    request: Request with token-scoping context, forwarded to gateway access checks.\n    current_user: Authenticated user (enforces authentication).\n    db: Database session.\n\nReturns:\n    OAuthAccessTokenResponse: ``gateway_id``, ``access_token``, ``token_type``,\n        ``expires_at``, and ``scopes`` for the caller's own token.\n\nRaises:\n    HTTPException:\n        404 if the feature flag is disabled, the gateway is not found, or no token is stored;\n        400 if the gateway has no OAuth configuration or does not use the Authorization Code grant;\n        401 or 403 if the caller's identity or access is not accepted for this gateway;\n        409 if OAuth reauthorization is required;\n        502 if the provider fails;\n        503 if token storage fails or holds an unreadable token.",
         "operationId": "get_gateway_oauth_token_oauth_token__gateway_id__get",
         "security": [
           {
@@ -38150,7 +38150,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "List A2A Agent Plugin Bindings",
-        "description": "List all A2A agent plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Paginated bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings)\n    True",
+        "description": "List all A2A agent plugin bindings across all teams.\n\nArgs:\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Paginated bindings.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings)\n    True",
         "operationId": "list_a2a_agent_plugin_bindings_v1_a2a_agents_plugin_bindings__get",
         "security": [
           {
@@ -38258,7 +38258,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "Delete A2A Agent Plugin Bindings By Reference",
-        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched — not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_a2a_agent_plugin_bindings_by_reference)\n    True",
+        "description": "Delete all bindings associated with an external reference ID.\n\nIntended for use by external systems that need to remove all ContextForge\nbindings tied to one of their own reference objects without knowing the\ninternal ContextForge UUIDs.\n\nReturns the deleted records (empty list if none matched \u2014 not an error).\n\nNon-admin callers may only delete bindings belonging to their own teams;\nbindings on other teams are silently skipped.\n\nArgs:\n    binding_reference_id: The external reference ID whose bindings to delete.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: All deleted binding records.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(delete_a2a_agent_plugin_bindings_by_reference)\n    True",
         "operationId": "delete_a2a_agent_plugin_bindings_by_reference_v1_a2a_agents_plugin_bindings__delete",
         "security": [
           {
@@ -38325,7 +38325,7 @@
           "A2A Agent Plugin Bindings"
         ],
         "summary": "List A2A Agent Plugin Bindings For Team",
-        "description": "List all A2A agent plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter — return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings_for_team)\n    True",
+        "description": "List all A2A agent plugin bindings for a specific team.\n\nArgs:\n    team_id: Team identifier to filter by.\n    binding_reference_id: Optional filter \u2014 return only bindings with this reference ID.\n    limit: Maximum number of results to return.\n    offset: Number of results to skip.\n    current_user_ctx: Authenticated user context.\n    db: Database session.\n\nReturns:\n    A2AAgentPluginBindingListResponse: Bindings for the specified team.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(list_a2a_agent_plugin_bindings_for_team)\n    True",
         "operationId": "list_a2a_agent_plugin_bindings_for_team_v1_a2a_agents_plugin_bindings__team_id__get",
         "security": [
           {
@@ -42020,7 +42020,7 @@
           "password"
         ],
         "title": "AdminCreateUserRequest",
-        "description": "Admin user creation request — all fields, password required.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n    is_admin: Whether user should have admin privileges (default: False)\n    is_active: Whether user account is active (default: True)\n    password_change_required: Whether user must change password on next login (default: False)\n\nExamples:\n    >>> request = AdminCreateUserRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'\n    >>> request.is_admin\n    False\n    >>> request.is_active\n    True\n    >>> request.password_change_required\n    False"
+        "description": "Admin user creation request \u2014 all fields, password required.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n    is_admin: Whether user should have admin privileges (default: False)\n    is_active: Whether user account is active (default: True)\n    password_change_required: Whether user must change password on next login (default: False)\n\nExamples:\n    >>> request = AdminCreateUserRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'\n    >>> request.is_admin\n    False\n    >>> request.is_active\n    True\n    >>> request.password_change_required\n    False"
       },
       "AdminUserUpdateRequest": {
         "properties": {
@@ -50157,7 +50157,7 @@
           "mode"
         ],
         "title": "PluginModeUpdateRequest",
-        "description": "Request body for ``PUT /admin/plugins/{name}`` — drives the Pydantic enum validation."
+        "description": "Request body for ``PUT /admin/plugins/{name}`` \u2014 drives the Pydantic enum validation."
       },
       "PluginModeUpdateResponse": {
         "properties": {
@@ -50261,7 +50261,7 @@
           "config"
         ],
         "title": "PluginPolicyItem",
-        "description": "A single plugin policy entry within a team's binding payload.\n\nAttributes:\n    tool_names: List of tool names this policy applies to. Use ``[\"*\"]`` for all tools.\n    plugin_id: The plugin to bind.\n    mode: Execution mode.\n    priority: Execution order — lower numbers run first.\n    config: Plugin-specific configuration."
+        "description": "A single plugin policy entry within a team's binding payload.\n\nAttributes:\n    tool_names: List of tool names this policy applies to. Use ``[\"*\"]`` for all tools.\n    plugin_id: The plugin to bind.\n    mode: Execution mode.\n    priority: Execution order \u2014 lower numbers run first.\n    config: Plugin-specific configuration."
       },
       "PluginStatsResponse": {
         "properties": {
@@ -50402,7 +50402,7 @@
           "enabled"
         ],
         "title": "PluginToggleRequest",
-        "description": "Request body for ``PUT /admin/plugins`` — toggles the plugin subsystem globally."
+        "description": "Request body for ``PUT /admin/plugins`` \u2014 toggles the plugin subsystem globally."
       },
       "PluginToggleResponse": {
         "properties": {
@@ -51314,7 +51314,7 @@
           "password"
         ],
         "title": "PublicRegistrationRequest",
-        "description": "Public self-registration request — minimal fields, password required.\n\nExtra fields are rejected (extra=\"forbid\") so clients cannot submit\nadmin-only fields like is_admin or is_active.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n\nExamples:\n    >>> request = PublicRegistrationRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'"
+        "description": "Public self-registration request \u2014 minimal fields, password required.\n\nExtra fields are rejected (extra=\"forbid\") so clients cannot submit\nadmin-only fields like is_admin or is_active.\n\nAttributes:\n    email: User's email address\n    password: User's password (required, min 8 chars)\n    full_name: Optional full name for display\n\nExamples:\n    >>> request = PublicRegistrationRequest(\n    ...     email=\"new@example.com\",\n    ...     password=\"secure123\",  # pragma: allowlist secret\n    ...     full_name=\"New User\"\n    ... )\n    >>> request.email\n    'new@example.com'\n    >>> request.full_name\n    'New User'"
       },
       "ResetPasswordRequest": {
         "properties": {
@@ -56765,7 +56765,7 @@
           "kind"
         ],
         "title": "ToolPreviewTarget",
-        "description": "Where a live invocation of the previewed tool would be dispatched.\n\nNever carries the remote gateway's URL, transport, or credentials —\nonly the gateway's name, so a caller can tell \"federated\" from \"local\"\nwithout gaining any information useful for reaching the gateway directly.\n\nAttributes:\n    kind (Literal[\"local\", \"federated\"]): \"local\" for a manually registered tool\n        (``gateway_id IS NULL``), \"federated\" for a tool proxied through a gateway.\n    gateway_name (Optional[str]): Name of the owning gateway when kind is \"federated\";\n        None for local tools.",
+        "description": "Where a live invocation of the previewed tool would be dispatched.\n\nNever carries the remote gateway's URL, transport, or credentials \u2014\nonly the gateway's name, so a caller can tell \"federated\" from \"local\"\nwithout gaining any information useful for reaching the gateway directly.\n\nAttributes:\n    kind (Literal[\"local\", \"federated\"]): \"local\" for a manually registered tool\n        (``gateway_id IS NULL``), \"federated\" for a tool proxied through a gateway.\n    gateway_name (Optional[str]): Name of the owning gateway when kind is \"federated\";\n        None for local tools.",
         "nullable": true
       },
       "ToolPreviewWarning": {
