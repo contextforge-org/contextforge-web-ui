@@ -163,8 +163,8 @@ async function startConnect(page: Page, url = "https://agent.example.com") {
 }
 
 const CARD_UNAVAILABLE = "Agent card not available: add the details for a running agent manually.";
-const CARD_AUTH_REQUIRED =
-  "The agent needs credentials to share its card: add the details for the agent manually.";
+const CARD_AUTH_REQUIRED = "Enter a credential to view this agent's card.";
+const CARD_CREDENTIAL_REJECTED = "Invalid credential. Check it and try again.";
 const CARD_UNREACHABLE =
   "Couldn't reach the agent: check the URL, or add the details for a running agent manually.";
 const CARD_ERROR = "Couldn't read the agent card: add the details for a running agent manually.";
@@ -467,12 +467,6 @@ test.describe("Agents page", () => {
         CARD_UNAVAILABLE,
       ],
       [
-        "needs credentials to read its card",
-        (route: Route) =>
-          json(route, { found: false, outcome: "auth_required", authScheme: "Bearer" }),
-        CARD_AUTH_REQUIRED,
-      ],
-      [
         "cannot be reached",
         (route: Route) => json(route, { found: false, outcome: "unreachable" }),
         CARD_UNREACHABLE,
@@ -501,6 +495,48 @@ test.describe("Agents page", () => {
         await expect(page.getByPlaceholder("Add an agent name")).toBeVisible();
       });
     }
+  });
+
+  test.describe("a card that needs a credential to be read", () => {
+    test("asks for a credential, reads the card again with it, and reports a rejected one", async ({
+      page,
+    }) => {
+      await mockAgentList(page, []);
+      const bodies: Array<{ headers?: Record<string, string> }> = [];
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/fetch-card"),
+        async (route) => {
+          const body = route.request().postDataJSON();
+          bodies.push(body);
+          await (body.headers?.Authorization === "Bearer secret"
+            ? json(route, FOUND_CARD)
+            : json(route, { found: false, outcome: "auth_required", authScheme: "Bearer" }));
+        },
+      );
+
+      await page.goto(APP.AGENTS);
+      await startConnect(page);
+
+      await expect(page.getByText(CARD_AUTH_REQUIRED)).toBeVisible();
+      await page.getByLabel(/Credential/).fill("wrong");
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      await expect(page.getByText(CARD_CREDENTIAL_REJECTED)).toBeVisible();
+      await expect(page.getByPlaceholder("Add URL for a running agent...")).toHaveValue(
+        "https://agent.example.com",
+      );
+      await expect(page.getByLabel(/Credential/)).toHaveValue("wrong");
+
+      await page.getByLabel(/Credential/).fill("secret");
+      await page.getByRole("button", { name: "Continue" }).click();
+
+      await expect(page.getByText("Visual Router")).toBeVisible();
+      expect(bodies.map((body) => body.headers)).toEqual([
+        undefined,
+        { Authorization: "Bearer wrong" },
+        { Authorization: "Bearer secret" },
+      ]);
+    });
   });
 
   test.describe("correcting the URL after the card could not be read", () => {
