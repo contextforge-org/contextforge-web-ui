@@ -4,8 +4,8 @@ import type { A2AAgentReadCapabilities } from "@/generated/types";
 export type AgentSkillEntry = string | { name?: string; id?: string };
 
 export interface AgentSkillSource {
-  /** Top-level skills list (IBM/mcp-context-forge#7433), not in the generated type yet. */
-  skills?: readonly AgentSkillEntry[];
+  /** Top-level skills list (IBM/mcp-context-forge#7433). */
+  skills?: readonly AgentSkillEntry[] | null;
   capabilities?: A2AAgentReadCapabilities | null;
 }
 

@@ -1963,6 +1963,7 @@ describe("Servers", () => {
       const refresh = vi.spyOn(serversApi, "refreshTools").mockResolvedValue({
         success: true,
         gatewayId: "server-0",
+        mcpServerId: "server-0",
         durationMs: 1,
         refreshedAt: "2026-10-27T00:00:00Z",
       });
@@ -1992,6 +1993,7 @@ describe("Servers", () => {
         return {
           success: true,
           gatewayId: "server-0",
+          mcpServerId: "server-0",
           durationMs: 1,
           refreshedAt: "2026-10-21T00:00:00Z",
         };
@@ -2079,6 +2081,7 @@ describe("Servers", () => {
       vi.spyOn(serversApi, "refreshTools").mockResolvedValue({
         success: false,
         gatewayId: "server-0",
+        mcpServerId: "server-0",
         durationMs: 1,
         refreshedAt: "2026-10-22T00:00:00Z",
       });

@@ -16,6 +16,7 @@ vi.mock("@/api/prompts", () => ({
 
 function mockPrompt(overrides?: Partial<NonNullable<PromptRead>>): NonNullable<PromptRead> {
   return {
+    mcpServerId: null,
     id: "p1",
     name: "greet_user",
     originalName: "greet_user",

@@ -69,8 +69,8 @@ const createToolFormObjectSchema = (intl: ReturnType<typeof useIntl>) =>
       .transform((val) => sanitizeString(val, 500))
       .optional(),
     tags: z.array(z.string().transform((t) => sanitizeString(t, 200))).optional(),
-    inputSchema: z.record(z.unknown()).optional(),
-    outputSchema: z.record(z.unknown()).optional(),
+    inputSchema: z.record(z.string(), z.unknown()).optional(),
+    outputSchema: z.record(z.string(), z.unknown()).optional(),
     authType: z.string().optional(),
     authUsername: z
       .string()
