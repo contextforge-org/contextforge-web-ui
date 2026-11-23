@@ -3,7 +3,7 @@
   "info": {
     "title": "ContextForge",
     "description": "ContextForge AI Gateway — an AI gateway, registry, and proxy for MCP, A2A, and REST/gRPC APIs. Exposes a unified control plane with centralized governance, discovery, and observability. Optimizes agent and tool calling, and supports plugins.",
-    "version": "1.1.1"
+    "version": "1.1.2"
   },
   "paths": {
     "/metrics/prometheus": {
@@ -5873,6 +5873,82 @@
         }
       }
     },
+    "/v1/servers/{server_id}/oauth/approve": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Approve Server Oauth",
+        "description": "Approve the virtual-server OAuth settings displayed during administrator review.\n\nArgs:\n    server_id: Reviewed server identifier.\n    payload: Server version displayed during review.\n    request: Authenticated request.\n    db: Active database session.\n    user: Authenticated principal.\n\nReturns:\n    Approval status and updated server version.\n\nRaises:\n    HTTPException: If authorization, configuration validation, or version checks fail.",
+        "operationId": "approve_server_oauth_v1_servers__server_id__oauth_approve_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerOAuthApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Approve Server Oauth V1 Servers  Server Id  Oauth Approve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/servers/{server_id}/state": {
       "post": {
         "tags": [
@@ -8658,6 +8734,61 @@
         }
       }
     },
+    "/v1/a2a/metrics": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Agent Metrics",
+        "description": "Retrieve aggregate metrics for the A2A agents visible to the caller.\n\nRegistered before ``/{agent_id}`` so ``metrics`` is not read as an agent ID.\n\nArgs:\n    request (Request): The FastAPI request object for scope derivation.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    A2AAgentAggregateMetrics: Counts, success rate, and response times over visible agents.\n\nRaises:\n    HTTPException: 503 when A2A is unavailable. 404 when ``MCPGATEWAY_A2A_METRICS_ENABLED`` is false.",
+        "operationId": "get_a2a_agent_metrics_v1_a2a_metrics_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2AAgentAggregateMetrics"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/a2a/{agent_id}": {
       "get": {
         "tags": [
@@ -8878,7 +9009,7 @@
           "A2A Agents"
         ],
         "summary": "Get A2A Agent Card",
-        "description": "Retrieve the A2A AgentCard for an agent or agent-exposing virtual server.\n\nResolves ``agent_id`` against standalone A2A agents first, then against\nvirtual servers with an enabled A2A interface, mirroring the internal\n``/_internal/a2a/agents/{agent_name}/card`` lookup used by the Rust\nsidecar. Layer-1 visibility is enforced inside the service calls.\n\nArgs:\n    agent_id (str): The ID of the agent or agent-exposing virtual server.\n    request (Request): The FastAPI request object for team_id retrieval.\n    response (Response): The response object used to set cache headers.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    Dict[str, Any]: The AgentCard for the resolved agent.\n\nRaises:\n    HTTPException: If the agent is not found or the caller lacks access.",
+        "description": "Retrieve the A2A AgentCard for an agent or agent-exposing virtual server.\n\nResolves ``agent_id`` against standalone A2A agents first, then against\nvirtual servers with an enabled A2A interface. Layer-1 visibility is\nenforced inside the service calls.\n\nArgs:\n    agent_id (str): The ID of the agent or agent-exposing virtual server.\n    request (Request): The FastAPI request object for team_id retrieval.\n    response (Response): The response object used to set cache headers.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    Dict[str, Any]: The AgentCard for the resolved agent.\n\nRaises:\n    HTTPException: If the agent is not found or the caller lacks access.",
         "operationId": "get_a2a_agent_card_v1_a2a__agent_id__card_get",
         "security": [
           {
@@ -8919,6 +9050,199 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AgentCard"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/stored-card": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Agent Stored Card",
+        "description": "Return the Agent Card stored for a registered agent, as fetched.\n\nEvery caller with ``a2a.read`` who can see the agent receives the card, including a card fetched with credentials.\n\nArgs:\n    agent_id (str): The ID of the agent.\n    request (Request): The FastAPI request object for token scope retrieval.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    A2AStoredCardRead: The current stored card.\n\nRaises:\n    HTTPException: If the agent is not visible, or has no stored card.",
+        "operationId": "get_a2a_agent_stored_card_v1_a2a__agent_id__stored_card_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2AStoredCardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/stored-card/extended": {
+      "get": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Get A2A Agent Stored Extended Card",
+        "description": "Return the authenticated extended Agent Card stored for a registered agent.\n\nThe extended card is content the agent shows only to credentialed callers, so the route\nneeds ``a2a.update`` and agent ownership, not only ``a2a.read`` and visibility.\n\nArgs:\n    agent_id (str): The ID of the agent.\n    request (Request): The FastAPI request object for token scope retrieval.\n    db (Session): The database session used to interact with the data store.\n    user (str): The authenticated user making the request.\n\nReturns:\n    A2AStoredCardRead: The current stored extended card.\n\nRaises:\n    HTTPException: If the agent is not visible, the caller does not own it, or it has no stored extended card.",
+        "operationId": "get_a2a_agent_stored_extended_card_v1_a2a__agent_id__stored_card_extended_get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2AStoredCardRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/fetch-card": {
+      "post": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Fetch A2A Agent Card",
+        "description": "Fetch and normalize an A2A Agent Card from an unregistered endpoint.\n\nA failed fetch returns ``found: false`` with an ``outcome`` of ``no_card``,\n``auth_required`` or ``unreachable``. A blocked address and a network failure both\nreturn ``unreachable``. An unsafe ``path`` or ``baseUrl`` returns 422.\n\nArgs:\n    payload (A2AFetchCardRequest): Base endpoint or card URL, optional path and headers.\n    request (Request): The FastAPI request object, used by the RBAC check.\n    user: The authenticated user making the request.\n\nReturns:\n    A2AFetchCardResponse: The normalized card with a suggested agent mapping, or a result naming the failure outcome.",
+        "operationId": "fetch_a2a_agent_card_v1_a2a_fetch_card_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/A2AFetchCardRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2AFetchCardResponse"
                 }
               }
             }
@@ -9671,6 +9995,89 @@
         }
       }
     },
+    "/v1/a2a/{agent_id}/tasks/{task_id}/messages": {
+      "post": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Send A2A Task Message",
+        "description": "Send a follow-up message to an existing task, such as the answer to an input-required task.\n\nArgs:\n    agent_id: Owning agent ID (UUID).\n    task_id: Agent-side task ID.\n    body: The follow-up message, as ``message`` or ``text``.\n    request: The FastAPI request object.\n    db: Database session.\n    user: Authenticated user.\n\nTasks have no owner of their own, so the caller must own the agent, like on the cancel route.\n\nReturns:\n    The agent response, unchanged.\n\nRaises:\n    HTTPException: 404 if the caller does not own the agent or the task does not exist or is not visible,\n        409 if the task is in a terminal state, 400 if the message names a different task or the agent fails.",
+        "operationId": "send_a2a_task_message_v1_a2a__agent_id__tasks__task_id__messages_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/A2ATaskMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2AInvokeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/a2a/{agent_name}/invoke": {
       "post": {
         "tags": [
@@ -9737,6 +10144,117 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/a2a/{agent_id}/test": {
+      "post": {
+        "tags": [
+          "A2A Agents"
+        ],
+        "summary": "Test A2A Agent",
+        "description": "Invoke an A2A agent with a test message.\n\nError text is fixed and sanitized. ``result`` relays the upstream agent response unchanged. A test call counts in the agent metrics.\n\nArgs:\n    agent_id: Agent ID.\n    request: The FastAPI request object for scope derivation.\n    payload: Optional body carrying a custom test ``query``.\n    db: Database session.\n    user: Authenticated user.\n\nReturns:\n    Dict[str, Any]: ``success``, ``result``, ``agent_name`` and ``test_timestamp``.\n\nRaises:\n    HTTPException: 503 when A2A is unavailable. Otherwise 404, 502, 422 or 500 with a\n        ``detail`` object holding ``success``, ``error``, ``error_type`` and ``agent_id``.",
+        "operationId": "test_a2a_agent_v1_a2a__agent_id__test_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/A2ATestRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2ATestResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found or not accessible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2ATestErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid test parameters. Request body validation failures return the default FastAPI 422 with a list in detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2ATestErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2ATestErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Agent disabled, unreachable or returned an error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/A2ATestErrorResponse"
                 }
               }
             }
@@ -10540,7 +11058,7 @@
           "Email Authentication"
         ],
         "summary": "Get Current User Profile",
-        "description": "Get current user's profile information.\n\nArgs:\n    current_user: Currently authenticated user\n\nReturns:\n    EmailUserResponse: User profile information\n\nRaises:\n    HTTPException: If user authentication fails\n\nExamples:\n    >>> # GET /auth/email/me\n    >>> # Headers: Authorization: Bearer <token>",
+        "description": "Get current user's profile information.\n\nArgs:\n    current_user: Currently authenticated user\n\nReturns:\n    CurrentUserResponse: User profile information and deployment feature flags\n\nRaises:\n    HTTPException: If user authentication fails\n\nExamples:\n    >>> # GET /auth/email/me\n    >>> # Headers: Authorization: Bearer <token>",
         "operationId": "get_current_user_profile_v1_auth_email_me_get",
         "responses": {
           "200": {
@@ -10548,7 +11066,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailUserResponse"
+                  "$ref": "#/components/schemas/CurrentUserResponse"
                 }
               }
             }
@@ -11609,7 +12127,7 @@
           "Teams"
         ],
         "summary": "Get Team",
-        "description": "Get a specific team by ID.\n\nArgs:\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamResponse: Team data\n\nRaises:\n    HTTPException: If team not found or access denied",
+        "description": "Get a specific team by ID.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamResponse: Team data\n\nRaises:\n    HTTPException: If team not found or access denied",
         "operationId": "get_team_v1_teams__team_id__get",
         "security": [
           {
@@ -11671,7 +12189,7 @@
           "Teams"
         ],
         "summary": "Update Team",
-        "description": "Update a team.\n\nArgs:\n    team_id: Team UUID\n    request: Team update request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamResponse: Updated team data\n\nRaises:\n    HTTPException: If team not found, access denied, or update fails",
+        "description": "Update a team.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    request: Team update request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamResponse: Updated team data\n\nRaises:\n    HTTPException: If team not found, access denied, or update fails",
         "operationId": "update_team_v1_teams__team_id__put",
         "security": [
           {
@@ -11743,7 +12261,7 @@
           "Teams"
         ],
         "summary": "Delete Team",
-        "description": "Delete a team.\n\nArgs:\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If team not found, access denied, or deletion fails",
+        "description": "Delete a team.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If team not found, access denied, or deletion fails",
         "operationId": "delete_team_v1_teams__team_id__delete",
         "security": [
           {
@@ -11807,7 +12325,7 @@
           "Teams"
         ],
         "summary": "List Team Members",
-        "description": "List team members with cursor-based pagination.\n\nArgs:\n    team_id: Team UUID\n    cursor: Pagination cursor for fetching the next set of results\n    limit: Maximum number of members to return (default: 50)\n    include_pagination: Whether to include cursor pagination metadata in the response (default: false)\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    PaginatedTeamMembersResponse with members and nextCursor if include_pagination=true, or\n    List of team members if include_pagination=false\n\nRaises:\n    HTTPException: If team not found or access denied",
+        "description": "List team members with cursor-based pagination.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    cursor: Pagination cursor for fetching the next set of results\n    limit: Maximum number of members to return (default: 50)\n    include_pagination: Whether to include cursor pagination metadata in the response (default: false)\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    PaginatedTeamMembersResponse with members and nextCursor if include_pagination=true, or\n    List of team members if include_pagination=false\n\nRaises:\n    HTTPException: If team not found or access denied",
         "operationId": "list_team_members_v1_teams__team_id__members_get",
         "security": [
           {
@@ -11932,7 +12450,7 @@
           "Teams"
         ],
         "summary": "Add Team Member",
-        "description": "Add a new member to a team.\n\nArgs:\n    team_id: Team UUID\n    request: Member add request data with email and role\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: New member data\n\nRaises:\n    HTTPException: If team not found, access denied, or add fails",
+        "description": "Add a new member to a team.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    request: Member add request data with email and role\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: New member data\n\nRaises:\n    HTTPException: If team not found, access denied, or add fails",
         "operationId": "add_team_member_v1_teams__team_id__members_post",
         "security": [
           {
@@ -12006,7 +12524,7 @@
           "Teams"
         ],
         "summary": "Update Team Member",
-        "description": "Update a team member's role.\n\nArgs:\n    team_id: Team UUID\n    user_email: Email of the member to update\n    request: Member update request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: Updated member data\n\nRaises:\n    HTTPException: If member not found, access denied, or update fails",
+        "description": "Update a team member's role.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    user_email: Email of the member to update\n    request: Member update request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: Updated member data\n\nRaises:\n    HTTPException: If member not found, access denied, or update fails",
         "operationId": "update_team_member_v1_teams__team_id__members__user_email__put",
         "security": [
           {
@@ -12087,7 +12605,7 @@
           "Teams"
         ],
         "summary": "Remove Team Member",
-        "description": "Remove a team member.\n\nArgs:\n    team_id: Team UUID\n    user_email: Email of the member to remove\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If member not found, access denied, or removal fails",
+        "description": "Remove a team member.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    user_email: Email of the member to remove\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If member not found, access denied, or removal fails",
         "operationId": "remove_team_member_v1_teams__team_id__members__user_email__delete",
         "security": [
           {
@@ -12160,7 +12678,7 @@
           "Teams"
         ],
         "summary": "Invite Team Member",
-        "description": "Invite a user to join a team.\n\nArgs:\n    team_id: Team UUID\n    request: Invitation request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamInvitationCreateResponse: Created invitation and email delivery data\n\nRaises:\n    HTTPException: If team not found, access denied, or invitation fails",
+        "description": "Invite a user to join a team.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    request: Invitation request data\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamInvitationCreateResponse: Created invitation and email delivery data\n\nRaises:\n    HTTPException: If team not found, access denied, or invitation fails",
         "operationId": "invite_team_member_v1_teams__team_id__invitations_post",
         "security": [
           {
@@ -12232,7 +12750,7 @@
           "Teams"
         ],
         "summary": "List Team Invitations",
-        "description": "List team invitations.\n\nArgs:\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    List[TeamInvitationResponse]: List of team invitations\n\nRaises:\n    HTTPException: If team not found or access denied",
+        "description": "List team invitations.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: Team UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    List[TeamInvitationResponse]: List of team invitations\n\nRaises:\n    HTTPException: If team not found or access denied",
         "operationId": "list_team_invitations_v1_teams__team_id__invitations_get",
         "security": [
           {
@@ -12428,7 +12946,7 @@
           "Teams"
         ],
         "summary": "Cancel Team Invitation",
-        "description": "Cancel a team invitation.\n\nArgs:\n    invitation_id: Invitation UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If invitation not found, access denied, or cancellation fails",
+        "description": "Cancel a team invitation.\n\nArgs:\n    http_request: Incoming request context.\n    invitation_id: Invitation UUID\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Success confirmation\n\nRaises:\n    HTTPException: If invitation not found, access denied, or cancellation fails",
         "operationId": "cancel_team_invitation_v1_teams_invitations__invitation_id__delete",
         "security": [
           {
@@ -12566,7 +13084,7 @@
           "Teams"
         ],
         "summary": "Leave Team",
-        "description": "Leave a team.\n\nAllows users to remove themselves from a team. Cannot leave personal teams\nor if they are the last owner of a team.\n\nArgs:\n    team_id: ID of the team to leave\n    current_user: Currently authenticated user\n    db: Database session\n\nReturns:\n    SuccessResponse: Confirmation of leaving the team\n\nRaises:\n    HTTPException: If team not found, user not member, cannot leave personal team, or last owner",
+        "description": "Leave a team.\n\nAllows users to remove themselves from a team. Cannot leave personal teams\nor if they are the last owner of a team.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: ID of the team to leave\n    current_user: Currently authenticated user\n    db: Database session\n\nReturns:\n    SuccessResponse: Confirmation of leaving the team\n\nRaises:\n    HTTPException: If team not found, user not member, cannot leave personal team, or last owner",
         "operationId": "leave_team_v1_teams__team_id__leave_delete",
         "security": [
           {
@@ -12630,7 +13148,7 @@
           "Teams"
         ],
         "summary": "List Team Join Requests",
-        "description": "List pending join requests for a team.\n\nOnly team owners can view join requests for their teams.\n\nArgs:\n    team_id: ID of the team\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    List[TeamJoinRequestResponse]: List of pending join requests\n\nRaises:\n    HTTPException: If team not found or user not authorized",
+        "description": "List pending join requests for a team.\n\nOnly team owners can view join requests for their teams.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: ID of the team\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    List[TeamJoinRequestResponse]: List of pending join requests\n\nRaises:\n    HTTPException: If team not found or user not authorized",
         "operationId": "list_team_join_requests_v1_teams__team_id__join_requests_get",
         "security": [
           {
@@ -12698,7 +13216,7 @@
           "Teams"
         ],
         "summary": "Approve Join Request",
-        "description": "Approve a team join request.\n\nOnly team owners can approve join requests for their teams.\n\nArgs:\n    team_id: ID of the team\n    request_id: ID of the join request\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: New team member data\n\nRaises:\n    HTTPException: If request not found or user not authorized",
+        "description": "Approve a team join request.\n\nOnly team owners can approve join requests for their teams.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: ID of the team\n    request_id: ID of the join request\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    TeamMemberResponse: New team member data\n\nRaises:\n    HTTPException: If request not found or user not authorized",
         "operationId": "approve_join_request_v1_teams__team_id__join_requests__request_id__approve_post",
         "security": [
           {
@@ -12771,7 +13289,7 @@
           "Teams"
         ],
         "summary": "Reject Join Request",
-        "description": "Reject a team join request.\n\nOnly team owners can reject join requests for their teams.\n\nArgs:\n    team_id: ID of the team\n    request_id: ID of the join request\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Confirmation of rejection\n\nRaises:\n    HTTPException: If request not found or user not authorized",
+        "description": "Reject a team join request.\n\nOnly team owners can reject join requests for their teams.\n\nArgs:\n    http_request: Incoming request context.\n    team_id: ID of the team\n    request_id: ID of the join request\n    current_user: Authenticated user context dict with email and permissions\n    db: Database session\n\nReturns:\n    SuccessResponse: Confirmation of rejection\n\nRaises:\n    HTTPException: If request not found or user not authorized",
         "operationId": "reject_join_request_v1_teams__team_id__join_requests__request_id__delete",
         "security": [
           {
@@ -18091,6 +18609,68 @@
         }
       }
     },
+    "/v1/admin/servers/{server_id}/oauth/approve": {
+      "post": {
+        "tags": [
+          "Admin UI"
+        ],
+        "summary": "Admin Approve Server Oauth",
+        "description": "Approve reviewed server OAuth settings through the Admin UI.\n\nArgs:\n    request: Authenticated request containing the reviewed version.\n    server_id: Reviewed server identifier.\n    db: Active database session.\n    user: Authenticated principal.\n\nReturns:\n    Approval status or an authorization, validation, or version error.\n\nRaises:\n    HTTPException: If the caller lacks OAuth administration authority.",
+        "operationId": "admin_approve_server_oauth_v1_admin_servers__server_id__oauth_approve_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/servers/{server_id}/state": {
       "post": {
         "tags": [
@@ -19029,7 +19609,7 @@
           "Admin UI"
         ],
         "summary": "Admin Get All Team Ids",
-        "description": "Return all team IDs accessible to the current user.\n\nArgs:\n    include_inactive (bool): Whether to include inactive teams.\n    visibility (Optional[str]): Filter by team visibility.\n    q (Optional[str]): Search query string.\n    db (Session): Database session dependency.\n    user: Current authenticated user.\n\nReturns:\n    JSONResponse: Dictionary with list of team IDs and count.",
+        "description": "Return all team IDs accessible to the current user.\n\nArgs:\n    request: Incoming request context.\n    include_inactive (bool): Whether to include inactive teams.\n    visibility (Optional[str]): Filter by team visibility.\n    q (Optional[str]): Search query string.\n    db (Session): Database session dependency.\n    user: Current authenticated user.\n\nReturns:\n    JSONResponse: Dictionary with list of team IDs and count.",
         "operationId": "admin_get_all_team_ids_v1_admin_teams_ids_get",
         "security": [
           {
@@ -20348,7 +20928,7 @@
           "Admin UI"
         ],
         "summary": "Admin Approve Join Request",
-        "description": "Approve a join request via admin UI.\n\nArgs:\n    team_id: ID of the team\n    request_id: ID of the join request to approve\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    HTML response with success message",
+        "description": "Approve a join request via admin UI.\n\nArgs:\n    request: Incoming request context.\n    team_id: ID of the team\n    request_id: ID of the join request to approve\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    HTML response with success message",
         "operationId": "admin_approve_join_request_v1_admin_teams__team_id__join_requests__request_id__approve_post",
         "security": [
           {
@@ -20419,7 +20999,7 @@
           "Admin UI"
         ],
         "summary": "Admin Reject Join Request",
-        "description": "Reject a join request via admin UI.\n\nArgs:\n    team_id: ID of the team\n    request_id: ID of the join request to reject\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    HTML response with success message",
+        "description": "Reject a join request via admin UI.\n\nArgs:\n    request: Incoming request context.\n    team_id: ID of the team\n    request_id: ID of the join request to reject\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    HTML response with success message",
         "operationId": "admin_reject_join_request_v1_admin_teams__team_id__join_requests__request_id__reject_post",
         "security": [
           {
@@ -27991,7 +28571,7 @@
           "Admin UI"
         ],
         "summary": "Admin List A2A Agents",
-        "description": "List A2A Agents for the admin UI with pagination support.\n\nThis endpoint retrieves a paginated list of A2A (Agent-to-Agent) agents associated with\nthe current user. Administrators can optionally include inactive agents for\nmanagement or auditing purposes. Uses offset-based (page/per_page) pagination.\n\nArgs:\n    page (int): Page number (1-indexed) for offset pagination.\n    per_page (int): Number of items per page.\n    include_inactive (bool): Whether to include inactive agents in the results.\n    request (Request): FastAPI request object (required for token team extraction via request.state.token_teams).\n    db (Session): Database session dependency.\n    user (dict): Authenticated user dependency.\n\nReturns:\n    Dict[str, Any]: A dictionary containing:\n        - data: List of A2A agent records formatted with by_alias=True\n        - pagination: Pagination metadata\n        - links: Pagination links (optional)\n\nRaises:\n    HTTPException (500): If an error occurs while retrieving the agent list.\n\nExamples:\n    >>> callable(admin_list_a2a_agents)\n    True\n    >>> admin_list_a2a_agents.__name__\n    'admin_list_a2a_agents'",
+        "description": "List A2A Agents for the admin UI with pagination support.\n\nThis endpoint retrieves a paginated list of A2A (Agent-to-Agent) agents associated with\nthe current user. Administrators can optionally include inactive agents for\nmanagement or auditing purposes. Uses offset-based (page/per_page) pagination.\n\nArgs:\n    page (int): Page number (1-indexed) for offset pagination.\n    per_page (int): Number of items per page.\n    include_inactive (bool): Whether to include inactive agents in the results.\n    request (Request): FastAPI request object (required for token team extraction via request.state.token_teams).\n    db (Session): Database session dependency.\n    user (dict): Authenticated user dependency.\n\nReturns:\n    Dict[str, Any]: A dictionary containing:\n        - data: List of A2A agent records formatted with by_alias=True\n        - pagination: Pagination metadata\n        - links: Pagination links (optional)\n\nRaises:\n    HTTPException (404): ``detail.error == \"a2a_disabled\"`` when A2A is disabled.\n    HTTPException (500): If an error occurs while retrieving the agent list.\n\nExamples:\n    >>> callable(admin_list_a2a_agents)\n    True\n    >>> admin_list_a2a_agents.__name__\n    'admin_list_a2a_agents'",
         "operationId": "admin_list_a2a_agents_v1_admin_a2a_get",
         "security": [
           {
@@ -28134,7 +28714,7 @@
           "Admin UI"
         ],
         "summary": "Admin Edit A2A Agent",
-        "description": "Edit an existing A2A agent via the admin UI.\n\nExpects form fields:\n  - name\n  - description (optional)\n  - endpoint_url\n  - agent_type\n  - tags (optional, comma-separated)\n  - auth_type (optional)\n  - auth_username (optional)\n  - auth_password (optional)\n  - auth_token (optional)\n  - auth_header_key / auth_header_value (optional)\n  - auth_headers (JSON array, optional)\n  - oauth_config (JSON string or individual OAuth fields)\n  - visibility (optional)\n  - team_id (optional)\n  - capabilities (JSON, optional)\n  - config (JSON, optional)\n  - passthrough_headers: Optional[List[str]]\n\nArgs:\n    agent_id (str): The ID of the agent being edited.\n    request (Request): The incoming FastAPI request containing form data.\n    db (Session): Active database session.\n    user: The authenticated admin user performing the edit.\n\nReturns:\n    JSONResponse: A JSON response indicating success or failure.\n\nRaises:\n    HTTPException: 422 when public visibility is disabled and request is team-scoped.\n\nExamples:\n    >>> callable(admin_edit_a2a_agent)\n    True\n    >>> admin_edit_a2a_agent.__name__\n    'admin_edit_a2a_agent'",
+        "description": "Edit an existing A2A agent via the admin UI.\n\nExpects form fields:\n  - name\n  - description (optional)\n  - endpoint_url\n  - agent_type\n  - tags (optional, comma-separated)\n  - auth_type (optional)\n  - auth_username (optional)\n  - auth_password (optional)\n  - auth_token (optional)\n  - auth_header_key / auth_header_value (optional)\n  - auth_headers (JSON array, optional)\n  - oauth_config (JSON string or individual OAuth fields)\n  - visibility (optional)\n  - team_id (optional)\n  - capabilities (JSON, optional)\n  - config (JSON, optional)\n  - passthrough_headers: Optional[List[str]]\n\nArgs:\n    agent_id (str): The ID of the agent being edited.\n    request (Request): The incoming FastAPI request containing form data.\n    db (Session): Active database session.\n    user: The authenticated admin user performing the edit.\n\nReturns:\n    JSONResponse: A JSON response indicating success or failure.\n\nRaises:\n    HTTPException: 404 with ``detail.error == \"a2a_disabled\"`` if A2A is disabled.\n    HTTPException: 422 when public visibility is disabled and request is team-scoped.\n\nExamples:\n    >>> callable(admin_edit_a2a_agent)\n    True\n    >>> admin_edit_a2a_agent.__name__\n    'admin_edit_a2a_agent'",
         "operationId": "admin_edit_a2a_agent_v1_admin_a2a__agent_id__edit_post",
         "security": [
           {
@@ -28320,7 +28900,7 @@
           "Admin UI"
         ],
         "summary": "Admin Test A2A Agent",
-        "description": "Test A2A agent via admin UI.\n\nInvokes the specified A2A agent with a test message and returns the result.\nReturns appropriate HTTP status codes based on the failure type:\n- 404: Agent not found or user lacks access\n- 502: Agent disabled, unreachable, or returning errors\n- 422: Invalid test parameters\n- 500: Unexpected system errors\n\nArgs:\n    agent_id: Agent ID\n    request: FastAPI request object containing optional 'query' field\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    JSON response with test results. On success, includes:\n    - success: True\n    - result: Agent response\n    - agent_name: Name of the tested agent\n    - test_timestamp: Unix timestamp of the test\n\n    On failure, includes:\n    - success: False\n    - error: Error message (sanitized to prevent credential leakage)\n    - error_type: Type of error (not_found, agent_error, validation_error, internal_error)\n    - agent_id: ID of the agent that was tested\n\nRaises:\n    HTTPException: If A2A features are disabled (403)\n\nNote:\n    Error messages are sanitized by a2a_service to prevent credential leakage.\n    Returns 404 (not 403) for access denied to avoid leaking agent existence.",
+        "description": "Test A2A agent via admin UI.\n\nInvokes the specified A2A agent with a test message and returns the result.\nReturns appropriate HTTP status codes based on the failure type:\n- 404: Agent not found or user lacks access\n- 502: Agent disabled, unreachable, or returning errors\n- 422: Invalid test parameters\n- 500: Unexpected system errors\n\nArgs:\n    agent_id: Agent ID\n    request: FastAPI request object containing optional 'query' field\n    db: Database session\n    user: Authenticated user\n\nReturns:\n    JSON response with test results. On success, includes:\n    - success: True\n    - result: Agent response\n    - agent_name: Name of the tested agent\n    - test_timestamp: Unix timestamp of the test\n\n    On failure, includes:\n    - success: False\n    - error: Error message (sanitized to prevent credential leakage)\n    - error_type: Type of error (not_found, agent_error, validation_error, internal_error)\n    - agent_id: ID of the agent that was tested\n\nRaises:\n    HTTPException: 404 with ``detail.error == \"a2a_disabled\"`` if A2A is disabled\n\nNote:\n    Error messages are sanitized by a2a_service to prevent credential leakage.\n    Returns 404 (not 403) for access denied to avoid leaking agent existence.",
         "operationId": "admin_test_a2a_agent_v1_admin_a2a__agent_id__test_post",
         "security": [
           {
@@ -35003,6 +35583,82 @@
         }
       }
     },
+    "/v1/virtual-servers/{server_id}/oauth/approve": {
+      "post": {
+        "tags": [
+          "Servers"
+        ],
+        "summary": "Approve Server Oauth",
+        "description": "Approve the virtual-server OAuth settings displayed during administrator review.\n\nArgs:\n    server_id: Reviewed server identifier.\n    payload: Server version displayed during review.\n    request: Authenticated request.\n    db: Active database session.\n    user: Authenticated principal.\n\nReturns:\n    Approval status and updated server version.\n\nRaises:\n    HTTPException: If authorization, configuration validation, or version checks fail.",
+        "operationId": "approve_server_oauth_v1_virtual_servers__server_id__oauth_approve_post",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Server Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerOAuthApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Approve Server Oauth V1 Virtual Servers  Server Id  Oauth Approve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/virtual-servers/{server_id}/state": {
       "post": {
         "tags": [
@@ -36097,53 +36753,13 @@
         }
       }
     },
-    "/_internal/mcp/authenticate": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Authenticate",
-        "description": "Authenticate a public MCP request for direct Rust ingress.\n\nArgs:\n    request: Trusted internal request sent by the local Rust runtime.\n\nReturns:\n    Auth context payload that Rust can forward on subsequent internal MCP calls.\n\nRaises:\n    HTTPException: If the request is not trusted or the forwarded payload is invalid.",
-        "operationId": "handle_internal_mcp_authenticate__internal_mcp_authenticate_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/authenticate/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Authenticate",
-        "description": "Authenticate a public MCP request for direct Rust ingress.\n\nArgs:\n    request: Trusted internal request sent by the local Rust runtime.\n\nReturns:\n    Auth context payload that Rust can forward on subsequent internal MCP calls.\n\nRaises:\n    HTTPException: If the request is not trusted or the forwarded payload is invalid.",
-        "operationId": "handle_internal_mcp_authenticate__internal_mcp_authenticate__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/_internal/mcp/rpc": {
       "post": {
         "tags": [
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Rpc",
-        "description": "Handle trusted MCP dispatch forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP request from the Rust runtime.\n\nReturns:\n    JSON-RPC response from the shared authenticated RPC dispatcher.\n\nRaises:\n    Exception: Propagated after rolling back the local database session.",
+        "description": "Handle trusted MCP dispatch forwarded by Python session affinity.\n\nArgs:\n    request: Trusted internal MCP request from the session owner worker.\n\nReturns:\n    JSON-RPC response from the shared authenticated RPC dispatcher.\n\nRaises:\n    Exception: Propagated after rolling back the local database session.",
         "operationId": "handle_internal_mcp_rpc__internal_mcp_rpc_post",
         "responses": {
           "200": {
@@ -36163,1612 +36779,8 @@
           "Utilities"
         ],
         "summary": "Handle Internal Mcp Rpc",
-        "description": "Handle trusted MCP dispatch forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP request from the Rust runtime.\n\nReturns:\n    JSON-RPC response from the shared authenticated RPC dispatcher.\n\nRaises:\n    Exception: Propagated after rolling back the local database session.",
+        "description": "Handle trusted MCP dispatch forwarded by Python session affinity.\n\nArgs:\n    request: Trusted internal MCP request from the session owner worker.\n\nReturns:\n    JSON-RPC response from the shared authenticated RPC dispatcher.\n\nRaises:\n    Exception: Propagated after rolling back the local database session.",
         "operationId": "handle_internal_mcp_rpc__internal_mcp_rpc__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/initialize": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Initialize",
-        "description": "Handle trusted MCP initialize requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP initialize request.\n\nReturns:\n    JSON-RPC initialize response payload.",
-        "operationId": "handle_internal_mcp_initialize__internal_mcp_initialize_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/initialize/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Initialize",
-        "description": "Handle trusted MCP initialize requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP initialize request.\n\nReturns:\n    JSON-RPC initialize response payload.",
-        "operationId": "handle_internal_mcp_initialize__internal_mcp_initialize__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/session": {
-      "delete": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Session Delete",
-        "description": "Handle trusted MCP session teardown forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP session-delete request.\n\nReturns:\n    Empty HTTP response indicating the session was removed.",
-        "operationId": "handle_internal_mcp_session_delete__internal_mcp_session_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/session/": {
-      "delete": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Session Delete",
-        "description": "Handle trusted MCP session teardown forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP session-delete request.\n\nReturns:\n    Empty HTTP response indicating the session was removed.",
-        "operationId": "handle_internal_mcp_session_delete__internal_mcp_session__delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/initialized": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Initialized",
-        "description": "Handle trusted MCP notifications/initialized requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP notification request.\n\nReturns:\n    Empty HTTP response acknowledging the notification.\n\nRaises:\n    HTTPException: If trusted server-scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_initialized__internal_mcp_notifications_initialized_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/initialized/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Initialized",
-        "description": "Handle trusted MCP notifications/initialized requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP notification request.\n\nReturns:\n    Empty HTTP response acknowledging the notification.\n\nRaises:\n    HTTPException: If trusted server-scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_initialized__internal_mcp_notifications_initialized__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/message": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Message",
-        "description": "Handle trusted MCP notifications/message requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP notification request.\n\nReturns:\n    Empty HTTP response acknowledging the notification.\n\nRaises:\n    HTTPException: If trusted server-scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_message__internal_mcp_notifications_message_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/message/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Message",
-        "description": "Handle trusted MCP notifications/message requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP notification request.\n\nReturns:\n    Empty HTTP response acknowledging the notification.\n\nRaises:\n    HTTPException: If trusted server-scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_message__internal_mcp_notifications_message__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/cancelled": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Cancelled",
-        "description": "Handle trusted MCP notifications/cancelled requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP cancellation notification.\n\nReturns:\n    Empty HTTP response acknowledging the cancellation.\n\nRaises:\n    HTTPException: If cancellation authorization or trusted scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_cancelled__internal_mcp_notifications_cancelled_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/notifications/cancelled/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Notifications Cancelled",
-        "description": "Handle trusted MCP notifications/cancelled requests from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP cancellation notification.\n\nReturns:\n    Empty HTTP response acknowledging the cancellation.\n\nRaises:\n    HTTPException: If cancellation authorization or trusted scope validation fails.",
-        "operationId": "handle_internal_mcp_notifications_cancelled__internal_mcp_notifications_cancelled__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools List",
-        "description": "Handle trusted server-scoped tools/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/list request.\n\nReturns:\n    MCP tools/list response payload for the requested virtual server.\n\nRaises:\n    HTTPException: If the trusted server scope is missing or invalid.",
-        "operationId": "handle_internal_mcp_tools_list__internal_mcp_tools_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools List",
-        "description": "Handle trusted server-scoped tools/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/list request.\n\nReturns:\n    MCP tools/list response payload for the requested virtual server.\n\nRaises:\n    HTTPException: If the trusted server scope is missing or invalid.",
-        "operationId": "handle_internal_mcp_tools_list__internal_mcp_tools_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources List",
-        "description": "Handle trusted resources/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/list request.\n\nReturns:\n    MCP resources/list response payload.",
-        "operationId": "handle_internal_mcp_resources_list__internal_mcp_resources_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources List",
-        "description": "Handle trusted resources/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/list request.\n\nReturns:\n    MCP resources/list response payload.",
-        "operationId": "handle_internal_mcp_resources_list__internal_mcp_resources_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/read": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Read",
-        "description": "Handle trusted resources/read requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/read request.\n\nReturns:\n    MCP resources/read response payload.",
-        "operationId": "handle_internal_mcp_resources_read__internal_mcp_resources_read_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/read/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Read",
-        "description": "Handle trusted resources/read requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/read request.\n\nReturns:\n    MCP resources/read response payload.",
-        "operationId": "handle_internal_mcp_resources_read__internal_mcp_resources_read__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/subscribe": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Subscribe",
-        "description": "Handle trusted resources/subscribe requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/subscribe request.\n\nReturns:\n    Empty JSON response confirming the subscription.",
-        "operationId": "handle_internal_mcp_resources_subscribe__internal_mcp_resources_subscribe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/subscribe/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Subscribe",
-        "description": "Handle trusted resources/subscribe requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/subscribe request.\n\nReturns:\n    Empty JSON response confirming the subscription.",
-        "operationId": "handle_internal_mcp_resources_subscribe__internal_mcp_resources_subscribe__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/unsubscribe": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Unsubscribe",
-        "description": "Handle trusted resources/unsubscribe requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/unsubscribe request.\n\nReturns:\n    Empty JSON response confirming the unsubscription.",
-        "operationId": "handle_internal_mcp_resources_unsubscribe__internal_mcp_resources_unsubscribe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/unsubscribe/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Unsubscribe",
-        "description": "Handle trusted resources/unsubscribe requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/unsubscribe request.\n\nReturns:\n    Empty JSON response confirming the unsubscription.",
-        "operationId": "handle_internal_mcp_resources_unsubscribe__internal_mcp_resources_unsubscribe__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/templates/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resource Templates List",
-        "description": "Handle trusted resources/templates/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/templates/list request.\n\nReturns:\n    MCP resources/templates/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_resource_templates_list__internal_mcp_resources_templates_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/templates/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resource Templates List",
-        "description": "Handle trusted resources/templates/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP resources/templates/list request.\n\nReturns:\n    MCP resources/templates/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_resource_templates_list__internal_mcp_resources_templates_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/roots/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Roots List",
-        "description": "Handle trusted roots/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP roots/list request.\n\nReturns:\n    MCP roots/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_roots_list__internal_mcp_roots_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/roots/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Roots List",
-        "description": "Handle trusted roots/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP roots/list request.\n\nReturns:\n    MCP roots/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_roots_list__internal_mcp_roots_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/completion/complete": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Completion Complete",
-        "description": "Handle trusted completion/complete requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP completion/complete request.\n\nReturns:\n    MCP completion response payload.",
-        "operationId": "handle_internal_mcp_completion_complete__internal_mcp_completion_complete_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/completion/complete/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Completion Complete",
-        "description": "Handle trusted completion/complete requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP completion/complete request.\n\nReturns:\n    MCP completion response payload.",
-        "operationId": "handle_internal_mcp_completion_complete__internal_mcp_completion_complete__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/sampling/createMessage": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Sampling Create Message",
-        "description": "Handle trusted sampling/createMessage requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP sampling/createMessage request.\n\nReturns:\n    MCP sampling/createMessage response payload.",
-        "operationId": "handle_internal_mcp_sampling_create_message__internal_mcp_sampling_createMessage_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/sampling/createMessage/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Sampling Create Message",
-        "description": "Handle trusted sampling/createMessage requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP sampling/createMessage request.\n\nReturns:\n    MCP sampling/createMessage response payload.",
-        "operationId": "handle_internal_mcp_sampling_create_message__internal_mcp_sampling_createMessage__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/logging/setLevel": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Logging Set Level",
-        "description": "Handle trusted logging/setLevel requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP logging/setLevel request.\n\nReturns:\n    Empty JSON response confirming the new log level.",
-        "operationId": "handle_internal_mcp_logging_set_level__internal_mcp_logging_setLevel_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/logging/setLevel/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Logging Set Level",
-        "description": "Handle trusted logging/setLevel requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP logging/setLevel request.\n\nReturns:\n    Empty JSON response confirming the new log level.",
-        "operationId": "handle_internal_mcp_logging_set_level__internal_mcp_logging_setLevel__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts List",
-        "description": "Handle trusted prompts/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP prompts/list request.\n\nReturns:\n    MCP prompts/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_prompts_list__internal_mcp_prompts_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts List",
-        "description": "Handle trusted prompts/list requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP prompts/list request.\n\nReturns:\n    MCP prompts/list response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_prompts_list__internal_mcp_prompts_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/get": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts Get",
-        "description": "Handle trusted prompts/get requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP prompts/get request.\n\nReturns:\n    MCP prompts/get response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_prompts_get__internal_mcp_prompts_get_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/get/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts Get",
-        "description": "Handle trusted prompts/get requests forwarded from the Rust runtime.\n\nArgs:\n    request: Trusted internal MCP prompts/get request.\n\nReturns:\n    MCP prompts/get response payload.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_prompts_get__internal_mcp_prompts_get__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/list/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools List Authz",
-        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_tools_list_authz__internal_mcp_tools_list_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/list/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools List Authz",
-        "description": "Authorize trusted server-scoped tools/list requests for the Rust direct-DB path.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_tools_list_authz__internal_mcp_tools_list_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/list/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources List Authz",
-        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_resources_list_authz__internal_mcp_resources_list_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/list/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources List Authz",
-        "description": "Authorize trusted server-scoped resources/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_resources_list_authz__internal_mcp_resources_list_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/read/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Read Authz",
-        "description": "Authorize trusted server-scoped resources/read requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
-        "operationId": "handle_internal_mcp_resources_read_authz__internal_mcp_resources_read_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/read/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resources Read Authz",
-        "description": "Authorize trusted server-scoped resources/read requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
-        "operationId": "handle_internal_mcp_resources_read_authz__internal_mcp_resources_read_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/templates/list/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resource Templates List Authz",
-        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_resource_templates_list_authz__internal_mcp_resources_templates_list_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/resources/templates/list/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Resource Templates List Authz",
-        "description": "Authorize trusted server-scoped resources/templates/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_resource_templates_list_authz__internal_mcp_resources_templates_list_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/list/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts List Authz",
-        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_prompts_list_authz__internal_mcp_prompts_list_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/list/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts List Authz",
-        "description": "Authorize trusted server-scoped prompts/list requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Catalog visibility when the list request is authorized.",
-        "operationId": "handle_internal_mcp_prompts_list_authz__internal_mcp_prompts_list_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/get/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts Get Authz",
-        "description": "Authorize trusted server-scoped prompts/get requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
-        "operationId": "handle_internal_mcp_prompts_get_authz__internal_mcp_prompts_get_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/prompts/get/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Prompts Get Authz",
-        "description": "Authorize trusted server-scoped prompts/get requests for Rust direct-path execution.\n\nArgs:\n    request: Trusted internal MCP authz request.\n\nReturns:\n    Empty success response when the request is authorized.",
-        "operationId": "handle_internal_mcp_prompts_get_authz__internal_mcp_prompts_get_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/authenticate": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Authenticate",
-        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler — the auth flow is\nidentical (validate credentials, return auth context).",
-        "operationId": "handle_internal_a2a_authenticate__internal_a2a_authenticate_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/authenticate/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Authenticate",
-        "description": "Authenticate an inbound A2A request for Rust runtime execution.\n\nDelegates to the shared MCP authenticate handler — the auth flow is\nidentical (validate credentials, return auth context).",
-        "operationId": "handle_internal_a2a_authenticate__internal_a2a_authenticate__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/invoke/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Invoke Authz",
-        "description": "Authorize trusted A2A invoke requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_invoke_authz__internal_a2a_invoke_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/invoke/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Invoke Authz",
-        "description": "Authorize trusted A2A invoke requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_invoke_authz__internal_a2a_invoke_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/list/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A List Authz",
-        "description": "Authorize trusted A2A list requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_list_authz__internal_a2a_list_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/list/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A List Authz",
-        "description": "Authorize trusted A2A list requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_list_authz__internal_a2a_list_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/get/authz": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Get Authz",
-        "description": "Authorize trusted A2A get requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_get_authz__internal_a2a_get_authz_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/get/authz/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Get Authz",
-        "description": "Authorize trusted A2A get requests for Rust module execution.",
-        "operationId": "handle_internal_a2a_get_authz__internal_a2a_get_authz__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/agents/{agent_name}/resolve": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Agent Resolve",
-        "description": "Resolve an A2A agent record for Rust module execution.\n\nReturns the agent's endpoint, auth configuration (encrypted), and\nprotocol version so the Rust sidecar can invoke it directly.",
-        "operationId": "handle_internal_a2a_agent_resolve__internal_a2a_agents__agent_name__resolve_post",
-        "parameters": [
-          {
-            "name": "agent_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Agent Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/agents/{agent_name}/resolve/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Agent Resolve",
-        "description": "Resolve an A2A agent record for Rust module execution.\n\nReturns the agent's endpoint, auth configuration (encrypted), and\nprotocol version so the Rust sidecar can invoke it directly.",
-        "operationId": "handle_internal_a2a_agent_resolve__internal_a2a_agents__agent_name__resolve__post",
-        "parameters": [
-          {
-            "name": "agent_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Agent Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/agents/{agent_name}/card": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Agent Card",
-        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.\nThe sidecar forwards the caller's ``A2A-Version`` header, and a pre-1.0\nvalue keeps the legacy card shape.",
-        "operationId": "handle_internal_a2a_agent_card__internal_a2a_agents__agent_name__card_post",
-        "parameters": [
-          {
-            "name": "agent_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Agent Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/agents/{agent_name}/card/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Agent Card",
-        "description": "Return the A2A AgentCard for an agent.\n\nCalled by the Rust sidecar to serve GetExtendedAgentCard /\nagent/getExtendedCard / agent/getAuthenticatedExtendedCard requests.\nThe sidecar forwards the caller's ``A2A-Version`` header, and a pre-1.0\nvalue keeps the legacy card shape.",
-        "operationId": "handle_internal_a2a_agent_card__internal_a2a_agents__agent_name__card__post",
-        "parameters": [
-          {
-            "name": "agent_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Agent Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/get": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks Get",
-        "description": "Retrieve an A2A task for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_get__internal_a2a_tasks_get_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/get/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks Get",
-        "description": "Retrieve an A2A task for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_get__internal_a2a_tasks_get__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks List",
-        "description": "List A2A tasks for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_list__internal_a2a_tasks_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks List",
-        "description": "List A2A tasks for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_list__internal_a2a_tasks_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/cancel": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks Cancel",
-        "description": "Cancel an A2A task for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_cancel__internal_a2a_tasks_cancel_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/tasks/cancel/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Tasks Cancel",
-        "description": "Cancel an A2A task for Rust module execution.",
-        "operationId": "handle_internal_a2a_tasks_cancel__internal_a2a_tasks_cancel__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/create": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Create",
-        "description": "Create a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_create__internal_a2a_push_create_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/create/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Create",
-        "description": "Create a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_create__internal_a2a_push_create__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/get": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Get",
-        "description": "Retrieve a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_get__internal_a2a_push_get_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/get/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Get",
-        "description": "Retrieve a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_get__internal_a2a_push_get__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/list": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push List",
-        "description": "List push notification configs for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_list__internal_a2a_push_list_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/list/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push List",
-        "description": "List push notification configs for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_list__internal_a2a_push_list__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/delete": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Delete",
-        "description": "Delete a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_delete__internal_a2a_push_delete_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/push/delete/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Push Delete",
-        "description": "Delete a push notification config for Rust A2A runtime.",
-        "operationId": "handle_internal_a2a_push_delete__internal_a2a_push_delete__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/events/flush": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Events Flush",
-        "description": "Batch-insert streaming events to PG for durability.",
-        "operationId": "handle_internal_a2a_events_flush__internal_a2a_events_flush_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/events/flush/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Events Flush",
-        "description": "Batch-insert streaming events to PG for durability.",
-        "operationId": "handle_internal_a2a_events_flush__internal_a2a_events_flush__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/events/replay": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Events Replay",
-        "description": "Replay events from PG for stream reconnection.",
-        "operationId": "handle_internal_a2a_events_replay__internal_a2a_events_replay_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/a2a/events/replay/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal A2A Events Replay",
-        "description": "Replay events from PG for stream reconnection.",
-        "operationId": "handle_internal_a2a_events_replay__internal_a2a_events_replay__post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -37890,86 +36902,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call",
-        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_tools_call__internal_mcp_tools_call_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call",
-        "description": "Handle trusted tools/call requests forwarded from the local Rust runtime.\n\nArgs:\n    request: Trusted internal MCP tools/call request.\n\nReturns:\n    dict: JSON-RPC response containing result on success,\n          or JSON-RPC error on plugin failures.\n          All plugin errors returned as structured JSON-RPC (never re-raised)\n          since this is an internal Rust↔Python interface.\n\nRaises:\n    Exception: Propagated after best-effort rollback when unexpected failures occur.",
-        "operationId": "handle_internal_mcp_tools_call__internal_mcp_tools_call__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call/metric": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call Metric",
-        "description": "Record buffered tool/server metrics for a Rust-direct `tools/call`.\n\nArgs:\n    request: Trusted internal metrics writeback request.\n\nReturns:\n    ORJSONResponse acknowledging the buffered metric writeback.",
-        "operationId": "handle_internal_mcp_tools_call_metric__internal_mcp_tools_call_metric_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/_internal/mcp/tools/call/metric/": {
-      "post": {
-        "tags": [
-          "Utilities"
-        ],
-        "summary": "Handle Internal Mcp Tools Call Metric",
-        "description": "Record buffered tool/server metrics for a Rust-direct `tools/call`.\n\nArgs:\n    request: Trusted internal metrics writeback request.\n\nReturns:\n    ORJSONResponse acknowledging the buffered metric writeback.",
-        "operationId": "handle_internal_mcp_tools_call_metric__internal_mcp_tools_call_metric__post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -38224,6 +37156,46 @@
         }
       }
     },
+    "/oauth/client-metadata.json": {
+      "get": {
+        "tags": [
+          "well-known"
+        ],
+        "summary": "Get Oauth Client Metadata",
+        "description": "Serve the gateway's OAuth Client ID Metadata Document (CIMD).\n\nAuthorization servers fetch this public document to learn the gateway's\nclient metadata. It is built from server-side configuration and the ASGI root path, and holds no secrets.\n\nArgs:\n    request: Incoming request, used to resolve the reverse-proxy root path.\n\nReturns:\n    JSONResponse: The Client ID Metadata Document.",
+        "operationId": "get_oauth_client_metadata_oauth_client_metadata_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/client-metadata/jwks.json": {
+      "get": {
+        "tags": [
+          "well-known"
+        ],
+        "summary": "Get Oauth Client Metadata Jwks",
+        "description": "Serve the gateway's public JWKS for CIMD private_key_jwt client assertions.",
+        "operationId": "get_oauth_client_metadata_jwks_oauth_client_metadata_jwks_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/well-known": {
       "get": {
         "tags": [
@@ -38432,7 +37404,7 @@
           "oauth"
         ],
         "summary": "Initiate Oauth Flow",
-        "description": "Initiates the OAuth 2.0 Authorization Code flow for a specified gateway.\n\nThis endpoint retrieves the OAuth configuration for the given gateway, validates that\nthe gateway supports the Authorization Code flow, and redirects the user to the OAuth\nprovider's authorization URL to begin the OAuth process.\n\n**Phase 1.4: DCR Integration**\nIf the gateway has an issuer but no client_id, and DCR is enabled, this endpoint will\nautomatically register the gateway as an OAuth client with the Authorization Server\nusing Dynamic Client Registration (RFC 7591).\n\nArgs:\n    gateway_id: The unique identifier of the gateway to authorize.\n    request: The FastAPI request object.\n    current_user: The authenticated user initiating the OAuth flow.\n    db: The database session dependency.\n    popup: Indicates if the OAuth flow is initiated in a popup window.\n\nReturns:\n    A redirect response to the OAuth provider's authorization URL.\n\nRaises:\n    HTTPException: If the gateway is not found, not configured for OAuth, or not using\n        the Authorization Code flow. If an unexpected error occurs during the initiation process.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(initiate_oauth_flow)\n    True",
+        "description": "Initiates the OAuth 2.0 Authorization Code flow for a specified gateway.\n\nThis endpoint retrieves the OAuth configuration for the given gateway, validates that\nthe gateway supports the Authorization Code flow, and redirects the user to the OAuth\nprovider's authorization URL to begin the OAuth process.\n\n**Client registration**\nIf the gateway has an issuer but no client_id, this endpoint prefers a Client ID\nMetadata Document (CIMD) when the Authorization Server advertises support. Otherwise,\nwhen DCR is enabled, it registers the gateway using the deprecated Dynamic Client\nRegistration (RFC 7591) fallback.\n\nArgs:\n    gateway_id: The unique identifier of the gateway to authorize.\n    request: The FastAPI request object.\n    current_user: The authenticated user initiating the OAuth flow.\n    db: The database session dependency.\n    popup: Indicates if the OAuth flow is initiated in a popup window.\n\nReturns:\n    A redirect response to the OAuth provider's authorization URL.\n\nRaises:\n    HTTPException: If the gateway is not found, not configured for OAuth, or not using\n        the Authorization Code flow. If an unexpected error occurs during the initiation process.\n\nExamples:\n    >>> import asyncio\n    >>> asyncio.iscoroutinefunction(initiate_oauth_flow)\n    True",
         "operationId": "initiate_oauth_flow_oauth_authorize__gateway_id__get",
         "security": [
           {
@@ -38761,6 +37733,70 @@
                     "additionalProperties": true
                   },
                   "title": "Response Get Oauth Status Batch Oauth Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oauth/token/{gateway_id}": {
+      "get": {
+        "tags": [
+          "oauth"
+        ],
+        "summary": "Get Gateway Oauth Token",
+        "description": "Return the caller's own current OAuth access token for a gateway.\n\nThis endpoint is **disabled by default** and must be explicitly enabled via\n``OAUTH_TOKEN_RETRIEVAL_ENABLED=true``. It resolves the stored OAuth\ntoken for the *authenticated caller's own* session against the given gateway,\nrefreshing it first if it is within ``OAUTH_TOKEN_REFRESH_THRESHOLD_SECONDS``\n(600 seconds by default) of expiring, and returns only the ``access_token`` -- the\n``refresh_token`` is never included in the response. Operators configure the threshold\nserver-side within 0–3600 seconds. Callers cannot override it per request.\n``SecurityHeadersMiddleware`` marks the response non-cacheable. Every outcome after\nthe feature check is recorded in the audit trail (gateway and user, never the token).\n\nArgs:\n    gateway_id: ID of the gateway whose stored token to resolve.\n    request: Request with token-scoping context, forwarded to gateway access checks.\n    current_user: Authenticated user (enforces authentication).\n    db: Database session.\n\nReturns:\n    OAuthAccessTokenResponse: ``gateway_id``, ``access_token``, ``token_type``,\n        ``expires_at``, and ``scopes`` for the caller's own token.\n\nRaises:\n    HTTPException:\n        404 if the feature flag is disabled, the gateway is not found, or no token is stored;\n        400 if the gateway has no OAuth configuration or does not use the Authorization Code grant;\n        401 or 403 if the caller's identity or access is not accepted for this gateway;\n        409 if OAuth reauthorization is required;\n        502 if the provider fails;\n        503 if token storage fails or holds an unreadable token.",
+        "operationId": "get_gateway_oauth_token_oauth_token__gateway_id__get",
+        "security": [
+          {
+            "ConfigurableHTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gateway_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Gateway Id"
+            }
+          },
+          {
+            "name": "jwt_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jwt Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthAccessTokenResponse"
                 }
               }
             }
@@ -40629,6 +39665,22 @@
             "description": "Type of agent (e.g., 'openai', 'anthropic', 'custom')",
             "default": "generic"
           },
+          "protocol_binding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "jsonrpc",
+                  "http_json"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Binding",
+            "description": "Wire binding used to invoke the agent. Unset keeps the agent_type and trailing slash heuristic"
+          },
           "protocol_version": {
             "type": "string",
             "title": "Protocol Version",
@@ -40640,6 +39692,21 @@
             "type": "object",
             "title": "Capabilities",
             "description": "Agent capabilities and features"
+          },
+          "skills": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/A2AAgentSkill"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skills",
+            "description": "Skills the agent advertises on its Agent Card"
           },
           "config": {
             "additionalProperties": true,
@@ -40933,6 +40000,18 @@
             ],
             "title": "Uaid Native Id Override",
             "description": "Override nativeId in UAID for cross-gateway routing (defaults to endpoint_url if not provided)"
+          },
+          "card_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Url",
+            "description": "Agent Card endpoint or card URL. The gateway fetches the card itself and stores it as fetched; a card supplied by the client is never accepted. Registration fails when no card is found"
           }
         },
         "type": "object",
@@ -41257,6 +40336,18 @@
             "type": "string",
             "title": "Agenttype"
           },
+          "protocolBinding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocolbinding",
+            "description": "Wire binding used to invoke the agent"
+          },
           "protocolVersion": {
             "type": "string",
             "title": "Protocolversion"
@@ -41265,6 +40356,22 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Capabilities"
+          },
+          "skills": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skills",
+            "description": "Skills the agent advertises; falls back to capabilities.skills for older agents"
           },
           "config": {
             "additionalProperties": true,
@@ -41731,6 +40838,49 @@
         "description": "Schema for reading A2A agent information.\n\nIncludes all agent fields plus:\n- Database ID\n- Slug\n- Creation/update timestamps\n- Enabled/reachable status\n- Metrics\n- Authentication type: basic, bearer, authheaders, oauth, query_param\n- Authentication value: username/password or token or custom headers\n- OAuth configuration for OAuth 2.0 authentication\n- Query parameter authentication (key name and masked value)\n\nAuto Populated fields:\n- Authentication username: for basic auth\n- Authentication password: for basic auth\n- Authentication token: for bearer auth\n- Authentication header key: for authheaders auth\n- Authentication header value: for authheaders auth\n- Query param key: for query_param auth\n- Query param value (masked): for query_param auth",
         "nullable": true
       },
+      "A2AAgentSkill": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Id",
+            "description": "Unique skill identifier"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "description": "Human-readable skill name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 8192,
+            "title": "Description",
+            "description": "What the skill does"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Tags",
+            "description": "Keywords describing the skill"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "tags"
+        ],
+        "title": "A2AAgentSkill",
+        "description": "A skill an A2A agent advertises on its Agent Card.\n\nAttributes:\n    id (str): Unique skill identifier.\n    name (str): Human-readable skill name.\n    description (str): What the skill does.\n    tags (List[str]): Keywords describing the skill."
+      },
       "A2AAgentUpdate": {
         "properties": {
           "name": {
@@ -41781,6 +40931,22 @@
             "title": "Agenttype",
             "description": "Type of agent"
           },
+          "protocolBinding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "jsonrpc",
+                  "http_json"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocolbinding",
+            "description": "Wire binding used to invoke the agent"
+          },
           "protocolVersion": {
             "anyOf": [
               {
@@ -41805,6 +40971,21 @@
             ],
             "title": "Capabilities",
             "description": "Agent capabilities and features"
+          },
+          "skills": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/A2AAgentSkill"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skills",
+            "description": "Skills the agent advertises on its Agent Card"
           },
           "config": {
             "anyOf": [
@@ -42107,6 +41288,277 @@
         "description": "Schema for updating an existing A2A agent.\n\nSimilar to A2AAgentCreate but all fields are optional to allow partial updates.",
         "nullable": true
       },
+      "A2AFetchCardRequest": {
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "minLength": 1,
+            "format": "uri",
+            "title": "Baseurl",
+            "description": "Agent base endpoint, or a direct URL to the card document"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Card path appended to the base URL; defaults to the well-known locations"
+          },
+          "headers": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headers",
+            "description": "Optional headers, for example credentials for an authenticated card"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseUrl"
+        ],
+        "title": "A2AFetchCardRequest",
+        "description": "Request to fetch an A2A Agent Card from an endpoint that is not yet registered.",
+        "nullable": true
+      },
+      "A2AFetchCardResponse": {
+        "properties": {
+          "found": {
+            "type": "boolean",
+            "title": "Found",
+            "description": "Whether a valid A2A Agent Card was found"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "found",
+              "no_card",
+              "auth_required",
+              "unreachable"
+            ],
+            "title": "Outcome",
+            "description": "Why the fetch ended: card returned, no card at the location, credentials needed, or host blocked or unreachable"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Fixed explanation when no card was found"
+          },
+          "authScheme": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authscheme",
+            "description": "Scheme name from the WWW-Authenticate header when outcome is auth_required"
+          },
+          "sourceUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceurl",
+            "description": "URL the card was fetched from"
+          },
+          "detectedVersion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "1.0",
+                  "0.3"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detectedversion",
+            "description": "Card format version detected: 1.0 or 0.3"
+          },
+          "card": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card",
+            "description": "Card normalized to the A2A 1.0 shape"
+          },
+          "rawCard": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rawcard",
+            "description": "Card as fetched; omitted when identical to card"
+          },
+          "suggestedAgent": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedagent",
+            "description": "Suggested A2AAgentCreate fields derived from the card"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "Notes on card content that ContextForge could not map"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag",
+            "description": "ETag the agent returned with the card"
+          },
+          "maxAge": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxage",
+            "description": "Cache-Control max-age in seconds the agent returned with the card"
+          },
+          "extendedOutcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "found",
+                  "auth_rejected",
+                  "unavailable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extendedoutcome",
+            "description": "Result of fetching the authenticated extended card. Set only when credentials were supplied and the card declares one"
+          },
+          "extendedCard": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extendedcard",
+            "description": "Extended card normalized to the A2A 1.0 shape"
+          },
+          "extendedRawCard": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extendedrawcard",
+            "description": "Extended card as fetched; omitted when identical to extended_card"
+          },
+          "extendedEtag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extendedetag",
+            "description": "ETag the agent returned with the extended card"
+          },
+          "extendedMaxAge": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extendedmaxage",
+            "description": "Cache-Control max-age in seconds the agent returned with the extended card"
+          },
+          "extendedAdditions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extendedadditions",
+            "description": "Dotted card field paths that the extended card adds or changes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "found",
+          "outcome"
+        ],
+        "title": "A2AFetchCardResponse",
+        "description": "Result of fetching an Agent Card.\n\n``card`` is the card normalized to the A2A 1.0 shape, ``raw_card`` is the document as\nfetched when it differs from ``card``, and ``suggested_agent`` maps the card onto ``A2AAgentCreate`` fields without\ncredential values, team, visibility or tags.",
+        "nullable": true
+      },
       "A2AInvokeResponse": {
         "properties": {
           "jsonrpc": {
@@ -42199,6 +41651,114 @@
         "title": "A2APushNotificationConfigRequest",
         "description": "Schema for the client-facing push notification config body.\n\nThe agent and task identifiers come from the URL path, not the body."
       },
+      "A2AStoredCardRead": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Stored card version, starting at 1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "public",
+              "extended"
+            ],
+            "title": "Kind",
+            "description": "public for the card read without credentials, extended for the authenticated extended card",
+            "default": "public"
+          },
+          "card": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Card",
+            "description": "Card document as fetched"
+          },
+          "detectedVersion": {
+            "type": "string",
+            "title": "Detectedversion",
+            "description": "Card format version detected at fetch time: 1.0 or 0.3"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "title": "Sourceurl",
+            "description": "URL the card was fetched from"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag",
+            "description": "ETag returned with the card"
+          },
+          "maxAge": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxage",
+            "description": "Cache-Control max-age in seconds returned with the card"
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetchedat",
+            "description": "When the card was fetched"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "card",
+          "detectedVersion",
+          "sourceUrl",
+          "fetchedAt"
+        ],
+        "title": "A2AStoredCardRead",
+        "description": "The current stored Agent Card of a registered agent, as fetched.",
+        "nullable": true
+      },
+      "A2ATaskMessageRequest": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 65536,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "title": "A2ATaskMessageRequest",
+        "description": "Schema for a follow-up message sent to an existing A2A task.\n\nSend either ``message`` (an A2A message object, in the 0.3 or 1.0 shape) or\n``text`` (shorthand for a single text part). The gateway binds the message to the\ntask from the URL path and converts it to the agent's protocol version."
+      },
       "A2ATaskState": {
         "type": "string",
         "enum": [
@@ -42213,6 +41773,113 @@
         ],
         "title": "A2ATaskState",
         "description": "Finite state machine for A2A task lifecycle per the A2A v1 spec.\n\nTerminal states (``completed``, ``canceled``, ``failed``, ``rejected``)\nare the only states for which ``completed_at`` should be set; the\nmodel-validators on :class:`A2ATaskCreate` and :class:`A2ATaskUpdate`\nenforce this invariant."
+      },
+      "A2ATestError": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Always false on failure",
+            "default": false
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Sanitized error message"
+          },
+          "error_type": {
+            "type": "string",
+            "enum": [
+              "not_found",
+              "agent_error",
+              "agent_disabled",
+              "validation_error",
+              "internal_error"
+            ],
+            "title": "Error Type",
+            "description": "Error classification"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "ID of the agent that was tested"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "error_type",
+          "agent_id"
+        ],
+        "title": "A2ATestError",
+        "description": "Schema for the ``detail`` of a failed ``POST /v1/a2a/{agent_id}/test`` response."
+      },
+      "A2ATestErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/A2ATestError",
+            "description": "Failure envelope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "A2ATestErrorResponse",
+        "description": "Schema for the wire body of a failed ``POST /v1/a2a/{agent_id}/test`` response."
+      },
+      "A2ATestRequest": {
+        "properties": {
+          "query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query",
+            "description": "Test message. A neutral default is used when omitted or empty."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "A2ATestRequest",
+        "description": "Schema for the optional body of ``POST /v1/a2a/{agent_id}/test``."
+      },
+      "A2ATestResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Always true on success",
+            "default": true
+          },
+          "result": {
+            "title": "Result",
+            "description": "Agent response"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "description": "Name of the tested agent"
+          },
+          "test_timestamp": {
+            "type": "number",
+            "title": "Test Timestamp",
+            "description": "Unix timestamp of the test"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result",
+          "agent_name",
+          "test_timestamp"
+        ],
+        "title": "A2ATestResponse",
+        "description": "Schema for a successful ``POST /v1/a2a/{agent_id}/test`` response."
       },
       "ActivityItem": {
         "properties": {
@@ -44730,6 +44397,113 @@
         "title": "CorrelationTraceResponse",
         "description": "Correlation trace response with all related logs."
       },
+      "CurrentUserResponse": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "User's email address"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name",
+            "description": "User's full name"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin",
+            "description": "Whether user has admin privileges"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "Whether account is active"
+          },
+          "auth_provider": {
+            "type": "string",
+            "title": "Auth Provider",
+            "description": "Authentication provider"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Account creation timestamp"
+          },
+          "last_login": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login",
+            "description": "Last successful login"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified",
+            "description": "Whether email is verified",
+            "default": false
+          },
+          "password_change_required": {
+            "type": "boolean",
+            "title": "Password Change Required",
+            "description": "Whether user must change password on next login",
+            "default": false
+          },
+          "failed_login_attempts": {
+            "type": "integer",
+            "title": "Failed Login Attempts",
+            "description": "Current failed login attempts counter",
+            "default": 0
+          },
+          "locked_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked Until",
+            "description": "Account lock expiration timestamp"
+          },
+          "is_locked": {
+            "type": "boolean",
+            "title": "Is Locked",
+            "description": "Whether the account is currently locked",
+            "default": false
+          },
+          "features": {
+            "$ref": "#/components/schemas/FeatureFlags",
+            "description": "Deployment feature flags readable by any authenticated user"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "is_admin",
+          "is_active",
+          "auth_provider",
+          "created_at",
+          "features"
+        ],
+        "title": "CurrentUserResponse",
+        "description": "Response schema for ``GET /auth/email/me``.\n\nAdds deployment feature flags that any authenticated user may read.\n\nAttributes:\n    features: Deployment feature flags."
+      },
       "CursorPaginatedA2AAgentsResponse": {
         "properties": {
           "agents": {
@@ -45119,6 +44893,21 @@
         "title": "EmailUserResponse",
         "description": "Response schema for user information.\n\nAttributes:\n    email: User's email address\n    full_name: User's full name\n    is_admin: Whether user has admin privileges\n    is_active: Whether account is active\n    auth_provider: Authentication provider used\n    created_at: Account creation timestamp\n    last_login: Last successful login timestamp\n    email_verified: Whether email is verified\n    password_change_required: Whether user must change password on next login\n\nExamples:\n    >>> user = EmailUserResponse(\n    ...     email=\"user@example.com\",\n    ...     full_name=\"Test User\",\n    ...     is_admin=False,\n    ...     is_active=True,\n    ...     auth_provider=\"local\",\n    ...     created_at=datetime.now(),\n    ...     last_login=None,\n    ...     email_verified=False\n    ... )\n    >>> user.email\n    'user@example.com'\n    >>> user.is_admin\n    False"
       },
+      "FeatureFlags": {
+        "properties": {
+          "a2a": {
+            "type": "boolean",
+            "title": "A2A",
+            "description": "Whether A2A is enabled on this gateway"
+          }
+        },
+        "type": "object",
+        "required": [
+          "a2a"
+        ],
+        "title": "FeatureFlags",
+        "description": "Deployment feature flags readable by any authenticated user.\n\nAttributes:\n    a2a: Whether A2A is enabled on this gateway."
+      },
       "ForgotPasswordRequest": {
         "properties": {
           "email": {
@@ -45260,7 +45049,7 @@
               }
             ],
             "title": "Authtype",
-            "description": "Type of authentication: basic, bearer, authheaders, oauth, query_param, or none"
+            "description": "Type of authentication: basic, bearer, authheaders, oauth, query_param, sigv4, or none"
           },
           "authUsername": {
             "anyOf": [
@@ -45352,6 +45141,19 @@
             ],
             "title": "Oauthconfig",
             "description": "OAuth 2.0 configuration including grant_type, client_id, encrypted client_secret, URLs, scopes, audience (for Atlassian/Auth0), resource (RFC 8707), token_endpoint_auth_method (none, client_secret_basic, client_secret_post, private_key_jwt), and for private_key_jwt: private_key, optional token_endpoint_auth_signing_alg (RS256 default; RS384, RS512, ES256, ES384, ES512, PS256) and optional private_key_jwt_kid"
+          },
+          "sigv4Config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4Config",
+            "description": "AWS SigV4 configuration for auth_type 'sigv4': access_key_id, secret_access_key, region, service and optional session_token. Secrets are stored encrypted."
           },
           "authQueryParamKey": {
             "anyOf": [
@@ -45881,11 +45683,18 @@
             "type": "array",
             "title": "Servers",
             "description": "Visible virtual servers associated through this gateway's tools, resources, or prompts"
+          },
+          "mcpServerId": {
+            "type": "string",
+            "title": "Mcpserverid",
+            "description": "Product-terminology alias of gateway_id",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
-          "gatewayId"
+          "gatewayId",
+          "mcpServerId"
         ],
         "title": "GatewayImpactPreview",
         "description": "Layer-1-scoped preview of virtual servers affected by gateway deletion.",
@@ -46355,6 +46164,31 @@
             ],
             "title": "Oauthconfig",
             "description": "OAuth 2.0 configuration including grant_type, client_id, encrypted client_secret, URLs, scopes, audience (for Atlassian/Auth0), and resource (RFC 8707)"
+          },
+          "registrationMethod": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registrationmethod",
+            "description": "How the gateway registered as an OAuth client: auto, cimd, or dcr. Mirrors oauth_config.registration_method; null when none is recorded"
+          },
+          "sigv4Config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4Config",
+            "description": "AWS SigV4 configuration. secret_access_key and session_token are masked."
           },
           "authQueryParamKey": {
             "anyOf": [
@@ -46863,13 +46697,20 @@
             "format": "date-time",
             "title": "Refreshedat",
             "description": "Timestamp when the refresh completed"
+          },
+          "mcpServerId": {
+            "type": "string",
+            "title": "Mcpserverid",
+            "description": "Product-terminology alias of gateway_id",
+            "readOnly": true
           }
         },
         "type": "object",
         "required": [
           "gatewayId",
           "durationMs",
-          "refreshedAt"
+          "refreshedAt",
+          "mcpServerId"
         ],
         "title": "GatewayRefreshResponse",
         "description": "Response schema for manual gateway refresh API.\n\nContains counts of added, updated, and removed items for tools, resources, and prompts,\nalong with any validation errors encountered during the refresh operation.",
@@ -47165,6 +47006,19 @@
               }
             ],
             "title": "Authvalue"
+          },
+          "sigv4Config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4Config",
+            "description": "AWS SigV4 configuration for auth_type 'sigv4'. A masked secret_access_key or session_token keeps the stored value."
           },
           "oauthConfig": {
             "anyOf": [
@@ -49546,6 +49400,61 @@
         "title": "MetricsStatsResponse",
         "description": "Response model for metrics stats."
       },
+      "OAuthAccessTokenResponse": {
+        "properties": {
+          "gateway_id": {
+            "type": "string",
+            "title": "Gateway Id",
+            "description": "Gateway the access token belongs to"
+          },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "The caller's current OAuth access token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Type of the stored token, always Bearer"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "ISO 8601 expiry of the access token, or null when the provider gave no lifetime"
+          },
+          "scopes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scopes",
+            "description": "Scopes granted to the access token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "access_token",
+          "token_type"
+        ],
+        "title": "OAuthAccessTokenResponse",
+        "description": "Response for ``GET /oauth/token/{gateway_id}``.\n\nThe model has no ``refresh_token`` field and forbids extra fields,\nso a refresh token cannot reach the response."
+      },
       "PaginatedResponse": {
         "properties": {
           "data": {
@@ -51118,6 +51027,19 @@
             ],
             "title": "Meta",
             "description": "Optional metadata for protocol extension"
+          },
+          "mcpServerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcpserverid",
+            "description": "Product-terminology alias of gateway_id",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -51132,7 +51054,8 @@
           "arguments",
           "createdAt",
           "updatedAt",
-          "enabled"
+          "enabled",
+          "mcpServerId"
         ],
         "title": "PromptRead",
         "description": "Schema for reading prompt information.\n\nIncludes all prompt fields plus:\n- Database ID\n- Creation/update timestamps\n- Active status\n- Metrics: Aggregated metrics for the prompt invocations.",
@@ -52049,6 +51972,19 @@
             ],
             "title": "Meta",
             "description": "Optional metadata for protocol extension"
+          },
+          "mcpServerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcpserverid",
+            "description": "Product-terminology alias of gateway_id",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -52061,7 +51997,8 @@
           "size",
           "createdAt",
           "updatedAt",
-          "enabled"
+          "enabled",
+          "mcpServerId"
         ],
         "title": "ResourceRead",
         "description": "Schema for reading resource information.\n\nIncludes all resource fields plus:\n- Database ID\n- Content size\n- Creation/update timestamps\n- Active status\n- Metrics: Aggregated metrics for the resource invocations.",
@@ -53169,6 +53106,22 @@
             "title": "Associated A2A Agents",
             "description": "Comma-separated A2A agent IDs"
           },
+          "interfaces": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ServerInterfaceInput"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interfaces",
+            "description": "Protocol interfaces published by this server, for example an A2A interface"
+          },
           "team_id": {
             "anyOf": [
               {
@@ -53365,6 +53318,145 @@
         "title": "ServerInput",
         "description": "Input configuration for MCP server connection.\n\nDefines the connection parameters required to establish communication\nwith an MCP (Model Context Protocol) server.\n\nAttributes:\n    url: Optional MCP server URL endpoint. Defaults to environment variable\n         or 'http://localhost:8000/mcp'.\n    transport: Communication transport protocol. Defaults to 'streamable_http'.\n    auth_token: Optional authentication token for secure server access.\n\nExamples:\n    >>> server = ServerInput(url='http://example.com/mcp')\n    >>> server.transport\n    'streamable_http'\n\n    >>> server = ServerInput()\n    >>> server.url is None\n    True"
       },
+      "ServerInterfaceInput": {
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Protocol",
+            "description": "Interface protocol, for example 'a2a'"
+          },
+          "binding": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Binding",
+            "description": "Agent endpoint URL that the interface publishes, for example 'https://agent.example.com/a2a'"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "^[0-9A-Za-z][0-9A-Za-z._+-]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Protocol version, for example '1.0'"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant",
+            "description": "Optional tenant identifier"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether the interface is active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "protocol",
+          "binding"
+        ],
+        "title": "ServerInterfaceInput",
+        "description": "Protocol interface declared on a virtual server through the server create and update schemas."
+      },
+      "ServerInterfaceRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "server_id": {
+            "type": "string",
+            "title": "Server Id"
+          },
+          "protocol": {
+            "type": "string",
+            "title": "Protocol"
+          },
+          "binding": {
+            "type": "string",
+            "title": "Binding"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "tenant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "server_id",
+          "protocol",
+          "binding",
+          "enabled",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ServerInterfaceRead",
+        "description": "Schema for reading a server interface."
+      },
       "ServerMetrics": {
         "properties": {
           "totalExecutions": {
@@ -53447,6 +53539,22 @@
         "title": "ServerMetrics",
         "description": "Represents the performance and execution statistics for a server.\n\nAttributes:\n    total_executions (int): Total number of server invocations.\n    successful_executions (int): Number of successful server invocations.\n    failed_executions (int): Number of failed server invocations.\n    failure_rate (float): Failure rate (failed invocations / total invocations).\n    min_response_time (Optional[float]): Minimum response time in seconds.\n    max_response_time (Optional[float]): Maximum response time in seconds.\n    avg_response_time (Optional[float]): Average response time in seconds.\n    last_execution_time (Optional[datetime]): Timestamp of the most recent invocation.",
         "nullable": true
+      },
+      "ServerOAuthApprovalRequest": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Version",
+            "description": "Server version reviewed by the administrator"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "ServerOAuthApprovalRequest",
+        "description": "Identify the server version reviewed for OAuth approval."
       },
       "ServerRead": {
         "properties": {
@@ -53545,6 +53653,14 @@
             "type": "array",
             "title": "Associateda2Aagents",
             "default": []
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/ServerInterfaceRead"
+            },
+            "type": "array",
+            "title": "Interfaces",
+            "description": "Protocol interfaces published by this server"
           },
           "metrics": {
             "anyOf": [
@@ -53773,6 +53889,12 @@
             ],
             "title": "Oauthconfig",
             "description": "OAuth 2.0 configuration (authorization_server, scopes_supported, etc.)"
+          },
+          "oauthConfigApproved": {
+            "type": "boolean",
+            "title": "Oauthconfigapproved",
+            "description": "Whether an unrestricted administrator approved the current OAuth configuration",
+            "default": false
           },
           "instructions": {
             "anyOf": [
@@ -54013,6 +54135,22 @@
             ],
             "title": "Associateda2Aagents",
             "description": "Comma-separated A2A agent IDs"
+          },
+          "interfaces": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ServerInterfaceInput"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interfaces",
+            "description": "Protocol interfaces published by this server, for example an A2A interface"
           }
         },
         "type": "object",
@@ -56014,7 +56152,7 @@
               }
             ],
             "title": "Jsonpath Filter",
-            "description": "JSON modification filter",
+            "description": "CEL expression applied to the tool response, which it sees as `response`",
             "default": ""
           },
           "auth": {
@@ -56045,6 +56183,19 @@
             ],
             "title": "Auth Headers",
             "description": "List of custom headers for 'authheaders' authentication (array of {'key': ..., 'value': ...} entries)"
+          },
+          "sigv4_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4 Config",
+            "description": "AWS SigV4 configuration for auth_type 'sigv4' on a REST tool: access_key_id, secret_access_key, region, service, optional session_token and optional unsigned_payload. Secrets are stored encrypted. A SigV4 tool without this field uses the SigV4 configuration of its gateway."
           },
           "gateway_id": {
             "anyOf": [
@@ -56267,7 +56418,7 @@
           "name"
         ],
         "title": "ToolCreate",
-        "description": "Represents the configuration for creating a tool with various attributes and settings.\n\nAttributes:\n    model_config (ConfigDict): Configuration for the model.\n    name (str): Unique name for the tool.\n    url (Union[str, AnyHttpUrl]): Tool endpoint URL.\n    description (Optional[str]): Tool description.\n    integration_type (Literal[\"REST\", \"MCP\"]): Tool integration type - REST for individual endpoints, MCP for gateway-discovered tools.\n    request_type (Literal[\"GET\", \"POST\", \"PUT\", \"DELETE\", \"PATCH\"]): HTTP method to be used for invoking the tool.\n    headers (Optional[Dict[str, str]]): Additional headers to send when invoking the tool.\n    input_schema (Optional[Dict[str, Any]]): JSON Schema for validating tool parameters. Alias 'inputSchema'.\n    output_schema (Optional[Dict[str, Any]]): JSON Schema for validating tool output. Alias 'outputSchema'.\n    annotations (Optional[Dict[str, Any]]): Tool annotations for behavior hints such as title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint.\n    jsonpath_filter (Optional[str]): JSON modification filter.\n    auth (Optional[AuthenticationValues]): Authentication credentials (Basic or Bearer Token or custom headers) if required.\n    gateway_id (Optional[str]): ID of the gateway for the tool."
+        "description": "Represents the configuration for creating a tool with various attributes and settings.\n\nAttributes:\n    model_config (ConfigDict): Configuration for the model.\n    name (str): Unique name for the tool.\n    url (Union[str, AnyHttpUrl]): Tool endpoint URL.\n    description (Optional[str]): Tool description.\n    integration_type (Literal[\"REST\", \"MCP\"]): Tool integration type - REST for individual endpoints, MCP for gateway-discovered tools.\n    request_type (Literal[\"GET\", \"POST\", \"PUT\", \"DELETE\", \"PATCH\"]): HTTP method to be used for invoking the tool.\n    headers (Optional[Dict[str, str]]): Additional headers to send when invoking the tool.\n    input_schema (Optional[Dict[str, Any]]): JSON Schema for validating tool parameters. Alias 'inputSchema'.\n    output_schema (Optional[Dict[str, Any]]): JSON Schema for validating tool output. Alias 'outputSchema'.\n    annotations (Optional[Dict[str, Any]]): Tool annotations for behavior hints such as title, readOnlyHint, destructiveHint, idempotentHint, openWorldHint.\n    jsonpath_filter (Optional[str]): CEL expression applied to the tool response.\n    auth (Optional[AuthenticationValues]): Authentication credentials (Basic or Bearer Token or custom headers) if required.\n    gateway_id (Optional[str]): ID of the gateway for the tool."
       },
       "ToolDefinition": {
         "properties": {
@@ -56816,6 +56967,19 @@
               }
             ]
           },
+          "sigv4Config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4Config",
+            "description": "AWS SigV4 configuration of a REST tool. secret_access_key and session_token are masked."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -57245,6 +57409,19 @@
             ],
             "title": "Meta",
             "description": "Optional metadata for protocol extension"
+          },
+          "mcpServerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcpserverid",
+            "description": "Product-terminology alias of gateway_id",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -57269,7 +57446,8 @@
           "name",
           "gatewaySlug",
           "customName",
-          "customNameSlug"
+          "customNameSlug",
+          "mcpServerId"
         ],
         "title": "ToolRead",
         "description": "Schema for reading tool information.\n\nIncludes all tool fields plus:\n- Database ID\n- Creation/update timestamps\n- enabled: If Tool is enabled or disabled.\n- reachable: If Tool is reachable or not.\n- Gateway ID for federation\n- Execution count indicating the number of times the tool has been executed.\n- Metrics: Aggregated metrics for the tool invocations.\n- Request type and authentication settings.",
@@ -57481,7 +57659,7 @@
               }
             ],
             "title": "Jsonpathfilter",
-            "description": "JSON path filter for rpc tool calls"
+            "description": "CEL expression applied to the tool response, which it sees as `response`"
           },
           "auth": {
             "anyOf": [
@@ -57511,6 +57689,19 @@
             ],
             "title": "Authheaders",
             "description": "List of custom headers for 'authheaders' authentication (array of {'key': ..., 'value': ...} entries)"
+          },
+          "sigv4Config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sigv4Config",
+            "description": "AWS SigV4 configuration for a REST tool with auth_type 'sigv4'. A masked secret_access_key or session_token keeps the stored value."
           },
           "gatewayId": {
             "anyOf": [
