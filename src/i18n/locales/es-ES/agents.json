@@ -71,7 +71,6 @@
   "agents.connect.manual.binding.label": "Enlace de protocolo",
   "agents.connect.manual.binding.jsonrpc": "JSON-RPC",
   "agents.connect.manual.binding.http": "HTTP+JSON",
-  "agents.connect.manual.binding.httpUnsupported": "ContextForge llama a los agentes mediante JSON-RPC. HTTP+JSON aún no se admite.",
   "agents.connect.manual.version.label": "Versión del protocolo",
   "agents.connect.manual.oauth.intro": "ContextForge obtiene un token con el flujo de credenciales de cliente de OAuth 2.0.",
   "agents.connect.manual.oauth.tokenUrl": "URL del token",
@@ -215,5 +214,15 @@
   "agents.try.waiting.auth": "El agente necesita autorización.",
   "agents.try.waiting.note": "La llamada llegó al agente. No es un éxito ni un fallo de la prueba.",
   "agents.try.timeout.message": "El agente no respondió a tiempo. No se devolvió nada.",
-  "agents.try.failure.generic": "La solicitud falló. Inténtalo de nuevo."
+  "agents.try.failure.generic": "La solicitud falló. Inténtalo de nuevo.",
+  "agents.card.actions.edit": "Editar",
+  "agents.edit.title": "Editar {name}",
+  "agents.edit.save": "Guardar cambios",
+  "agents.edit.saving": "Guardando…",
+  "agents.edit.success": "Se guardó {name}.",
+  "agents.edit.error.save": "No se pudo guardar el agente.",
+  "agents.edit.auth.current": "Usa {type}. La credencial almacenada no se muestra.",
+  "agents.edit.auth.noneStored": "No hay ninguna credencial almacenada.",
+  "agents.edit.auth.change": "Cambiar credenciales",
+  "agents.edit.auth.keep": "Mantener la credencial almacenada"
 }

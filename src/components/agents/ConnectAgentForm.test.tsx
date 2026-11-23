@@ -1065,6 +1065,7 @@ describe("ConnectAgentForm", () => {
           name: "Echo agent",
           endpoint_url: "http://127.0.0.1:9100",
           protocol_version: "1.0",
+          protocol_binding: "jsonrpc",
         },
         visibility: "public",
       });
@@ -1153,13 +1154,38 @@ describe("ConnectAgentForm", () => {
       expect(agentOf(created).protocol_version).toBe("0.3");
     });
 
-    it("offers JSON-RPC only, since HTTP+JSON is not supported yet", async () => {
+    it("offers both protocol bindings, with JSON-RPC chosen", async () => {
       const user = setup();
 
       await openManual(user);
 
       expect(screen.getByRole("radio", { name: "JSON-RPC" })).toBeChecked();
-      expect(screen.getByRole("radio", { name: "HTTP+JSON" })).toBeDisabled();
+      expect(screen.getByRole("radio", { name: "HTTP+JSON" })).toBeEnabled();
+    });
+
+    it("sends the JSON-RPC binding unless another is chosen", async () => {
+      const created = mockCreate();
+      const user = setup();
+
+      await openManual(user);
+      await fillRequired(user);
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect(agentOf(created).protocol_binding).toBe("jsonrpc");
+    });
+
+    it("sends the HTTP+JSON binding when it is chosen", async () => {
+      const created = mockCreate();
+      const user = setup();
+
+      await openManual(user);
+      await fillRequired(user);
+      await user.click(screen.getByRole("radio", { name: "HTTP+JSON" }));
+      await user.click(screen.getByRole("button", { name: "Connect" }));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalled());
+      expect(agentOf(created).protocol_binding).toBe("http_json");
     });
 
     it("sends the chosen visibility", async () => {

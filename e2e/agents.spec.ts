@@ -658,6 +658,25 @@ test.describe("Agents page", () => {
       expect(createBodies).toHaveLength(1);
     });
 
+    test("sends the HTTP+JSON binding when it is chosen", async ({ page }) => {
+      await mockAgentList(page, []);
+      const createBodies = await mockRegisterAgent(page, (route) =>
+        json(route, makeAgent("echo", { name: "Echo agent" }), 201),
+      );
+
+      await page.goto(APP.AGENTS);
+      await page.getByRole("button", { name: /Connect agent/ }).click();
+      await page.getByRole("button", { name: "Enter manually" }).click();
+      await expect(page.getByRole("radio", { name: "JSON-RPC" })).toBeChecked();
+      await fillRequired(page);
+      await page.getByRole("radio", { name: "HTTP+JSON" }).click();
+      await page.getByRole("button", { name: "Connect" }).click();
+
+      await expect(toast(page, /Connected Echo agent/)).toBeVisible();
+      expect(createBodies).toHaveLength(1);
+      expect(createBodies[0]).toMatchObject({ agent: { protocol_binding: "http_json" } });
+    });
+
     test("needs a name and a valid endpoint before registering", async ({ page }) => {
       await mockAgentList(page, []);
       const createBodies = await mockRegisterAgent(page, (route) => json(route, {}, 201));
@@ -926,6 +945,326 @@ test.describe("Agents page", () => {
     });
   });
 
+  test.describe("edit an agent", () => {
+    const EDITABLE = makeAgent("alpha", {
+      name: "objekts router",
+      description: "Routes visual production briefs.",
+      endpointUrl: "https://objekts.example.com/a2a/v1",
+      protocolVersion: "1.0",
+      tags: [{ label: "development" }],
+      visibility: "public",
+    });
+
+    /**
+     * A gateway that holds one agent: GET /a2a lists it, and PUT /a2a/alpha stores the body
+     * and answers with the agent as stored. Records every PUT body.
+     */
+    async function mockEditableAgent(
+      page: Page,
+      agent: Agent = EDITABLE,
+      respond?: (route: Route, body: Record<string, unknown>) => Promise<void> | void,
+    ) {
+      let stored = agent;
+      const bodies: Array<Record<string, unknown>> = [];
+      await mockAgentList(page, () => [stored]);
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/alpha"),
+        async (route) => {
+          if (route.request().method() !== "PUT") return route.fallback();
+          const body = route.request().postDataJSON() as Record<string, unknown>;
+          bodies.push(body);
+          if (respond) return respond(route, body);
+          stored = { ...stored, ...body } as Agent;
+          return json(route, stored);
+        },
+      );
+      return bodies;
+    }
+
+    async function openEdit(page: Page, name = "objekts router") {
+      await page.goto(APP.AGENTS);
+      await openActions(page, name);
+      await page.getByRole("menuitem", { name: "Edit" }).click();
+    }
+
+    const nameField = (page: Page) => page.getByPlaceholder("Add an agent name");
+    const save = (page: Page) => page.getByRole("button", { name: "Save changes" });
+    /** The credential tabs are visually hidden radios; users click the tab label. */
+    const authTab = (page: Page, type: string) =>
+      page.locator(`label[for="agent-edit-auth-${type}"]`);
+
+    test("lists Edit directly above Delete in the card menu", async ({ page }) => {
+      await mockEditableAgent(page);
+
+      await page.goto(APP.AGENTS);
+      await openActions(page, "objekts router");
+
+      await expect(page.getByRole("menuitem")).toHaveText([
+        "View details",
+        "Disable",
+        "Edit",
+        "Delete",
+      ]);
+    });
+
+    test("is hidden without a2a.update", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["a2a.read", "a2a.delete"] });
+      await mockEditableAgent(page);
+
+      await page.goto(APP.AGENTS);
+      await openActions(page, "objekts router");
+
+      await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "Edit" })).toBeHidden();
+    });
+
+    test("opens a form that starts from the agent's values", async ({ page }) => {
+      await mockEditableAgent(page);
+
+      await openEdit(page);
+
+      await expect(page.getByRole("heading", { name: "Edit objekts router" })).toBeVisible();
+      await expect(nameField(page)).toHaveValue("objekts router");
+      await expect(page.getByPlaceholder("https://agents.example.com/a2a")).toHaveValue(
+        "https://objekts.example.com/a2a/v1",
+      );
+      await expect(page.getByPlaceholder("Add an optional description...")).toHaveValue(
+        "Routes visual production briefs.",
+      );
+      await expect(page.getByText("development")).toBeVisible();
+      await expect(page.getByRole("radio", { name: "A2A 1.0" })).toBeChecked();
+    });
+
+    test("sends only the changed field and shows it in the list", async ({ page }) => {
+      const bodies = await mockEditableAgent(page);
+
+      await openEdit(page);
+      await nameField(page).fill("objekts router v2");
+      await save(page).click();
+
+      await expect(toast(page, /Saved objekts router v2/)).toBeVisible();
+      await expect(page.getByText("objekts router v2", { exact: true })).toBeVisible();
+      await expect(nameField(page)).toBeHidden();
+      expect(bodies).toEqual([{ name: "objekts router v2" }]);
+    });
+
+    test("never sends capabilities or skills", async ({ page }) => {
+      const bodies = await mockEditableAgent(
+        page,
+        makeAgent("alpha", { ...EDITABLE, capabilities: { streaming: true } }),
+      );
+
+      await openEdit(page);
+      await page.getByPlaceholder("https://agents.example.com/a2a").fill("https://new.example.com");
+      await save(page).click();
+
+      await expect(toast(page, /Saved/)).toBeVisible();
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0]).toEqual({ endpoint_url: "https://new.example.com" });
+    });
+
+    test("sends nothing when no field was touched", async ({ page }) => {
+      const bodies = await mockEditableAgent(page);
+
+      await openEdit(page);
+      await save(page).click();
+
+      await expect(nameField(page)).toBeHidden();
+      await expect(page.getByText("objekts router", { exact: true })).toBeVisible();
+      expect(bodies).toHaveLength(0);
+    });
+
+    test("returns to the list on Cancel without saving", async ({ page }) => {
+      const bodies = await mockEditableAgent(page);
+
+      await openEdit(page);
+      await nameField(page).fill("something else");
+      await page.getByRole("button", { name: "Cancel" }).click();
+
+      await expect(page.getByText("objekts router", { exact: true })).toBeVisible();
+      await expect(nameField(page)).toBeHidden();
+      expect(bodies).toHaveLength(0);
+    });
+
+    test("needs a name and a valid endpoint before saving", async ({ page }) => {
+      const bodies = await mockEditableAgent(page);
+
+      await openEdit(page);
+      await nameField(page).fill("");
+      await page.getByPlaceholder("https://agents.example.com/a2a").fill("ftp://nope");
+      await save(page).click();
+
+      await expect(page.getByText("Enter a name for the agent.")).toBeVisible();
+      await expect(page.getByText("Enter a valid http or https endpoint URL.")).toBeVisible();
+      expect(bodies).toHaveLength(0);
+    });
+
+    test("shows a name conflict on the name field and keeps the form", async ({ page }) => {
+      await mockEditableAgent(page, EDITABLE, (route) =>
+        json(route, { detail: "Public A2A Agent already exists with name: taken" }, 409),
+      );
+
+      await openEdit(page);
+      await nameField(page).fill("taken");
+      await save(page).click();
+
+      await expect(
+        page.getByText("Public A2A Agent already exists with name: taken"),
+      ).toBeVisible();
+      await expect(nameField(page)).toHaveValue("taken");
+    });
+
+    test("reports any other failure and keeps the form", async ({ page }) => {
+      await mockEditableAgent(page, EDITABLE, (route) =>
+        json(route, { detail: "Only the owner can update this agent" }, 403),
+      );
+
+      await openEdit(page);
+      await nameField(page).fill("renamed");
+      await save(page).click();
+
+      await expect(page.getByText("Only the owner can update this agent")).toBeVisible();
+      await expect(nameField(page)).toHaveValue("renamed");
+    });
+
+    test.describe("credentials", () => {
+      const WITH_BEARER = makeAgent("alpha", {
+        ...EDITABLE,
+        authType: "bearer",
+        authToken: "super-secret-token", // pragma: allowlist secret
+      });
+
+      test("names the type in use, never shows the credential, and keeps it by default", async ({
+        page,
+      }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+
+        await expect(
+          page.getByText("Uses Bearer token. The stored credential is not shown."),
+        ).toBeVisible();
+        await expect(page.getByText("Authentication type", { exact: true })).toBeVisible();
+        await expect(page.locator("body")).not.toContainText("super-secret-token");
+
+        await nameField(page).fill("renamed");
+        await save(page).click();
+
+        await expect(toast(page, /Saved renamed/)).toBeVisible();
+        expect(bodies).toHaveLength(1);
+        expect(Object.keys(bodies[0])).toEqual(["name"]);
+      });
+
+      test("replaces the credential with custom headers, sent with the auth type", async ({
+        page,
+      }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+        await authTab(page, "authheaders").click();
+        await page.getByPlaceholder("e.g. X-API-Key...").fill("X-API-Key");
+        await page.getByPlaceholder("Add header value...").fill("new-key-value");
+        await save(page).click();
+
+        await expect(toast(page, /Saved/)).toBeVisible();
+        expect(bodies).toEqual([
+          {
+            auth_type: "authheaders",
+            auth_headers: [{ key: "X-API-Key", value: "new-key-value" }],
+          },
+        ]);
+      });
+
+      test("replaces the credential with a bearer token", async ({ page }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+        await authTab(page, "bearer").click();
+        await page.getByPlaceholder("Paste bearer token...").fill("fresh-token");
+        await save(page).click();
+
+        await expect(toast(page, /Saved/)).toBeVisible();
+        expect(bodies).toEqual([{ auth_type: "bearer", auth_token: "fresh-token" }]);
+      });
+
+      test("clears the credential when None is chosen", async ({ page }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+        await authTab(page, "none").click();
+        await save(page).click();
+
+        await expect(toast(page, /Saved/)).toBeVisible();
+        expect(bodies).toEqual([{ auth_type: "none" }]);
+      });
+
+      test("asks for the credential once a type is chosen", async ({ page }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+        await authTab(page, "bearer").click();
+        await save(page).click();
+
+        await expect(page.getByText("Enter the credentials the agent requires.")).toBeVisible();
+        expect(bodies).toHaveLength(0);
+      });
+
+      test("goes back to keeping the credential, dropping what was typed", async ({ page }) => {
+        const bodies = await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+        await authTab(page, "bearer").click();
+        await page.getByPlaceholder("Paste bearer token...").fill("typed-and-dropped");
+        await page.getByRole("button", { name: "Keep the stored credential" }).click();
+        await save(page).click();
+
+        await expect(nameField(page)).toBeHidden();
+        expect(bodies).toHaveLength(0);
+      });
+
+      test("does not offer OAuth as a replacement", async ({ page }) => {
+        await mockEditableAgent(page, WITH_BEARER);
+
+        await openEdit(page);
+        await page.getByRole("button", { name: "Change credentials" }).click();
+
+        await expect(authTab(page, "authheaders")).toBeVisible();
+        await expect(authTab(page, "oauth")).toHaveCount(0);
+      });
+
+      test("says no credential is stored for an agent without one", async ({ page }) => {
+        await mockEditableAgent(page);
+
+        await openEdit(page);
+
+        await expect(page.getByText("No credential is stored.")).toBeVisible();
+      });
+    });
+
+    test("changes the protocol binding and version", async ({ page }) => {
+      const bodies = await mockEditableAgent(
+        page,
+        makeAgent("alpha", { ...EDITABLE, protocolBinding: "jsonrpc" }),
+      );
+
+      await openEdit(page);
+      await expect(page.getByRole("radio", { name: "JSON-RPC" })).toBeChecked();
+      await expect(page.getByRole("radio", { name: "A2A 1.0" })).toBeChecked();
+
+      await page.getByRole("radio", { name: "HTTP+JSON" }).click();
+      await page.getByRole("radio", { name: "A2A 0.3" }).click();
+      await save(page).click();
+
+      await expect(toast(page, /Saved/)).toBeVisible();
+      expect(bodies).toEqual([{ protocol_binding: "http_json", protocol_version: "0.3" }]);
+    });
+  });
+
   test.describe("details panel", () => {
     const DETAILED = makeAgent("alpha", {
       name: "objekts router",
@@ -1011,6 +1350,35 @@ test.describe("Agents page", () => {
       await expect(panel.getByText("Vendor-fit routing")).toBeVisible();
 
       await expect(page.locator("body")).not.toContainText("super-secret-token");
+    });
+
+    test("lists Edit directly above Delete and opens the edit form", async ({ page }) => {
+      await mockDetails(page);
+      await page.route(
+        (url) => url.pathname.endsWith("/a2a/alpha"),
+        (route) => (route.request().method() === "PUT" ? json(route, DETAILED) : route.fallback()),
+      );
+
+      const panel = await openDetails(page);
+      await panel.getByRole("button", { name: "Actions for objekts router" }).click();
+
+      await expect(page.getByRole("menuitem")).toHaveText(["Disable", "Edit", "Delete"]);
+
+      await page.getByRole("menuitem", { name: "Edit" }).click();
+
+      await expect(page.getByRole("heading", { name: "Edit objekts router" })).toBeVisible();
+      await expect(panel).toBeHidden();
+    });
+
+    test("hides Edit in the panel menu without a2a.update", async ({ page, apiMock }) => {
+      await apiMock.mockPermissions({ permissions: ["a2a.read", "a2a.delete", "tools.read"] });
+      await mockDetails(page);
+
+      const panel = await openDetails(page);
+      await panel.getByRole("button", { name: "Actions for objekts router" }).click();
+
+      await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "Edit" })).toBeHidden();
     });
 
     test("does nothing when the card is clicked, and closes with Escape once opened", async ({

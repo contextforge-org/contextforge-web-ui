@@ -3,7 +3,13 @@
  */
 
 import { api } from "./client";
-import type { A2AAgentRead, A2ATestResponse, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
+import type {
+  A2AAgentCreate,
+  A2AAgentRead,
+  A2ATestResponse,
+  BodyCreateA2aAgentV1A2aPost,
+} from "@/generated/types";
+import type { Visibility } from "@/types/server";
 import type { FetchCardResult } from "@/types/agentCard";
 
 /**
@@ -27,6 +33,17 @@ function validateAgentId(id: string): string {
 
   return id;
 }
+
+/**
+ * The body of `PUT /v1/a2a/{id}`. A partial update: a field left out is kept. The
+ * gateway accepts snake_case and camelCase keys, so the create fields are reused, with
+ * `visibility` and `team_id` beside them as the update route takes them in the body.
+ * `capabilities` and `skills` are never sent from the edit form.
+ */
+export type AgentUpdateBody = Partial<A2AAgentCreate> & {
+  visibility?: Visibility;
+  team_id?: string | null;
+};
 
 export const agentsApi = {
   /**
@@ -75,6 +92,14 @@ export const agentsApi = {
   test: (id: string, query?: string, signal?: AbortSignal): Promise<A2ATestResponse> => {
     const body = query?.trim() ? { query } : {};
     return api.post(`/v1/a2a/${validateAgentId(id)}/test`, body, { signal });
+  },
+
+  /**
+   * Edit an agent. Send only the fields that changed. A credential field must travel
+   * with `auth_type`, or the gateway rejects the request.
+   */
+  update: (id: string, body: AgentUpdateBody): Promise<A2AAgentRead> => {
+    return api.put(`/v1/a2a/${validateAgentId(id)}`, body);
   },
 
   /** Remove one plugin binding. */
