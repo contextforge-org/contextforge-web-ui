@@ -32,6 +32,7 @@ function mockPaths(metrics: ReturnType<typeof result>, agents = result(undefined
 const AGGREGATE = {
   totalAgents: 23,
   activeAgents: 16,
+  totalInteractions: 412,
   successRate: 94.2,
   avgResponseTime: 1.28,
 };
@@ -95,6 +96,63 @@ describe("useA2aMetrics", () => {
     const { result: hook } = renderHook(() => useA2aMetrics(0));
 
     expect(hook.current.status).toBe("error");
+  });
+
+  it("counts an enabled but unreachable agent, as the aggregate does", () => {
+    mockPaths(
+      result(undefined, notFound({ detail: "A2A metrics are disabled" })),
+      result([{ enabled: true, reachable: false }, { enabled: true }]),
+    );
+    const { result: hook } = renderHook(() => useA2aMetrics(0));
+
+    expect(hook.current.fallbackCounts).toEqual({ active: 2, total: 2 });
+  });
+
+  it("reports forbidden even when an earlier aggregate is still cached", () => {
+    mockPaths(result(AGGREGATE, { message: "HTTP 403", status: 403 }));
+    const { result: hook } = renderHook(() => useA2aMetrics(0));
+
+    expect(hook.current.status).toBe("forbidden");
+    expect(hook.current.metrics).toBeUndefined();
+  });
+
+  it("reports disabled even when an earlier aggregate is still cached", () => {
+    mockPaths(result(AGGREGATE, notFound({ detail: { error: "a2a_disabled" } })));
+    const { result: hook } = renderHook(() => useA2aMetrics(0));
+
+    expect(hook.current.status).toBe("disabled");
+    expect(hook.current.metrics).toBeUndefined();
+  });
+
+  it("suppresses a cached aggregate once metrics are switched off", () => {
+    mockPaths(
+      result(AGGREGATE, notFound({ detail: "A2A metrics are disabled" })),
+      result([{ enabled: true }]),
+    );
+    const { result: hook } = renderHook(() => useA2aMetrics(0));
+
+    expect(hook.current.metrics).toBeUndefined();
+    expect(hook.current.fallbackCounts).toEqual({ active: 1, total: 1 });
+  });
+
+  it("keeps the last values through a transient failure", () => {
+    mockPaths(result(AGGREGATE, { message: "HTTP 500", status: 500 }));
+    const { result: hook } = renderHook(() => useA2aMetrics(0));
+
+    expect(hook.current.status).toBe("ready");
+    expect(hook.current.metrics).toEqual(AGGREGATE);
+  });
+
+  it("holds the forbidden state while a poll is in flight", () => {
+    // useQuery clears its error at the start of each request.
+    mockPaths(result(undefined, { message: "HTTP 403", status: 403 }));
+    const { result: hook, rerender } = renderHook(() => useA2aMetrics(0));
+    expect(hook.current.status).toBe("forbidden");
+
+    mockPaths(result(undefined, null, true));
+    rerender();
+
+    expect(hook.current.status).toBe("forbidden");
   });
 
   it("stays loading before the first response", () => {

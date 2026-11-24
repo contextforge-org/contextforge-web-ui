@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 
 import { useQuery } from "@/hooks/useQuery";
-import { countActiveTotal, type Activatable } from "@/components/dashboard/systemMetrics";
+import type { Activatable } from "@/components/dashboard/systemMetrics";
 
 const METRICS_PATH = "/v1/a2a/metrics";
 const AGENTS_PATH = "/v1/a2a?limit=0&include_inactive=true";
@@ -20,6 +20,8 @@ export const A2A_METRICS_POLL_INTERVAL_MS = 60_000;
 export interface A2aMetrics {
   totalAgents: number;
   activeAgents: number;
+  /** Zero means no traffic; the rates are then 0, not null. */
+  totalInteractions: number;
   successRate: number;
   /** Seconds. */
   avgResponseTime: number;
@@ -42,6 +44,8 @@ export interface UseA2aMetricsResult {
   lastUpdated: number | null;
 }
 
+type QueryError = { status?: number; body?: unknown } | null;
+
 function isA2aDisabled(body: unknown): boolean {
   if (typeof body !== "object" || body === null) return false;
   const detail = (body as { detail?: unknown }).detail;
@@ -49,14 +53,36 @@ function isA2aDisabled(body: unknown): boolean {
   return (detail as { error?: unknown }).error === "a2a_disabled";
 }
 
+/** Mirrors the aggregate, which counts `enabled IS TRUE` and ignores reachability. */
+function countEnabled(agents: Activatable[] | undefined) {
+  if (!Array.isArray(agents)) return undefined;
+  return { active: agents.filter((agent) => agent.enabled !== false).length, total: agents.length };
+}
+
+/** `useQuery` clears its error while refetching, so hold the last settled one. */
+function useSettledError(error: QueryError, isLoading: boolean): QueryError {
+  const [settled, setSettled] = useState<QueryError>(null);
+  useEffect(() => {
+    if (!isLoading) setSettled(error ?? null);
+  }, [isLoading, error]);
+  return isLoading ? settled : (error ?? null);
+}
+
 export function useA2aMetrics(
   pollIntervalMs: number = A2A_METRICS_POLL_INTERVAL_MS,
 ): UseA2aMetricsResult {
   const query = useQuery<A2aMetrics>(METRICS_PATH);
-  const { data, error, isLoading, refetch } = query;
+  const { data, refetch } = query;
+  const error = useSettledError(query.error, query.isLoading);
 
+  const forbidden = error?.status === 403;
+  const disabled = error?.status === 404 && isA2aDisabled(error.body);
   const metricsOff = error?.status === 404 && !isA2aDisabled(error.body);
+
   const agents = useQuery<Activatable[]>(metricsOff ? AGENTS_PATH : null);
+  const agentsError = useSettledError(agents.error, agents.isLoading);
+  const agentsRefetch = agents.refetch;
+  const fallbackCounts = metricsOff ? countEnabled(agents.data) : undefined;
 
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   useEffect(() => {
@@ -67,9 +93,11 @@ export function useA2aMetrics(
     if (pollIntervalMs <= 0) return;
     const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
-      void refetch().catch(() => {
-        /* surfaced via query.error */
-      });
+      const swallow = () => {
+        /* surfaced via the query's error */
+      };
+      void refetch().catch(swallow);
+      if (metricsOff) void agentsRefetch().catch(swallow);
     };
     const id = setInterval(tick, pollIntervalMs);
     const onVisible = () => {
@@ -80,21 +108,23 @@ export function useA2aMetrics(
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [pollIntervalMs, refetch]);
+  }, [pollIntervalMs, refetch, agentsRefetch, metricsOff]);
 
+  // Forbidden and disabled outrank a cached aggregate; a generic error does
+  // not, and keeps the last-known values until the next poll.
   const status: A2aStatus = (() => {
+    if (forbidden) return "forbidden";
+    if (disabled) return "disabled";
+    if (metricsOff) return fallbackCounts ? "ready" : agentsError ? "error" : "loading";
     if (data) return "ready";
-    if (error?.status === 403) return "forbidden";
-    if (error?.status === 404 && isA2aDisabled(error.body)) return "disabled";
-    if (metricsOff) return agents.data ? "ready" : agents.error ? "error" : "loading";
-    if (isLoading) return "loading";
-    return error ? "error" : "loading";
+    if (error) return "error";
+    return "loading";
   })();
 
   return {
     status,
-    metrics: data,
-    fallbackCounts: metricsOff && agents.data ? countActiveTotal(agents.data) : undefined,
+    metrics: forbidden || disabled || metricsOff ? undefined : data,
+    fallbackCounts,
     lastUpdated,
   };
 }

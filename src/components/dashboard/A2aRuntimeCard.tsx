@@ -78,7 +78,10 @@ export function A2aRuntimeCard({ health: sharedHealth }: { health?: SystemHealth
       : null;
   })();
 
-  const successRate = num(metrics?.successRate);
+  // No interactions means the aggregate reports 0, not null, for both rates.
+  const measured = (num(metrics?.totalInteractions) ?? 0) > 0;
+  const successRate = measured ? num(metrics?.successRate) : null;
+  const avgResponseTime = measured ? num(metrics?.avgResponseTime) : null;
   const agentsValue = counts
     ? intl.formatMessage(
         { id: "dashboard.home.system.activeOfTotal" },
@@ -109,7 +112,7 @@ export function A2aRuntimeCard({ health: sharedHealth }: { health?: SystemHealth
         />
         <StatBlock
           label={intl.formatMessage({ id: "dashboard.home.a2a.responseTime" })}
-          value={formatResponseTime(secondsToMs(num(metrics?.avgResponseTime)))}
+          value={formatResponseTime(secondsToMs(avgResponseTime))}
           loading={loading}
         />
       </div>

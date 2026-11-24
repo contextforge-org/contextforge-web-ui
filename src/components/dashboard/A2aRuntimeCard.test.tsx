@@ -17,6 +17,7 @@ function state(overrides: Partial<UseA2aMetricsResult> = {}): UseA2aMetricsResul
     metrics: {
       totalAgents: 23,
       activeAgents: 16,
+      totalInteractions: 412,
       successRate: 94.231,
       avgResponseTime: 1.284,
     },
@@ -78,11 +79,38 @@ describe("A2aRuntimeCard", () => {
 
   it("shows the empty state when no agents are registered", () => {
     mockUseA2aMetrics.mockReturnValue(
-      state({ metrics: { totalAgents: 0, activeAgents: 0, successRate: 0, avgResponseTime: 0 } }),
+      state({
+        metrics: {
+          totalAgents: 0,
+          activeAgents: 0,
+          totalInteractions: 0,
+          successRate: 0,
+          avgResponseTime: 0,
+        },
+      }),
     );
     renderWithProviders(<A2aRuntimeCard />);
 
     expect(screen.getByText("No agents have been added yet.")).toBeInTheDocument();
+  });
+
+  it("dashes the rates when agents exist but have no interactions", () => {
+    mockUseA2aMetrics.mockReturnValue(
+      state({
+        metrics: {
+          totalAgents: 4,
+          activeAgents: 4,
+          totalInteractions: 0,
+          successRate: 0,
+          avgResponseTime: 0,
+        },
+      }),
+    );
+    renderWithProviders(<A2aRuntimeCard />);
+
+    expect(screen.getByText("4 of 4 active")).toBeInTheDocument();
+    expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(2);
   });
 
   it("surfaces a load failure", () => {
