@@ -181,7 +181,6 @@ export function SourceSelection({
   );
   const hasSelectedSources = selectedMCPServerIds.size > 0 || selectedAgentIds.size > 0;
   const sourcesLoading = mcpServersLoading || agentsLoading;
-  const sourcesError = mcpServersError ?? agentsError;
   const hasAvailableSources = availableMCPServers.length > 0 || availableAgents.length > 0;
   const panelId = "connected-sources-panel";
 
@@ -412,22 +411,31 @@ export function SourceSelection({
                   </div>
                 )}
 
-                {!sourcesLoading && sourcesError && (
+                {!sourcesLoading && mcpServersError && (
                   <p
                     role="alert"
                     className="mt-5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                   >
-                    {sourcesError.message}
+                    {mcpServersError.message}
                   </p>
                 )}
 
-                {!sourcesLoading && !sourcesError && !hasAvailableSources && (
+                {!agentsLoading && agentsError && (
+                  <p role="status" className="mt-5 text-sm text-muted-foreground">
+                    {intl.formatMessage(
+                      { id: "gateways.source.agentsLoadFailed" },
+                      { detail: agentsError.message },
+                    )}
+                  </p>
+                )}
+
+                {!sourcesLoading && !mcpServersError && !hasAvailableSources && (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     {intl.formatMessage({ id: "gateways.source.emptySources" })}
                   </p>
                 )}
 
-                {!sourcesLoading && !sourcesError && hasAvailableSources && (
+                {!sourcesLoading && hasAvailableSources && (
                   <div className="mt-5 overflow-hidden">
                     <div className="divide-y divide-border/60">
                       {availableMCPServers.map((server) => {

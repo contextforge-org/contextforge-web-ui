@@ -24,6 +24,7 @@
   "gateways.source.loadingSources": "Cargando fuentes...",
   "gateways.source.emptySources": "No se encontraron servidores MCP ni agentes.",
   "gateways.source.skillCount": "{count, plural, one {# skill} other {# skills}}",
+  "gateways.source.agentsLoadFailed": "No se pudieron cargar los agentes: {detail}",
   "gateways.source.selectSource": "Seleccionar {name}",
   "gateways.source.skipForNow": "Omitir por ahora",
   "gateways.source.submit": "Enviar",

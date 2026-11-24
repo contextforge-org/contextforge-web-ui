@@ -492,9 +492,9 @@ test.describe("Virtual Servers page", () => {
     await expect(card.getByTestId("status-indicator")).toHaveClass(/bg-tool-status-active/);
     await expect(card.getByLabel("Enabled")).toBeVisible();
 
-    await expect(card.getByTestId("tool-count")).toHaveText("2");
-    await expect(card.getByTestId("resource-count")).toHaveText("1");
-    await expect(card.getByTestId("prompt-count")).toHaveText("1");
+    await expect(card.getByTestId("tool-count")).toHaveText("2 tools");
+    await expect(card.getByTestId("resource-count")).toHaveText("1 resource");
+    await expect(card.getByTestId("prompt-count")).toHaveText("1 prompt");
 
     await expect(card.getByText("public")).toBeVisible();
     await expect(card.getByText("enabled")).toBeVisible();

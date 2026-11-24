@@ -619,4 +619,36 @@ describe("SourceSelection", () => {
     expect(onSelectSources).toHaveBeenLastCalledWith([], {}, ["a-1"]);
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
+
+  it("keeps MCP servers selectable when the agent list fails to load", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("*/v1/mcp-servers", () =>
+        HttpResponse.json({
+          gateways: [
+            { id: "s-1", name: "alpha", enabled: true, reachable: true, visibility: "public" },
+          ],
+        }),
+      ),
+      http.get("*/v1/a2a", () => HttpResponse.json({ detail: "boom" }, { status: 500 })),
+      http.get("*/oauth/status", () => HttpResponse.json({})),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      }),
+    );
+
+    expect(await screen.findByText("alpha")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText(/Could not load agents/)).toBeInTheDocument();
+  });
 });
