@@ -20,7 +20,7 @@ interface VirtualServersCardProps {
   counts: ActiveTotal | null;
   /** `failureRate` in [0, 1] from the servers metrics aggregate, or null. */
   failureRate: number | null;
-  /** `avgResponseTime` from the servers metrics aggregate, or null. */
+  /** `avgResponseTime` from the servers metrics aggregate in ms, or null. */
   avgResponseTime: number | null;
   loading?: boolean;
 }

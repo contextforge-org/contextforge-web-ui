@@ -10,8 +10,9 @@
  * - Counts come from list endpoints with `limit=0` (all rows), counted by length;
  *   there is no cheap COUNT endpoint.
  *
- * Response times are rendered with the same convention as the legacy admin UI
- * (`Number(value).toFixed(3) + "ms"`). Success rate is derived from `failureRate`.
+ * `/metrics` reports response times in seconds; `formatResponseTime` renders
+ * milliseconds, so `secondsToMs` converts at that boundary. Success rate is
+ * derived from `failureRate`.
  */
 
 /** Per-entity aggregate as returned by `GET /metrics` (camelCase wire format). */
@@ -44,7 +45,7 @@ export interface MetricsResponse {
   a2aAgents?: A2AAggregateMetrics | null;
 }
 
-/** The four scalars rendered by the top System card. */
+/** The four scalars rendered by the top System card. Times in milliseconds. */
 export interface SystemStats {
   executions: number;
   minResponseTime: number | null;
@@ -72,12 +73,16 @@ export function aggregateSystemStats(metrics: MetricsResponse | undefined): Syst
   let min: number | null = null;
   let max: number | null = null;
 
+  // Seconds in, milliseconds out.
   const accumulate = (
     total: number,
-    avg: number | null | undefined,
-    lo: number | null | undefined,
-    hi: number | null | undefined,
+    avgSeconds: number | null | undefined,
+    loSeconds: number | null | undefined,
+    hiSeconds: number | null | undefined,
   ) => {
+    const avg = secondsToMs(avgSeconds);
+    const lo = secondsToMs(loSeconds);
+    const hi = secondsToMs(hiSeconds);
     executions += total;
     if (avg != null && total > 0) {
       weightedAvgSum += avg * total;
@@ -142,6 +147,12 @@ export function countActiveTotal(items: Activatable[] | undefined): ActiveTotal 
 
 /** Placeholder shown whenever a value is unavailable. */
 export const UNAVAILABLE = "—";
+
+/** Convert a `/metrics` response time from seconds to milliseconds. */
+export function secondsToMs(value: number | null | undefined): number | null {
+  if (value == null || Number.isNaN(value)) return null;
+  return value * 1000;
+}
 
 /**
  * Format a response time in milliseconds, holding roughly three significant
