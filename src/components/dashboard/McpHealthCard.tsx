@@ -19,23 +19,16 @@
  * swallow any 403 locally (the chips just disappear; the card stays healthy).
  */
 
-import { Database, Server } from "lucide-react";
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
 
 import { useAuth } from "@/auth/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  isRedisConfigured,
-  useSystemHealth,
-  type SystemHealthResult,
-  type VersionInfo,
-} from "@/hooks/useSystemHealth";
+import { useSystemHealth, type SystemHealthResult } from "@/hooks/useSystemHealth";
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useElementWidth } from "@/hooks/useElementWidth";
-import { cn } from "@/lib/utils";
 import { formatLastSeen } from "@/utils/format";
+import { HealthFooterChips, HealthFooterChipsSkeleton } from "./HealthFooterChips";
 import {
   computeRoster,
   headerTone,
@@ -59,56 +52,6 @@ const SEGMENT_MESSAGE_ID: Record<SummarySegment["kind"], string> = {
   reachable: "dashboard.home.mcp.summary.reachable",
   pending: "dashboard.home.mcp.summary.pending",
 };
-
-/**
- * Postgres/Redis dependency chips from the admin-only `/version` diagnostics.
- * Icons stay muted in the healthy/not-configured case (matching the design) and
- * only turn red when a configured dependency is unreachable.
- */
-function FooterChips({ data }: { data: VersionInfo }) {
-  const intl = useIntl();
-  const redisConfigured = isRedisConfigured(data);
-
-  return (
-    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
-        <Database
-          className={cn("size-3.5 shrink-0", !data.database.reachable && "text-destructive")}
-          aria-hidden
-        />
-        {intl.formatMessage({ id: "dashboard.home.mcp.postgres" })}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <Server
-          className={cn(
-            "size-3.5 shrink-0",
-            redisConfigured && !data.redis.reachable && "text-destructive",
-          )}
-          aria-hidden
-        />
-        {intl.formatMessage({ id: "dashboard.home.mcp.redis" })}
-        {!redisConfigured && (
-          <span> ({intl.formatMessage({ id: "dashboard.home.mcp.notConfigured" })})</span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-/**
- * Placeholder for the footer chips while `/version` is in flight. Reserves the
- * chips' height so the card does not grow when the real chips arrive — the
- * footer resolves after the body (separate request, gated behind the async
- * permission load), so without this the chips would pop in.
- */
-function FooterChipsSkeleton() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-      <Skeleton className="h-4 w-28" />
-      <Skeleton className="h-4 w-20" />
-    </div>
-  );
-}
 
 // Below this card width the single-line table can't fit name + counts +
 // transport + last-seen without clipping, so the roster switches to the stacked
@@ -293,8 +236,8 @@ export function McpHealthCard({ health: sharedHealth }: { health?: SystemHealthR
           )}
         </div>
 
-        {canViewSystem && health && <FooterChips data={health} />}
-        {showFooterSkeleton && <FooterChipsSkeleton />}
+        {canViewSystem && health && <HealthFooterChips data={health} />}
+        {showFooterSkeleton && <HealthFooterChipsSkeleton />}
       </CardContent>
     </Card>
   );
