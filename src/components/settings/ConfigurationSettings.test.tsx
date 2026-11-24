@@ -127,6 +127,21 @@ describe("ConfigurationSettings", () => {
     expect(exportBtn).toBeDisabled();
   });
 
+  it("hints to select entities while none are checked", () => {
+    const { getByRole } = renderSettings();
+    const exportBtn = getByRole("button", { name: "Export configuration" });
+    const hint = "Select entities to include in export.";
+
+    expect(exportBtn).toHaveAccessibleDescription("");
+    fireEvent.click(getByRole("checkbox", { name: "All" }));
+    expect(exportBtn).toBeDisabled();
+    expect(exportBtn).toHaveAccessibleDescription(hint);
+    expect(getByRole("status")).toHaveTextContent(hint);
+    fireEvent.click(getByRole("checkbox", { name: "Tools" }));
+    expect(exportBtn).toBeEnabled();
+    expect(exportBtn).toHaveAccessibleDescription("");
+  });
+
   it("hides Roots from non-admins", () => {
     const { queryByRole } = renderSettings();
     expect(queryByRole("checkbox", { name: "Roots" })).toBeNull();
