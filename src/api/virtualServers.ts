@@ -30,6 +30,7 @@ export interface UpdateVirtualServerPayload {
   associated_tools?: string[];
   associated_resources?: string[];
   associated_prompts?: string[];
+  associated_a2a_agents?: string[];
   team_id?: string;
   visibility: CreateServerDetails["visibility"];
   oauth_enabled: boolean;
@@ -49,7 +50,7 @@ export function buildCreateVirtualServerPayload(
       associated_tools: details.associatedTools ?? [],
       associated_resources: details.associatedResources ?? [],
       associated_prompts: details.associatedPrompts ?? [],
-      associated_a2a_agents: [],
+      associated_a2a_agents: details.associatedA2aAgents ?? [],
       team_id: teamId,
       visibility: details.visibility,
       oauth_enabled: details.oauthEnabled,
@@ -98,6 +99,9 @@ export function buildUpdateVirtualServerPayload(
   if (details.associatedPrompts !== undefined) {
     payload.associated_prompts = details.associatedPrompts;
   }
+  if (details.associatedA2aAgents !== undefined) {
+    payload.associated_a2a_agents = details.associatedA2aAgents;
+  }
   if (details.visibility === "team" && details.teamId) {
     payload.team_id = details.teamId;
   }
@@ -131,6 +135,7 @@ const ASSOCIATION_FIELDS = {
   tools: "associated_tools",
   resources: "associated_resources",
   prompts: "associated_prompts",
+  agents: "associated_a2a_agents",
 } as const;
 
 /**

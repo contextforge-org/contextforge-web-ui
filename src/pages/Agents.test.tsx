@@ -61,6 +61,17 @@ describe("Agents", () => {
     mockHasPermission.mockImplementation((perm) => perm !== "a2a.create");
   });
 
+  it("opens the Connect agent form when openForm=true is in the URL", async () => {
+    window.history.pushState({}, "", "/app/agents?openForm=true");
+    try {
+      renderWithProviders(<Agents />);
+
+      expect(await screen.findByRole("heading", { name: "Connect agent" })).toBeInTheDocument();
+    } finally {
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("renders loading state initially", async () => {
     let resolveRequest: () => void;
     const requestGate = new Promise<void>((resolve) => {

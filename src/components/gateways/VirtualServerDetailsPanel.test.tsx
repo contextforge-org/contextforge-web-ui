@@ -185,6 +185,49 @@ describe("VirtualServerDetailsPanel components list", () => {
     );
   }
 
+  it("lists the server's associated agents under the Agents filter", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/v1/a2a", () =>
+        HttpResponse.json([
+          {
+            id: "agent-1",
+            name: "router agent",
+            endpointUrl: "https://router.example.com",
+            enabled: true,
+            reachable: true,
+          },
+          {
+            id: "agent-other",
+            name: "unrelated agent",
+            endpointUrl: "https://other.example.com",
+            enabled: true,
+            reachable: true,
+          },
+        ]),
+      ),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+
+    expect(await screen.findByText("router agent")).toBeInTheDocument();
+    expect(screen.getByText("https://router.example.com")).toBeInTheDocument();
+    expect(screen.queryByText("unrelated agent")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Tools" }));
+    expect(screen.queryByText("router agent")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+    expect(screen.getByText("router agent")).toBeInTheDocument();
+  });
+
   it("renders titled and untitled component rows with badges", async () => {
     const user = userEvent.setup();
     renderWithComponents();
@@ -354,7 +397,8 @@ describe("VirtualServerDetailsPanel components list", () => {
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
 
-    // ArrowLeft from the first tab wraps around to the last.
+    // ArrowLeft from the first tab wraps around to the last; with no agents that is Prompts.
+    expect(screen.queryByRole("tab", { name: "Agents" })).not.toBeInTheDocument();
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "Prompts" })).toHaveAttribute("aria-selected", "true");
 

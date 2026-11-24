@@ -205,7 +205,10 @@ export function Agents() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  // Open the connect form directly when arriving from a "Connect" source card.
+  const [isConnecting, setIsConnecting] = useState(
+    () => new URLSearchParams(window.location.search).get("openForm") === "true",
+  );
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const {

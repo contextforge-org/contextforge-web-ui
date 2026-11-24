@@ -131,7 +131,7 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
@@ -176,11 +176,11 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
-    expect(await screen.findByText("No MCP servers found.")).toBeInTheDocument();
+    expect(await screen.findByText("No MCP servers or agents found.")).toBeInTheDocument();
   });
 
   it("shows an alert when MCP server loading fails", async () => {
@@ -203,7 +203,7 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
@@ -234,11 +234,11 @@ describe("SourceSelection", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
-    expect(await screen.findByText("No MCP servers found.")).toBeInTheDocument();
+    expect(await screen.findByText("No MCP servers or agents found.")).toBeInTheDocument();
     expect(gatewaysRequest).not.toHaveBeenCalled();
     expect(oauthStatusRequest).not.toHaveBeenCalled();
   });
@@ -289,7 +289,7 @@ describe("SourceSelection", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
@@ -404,7 +404,7 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
 
@@ -457,7 +457,7 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     await screen.findByText("full-src");
@@ -503,13 +503,13 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     await screen.findByText("alpha");
     await user.click(screen.getByRole("checkbox", { name: "Select alpha" }));
 
-    expect(onSelectSources).toHaveBeenCalledWith(["s-1"], { "s-1": "alpha" });
+    expect(onSelectSources).toHaveBeenCalledWith(["s-1"], { "s-1": "alpha" }, []);
   });
 
   it("keeps the name of a selected source that has dropped out of the list", async () => {
@@ -537,7 +537,7 @@ describe("SourceSelection", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     await screen.findByText("beta");
@@ -556,9 +556,67 @@ describe("SourceSelection", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Select alpha" }));
 
-    expect(onSelectSources).toHaveBeenLastCalledWith(["s-2", "s-1"], {
-      "s-1": "alpha",
-      "s-2": "beta",
-    });
+    expect(onSelectSources).toHaveBeenLastCalledWith(
+      ["s-2", "s-1"],
+      { "s-1": "alpha", "s-2": "beta" },
+      [],
+    );
+  });
+
+  it("lists unassociated agents beside MCP servers and reports the selected agent ids", async () => {
+    const user = userEvent.setup();
+    const onSelectSources = vi.fn();
+    server.use(
+      http.get("*/v1/mcp-servers", () => HttpResponse.json({ gateways: [] })),
+      http.get("*/v1/a2a", () =>
+        HttpResponse.json([
+          {
+            id: "a-1",
+            name: "router agent",
+            endpointUrl: "https://router.example.com",
+            enabled: true,
+            reachable: true,
+            visibility: "public",
+            skills: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+            toolId: "tool-1",
+          },
+          {
+            id: "a-2",
+            name: "already added",
+            endpointUrl: "https://added.example.com",
+            enabled: true,
+            reachable: true,
+            visibility: "public",
+          },
+        ]),
+      ),
+    );
+
+    renderWithProviders(
+      <SourceSelection
+        actionCards={actionCards}
+        associatedA2aAgents={["a-2"]}
+        onSelectSources={onSelectSources}
+        createServerActions={{ onBack: vi.fn(), onSkip: vi.fn() }}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      }),
+    );
+
+    expect(await screen.findByText("router agent")).toBeInTheDocument();
+    expect(screen.getByText("3 skills")).toBeInTheDocument();
+    // Only an agent that registration derived a tool for is counted as exposing one.
+    expect(screen.getByText("1 tool")).toBeInTheDocument();
+    expect(screen.queryByText("already added")).not.toBeInTheDocument();
+    expect(screen.queryByText("No MCP servers or agents found.")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Select router agent" }));
+
+    expect(onSelectSources).toHaveBeenLastCalledWith([], {}, ["a-1"]);
+    expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
   });
 });

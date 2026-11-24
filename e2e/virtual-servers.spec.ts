@@ -376,10 +376,12 @@ test.describe("Virtual Servers page", () => {
     await page.getByLabel("Name").fill("No source server");
     await page.getByRole("button", { name: "Continue" }).click();
     await page
-      .getByRole("button", { name: "Add tools, resources, and prompts from connected sources" })
+      .getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      })
       .click();
 
-    await expect(page.getByText("No MCP servers found.")).toBeVisible();
+    await expect(page.getByText("No MCP servers or agents found.")).toBeVisible();
 
     await page.unroute("**/v1/mcp-servers?*");
     await page.route("**/v1/mcp-servers?*", async (route) => {
@@ -394,7 +396,9 @@ test.describe("Virtual Servers page", () => {
     await page.getByLabel("Name").fill("Failed source server");
     await page.getByRole("button", { name: "Continue" }).click();
     await page
-      .getByRole("button", { name: "Add tools, resources, and prompts from connected sources" })
+      .getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      })
       .click();
 
     await expect(page.getByRole("alert")).toHaveText("HTTP 500");
@@ -436,7 +440,9 @@ test.describe("Virtual Servers page", () => {
     await page.getByLabel("Name").fill("Broken component server");
     await page.getByRole("button", { name: "Continue" }).click();
     await page
-      .getByRole("button", { name: "Add tools, resources, and prompts from connected sources" })
+      .getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      })
       .click();
     await page.getByRole("checkbox", { name: "Select github-mcp" }).check();
     await page.getByRole("button", { name: "Submit" }).click();
@@ -1840,7 +1846,9 @@ test.describe("Virtual Servers page", () => {
     await page.getByLabel("Name").fill("MCP backed server");
     await page.getByRole("button", { name: "Continue" }).click();
     await page
-      .getByRole("button", { name: "Add tools, resources, and prompts from connected sources" })
+      .getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      })
       .click();
     await page.getByRole("checkbox", { name: "Select github-mcp" }).check();
     await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();
@@ -1928,7 +1936,9 @@ test.describe("Virtual Servers page", () => {
     await page.getByLabel("Name").fill("Deduped server");
     await page.getByRole("button", { name: "Continue" }).click();
     await page
-      .getByRole("button", { name: "Add tools, resources, and prompts from connected sources" })
+      .getByRole("button", {
+        name: "Add tools, resources, prompts, and agents from connected sources",
+      })
       .click();
     await page.getByRole("checkbox", { name: "Select github-mcp" }).check();
     await page.getByRole("checkbox", { name: "Select slack-mcp" }).check();

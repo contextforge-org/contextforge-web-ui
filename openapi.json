@@ -40818,6 +40818,18 @@
             ],
             "title": "Uaidnativeid",
             "description": "Native endpoint from UAID for cross-gateway routing"
+          },
+          "toolId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolid",
+            "description": "ID of the tool derived from this agent, or None when registration did not create one"
           }
         },
         "type": "object",

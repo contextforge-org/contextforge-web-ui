@@ -151,8 +151,11 @@ describe("Gateways", () => {
     expect(mockUseQuery).toHaveBeenCalledWith(
       "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true",
     );
-    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query.
-    const listCalls = mockUseQuery.mock.calls.filter(([path]) => path !== "/teams");
+    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query, and the
+    // page lists agents (disabled until a server has one) for the card skill counts.
+    const listCalls = mockUseQuery.mock.calls.filter(
+      ([path]) => path !== "/teams" && !String(path).startsWith("/v1/a2a"),
+    );
     expect(listCalls).toHaveLength(1);
   });
 
@@ -217,7 +220,7 @@ describe("Gateways", () => {
     expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     ).not.toBeInTheDocument();
   });
@@ -275,7 +278,7 @@ describe("Gateways", () => {
       screen.getByRole("button", { name: /Create server Make external sources/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("GH repo tasks")).toBeInTheDocument();
-    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(screen.getByText("6 tools")).toBeInTheDocument();
     expect(screen.getByText("team")).toBeInTheDocument();
     expect(screen.queryByText("MCP server")).not.toBeInTheDocument();
 

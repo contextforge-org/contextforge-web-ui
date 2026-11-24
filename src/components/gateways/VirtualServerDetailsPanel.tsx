@@ -3,6 +3,7 @@ import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 import {
   Activity,
+  Bot,
   Box,
   EllipsisVertical,
   Loader2,
@@ -37,6 +38,7 @@ import { TruncatedMiddleText, getTruncatedMiddle } from "@/components/ui/truncat
 import { ToolTryItTab } from "@/components/tools/ToolTryItTab";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { cn } from "@/lib/utils";
+import type { A2AAgentRead } from "@/generated/types";
 import type { MCPServer, VirtualServer } from "@/types/server";
 import { normalizeVirtualServerTool, type VirtualServerTool } from "./normalizeVirtualServerTool";
 import type { ComponentFilter } from "@/components/gateways/types";
@@ -53,6 +55,7 @@ const COMPONENT_FILTER_OPTIONS: Array<{ value: ComponentFilter; labelId: string 
   { value: "tools", labelId: "gateways.details.filter.tools" },
   { value: "resources", labelId: "gateways.details.filter.resources" },
   { value: "prompts", labelId: "gateways.details.filter.prompts" },
+  { value: "agents", labelId: "gateways.details.filter.agents" },
 ];
 
 type TopTab = "components" | "test";
@@ -93,10 +96,20 @@ interface Prompt {
   enabled?: boolean;
 }
 
+// Narrowed to the fields the drawer renders; the full agent record carries credentials.
+interface ComponentAgent {
+  id: string;
+  name: string;
+  title?: string;
+  endpointUrl: string;
+  enabled?: boolean;
+}
+
 type ComponentWithType =
   | (ComponentTool & { type: "tools" })
   | (Resource & { type: "resources" })
-  | (Prompt & { type: "prompts" });
+  | (Prompt & { type: "prompts" })
+  | (ComponentAgent & { type: "agents" });
 
 interface MCPServersResponse {
   gateways?: MCPServer[];
@@ -125,14 +138,17 @@ function DetailRow({
 function getComponentIcon(type: Exclude<ComponentFilter, "all">) {
   if (type === "tools") return <Wrench className="size-3.5" />;
   if (type === "resources") return <Box className="size-3.5" />;
+  if (type === "agents") return <Bot className="size-3.5" />;
   return <MessageSquareCode className="size-3.5" />;
 }
 
+// Agents are not owned by a gateway, so they never match a source filter.
 function getComponentGatewayId(component: ComponentWithType) {
-  return component.gatewayId ?? component.gateway_id;
+  return component.type === "agents" ? undefined : (component.gatewayId ?? component.gateway_id);
 }
 
 function getComponentIdentifier(component: ComponentWithType) {
+  if (component.type === "agents") return component.endpointUrl;
   return component.type === "resources" ? component.uri : component.originalName;
 }
 
@@ -210,20 +226,27 @@ export function VirtualServerDetailsPanel({
   );
   const VisibilityIcon = getVisibilityIcon(server?.visibility);
 
+  // The Agents tab only appears for servers that have agents.
+  const hasAgents = (server?.associatedA2aAgents?.length ?? 0) > 0;
+  const filterOptions = useMemo(
+    () => COMPONENT_FILTER_OPTIONS.filter((option) => option.value !== "agents" || hasAgents),
+    [hasAgents],
+  );
+
   const handleTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLButtonElement>, currentValue: ComponentFilter) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       e.preventDefault();
-      const currentIndex = COMPONENT_FILTER_OPTIONS.findIndex((t) => t.value === currentValue);
+      const currentIndex = filterOptions.findIndex((t) => t.value === currentValue);
       const nextIndex =
         e.key === "ArrowRight"
-          ? (currentIndex + 1) % COMPONENT_FILTER_OPTIONS.length
-          : (currentIndex - 1 + COMPONENT_FILTER_OPTIONS.length) % COMPONENT_FILTER_OPTIONS.length;
-      const nextTab = COMPONENT_FILTER_OPTIONS[nextIndex];
+          ? (currentIndex + 1) % filterOptions.length
+          : (currentIndex - 1 + filterOptions.length) % filterOptions.length;
+      const nextTab = filterOptions[nextIndex];
       setComponentFilter(nextTab.value);
       document.getElementById(`tab-${nextTab.value}`)?.focus();
     },
-    [],
+    [filterOptions],
   );
 
   // Build API paths - only when server exists
@@ -274,6 +297,33 @@ export function VirtualServerDetailsPanel({
     enabled: fetchEnabled,
   });
 
+  // There is no per-server agents endpoint, so list the visible agents and keep the associated ones.
+  const associatedAgentIds = server?.associatedA2aAgents;
+  const {
+    data: agentsData,
+    isLoading: agentsLoading,
+    refetch: refetchAgents,
+  } = useQuery<A2AAgentRead[]>("/v1/a2a?limit=0&include_inactive=true", {
+    enabled: fetchEnabled && (associatedAgentIds?.length ?? 0) > 0,
+  });
+
+  const fetchedAgents = useMemo((): ComponentWithType[] => {
+    const associated = new Set(associatedAgentIds ?? []);
+    return (Array.isArray(agentsData) ? agentsData : [])
+      .filter(
+        (agent): agent is NonNullable<A2AAgentRead> & { id: string } =>
+          agent != null && typeof agent.id === "string" && associated.has(agent.id),
+      )
+      .map((agent): ComponentWithType => ({
+        id: agent.id,
+        name: agent.name,
+        title: agent.name,
+        endpointUrl: agent.endpointUrl,
+        enabled: agent.enabled,
+        type: "agents",
+      }));
+  }, [agentsData, associatedAgentIds]);
+
   const fetchedTools = useMemo(() => getPanelTools(toolsData), [toolsData]);
   const fetchedToolsById = useMemo(
     () => new Map(fetchedTools.map((tool) => [tool.id, tool])),
@@ -288,8 +338,9 @@ export function VirtualServerDetailsPanel({
       ...fetchedTools.map((t): ComponentWithType => ({ ...t, type: "tools" as const })),
       ...resources.map((r): ComponentWithType => ({ ...r, type: "resources" as const })),
       ...prompts.map((p): ComponentWithType => ({ ...p, type: "prompts" as const })),
+      ...fetchedAgents,
     ];
-  }, [fetchedTools, resourcesData, promptsData]);
+  }, [fetchedTools, resourcesData, promptsData, fetchedAgents]);
 
   const fallbackComponents = useMemo((): ComponentWithType[] => {
     if (!server) return [];
@@ -302,6 +353,10 @@ export function VirtualServerDetailsPanel({
           uri: item.name,
           type: "resources",
         };
+      }
+
+      if (item.type === "agents") {
+        return { id: item.id, name: item.name, endpointUrl: item.name, type: "agents" };
       }
 
       return {
@@ -323,9 +378,12 @@ export function VirtualServerDetailsPanel({
     setIsRemoving(true);
     try {
       await onRemoveComponent(pendingRemoval.type, pendingRemoval.id);
-      const refetch = { tools: refetchTools, resources: refetchResources, prompts: refetchPrompts }[
-        pendingRemoval.type
-      ];
+      const refetch = {
+        tools: refetchTools,
+        resources: refetchResources,
+        prompts: refetchPrompts,
+        agents: refetchAgents,
+      }[pendingRemoval.type];
       setPendingRemoval(null);
       await refetch().catch(() => undefined);
     } catch {
@@ -333,7 +391,14 @@ export function VirtualServerDetailsPanel({
     } finally {
       setIsRemoving(false);
     }
-  }, [pendingRemoval, onRemoveComponent, refetchTools, refetchResources, refetchPrompts]);
+  }, [
+    pendingRemoval,
+    onRemoveComponent,
+    refetchTools,
+    refetchResources,
+    refetchPrompts,
+    refetchAgents,
+  ]);
 
   // The virtual server's own aggregated component counts, used to flag a
   // mismatch against what the handshake test itself reports. The handshake
@@ -355,7 +420,8 @@ export function VirtualServerDetailsPanel({
     if (!toolsData || !resourcesData || !promptsData) return undefined;
     const counts: Record<string, number> = { tools: 0, resources: 0, prompts: 0 };
     for (const component of fetchedComponents) {
-      if (component.enabled === false) continue;
+      // The handshake only lists tools, resources and prompts.
+      if (component.type === "agents" || component.enabled === false) continue;
       counts[component.type] = (counts[component.type] ?? 0) + 1;
     }
     return counts;
@@ -407,7 +473,7 @@ export function VirtualServerDetailsPanel({
     });
   }, [sourceIds, sourcesData]);
 
-  const componentsLoading = toolsLoading || resourcesLoading || promptsLoading;
+  const componentsLoading = toolsLoading || resourcesLoading || promptsLoading || agentsLoading;
   const selectedTestTool = useMemo(
     () => (selectedTestToolId ? (fetchedToolsById.get(selectedTestToolId) ?? null) : null),
     [fetchedToolsById, selectedTestToolId],
@@ -683,7 +749,7 @@ export function VirtualServerDetailsPanel({
                           aria-label="Filter components"
                           className="flex min-w-0 items-center gap-6"
                         >
-                          {COMPONENT_FILTER_OPTIONS.map((option) => (
+                          {filterOptions.map((option) => (
                             <Button
                               key={option.value}
                               id={`tab-${option.value}`}

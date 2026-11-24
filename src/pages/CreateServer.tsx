@@ -34,6 +34,7 @@ import {
 import type { MCPServer, VirtualServer, VirtualServerTag } from "@/types/server";
 
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
+const AGENTS_FORM_PATH = "/app/agents?openForm=true";
 const EDIT_SERVER_ID_QUERY_PARAM = "editServerId";
 const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
 // gateway_id=null lists tools not owned by any gateway (REST, A2A, ...); only REST ones are offered here, on purpose.
@@ -767,6 +768,7 @@ export function CreateServer() {
   const [serverDetails, setServerDetails] = useState<CreateServerDetails | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [selectedSourceNames, setSelectedSourceNames] = useState<Record<string, string>>({});
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<ComponentSelection>({
     tools: [],
     resources: [],
@@ -834,7 +836,7 @@ export function CreateServer() {
         title: intl.formatMessage({ id: "gateways.action.aiAgent.title" }),
         description: intl.formatMessage({ id: "gateways.action.aiAgent.description" }),
         buttonText: intl.formatMessage({ id: "gateways.action.connect" }),
-        onAction: () => navigate("/app/agents"),
+        onAction: () => navigate(AGENTS_FORM_PATH),
       },
       {
         icon: Code,
@@ -890,6 +892,10 @@ export function CreateServer() {
               ]),
             }
           : {}),
+        associatedA2aAgents: uniqueStrings([
+          ...(serverDetails.associatedA2aAgents ?? []),
+          ...selectedAgentIds,
+        ]),
         associatedMCPServerIds: selectedSourceIds,
       };
       await createVirtualServer(detailsWithSources);
@@ -917,6 +923,8 @@ export function CreateServer() {
         associatedTools: selectedComponents.tools,
         associatedResources: selectedComponents.resources,
         associatedPrompts: selectedComponents.prompts,
+        // The edit form has no agent picker yet; resend the current ids so the PUT keeps them.
+        associatedA2aAgents: uniqueStrings(editingServer.associatedA2aAgents ?? []),
       };
 
       await updateVirtualServer(editingServer.id, detailsForUpdate);
@@ -935,13 +943,15 @@ export function CreateServer() {
 
   if (!isEditMode && step === "sources") {
     return (
-      <main className="bg-background px-6 py-10">
+      <main className="px-6 py-10">
         <SourceSelection
           actionCards={actionCards}
           associatedMCPServerIds={serverDetails?.associatedMCPServerIds}
-          onSelectSources={(ids, namesById) => {
+          associatedA2aAgents={serverDetails?.associatedA2aAgents}
+          onSelectSources={(ids, namesById, agentIds) => {
             setSelectedSourceIds(ids);
             setSelectedSourceNames(namesById);
+            setSelectedAgentIds(agentIds);
           }}
           createServerActions={{
             onBack: () => setStep("details"),
@@ -964,7 +974,7 @@ export function CreateServer() {
 
   if (isEditMode && editServerLoading) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 py-10">
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-10">
         <SourcesLoadingStatus message={intl.formatMessage({ id: "common.loading" })} />
       </main>
     );
@@ -972,7 +982,7 @@ export function CreateServer() {
 
   if (isEditMode && (editServerError || !editingServer)) {
     return (
-      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 py-10">
+      <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-10">
         <div
           role="alert"
           className="w-full max-w-[56rem] rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
@@ -987,7 +997,7 @@ export function CreateServer() {
   const editInitialValues = editingServer ? getEditServerInitialValues(editingServer) : undefined;
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 py-10">
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-10">
       <div className="w-full max-w-[56rem] space-y-5">
         <CreateServerForm
           key={isEditMode ? editingServer?.id : "create-server"}

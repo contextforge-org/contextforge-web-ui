@@ -413,7 +413,7 @@ describe("CreateServer", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip for now" })).toBeInTheDocument();
@@ -495,7 +495,7 @@ describe("CreateServer", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     expect(await screen.findByText("github-notify")).toBeInTheDocument();
@@ -518,6 +518,7 @@ describe("CreateServer", () => {
         associatedTools: ["tool-alpha", "tool-beta"],
         associatedResources: ["resource-alpha"],
         associatedPrompts: ["prompt-alpha"],
+        associatedA2aAgents: [],
         associatedMCPServerIds: ["github-notify"],
       });
     });
@@ -550,6 +551,7 @@ describe("CreateServer", () => {
         tags: ["research", "tools"],
         description: "A composed endpoint for research tools.",
         associatedTools: [],
+        associatedA2aAgents: [],
         associatedMCPServerIds: [],
       });
     });
@@ -597,7 +599,7 @@ describe("CreateServer", () => {
     await screen.findByRole("heading", { name: "Connect a source" });
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     await screen.findByText("alpha");
@@ -734,7 +736,9 @@ describe("CreateServer", () => {
     await user.click(screen.getByTestId("action-card-AI agent"));
 
     // Open the connected-sources panel, which enables the MCP servers query.
-    await user.click(screen.getByRole("button", { name: /Add tools, resources, and prompts/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Add tools, resources, prompts, and agents/i }),
+    );
 
     expect(await screen.findByText("Active Server")).toBeInTheDocument();
     expect(screen.getByText("Warning Server")).toBeInTheDocument();
@@ -1178,6 +1182,7 @@ describe("CreateServer", () => {
             associatedTools: [],
             associatedResources: [],
             associatedPrompts: [],
+            associatedA2aAgents: [],
           });
         });
         expect(mockNavigate).toHaveBeenCalledWith("/app/gateways");
@@ -1222,6 +1227,7 @@ describe("CreateServer", () => {
             associatedTools: [],
             associatedResources: [],
             associatedPrompts: [],
+            associatedA2aAgents: [],
           });
         });
         // Error should be set on the CreateServerForm props

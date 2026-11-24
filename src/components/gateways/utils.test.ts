@@ -136,6 +136,7 @@ describe("Gateways Utils", () => {
         toolCount: 2,
         resourceCount: 1,
         promptCount: 1,
+        agentCount: 0,
         total: 4,
       });
 
@@ -143,6 +144,7 @@ describe("Gateways Utils", () => {
         toolCount: 0,
         resourceCount: 0,
         promptCount: 0,
+        agentCount: 0,
         total: 0,
       });
 

@@ -19,6 +19,7 @@ import { ApiError } from "@/api/client";
 import { useAuth } from "@/auth/useAuth";
 import { useQuery } from "@/hooks/useQuery";
 import { useRouter } from "@/router";
+import type { A2AAgentRead } from "@/generated/types";
 import type { VirtualServer, VirtualServersResponse } from "@/types/server";
 import { extractApiErrorDetail, sanitizeError } from "@/utils/errors";
 
@@ -34,6 +35,7 @@ export function Gateways() {
   const canCreateServer = !permissionsLoading && hasPermission("servers.create");
   const { data, error, isLoading, refetch, setData } =
     useQuery<VirtualServersResponse>(SERVERS_QUERY_PATH);
+  const canReadAgents = !permissionsLoading && hasPermission("a2a.read");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const pendingDeleteServerIdRef = useRef<string | null>(null);
   const pendingToggleServerIdRef = useRef<string | null>(null);
@@ -50,6 +52,22 @@ export function Gateways() {
   const servers = useMemo(
     () => (data?.servers ?? []).filter((server) => !deletedServerIds.has(server.id)),
     [data?.servers, deletedServerIds],
+  );
+  // The server payload carries agent ids only, so skills come from the agent list.
+  const hasAssociatedAgents = servers.some(
+    (server) => (server.associatedA2aAgents?.length ?? 0) > 0,
+  );
+  const { data: agentsData } = useQuery<A2AAgentRead[]>("/v1/a2a?limit=0&include_inactive=true", {
+    enabled: canReadAgents && hasAssociatedAgents,
+  });
+  const skillCountByAgentId = useMemo(
+    () =>
+      new Map(
+        (Array.isArray(agentsData) ? agentsData : []).flatMap((agent) =>
+          agent?.id ? [[agent.id, agent.skills?.length ?? 0] as const] : [],
+        ),
+      ),
+    [agentsData],
   );
   const selectedSearchServerId = useMemo(() => {
     const queryString = path.split("?")[1] ?? "";
@@ -293,6 +311,10 @@ export function Gateways() {
             <VirtualServerCard
               key={server.id}
               server={server}
+              skillCount={(server.associatedA2aAgents ?? []).reduce(
+                (sum, agentId) => sum + (skillCountByAgentId.get(agentId) ?? 0),
+                0,
+              )}
               onViewDetails={openDetailsPanel}
               onAddComponents={openEditPanel}
               onEdit={openEditPanel}
@@ -407,7 +429,7 @@ function VirtualServerDetailsPanelContainer({
   );
 
   const handleRemoveComponent = useCallback(
-    async (kind: "tools" | "resources" | "prompts", componentId: string) => {
+    async (kind: "tools" | "resources" | "prompts" | "agents", componentId: string) => {
       if (!hydratedServer) return;
       try {
         // The PUT replaces the whole list, so read it fresh to keep concurrent edits.
@@ -418,7 +440,9 @@ function VirtualServerDetailsPanelContainer({
             ? (latest.associatedToolIds ?? [])
             : kind === "resources"
               ? (latest.associatedResources ?? [])
-              : (latest.associatedPrompts ?? []);
+              : kind === "agents"
+                ? (latest.associatedA2aAgents ?? [])
+                : (latest.associatedPrompts ?? []);
         const updated = await updateVirtualServerComponents(
           hydratedServer.id,
           kind,

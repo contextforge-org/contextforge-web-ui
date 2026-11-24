@@ -38,6 +38,7 @@ const SERVERS_QUERY_PATH = "/v1/virtual-servers?limit=1&include_pagination=true"
 const MCP_SERVERS_QUERY_PATH =
   "/v1/mcp-servers?limit=1&include_inactive=true&include_pagination=true";
 const SERVERS_FORM_PATH = "/app/servers?openForm=true";
+const AGENTS_FORM_PATH = "/app/agents?openForm=true";
 
 /** Inline source cards shown in the default state (one per source type). */
 const DEFAULT_SOURCE_CARDS: MiniCardId[] = ["mcp", "a2a", "rest", "grpc"];
@@ -80,7 +81,7 @@ export function Dashboard() {
         title: intl.formatMessage({ id: "gateways.action.aiAgent.title" }),
         description: intl.formatMessage({ id: "gateways.action.aiAgent.description" }),
         buttonText: intl.formatMessage({ id: "gateways.action.connect" }),
-        onAction: () => navigate("/app/agents"),
+        onAction: () => navigate(AGENTS_FORM_PATH),
       },
       {
         icon: Code,

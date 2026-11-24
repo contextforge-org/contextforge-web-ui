@@ -278,7 +278,30 @@ describe("virtualServers API", () => {
     expect(payload).not.toHaveProperty("associated_tools");
     expect(payload).not.toHaveProperty("associated_resources");
     expect(payload).not.toHaveProperty("associated_prompts");
+    expect(payload).not.toHaveProperty("associated_a2a_agents");
     expect(payload).not.toHaveProperty("team_id");
+  });
+
+  it("sends selected agent ids on create", () => {
+    const payload = buildCreateVirtualServerPayload({
+      name: "Agent server",
+      visibility: "public",
+      oauthEnabled: false,
+      associatedA2aAgents: ["agent-1", "agent-2"],
+    });
+
+    expect(payload.server.associated_a2a_agents).toEqual(["agent-1", "agent-2"]);
+  });
+
+  it("carries existing agent ids on update so a PUT does not drop them", () => {
+    const payload = buildUpdateVirtualServerPayload({
+      name: "Agent server",
+      visibility: "public",
+      oauthEnabled: false,
+      associatedA2aAgents: ["agent-1"],
+    });
+
+    expect(payload.associated_a2a_agents).toEqual(["agent-1"]);
   });
 
   it("includes associated components in update payloads when provided", () => {
