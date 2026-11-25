@@ -88,6 +88,12 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [fetchCredential, setFetchCredentialState] = useState("");
   /** The credential that read the card is also the agent's, so registration does not ask again. */
   const [credentialReused, setCredentialReused] = useState(false);
+  /**
+   * Whether a credential was needed to read the card. The gateway reads the card again at
+   * registration and sends the agent's credential with that request only for some auth types
+   * and only to the agent's own host, so a card that needed one cannot be re-read there.
+   */
+  const [cardReadWithCredential, setCardReadWithCredential] = useState(false);
 
   // Credentials are shared by the card flow and the manual form; only one is ever in use.
   const [token, setToken] = useState("");
@@ -338,6 +344,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
         setResult(fetched);
         resetAuthValues(fetched.suggestedAgent);
         reuseCredential(fetched.suggestedAgent, needsCredential ? credential : "", trimmed);
+        setCardReadWithCredential(needsCredential);
         setAgentNameState(fetched.suggestedAgent.name ?? fetched.card.name ?? "");
         setCardTags([]);
         setCardDescription("");
@@ -424,6 +431,10 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       ...suggested,
       name: agentName.trim(),
       endpoint_url: suggested.endpoint_url,
+      // The gateway fetches the card again from here and stores it, so the agent keeps its card.
+      // Not for a card that needed a credential: the gateway would read it again without one and
+      // refuse. Such an agent is registered without a stored card.
+      ...(cardReadWithCredential ? {} : { card_url: result?.sourceUrl || url.trim() }),
       ...(description ? { description } : {}),
       ...(cardTags.length > 0 ? { tags: cardTags } : {}),
       ...credentialFields(authType, authValues),
@@ -438,6 +449,9 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     visibility,
     teamId,
     suggested,
+    result,
+    url,
+    cardReadWithCredential,
     cardDescription,
     cardTags,
     authValues,

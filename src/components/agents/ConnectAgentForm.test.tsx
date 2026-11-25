@@ -254,7 +254,49 @@ describe("ConnectAgentForm", () => {
         await user.click(screen.getByRole("button", { name: "Connect" }));
 
         await waitFor(() => expect(created.count).toBe(1));
-        expect((created.body!.agent as Record<string, unknown>).auth_token).toBe("good");
+        const agent = created.body!.agent as Record<string, unknown>;
+        expect(agent.auth_token).toBe("good");
+        // The gateway cannot read this card again without the credential, so it is not asked to.
+        expect(agent).not.toHaveProperty("card_url");
+      });
+
+      it("does not send the card URL when the agent then uses OAuth, which sends no card header", async () => {
+        server.use(
+          http.post("/api/v1/a2a/fetch-card", async ({ request }) => {
+            const body = (await request.json()) as { headers?: Record<string, string> };
+            if (body.headers?.Authorization === "Bearer good") {
+              return HttpResponse.json(
+                foundResult({
+                  auth_type: "oauth",
+                  oauth_config: {
+                    grant_type: "client_credentials",
+                    token_url: "https://agent.example.com/token",
+                  },
+                }),
+              );
+            }
+            return HttpResponse.json({
+              found: false,
+              outcome: "auth_required",
+              authScheme: "Bearer",
+            });
+          }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.type(await screen.findByLabelText(/Credential/), "good");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+        await user.type(await screen.findByLabelText(/Client ID/), "cid");
+        await user.type(screen.getByLabelText(/Client secret/), "shh");
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        const agent = created.body!.agent as Record<string, unknown>;
+        expect(agent.auth_type).toBe("oauth");
+        expect(agent).not.toHaveProperty("card_url");
       });
 
       it("asks again at registration when the card points to a different site", async () => {
@@ -286,6 +328,41 @@ describe("ConnectAgentForm", () => {
         await user.click(screen.getByRole("button", { name: "Connect" }));
 
         expect(created.count).toBe(0);
+      });
+
+      it("does not send the card URL when the card points to a different site", async () => {
+        server.use(
+          http.post("/api/v1/a2a/fetch-card", async ({ request }) => {
+            const body = (await request.json()) as { headers?: Record<string, string> };
+            if (body.headers?.Authorization === "Bearer good") {
+              return HttpResponse.json(
+                foundResult({ auth_type: "bearer", endpoint_url: "https://api.example.net/rpc" }),
+              );
+            }
+            return HttpResponse.json({
+              found: false,
+              outcome: "auth_required",
+              authScheme: "Bearer",
+            });
+          }),
+        );
+        const created = mockCreate();
+        const user = setup();
+
+        await submitUrl(user);
+        await user.type(await screen.findByLabelText(/Credential/), "good");
+        await user.click(screen.getByRole("button", { name: "Continue" }));
+        await user.click(await screen.findByRole("button", { name: "Continue" }));
+        await user.type(
+          await screen.findByPlaceholderText("Add key from the agent provider"),
+          "agent-key",
+        );
+        await user.click(screen.getByRole("button", { name: "Connect" }));
+
+        await waitFor(() => expect(created.count).toBe(1));
+        const agent = created.body!.agent as Record<string, unknown>;
+        expect(agent.auth_token).toBe("agent-key");
+        expect(agent).not.toHaveProperty("card_url");
       });
 
       it("reports a rejected credential and keeps the URL and credential", async () => {
@@ -528,6 +605,8 @@ describe("ConnectAgentForm", () => {
             name: "Visual Router",
             endpoint_url: "https://agent.example.com/rpc",
             protocol_version: "1.0",
+            // The gateway fetches the card again from here, which is what stores it for the agent.
+            card_url: `${CARD_URL}/.well-known/agent-card.json`,
           }),
           visibility: "public",
         });
