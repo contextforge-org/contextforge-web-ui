@@ -115,3 +115,18 @@ export interface RegisteredAgentCard {
   capabilities?: Record<string, unknown>;
   skills?: AgentCardSkill[];
 }
+
+/**
+ * `GET /v1/a2a/{id}/stored-card`: the card stored for a registered agent, as
+ * fetched. `card` is the document the remote agent published (0.3 or 1.0),
+ * so only read the fields `AgentCard` types, and only when `detectedVersion` is "1.0".
+ */
+export interface StoredAgentCard {
+  version: number;
+  card: AgentCard;
+  detectedVersion: string;
+  sourceUrl: string;
+  etag?: string | null;
+  maxAge?: number | null;
+  fetchedAt: string;
+}

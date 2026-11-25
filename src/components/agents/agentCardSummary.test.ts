@@ -7,6 +7,8 @@ import {
   interfaceRows,
   isCardSigned,
   joinModes,
+  sourceUrlLength,
+  summarizeBindings,
   summarizeEndpoint,
   summarizeInterfaces,
   summarizePublisher,
@@ -227,5 +229,48 @@ describe("describedSkills", () => {
       }),
     );
     expect(skills.map((skill) => skill.name)).toEqual(["Described", "Modes"]);
+  });
+});
+
+describe("summarizeBindings", () => {
+  it("names each declared binding once", () => {
+    expect(
+      summarizeBindings(
+        card({
+          supportedInterfaces: [
+            { url: "https://a.example/rpc", protocolBinding: "JSONRPC" },
+            { url: "https://a.example/rpc2", protocolBinding: "jsonrpc" },
+            { url: "https://a.example/http", protocolBinding: "HTTP+JSON" },
+          ],
+        }),
+      ),
+    ).toBe("JSON-RPC, HTTP+JSON");
+  });
+
+  it("is empty when the card names no binding", () => {
+    expect(summarizeBindings(card())).toBe("");
+    expect(summarizeBindings(card({ supportedInterfaces: [{ url: "https://a.example" }] }))).toBe(
+      "",
+    );
+  });
+});
+
+describe("sourceUrlLength", () => {
+  it("is undefined until the column has been measured", () => {
+    expect(sourceUrlLength(0)).toBeUndefined();
+  });
+
+  it("shows as many characters as fit in the column", () => {
+    // (350 - 28) / 7.3 = 44
+    expect(sourceUrlLength(350)).toBe(44);
+  });
+
+  it("never shows fewer than a sidebar value does", () => {
+    expect(sourceUrlLength(120)).toBe(24);
+  });
+
+  it("keeps growing with the column so a wide panel shows the whole URL", () => {
+    // (1200 - 28) / 7.3 = 160
+    expect(sourceUrlLength(1200)).toBe(160);
   });
 });

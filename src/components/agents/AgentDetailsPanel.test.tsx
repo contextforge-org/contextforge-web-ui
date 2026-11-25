@@ -76,14 +76,53 @@ function bindings(...items: Array<{ id: string; agentName: string; pluginId: str
   };
 }
 
+// The card the agent published, as the gateway stored it when the agent was registered.
+const STORED = {
+  version: 1,
+  detectedVersion: "1.0",
+  sourceUrl: "https://objekts.example.com/.well-known/agent-card.json",
+  fetchedAt: "2026-11-10T11:03:13Z",
+  card: {
+    name: "objekts router",
+    version: "3.4.1",
+    provider: { organization: "Objekts", url: "https://objekts.example.com" },
+    documentationUrl: "https://docs.example.com/objekts",
+    supportedInterfaces: [
+      { url: "https://objekts.example.com/a2a/v1", protocolBinding: "JSONRPC" },
+      { url: "https://objekts.example.com/a2a/http", protocolBinding: "HTTP+JSON" },
+    ],
+    defaultInputModes: ["text/plain"],
+    defaultOutputModes: ["application/json"],
+    capabilities: { streaming: false, pushNotifications: true, extensions: [{ uri: "x" }] },
+    skills: [{ name: "Stored skill" }],
+  },
+};
+
 function useGateway({
   agent = AGENT,
   card = CARD,
   list = bindings(),
-}: { agent?: object; card?: object; list?: object } = {}) {
+  stored = null,
+  onCard,
+}: {
+  agent?: object;
+  card?: object;
+  list?: object;
+  /** What `stored-card` returns; `null` means the agent has no stored card (404). */
+  stored?: object | null;
+  onCard?: () => void;
+} = {}) {
   server.use(
     http.get("/api/v1/a2a/agent-1", () => HttpResponse.json(agent)),
-    http.get("/api/v1/a2a/agent-1/card", () => HttpResponse.json(card)),
+    http.get("/api/v1/a2a/agent-1/stored-card", () =>
+      stored
+        ? HttpResponse.json(stored)
+        : HttpResponse.json({ detail: "No stored Agent Card for this agent" }, { status: 404 }),
+    ),
+    http.get("/api/v1/a2a/agent-1/card", () => {
+      onCard?.();
+      return HttpResponse.json(card);
+    }),
     http.get("/api/v1/a2a-agents/plugin-bindings/team-1", () => HttpResponse.json(list)),
   );
 }
@@ -427,6 +466,125 @@ describe("AgentDetailsPanel", () => {
 
       expect(screen.getByText("development")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add tags" })).toBeDisabled();
+    });
+  });
+
+  describe("stored agent card", () => {
+    it("shows where the card came from and what it says, above the skills", async () => {
+      useGateway({ stored: STORED });
+      renderPanel();
+
+      expect(await screen.findByText("Stored skill")).toBeInTheDocument();
+      expect(screen.getByText("3.4.1")).toBeInTheDocument();
+      expect(screen.getByText("Objekts · objekts.example.com")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "https://docs.example.com/objekts" }),
+      ).toHaveAttribute("href", "https://docs.example.com/objekts");
+      expect(screen.getByText("JSON-RPC, HTTP+JSON")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Source/ })).toBeInTheDocument();
+
+      const source = screen.getByText("Source");
+      const skills = screen.getByText("Skills");
+      expect(
+        source.compareDocumentPosition(skills) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("reads skills, capabilities and modes from the stored card and does not ask for the built one", async () => {
+      let builtCardRequests = 0;
+      useGateway({ stored: STORED, onCard: () => (builtCardRequests += 1) });
+      renderPanel();
+
+      expect(await screen.findByText("Stored skill")).toBeInTheDocument();
+      expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+      expect(screen.getByText("text/plain")).toBeInTheDocument();
+      expect(screen.getByText("application/json")).toBeInTheDocument();
+      expect(builtCardRequests).toBe(0);
+    });
+
+    it("falls back to the card ContextForge builds when no card is stored", async () => {
+      useGateway({ stored: null });
+      renderPanel();
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByText("Source")).not.toBeInTheDocument();
+      expect(screen.queryByText("Protocol binding")).not.toBeInTheDocument();
+    });
+
+    it("falls back the same way when the stored card cannot be read", async () => {
+      useGateway();
+      server.use(
+        http.get("/api/v1/a2a/agent-1/stored-card", () =>
+          HttpResponse.json({ detail: "boom" }, { status: 500 }),
+        ),
+      );
+      renderPanel();
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByText("Source")).not.toBeInTheDocument();
+    });
+
+    it("treats a stored-card reply with no card in it as none", async () => {
+      useGateway({ stored: { version: 1, sourceUrl: "https://x.example/card.json" } });
+      renderPanel();
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByText("Source")).not.toBeInTheDocument();
+    });
+
+    it("says what the card leaves out", async () => {
+      useGateway({
+        stored: { ...STORED, card: { name: "objekts router", skills: [{ name: "Only skill" }] } },
+      });
+      renderPanel();
+
+      expect(await screen.findByText("Only skill")).toBeInTheDocument();
+      // Version, provider, documentation and protocol binding.
+      expect(screen.getAllByText("Not stated")).toHaveLength(4);
+    });
+
+    it("only links documentation that is http or https", async () => {
+      useGateway({
+        stored: { ...STORED, card: { ...STORED.card, documentationUrl: "javascript:alert(1)" } },
+      });
+      renderPanel();
+
+      expect(await screen.findByText("javascript:alert(1)")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /javascript/ })).not.toBeInTheDocument();
+    });
+
+    it("does not show the agent's credentials or the card's signatures", async () => {
+      useGateway({
+        stored: {
+          ...STORED,
+          card: { ...STORED.card, signatures: [{ protected: "abc", signature: "sig-value" }] },
+        },
+      });
+      renderPanel();
+      await screen.findByText("Stored skill");
+
+      const text = document.body.textContent ?? "";
+      expect(text).not.toContain("super-secret-token");
+      expect(text).not.toContain("sig-value");
+    });
+
+    it("does not break on a card whose fields have the wrong type", async () => {
+      useGateway({
+        stored: {
+          ...STORED,
+          card: {
+            name: "objekts router",
+            version: 3,
+            documentationUrl: { href: "x" },
+            supportedInterfaces: [{ protocolBinding: 7 }, null],
+            skills: [{ name: "Odd skill" }],
+          },
+        },
+      });
+      renderPanel();
+
+      expect(await screen.findByText("Odd skill")).toBeInTheDocument();
+      expect(screen.getAllByText("Not stated").length).toBeGreaterThan(0);
     });
   });
 

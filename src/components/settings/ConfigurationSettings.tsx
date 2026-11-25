@@ -195,16 +195,27 @@ function ExportSection() {
           </div>
         </details>
       </div>
-      <Button
-        size="sm"
-        disabled={!canExport || isExporting || !types.length}
-        aria-busy={isExporting}
-        onClick={submit}
-      >
-        {isExporting
-          ? intl.formatMessage({ id: "settings.configuration.export.exporting" })
-          : title}
-      </Button>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          size="sm"
+          disabled={!canExport || isExporting || !types.length}
+          aria-busy={isExporting}
+          aria-describedby={`${uid}-hint`}
+          onClick={submit}
+        >
+          {isExporting
+            ? intl.formatMessage({ id: "settings.configuration.export.exporting" })
+            : title}
+        </Button>
+        {/* Always mounted so the live region announces when the hint appears. */}
+        <p id={`${uid}-hint`} role="status" className="text-[13px] leading-4 text-muted-foreground">
+          {canExport && !types.length && (
+            <span className="animate-in fade-in duration-150">
+              {intl.formatMessage({ id: "settings.configuration.export.noneSelected" })}
+            </span>
+          )}
+        </p>
+      </div>
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         {/* Fires after the close animation; frees the export data. */}
         <DialogContent className="gap-4 rounded-xl p-6" onCloseAutoFocus={() => setPreview(null)}>

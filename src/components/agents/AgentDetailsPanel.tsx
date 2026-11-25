@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { useAuth } from "@/auth/useAuth";
 import { agentsApi } from "@/api/agents";
 import { ApiError } from "@/api/client";
+import { useElementWidth } from "@/hooks/useElementWidth";
 import { useQuery } from "@/hooks/useQuery";
 import { cn } from "@/lib/utils";
 import { extractApiErrorDetail } from "@/utils/errors";
 import { formatDateTime, formatLastSeen } from "@/utils/format";
 import { getTagLabels } from "@/utils/tags";
 import type { Agent } from "@/types/agent";
-import type { RegisteredAgentCard } from "@/types/agentCard";
+import type { RegisteredAgentCard, StoredAgentCard } from "@/types/agentCard";
 import type {
   A2AAgentPluginBindingListResponse,
   A2AAgentPluginBindingResponse,
@@ -34,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
+import { sourceUrlLength, summarizeBindings, summarizePublisher } from "./agentCardSummary";
 
 // Only what the panel renders. `Agent` also carries credential fields
 // (authToken, authPassword, ...) that must never reach the UI, so the panel
@@ -83,11 +85,11 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
-/** A heading with label/value rows under it, in the centre column. */
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** A heading (when given) with label/value rows under it, in the centre column. */
+function Section({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <section className="space-y-2 pb-2">
-      <h3 className="text-[13px] leading-4 font-medium text-foreground">{title}</h3>
+      {title && <h3 className="text-[13px] leading-4 font-medium text-foreground">{title}</h3>}
       {/* One label width for every section, so values line up between them. Wide enough for "Push notifications" and its translations. */}
       <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px] leading-4 text-secondary-foreground">
         {children}
@@ -168,10 +170,34 @@ export function AgentDetailsPanel({
         }
       : agent;
 
-  // The card has the agent's modes and skills. Without it the panel still shows the rest.
-  const { data: card } = useQuery<RegisteredAgentCard>(
-    open && agentId ? `/v1/a2a/${agentId}/card` : null,
+  // The card the agent published, stored when it was registered, is read first. Agents
+  // without one (added by hand, or before cards were stored) fall back to the card
+  // ContextForge builds, which is asked for only once the stored card is known to be absent.
+  const { data: storedResponse, error: storedCardError } = useQuery<StoredAgentCard>(
+    open && agentId ? `/v1/a2a/${agentId}/stored-card` : null,
   );
+  // A reply without a card in it is no better than none.
+  const storedCard =
+    storedResponse && typeof storedResponse.card === "object" && storedResponse.card !== null
+      ? storedResponse
+      : undefined;
+  const storedCardSettled = storedResponse !== undefined || storedCardError !== null;
+  const { data: builtCard } = useQuery<RegisteredAgentCard>(
+    open && agentId && storedCardSettled && !storedCard ? `/v1/a2a/${agentId}/card` : null,
+  );
+  // The Source row's column, measured so the URL is cut to what fits.
+  const [sourceColumnRef, sourceColumnWidth] = useElementWidth<HTMLDivElement>();
+
+  // Either way the card has the agent's modes and skills. Without one the panel still shows the rest.
+  const card: RegisteredAgentCard | undefined = storedCard
+    ? {
+        name: storedCard.card.name,
+        skills: storedCard.card.skills,
+        capabilities: storedCard.card.capabilities,
+        defaultInputModes: storedCard.card.defaultInputModes,
+        defaultOutputModes: storedCard.card.defaultOutputModes,
+      }
+    : builtCard;
 
   const canReadPlugins = !permissionsLoading && hasPermission(PLUGIN_READ_PERMISSION);
   const canManagePlugins = !permissionsLoading && hasPermission(PLUGIN_MANAGE_PERMISSION);
@@ -302,6 +328,24 @@ export function AgentDetailsPanel({
   const yesNo = (enabled: boolean) =>
     intl.formatMessage({ id: enabled ? "agents.details.yes" : "agents.details.no" });
 
+  // Where the stored card came from and what it says about itself. It is the remote agent's
+  // document, so anything that is not the expected type is treated as not stated.
+  const cardInfo = storedCard?.card;
+  const cardVersion = typeof cardInfo?.version === "string" ? cardInfo.version.trim() : "";
+  const cardPublisher = cardInfo ? summarizePublisher(cardInfo) : null;
+  const documentationUrl =
+    typeof cardInfo?.documentationUrl === "string" ? cardInfo.documentationUrl.trim() : "";
+  const documentationHref = (() => {
+    try {
+      const parsed = new URL(documentationUrl);
+      return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+    } catch {
+      return null;
+    }
+  })();
+  const cardBindings = cardInfo ? summarizeBindings(cardInfo) : "";
+  const notStated = intl.formatMessage({ id: "agents.details.card.notStated" });
+
   const tagLabels = getTagLabels(current?.tags ?? []);
   const lastUsed = formatLastSeen(current?.lastInteraction, { locale: intl.locale });
   const hasActions = Boolean(agentId && (onToggle || onDelete));
@@ -401,6 +445,49 @@ export function AgentDetailsPanel({
               )}
 
               <hr className="border-border" />
+
+              {storedCard && (
+                <Section>
+                  <Row label={intl.formatMessage({ id: "agents.details.card.source" })}>
+                    {/* Measured at full width; the inner box then hugs the URL so the copy button sits next to it. */}
+                    <div ref={sourceColumnRef} className="w-full">
+                      <div className="w-fit max-w-full">
+                        <CopyValue
+                          label={intl.formatMessage({ id: "agents.details.card.source" })}
+                          value={storedCard.sourceUrl}
+                          maxLength={sourceUrlLength(sourceColumnWidth)}
+                        />
+                      </div>
+                    </div>
+                  </Row>
+                  <Row label={intl.formatMessage({ id: "agents.details.card.version" })}>
+                    {cardVersion || notStated}
+                  </Row>
+                  <Row label={intl.formatMessage({ id: "agents.details.card.provider" })}>
+                    {cardPublisher
+                      ? [cardPublisher.name, cardPublisher.site].filter(Boolean).join(" · ")
+                      : notStated}
+                  </Row>
+                  <Row label={intl.formatMessage({ id: "agents.details.card.documentation" })}>
+                    {documentationHref ? (
+                      <a
+                        href={documentationHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
+                      >
+                        {documentationHref}
+                      </a>
+                    ) : (
+                      // Not a link to trust: show it as text, or say nothing was given.
+                      documentationUrl || notStated
+                    )}
+                  </Row>
+                  <Row label={intl.formatMessage({ id: "agents.details.card.binding" })}>
+                    {cardBindings || notStated}
+                  </Row>
+                </Section>
+              )}
 
               {skills.length > 0 && (
                 <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
