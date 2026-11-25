@@ -3,13 +3,17 @@ import { useIntl } from "react-intl";
 import { ArrowUp, CircleStop } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { AGENT_TEST_QUERY_MAX_LENGTH } from "@/config/agentTest";
+import { AGENT_TEST_QUERY_MAX_LENGTH, AGENT_TEST_TIMEOUT_MS } from "@/config/agentTest";
 import { useAgentTest } from "@/hooks/useAgentTest";
-import { AgentTestResult, formatElapsed } from "./AgentTestResult";
+import { AgentTestResult, STATUS_ROW } from "./AgentTestResult";
 
 interface AgentTryItTabProps {
   agentId: string;
   protocolVersion?: string | null;
+}
+
+function formatTicking(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /** Counts up while a call is in flight. */
@@ -86,32 +90,38 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
           </div>
         </form>
 
-        {test.isLoading ? (
-          <div role="status" className="flex items-center gap-3 text-[13px] leading-4">
-            <span className="font-medium text-muted-foreground">
-              {intl.formatMessage({ id: "agents.try.elapsed" }, { time: formatElapsed(elapsed) })}
-            </span>
-            <Button type="button" variant="ghost" size="xs" onClick={test.stopWaiting}>
-              <CircleStop aria-hidden="true" />
-              {intl.formatMessage({ id: "agents.try.cancel" })}
-            </Button>
-            <span className="ml-auto text-xs font-normal text-muted-foreground">
-              {intl.formatMessage(
-                { id: "agents.try.counter" },
-                { count: query.length, max: AGENT_TEST_QUERY_MAX_LENGTH },
-              )}
-            </span>
-          </div>
-        ) : (
-          !hasResult && (
-            <p id={hintId} className="text-[13px] leading-4 text-muted-foreground">
-              {intl.formatMessage({ id: "agents.try.notice" })}
-            </p>
-          )
+        {!test.isLoading && !hasResult && (
+          <p id={hintId} className="text-[13px] leading-4 text-muted-foreground">
+            {intl.formatMessage({ id: "agents.try.notice" })}
+          </p>
         )}
       </div>
 
-      {!test.isLoading && (
+      {test.isLoading ? (
+        <div role="status" className={`${STATUS_ROW} gap-3 text-[13px] leading-4`}>
+          <span className="grid font-medium text-muted-foreground tabular-nums">
+            <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+              {intl.formatMessage(
+                { id: "agents.try.elapsed" },
+                { time: formatTicking(AGENT_TEST_TIMEOUT_MS) },
+              )}
+            </span>
+            <span className="col-start-1 row-start-1">
+              {intl.formatMessage({ id: "agents.try.elapsed" }, { time: formatTicking(elapsed) })}
+            </span>
+          </span>
+          <Button type="button" variant="ghost" size="xs" onClick={test.stopWaiting}>
+            <CircleStop aria-hidden="true" />
+            {intl.formatMessage({ id: "agents.try.cancel" })}
+          </Button>
+          <span className="ml-auto text-xs font-normal text-muted-foreground">
+            {intl.formatMessage(
+              { id: "agents.try.counter" },
+              { count: query.length, max: AGENT_TEST_QUERY_MAX_LENGTH },
+            )}
+          </span>
+        </div>
+      ) : (
         <AgentTestResult state={test} protocolVersion={protocolVersion} onRetest={send} />
       )}
     </div>

@@ -238,7 +238,9 @@ describe("AgentTryItTab", () => {
     renderTab();
     await run("hello");
 
-    expect(await screen.findByText(/^Elapsed /)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/^Elapsed /, { ignore: "[aria-hidden='true']" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("5 / 4096")).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Cancel" }));
