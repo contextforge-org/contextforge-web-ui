@@ -117,7 +117,7 @@ interface SourceRowProps {
   name: string;
   icon: ReactNode;
   counts: ReactNode;
-  visibility: string | null | undefined;
+  visibility: ListedMCPServer["visibility"] | ListedAgent["visibility"];
   status: ReactNode;
 }
 
