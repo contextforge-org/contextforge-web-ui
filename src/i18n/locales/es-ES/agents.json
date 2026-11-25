@@ -174,5 +174,11 @@
   "agents.connect.credential.basicPlaceholder": "Añada usuario:contraseña para la tarjeta del agente",
   "agents.connect.auth.oauth.resource": "Recurso",
   "agents.connect.auth.oauth.resourceInfo": "Opcional. El recurso para el que se solicita el token (RFC 8707). Déjelo vacío para usar el origen del agente.",
-  "agents.connect.auth.oauth.resourcePlaceholder": "https://agent.example.com"
+  "agents.connect.auth.oauth.resourcePlaceholder": "https://agent.example.com",
+  "agents.details.card.source": "Origen",
+  "agents.details.card.version": "Versión",
+  "agents.details.card.provider": "Proveedor",
+  "agents.details.card.documentation": "Documentación",
+  "agents.details.card.binding": "Enlace de protocolo",
+  "agents.details.card.notStated": "No indicado"
 }
