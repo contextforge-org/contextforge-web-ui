@@ -111,6 +111,7 @@ describe("A2aRuntimeCard", () => {
     expect(screen.getByText("4 of 4 active")).toBeInTheDocument();
     expect(screen.queryByText("0.0%")).not.toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(2);
+    expect(screen.getAllByText("Unavailable")).toHaveLength(2);
   });
 
   it("surfaces a load failure", () => {

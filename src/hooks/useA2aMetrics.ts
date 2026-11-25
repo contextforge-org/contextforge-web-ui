@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 
 import { useQuery } from "@/hooks/useQuery";
 import type { Activatable } from "@/components/dashboard/systemMetrics";
+import { apiErrorStatus, isPermissionDenied } from "@/utils/errors";
 
 const METRICS_PATH = "/v1/a2a/metrics";
 const AGENTS_PATH = "/v1/a2a?limit=0&include_inactive=true";
@@ -46,6 +47,10 @@ export interface UseA2aMetricsResult {
 
 type QueryError = { status?: number; body?: unknown } | null;
 
+function isNotFound(error: QueryError): boolean {
+  return apiErrorStatus(error) === 404;
+}
+
 function isA2aDisabled(body: unknown): boolean {
   if (typeof body !== "object" || body === null) return false;
   const detail = (body as { detail?: unknown }).detail;
@@ -75,9 +80,9 @@ export function useA2aMetrics(
   const { data, refetch } = query;
   const error = useSettledError(query.error, query.isLoading);
 
-  const forbidden = error?.status === 403;
-  const disabled = error?.status === 404 && isA2aDisabled(error.body);
-  const metricsOff = error?.status === 404 && !isA2aDisabled(error.body);
+  const forbidden = isPermissionDenied(error);
+  const disabled = isNotFound(error) && isA2aDisabled(error?.body);
+  const metricsOff = isNotFound(error) && !isA2aDisabled(error?.body);
 
   const agents = useQuery<Activatable[]>(metricsOff ? AGENTS_PATH : null);
   const agentsError = useSettledError(agents.error, agents.isLoading);

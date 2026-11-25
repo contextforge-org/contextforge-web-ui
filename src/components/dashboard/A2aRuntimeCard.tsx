@@ -13,11 +13,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useA2aMetrics } from "@/hooks/useA2aMetrics";
 import { useSystemHealth, type SystemHealthResult } from "@/hooks/useSystemHealth";
-import { formatLastSeen } from "@/utils/format";
 
 import { EmptyStatePlaceholder } from "./EmptyStatePlaceholder";
 import { HealthFooterChips, HealthFooterChipsSkeleton } from "./HealthFooterChips";
 import { PermissionDenied } from "./PermissionDenied";
+import { formatRefreshedHint } from "./refreshedHint";
 import { StatBlock } from "./SystemStat";
 import { formatResponseTime, secondsToMs, UNAVAILABLE } from "./systemMetrics";
 
@@ -67,16 +67,7 @@ export function A2aRuntimeCard({ health: sharedHealth }: { health?: SystemHealth
     return <EmptyStatePlaceholder messageId="dashboard.home.a2a.empty" />;
   }
 
-  const refreshedText = (() => {
-    if (lastUpdated == null) return null;
-    if (Math.round((Date.now() - lastUpdated) / 1000) === 0) {
-      return intl.formatMessage({ id: "dashboard.home.mcp.refreshedJustNow" });
-    }
-    const relative = formatLastSeen(new Date(lastUpdated).toISOString(), { locale: intl.locale });
-    return relative
-      ? intl.formatMessage({ id: "dashboard.home.mcp.refreshed" }, { relative })
-      : null;
-  })();
+  const refreshedText = formatRefreshedHint(intl, lastUpdated);
 
   // No interactions means the aggregate reports 0, not null, for both rates.
   const measured = (num(metrics?.totalInteractions) ?? 0) > 0;

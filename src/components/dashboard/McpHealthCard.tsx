@@ -27,7 +27,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useSystemHealth, type SystemHealthResult } from "@/hooks/useSystemHealth";
 import { useMcpServers } from "@/hooks/useMcpServers";
 import { useElementWidth } from "@/hooks/useElementWidth";
-import { formatLastSeen } from "@/utils/format";
+import { isPermissionDenied } from "@/utils/errors";
 import { HealthFooterChips, HealthFooterChipsSkeleton } from "./HealthFooterChips";
 import {
   computeRoster,
@@ -35,7 +35,8 @@ import {
   type RosterHeaderKind,
   type SummarySegment,
 } from "./mcpServerRoster";
-import { isPermissionDenied, PermissionDenied } from "./PermissionDenied";
+import { PermissionDenied } from "./PermissionDenied";
+import { formatRefreshedHint } from "./refreshedHint";
 import { ServerRosterRow, ServerRosterRowStacked } from "./ServerRosterRow";
 import { StatusDot } from "./StatusDot";
 
@@ -148,19 +149,7 @@ export function McpHealthCard({ health: sharedHealth }: { health?: SystemHealthR
     });
   }
 
-  // "Refreshed just now" only replaces the relative formatter's "now" for a
-  // just-completed poll (0 seconds ago); every other age renders the relative
-  // time as before ("Refreshed 30 seconds ago", "Refreshed 5 minutes ago").
-  const refreshedText = (() => {
-    if (lastUpdated == null) return null;
-    if (Math.round((Date.now() - lastUpdated) / 1000) === 0) {
-      return intl.formatMessage({ id: "dashboard.home.mcp.refreshedJustNow" });
-    }
-    const relative = formatLastSeen(new Date(lastUpdated).toISOString(), { locale: intl.locale });
-    return relative
-      ? intl.formatMessage({ id: "dashboard.home.mcp.refreshed" }, { relative })
-      : null;
-  })();
+  const refreshedText = formatRefreshedHint(intl, lastUpdated);
 
   return (
     <Card size="sm">

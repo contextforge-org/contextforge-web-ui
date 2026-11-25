@@ -8,14 +8,29 @@
  * Values are pre-formatted strings (see `systemMetrics.ts`); these components
  * never derive presentation from raw numbers. A `loading` flag renders a
  * skeleton in the value slot so the layout does not shift when data arrives.
+ *
+ * ARIA ignores `aria-label` on a span, so `StatValue` names the `UNAVAILABLE`
+ * em dash with a visually-hidden sibling.
  */
 
 import type { ReactNode } from "react";
+import { useIntl } from "react-intl";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import { UNAVAILABLE } from "./systemMetrics";
+
+function StatValue({ value }: { value: ReactNode }) {
+  const intl = useIntl();
+  if (value !== UNAVAILABLE) return <>{value}</>;
+  return (
+    <>
+      <span aria-hidden="true">{value}</span>
+      <span className="sr-only">{intl.formatMessage({ id: "common.unavailable" })}</span>
+    </>
+  );
+}
 
 interface StatBlockProps {
   label: ReactNode;
@@ -38,7 +53,7 @@ export function StatBlock({ label, value, loading }: StatBlockProps) {
             unavailable ? "font-light text-muted-foreground" : "font-normal text-foreground",
           )}
         >
-          {value}
+          <StatValue value={value} />
         </span>
       )}
     </div>
@@ -69,7 +84,7 @@ export function StatRow({ label, value, loading, className }: StatRowProps) {
               : "font-normal text-secondary-foreground",
           )}
         >
-          {value}
+          <StatValue value={value} />
         </span>
       )}
     </div>

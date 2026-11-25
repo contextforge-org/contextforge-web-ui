@@ -27,11 +27,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useRecentActivity } from "@/hooks/useRecentActivity";
 import type { ActivityItem } from "@/types/activity";
+import { isPermissionDenied } from "@/utils/errors";
 
 import { ACTIVITY_FILTERS, ActivityFilters, type ActivityFilter } from "./ActivityFilters";
 import { ActivityRow } from "./ActivityRow";
 import { EmptyStatePlaceholder } from "./EmptyStatePlaceholder";
-import { isPermissionDenied, PermissionDenied } from "./PermissionDenied";
+import { PermissionDenied } from "./PermissionDenied";
 
 /** Server clamps to 100; search needs the widest window it will give us. */
 const ACTIVITY_FEED_LIMIT = 100;
