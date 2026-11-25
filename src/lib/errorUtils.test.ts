@@ -76,3 +76,14 @@ describe("parseApiError", () => {
     expect(parseApiError(error, "fallback")).toBe("fallback");
   });
 });
+
+describe("parseApiError with an A2A test failure body", () => {
+  it("returns detail.error instead of the generic fallback", () => {
+    expect(
+      parseApiError(
+        { body: { detail: { success: false, error: "Agent said no", error_type: "agent_error" } } },
+        "fallback",
+      ),
+    ).toBe("Agent said no");
+  });
+});

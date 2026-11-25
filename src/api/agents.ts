@@ -3,7 +3,7 @@
  */
 
 import { api } from "./client";
-import type { A2AAgentRead, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
+import type { A2AAgentRead, A2ATestResponse, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
 import type { FetchCardResult } from "@/types/agentCard";
 
 /**
@@ -63,6 +63,18 @@ export const agentsApi = {
    */
   updateTags: (id: string, tags: string[]): Promise<A2AAgentRead> => {
     return api.put(`/v1/a2a/${validateAgentId(id)}`, { tags });
+  },
+
+  /**
+   * Call an agent with a test message. The service chooses the request body
+   * from the agent's type, so only the optional `query` travels. An empty
+   * query is left out and the service sends its default, which makes this a
+   * connectivity check. The call reaches the agent: it counts in the agent's
+   * metrics, updates its last interaction, and can create a task.
+   */
+  test: (id: string, query?: string, signal?: AbortSignal): Promise<A2ATestResponse> => {
+    const text = query?.trim();
+    return api.post(`/v1/a2a/${validateAgentId(id)}/test`, text ? { query: text } : {}, { signal });
   },
 
   /** Remove one plugin binding. */
