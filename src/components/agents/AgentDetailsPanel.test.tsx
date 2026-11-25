@@ -193,8 +193,10 @@ describe("AgentDetailsPanel", () => {
 
     expect(await screen.findByText("pii-filter")).toBeInTheDocument();
     expect(screen.getByText("rate-limit")).toBeInTheDocument();
-    expect(screen.getByText("team-wide")).toBeInTheDocument();
+    expect(screen.queryByText("team-wide")).not.toBeInTheDocument();
     expect(screen.queryByText("secret-scanner")).not.toBeInTheDocument();
+    expect(screen.getAllByText("enforce")).toHaveLength(2);
+    expect(screen.getAllByText("priority 10")).toHaveLength(2);
   });
 
   it("removes a binding", async () => {
@@ -206,9 +208,10 @@ describe("AgentDetailsPanel", () => {
     );
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for pii-filter" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     expect(
-      await screen.findByText("pii-filter will no longer apply to objekts router."),
+      await screen.findByText("Plugin binding pii-filter will no longer apply to this agent."),
     ).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
@@ -229,20 +232,26 @@ describe("AgentDetailsPanel", () => {
     );
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for pii-filter" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
     expect(deletes).toBe(0);
     expect(screen.getByText("pii-filter")).toBeInTheDocument();
   });
 
-  it("says a team-wide binding applies to every agent in the team", async () => {
+  it("says a team-wide binding applies to the whole team", async () => {
     useGateway({ list: bindings({ id: "b2", agentName: "*", pluginId: "rate-limit" }) });
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove rate-limit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for rate-limit" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
 
-    expect(await screen.findByText(/applies to every agent in this team/)).toBeVisible();
+    expect(
+      await screen.findByText(
+        "Plugin binding rate-limit applies to all agents on this team. Removing it affects every agent.",
+      ),
+    ).toBeVisible();
   });
 
   it("keeps the binding and reports a failed removal", async () => {
@@ -256,7 +265,8 @@ describe("AgentDetailsPanel", () => {
     );
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove pii-filter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Actions for pii-filter" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
     await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
@@ -271,7 +281,9 @@ describe("AgentDetailsPanel", () => {
     renderPanel();
 
     expect(await screen.findByText("pii-filter")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove pii-filter" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Actions for pii-filter" }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides the plugins without the read permission", async () => {
