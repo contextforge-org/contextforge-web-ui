@@ -17,6 +17,7 @@ import type { RegisteredAgentCard, StoredAgentCard } from "@/types/agentCard";
 import type {
   A2AAgentPluginBindingListResponse,
   A2AAgentPluginBindingResponse,
+  CurrentUserResponse,
 } from "@/generated/types";
 import { AgentIcon } from "@/components/icons/AgentIcon";
 import {
@@ -26,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyValue } from "@/components/ui/copy-value";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InlineTagAdd } from "@/components/ui/inline-tag-add";
 import {
   DropdownMenu,
@@ -36,6 +38,7 @@ import {
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
 import { sourceUrlLength, summarizeBindings, summarizePublisher } from "./agentCardSummary";
+import { AgentTryItTab } from "./AgentTryItTab";
 
 // Only what the panel renders. `Agent` also carries credential fields
 // (authToken, authPassword, ...) that must never reach the UI, so the panel
@@ -75,6 +78,12 @@ const CAPABILITY_KEYS = ["streaming", "pushNotifications", "stateTransitionHisto
 // ("generic" by default) and read the binding here once it is available.
 const PLUGIN_MANAGE_PERMISSION = "tools.manage_plugins";
 const PLUGIN_READ_PERMISSION = "tools.read";
+const INVOKE_PERMISSION = "a2a.invoke";
+
+// A tab takes focus and becomes selected together, and the selected one already has its own
+// highlight, so the shared focus ring only doubles it. The pill keeps showing where focus is.
+const SEGMENTED_TRIGGER_CLASS =
+  "flex-1 rounded-sm px-3 py-1.5 font-medium focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -201,6 +210,20 @@ export function AgentDetailsPanel({
 
   const canReadPlugins = !permissionsLoading && hasPermission(PLUGIN_READ_PERMISSION);
   const canManagePlugins = !permissionsLoading && hasPermission(PLUGIN_MANAGE_PERMISSION);
+
+  // The Try it tab calls the agent, so it needs a2a.invoke, and A2A switched on. The route
+  // stays mounted when A2A is off, so only the deployment's feature flags say.
+  const canInvoke = !permissionsLoading && hasPermission(INVOKE_PERMISSION);
+  const { data: me } = useQuery<CurrentUserResponse>(
+    open && agentId && canInvoke ? "/v1/auth/email/me" : null,
+  );
+  const showTryIt = canInvoke && me?.features?.a2a === true;
+  const [activeTab, setActiveTab] = useState("tryIt");
+  // Another agent, or a closed panel, starts back on Try it.
+  useEffect(() => {
+    setActiveTab("tryIt");
+  }, [agentId, open]);
+  const tab = showTryIt ? activeTab : "definition";
   const teamId = current?.teamId ?? null;
   const {
     data: bindingList,
@@ -446,145 +469,168 @@ export function AgentDetailsPanel({
 
               <hr className="border-border" />
 
-              {storedCard && (
-                <Section>
-                  <Row label={intl.formatMessage({ id: "agents.details.card.source" })}>
-                    {/* Measured at full width; the inner box then hugs the URL so the copy button sits next to it. */}
-                    <div ref={sourceColumnRef} className="w-full">
-                      <div className="w-fit max-w-full">
-                        <CopyValue
-                          label={intl.formatMessage({ id: "agents.details.card.source" })}
-                          value={storedCard.sourceUrl}
-                          maxLength={sourceUrlLength(sourceColumnWidth)}
-                        />
-                      </div>
-                    </div>
-                  </Row>
-                  <Row label={intl.formatMessage({ id: "agents.details.card.version" })}>
-                    {cardVersion || notStated}
-                  </Row>
-                  <Row label={intl.formatMessage({ id: "agents.details.card.provider" })}>
-                    {cardPublisher
-                      ? [cardPublisher.name, cardPublisher.site].filter(Boolean).join(" · ")
-                      : notStated}
-                  </Row>
-                  <Row label={intl.formatMessage({ id: "agents.details.card.documentation" })}>
-                    {documentationHref ? (
-                      <a
-                        href={documentationHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline underline-offset-2"
-                      >
-                        {documentationHref}
-                      </a>
-                    ) : (
-                      // Not a link to trust: show it as text, or say nothing was given.
-                      documentationUrl || notStated
-                    )}
-                  </Row>
-                  <Row label={intl.formatMessage({ id: "agents.details.card.binding" })}>
-                    {cardBindings || notStated}
-                  </Row>
-                </Section>
-              )}
-
-              {skills.length > 0 && (
-                <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
-                  <ul className="col-span-full space-y-2">
-                    {skills.map((name, index) => (
-                      // Index in the key too: skill names aren't guaranteed unique on one agent.
-                      <li key={`${name}-${index}`}>{name}</li>
-                    ))}
-                  </ul>
-                </Section>
-              )}
-
-              {capabilityRows.length > 0 && (
-                <Section title={intl.formatMessage({ id: "agents.details.capabilities" })}>
-                  {capabilityRows.map((row) => (
-                    <Row
-                      key={row.key}
-                      label={intl.formatMessage({ id: `agents.details.capability.${row.key}` })}
-                    >
-                      {yesNo(row.enabled)}
-                    </Row>
-                  ))}
-                </Section>
-              )}
-
-              {(inputModes || outputModes) && (
-                <Section title={intl.formatMessage({ id: "agents.details.modes" })}>
-                  {inputModes && (
-                    <Row label={intl.formatMessage({ id: "agents.details.modes.input" })}>
-                      {inputModes}
-                    </Row>
-                  )}
-                  {outputModes && (
-                    <Row label={intl.formatMessage({ id: "agents.details.modes.output" })}>
-                      {outputModes}
-                    </Row>
-                  )}
-                </Section>
-              )}
-
-              <Section title={intl.formatMessage({ id: "agents.details.security" })}>
-                {authType ? (
-                  <Row label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}>
-                    {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
-                  </Row>
-                ) : (
-                  <Row label={intl.formatMessage({ id: "agents.details.auth.name.unknown" })}>
-                    {notAvailable}
-                  </Row>
+              <Tabs value={tab} onValueChange={setActiveTab}>
+                {showTryIt && (
+                  <TabsList className="mb-8 inline-flex h-10 w-[248px] items-center gap-0 rounded-md bg-muted p-1">
+                    <TabsTrigger value="tryIt" className={SEGMENTED_TRIGGER_CLASS}>
+                      {intl.formatMessage({ id: "agents.details.tab.tryIt" })}
+                    </TabsTrigger>
+                    <TabsTrigger value="definition" className={SEGMENTED_TRIGGER_CLASS}>
+                      {intl.formatMessage({ id: "agents.details.tab.definition" })}
+                    </TabsTrigger>
+                  </TabsList>
                 )}
-              </Section>
 
-              {canReadPlugins && teamId && (bindings.length > 0 || bindingsError) && (
-                <Section title={intl.formatMessage({ id: "agents.details.plugins" })}>
-                  {bindingsError && (
-                    <p role="alert" className="col-span-full text-destructive">
-                      {intl.formatMessage({ id: "agents.details.plugins.error" })}
-                    </p>
-                  )}
-                  <ul className="col-span-full space-y-2">
-                    {bindings.map((binding) => (
-                      <li key={binding.id} className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">
-                          {binding.pluginId}
-                          {binding.agentName === "*" && (
-                            <span className="ml-2 text-muted-foreground">
-                              {intl.formatMessage({ id: "agents.details.plugins.teamWide" })}
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {intl.formatMessage(
-                            { id: "agents.details.plugins.meta" },
-                            { mode: binding.mode, priority: binding.priority },
-                          )}
-                        </span>
-                        {canManagePlugins && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-muted-foreground"
-                            disabled={removingId !== null}
-                            aria-label={intl.formatMessage(
-                              { id: "agents.details.plugins.remove" },
-                              { plugin: binding.pluginId },
-                            )}
-                            onClick={() => setBindingToRemove(binding)}
+                <TabsContent value="definition" className="space-y-6">
+                  {storedCard && (
+                    <Section>
+                      <Row label={intl.formatMessage({ id: "agents.details.card.source" })}>
+                        {/* Measured at full width; the inner box then hugs the URL so the copy button sits next to it. */}
+                        <div ref={sourceColumnRef} className="w-full">
+                          <div className="w-fit max-w-full">
+                            <CopyValue
+                              label={intl.formatMessage({ id: "agents.details.card.source" })}
+                              value={storedCard.sourceUrl}
+                              maxLength={sourceUrlLength(sourceColumnWidth)}
+                            />
+                          </div>
+                        </div>
+                      </Row>
+                      <Row label={intl.formatMessage({ id: "agents.details.card.version" })}>
+                        {cardVersion || notStated}
+                      </Row>
+                      <Row label={intl.formatMessage({ id: "agents.details.card.provider" })}>
+                        {cardPublisher
+                          ? [cardPublisher.name, cardPublisher.site].filter(Boolean).join(" · ")
+                          : notStated}
+                      </Row>
+                      <Row label={intl.formatMessage({ id: "agents.details.card.documentation" })}>
+                        {documentationHref ? (
+                          <a
+                            href={documentationHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2"
                           >
-                            <X className="size-3.5" aria-hidden="true" />
-                          </Button>
+                            {documentationHref}
+                          </a>
+                        ) : (
+                          // Not a link to trust: show it as text, or say nothing was given.
+                          documentationUrl || notStated
                         )}
-                      </li>
-                    ))}
-                  </ul>
-                </Section>
-              )}
+                      </Row>
+                      <Row label={intl.formatMessage({ id: "agents.details.card.binding" })}>
+                        {cardBindings || notStated}
+                      </Row>
+                    </Section>
+                  )}
+
+                  {skills.length > 0 && (
+                    <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
+                      <ul className="col-span-full space-y-2">
+                        {skills.map((name, index) => (
+                          // Index in the key too: skill names aren't guaranteed unique on one agent.
+                          <li key={`${name}-${index}`}>{name}</li>
+                        ))}
+                      </ul>
+                    </Section>
+                  )}
+
+                  {capabilityRows.length > 0 && (
+                    <Section title={intl.formatMessage({ id: "agents.details.capabilities" })}>
+                      {capabilityRows.map((row) => (
+                        <Row
+                          key={row.key}
+                          label={intl.formatMessage({ id: `agents.details.capability.${row.key}` })}
+                        >
+                          {yesNo(row.enabled)}
+                        </Row>
+                      ))}
+                    </Section>
+                  )}
+
+                  {(inputModes || outputModes) && (
+                    <Section title={intl.formatMessage({ id: "agents.details.modes" })}>
+                      {inputModes && (
+                        <Row label={intl.formatMessage({ id: "agents.details.modes.input" })}>
+                          {inputModes}
+                        </Row>
+                      )}
+                      {outputModes && (
+                        <Row label={intl.formatMessage({ id: "agents.details.modes.output" })}>
+                          {outputModes}
+                        </Row>
+                      )}
+                    </Section>
+                  )}
+
+                  <Section title={intl.formatMessage({ id: "agents.details.security" })}>
+                    {authType ? (
+                      <Row
+                        label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}
+                      >
+                        {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
+                      </Row>
+                    ) : (
+                      <Row label={intl.formatMessage({ id: "agents.details.auth.name.unknown" })}>
+                        {notAvailable}
+                      </Row>
+                    )}
+                  </Section>
+
+                  {canReadPlugins && teamId && (bindings.length > 0 || bindingsError) && (
+                    <Section title={intl.formatMessage({ id: "agents.details.plugins" })}>
+                      {bindingsError && (
+                        <p role="alert" className="col-span-full text-destructive">
+                          {intl.formatMessage({ id: "agents.details.plugins.error" })}
+                        </p>
+                      )}
+                      <ul className="col-span-full space-y-2">
+                        {bindings.map((binding) => (
+                          <li key={binding.id} className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate">
+                              {binding.pluginId}
+                              {binding.agentName === "*" && (
+                                <span className="ml-2 text-muted-foreground">
+                                  {intl.formatMessage({ id: "agents.details.plugins.teamWide" })}
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {intl.formatMessage(
+                                { id: "agents.details.plugins.meta" },
+                                { mode: binding.mode, priority: binding.priority },
+                              )}
+                            </span>
+                            {canManagePlugins && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground"
+                                disabled={removingId !== null}
+                                aria-label={intl.formatMessage(
+                                  { id: "agents.details.plugins.remove" },
+                                  { plugin: binding.pluginId },
+                                )}
+                                onClick={() => setBindingToRemove(binding)}
+                              >
+                                <X className="size-3.5" aria-hidden="true" />
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+                  )}
+                </TabsContent>
+
+                {showTryIt && agentId && (
+                  <TabsContent value="tryIt">
+                    <AgentTryItTab agentId={agentId} protocolVersion={current.protocolVersion} />
+                  </TabsContent>
+                )}
+              </Tabs>
             </div>
 
             <aside className="relative border-t border-border lg:border-l lg:border-t-0">

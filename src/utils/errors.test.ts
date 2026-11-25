@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   extractApiErrorDetail,
+  extractApiErrorType,
   extractUpstreamApiErrorDetail,
   sanitizeError,
   withErrorHandling,
@@ -266,5 +267,31 @@ describe("withErrorHandling", () => {
   it("handles non-Error throws", async () => {
     const result = await withErrorHandling(() => Promise.reject("plain string error"), "test");
     expect(result).toBeNull();
+  });
+});
+
+describe("A2A test failure bodies", () => {
+  const body = {
+    detail: {
+      success: false,
+      error: "A2A agent invocation failed",
+      error_type: "agent_error",
+      agent_id: "a1",
+    },
+  };
+
+  it("extractApiErrorDetail reads the message from an object detail", () => {
+    expect(extractApiErrorDetail(body)).toBe("A2A agent invocation failed");
+  });
+
+  it("extractApiErrorType reads detail.error_type", () => {
+    expect(extractApiErrorType(body)).toBe("agent_error");
+  });
+
+  it("extractApiErrorType is null when there is none", () => {
+    expect(extractApiErrorType(null)).toBeNull();
+    expect(extractApiErrorType({ detail: "Forbidden" })).toBeNull();
+    expect(extractApiErrorType({ detail: [{ msg: "bad" }] })).toBeNull();
+    expect(extractApiErrorType({ detail: { error: "x" } })).toBeNull();
   });
 });

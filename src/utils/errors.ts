@@ -29,7 +29,9 @@ export function extractApiErrorDetail(body: unknown): string | null {
     return null;
   }
 
-  const errorBody = body as { detail?: string | Array<{ msg: string }> };
+  const errorBody = body as {
+    detail?: string | Array<{ msg: string }> | { error?: string; message?: string };
+  };
 
   if (!errorBody.detail) {
     return null;
@@ -40,12 +42,35 @@ export function extractApiErrorDetail(body: unknown): string | null {
     return errorBody.detail;
   }
 
+  // Object detail such as the A2A test failure: { success, error, error_type, agent_id }
+  if (!Array.isArray(errorBody.detail) && typeof errorBody.detail === "object") {
+    const { error, message } = errorBody.detail;
+    if (typeof error === "string" && error) return error;
+    if (typeof message === "string" && message) return message;
+    return null;
+  }
+
   // Array of validation errors
   if (Array.isArray(errorBody.detail) && errorBody.detail.length > 0) {
     return errorBody.detail[0].msg || null;
   }
 
   return null;
+}
+
+/**
+ * Extracts `detail.error_type` from a failure body such as the one
+ * `POST /v1/a2a/{id}/test` returns, or null when the body has none.
+ *
+ * @param body - The error body from API response
+ * @returns The error classification or null if not found
+ */
+export function extractApiErrorType(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const detail = (body as { detail?: unknown }).detail;
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
+  const type = (detail as { error_type?: unknown }).error_type;
+  return typeof type === "string" && type ? type : null;
 }
 
 /**

@@ -144,6 +144,11 @@ describe("AgentDetailsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHasPermission.mockImplementation(() => true);
+    // Without Try it the panel shows the definition straight away; the tests below that
+    // read the definition rely on that. The Try it tests turn A2A on.
+    server.use(
+      http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: false } })),
+    );
   });
 
   it("shows the configuration in the sidebar", async () => {
@@ -323,6 +328,81 @@ describe("AgentDetailsPanel", () => {
     await screen.findByText("Vendor-fit routing");
     expect(screen.queryByText("pii-filter")).not.toBeInTheDocument();
     expect(screen.queryByText("Plugins")).not.toBeInTheDocument();
+  });
+
+  describe("Try it tab", () => {
+    beforeEach(() => {
+      server.use(
+        http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: true } })),
+      );
+    });
+
+    it("is offered to a caller with a2a.invoke when A2A is on, and is the tab shown first", async () => {
+      useGateway();
+      renderPanel();
+
+      const tryIt = await screen.findByRole("tab", { name: "Try it" });
+      expect(tryIt).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Definition" })).toHaveAttribute(
+        "aria-selected",
+        "false",
+      );
+      expect(screen.getByRole("button", { name: "Send test message" })).toBeInTheDocument();
+      expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+    });
+
+    it("shows the definition from the other tab", async () => {
+      useGateway();
+      renderPanel();
+
+      await userEvent.setup().click(await screen.findByRole("tab", { name: "Definition" }));
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+    });
+
+    it("opens on Try it again for the next agent", async () => {
+      useGateway();
+      const { rerender } = renderPanel();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("tab", { name: "Definition" }));
+      expect(screen.getByRole("tab", { name: "Definition" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+
+      rerender(
+        <AgentDetailsPanel
+          agent={{ ...AGENT, id: "agent-2" } as AgentDetailsFields}
+          open
+          onClose={vi.fn()}
+        />,
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("tab", { name: "Try it" })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        ),
+      );
+    });
+
+    it("is hidden without a2a.invoke", async () => {
+      mockHasPermission.mockImplementation((perm) => perm !== "a2a.invoke");
+      useGateway();
+      renderPanel();
+
+      await screen.findByText("Vendor-fit routing");
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
+
+    it("is hidden when A2A is off", async () => {
+      server.use(
+        http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: false } })),
+      );
+      useGateway();
+      renderPanel();
+
+      await screen.findByText("Vendor-fit routing");
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
   });
 
   it("offers only the actions the caller may take", async () => {
