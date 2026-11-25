@@ -1083,7 +1083,8 @@ test.describe("Agents page", () => {
 
       const panel = await openDetails(page);
       await expect(panel.getByText("pii-filter")).toBeVisible();
-      await panel.getByRole("button", { name: "Remove pii-filter" }).click();
+      await panel.getByRole("button", { name: "Actions for pii-filter" }).click();
+      await page.getByRole("menuitem", { name: "Remove" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
 
       await expect(panel.getByText("pii-filter")).toBeHidden();
@@ -1113,7 +1114,7 @@ test.describe("Agents page", () => {
       const panel = await openDetails(page);
 
       await expect(panel.getByText("pii-filter")).toBeVisible();
-      await expect(panel.getByRole("button", { name: "Remove pii-filter" })).toHaveCount(0);
+      await expect(panel.getByRole("button", { name: "Actions for pii-filter" })).toHaveCount(0);
     });
   });
 });

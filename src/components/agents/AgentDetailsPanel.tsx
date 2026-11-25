@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { Activity, EllipsisVertical, PanelRightClose, X } from "lucide-react";
+import { Activity, EllipsisVertical, PanelRightClose } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/useAuth";
 import { agentsApi } from "@/api/agents";
@@ -86,10 +86,10 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 /** A heading with label/value rows under it, in the centre column. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-2 pb-2">
-      <h3 className="text-[13px] leading-4 font-medium text-foreground">{title}</h3>
+    <section className="space-y-4">
+      <h3 className="text-sm font-semibold text-secondary-foreground">{title}</h3>
       {/* One label width for every section, so values line up between them. Wide enough for "Push notifications" and its translations. */}
-      <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px] leading-4 text-secondary-foreground">
+      <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm text-muted-foreground">
         {children}
       </div>
     </section>
@@ -333,64 +333,68 @@ export function AgentDetailsPanel({
       >
         {current && (
           <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0 space-y-6 overflow-y-auto scrollbar-gutter-stable px-6 py-8 lg:px-12">
+            <div className="min-w-0 overflow-y-auto scrollbar-gutter-stable px-6 py-8 lg:px-12">
               <div className="flex items-center gap-3">
                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded bg-agent-icon-bg">
                   <AgentIcon className="h-4 w-4 text-black" aria-hidden="true" />
                 </div>
-                <h2
-                  id={headingId}
-                  className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground"
-                  title={current.name}
-                >
-                  {current.name}
-                </h2>
-                {hasActions && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="text-muted-foreground"
-                        aria-label={intl.formatMessage(
-                          { id: "agents.card.actions.label" },
-                          { name: current.name },
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2
+                    id={headingId}
+                    className="min-w-0 truncate text-xl font-semibold text-foreground"
+                    title={current.name}
+                  >
+                    {current.name}
+                  </h2>
+                  {hasActions && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="shrink-0 text-muted-foreground"
+                          aria-label={intl.formatMessage(
+                            { id: "agents.card.actions.label" },
+                            { name: current.name },
+                          )}
+                        >
+                          <EllipsisVertical className="size-4" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onToggle && (
+                          <DropdownMenuItem
+                            onClick={() => onToggle(agentId as string, current.enabled)}
+                          >
+                            {intl.formatMessage({
+                              id: current.enabled
+                                ? "agents.card.actions.disable"
+                                : "agents.card.actions.enable",
+                            })}
+                          </DropdownMenuItem>
                         )}
-                      >
-                        <EllipsisVertical className="size-4" aria-hidden="true" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {onToggle && (
-                        <DropdownMenuItem
-                          onClick={() => onToggle(agentId as string, current.enabled)}
-                        >
-                          {intl.formatMessage({
-                            id: current.enabled
-                              ? "agents.card.actions.disable"
-                              : "agents.card.actions.enable",
-                          })}
-                        </DropdownMenuItem>
-                      )}
-                      {onDelete && (
-                        <DropdownMenuItem
-                          onClick={() => onDelete(agentId as string)}
-                          className="text-red-600 dark:text-red-400"
-                        >
-                          {intl.formatMessage({ id: "agents.card.actions.delete" })}
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            onClick={() => onDelete(agentId as string)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            {intl.formatMessage({ id: "agents.card.actions.delete" })}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               </div>
 
               {current.description && (
-                <p className="text-sm leading-5 text-muted-foreground">{current.description}</p>
+                <p className="mt-7 max-w-4xl text-base text-muted-foreground">
+                  {current.description}
+                </p>
               )}
 
               {loadError && (
-                <p role="alert" className="text-sm text-destructive">
+                <p role="alert" className="mt-7 text-sm text-destructive">
                   {intl.formatMessage({ id: "agents.details.error" })}
                 </p>
               )}
@@ -400,104 +404,121 @@ export function AgentDetailsPanel({
                 </p>
               )}
 
-              <hr className="border-border" />
+              <div className="my-8 h-px bg-border" />
 
-              {skills.length > 0 && (
-                <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
-                  <ul className="col-span-full space-y-2">
-                    {skills.map((name, index) => (
-                      // Index in the key too: skill names aren't guaranteed unique on one agent.
-                      <li key={`${name}-${index}`}>{name}</li>
-                    ))}
-                  </ul>
-                </Section>
-              )}
-
-              {capabilityRows.length > 0 && (
-                <Section title={intl.formatMessage({ id: "agents.details.capabilities" })}>
-                  {capabilityRows.map((row) => (
-                    <Row
-                      key={row.key}
-                      label={intl.formatMessage({ id: `agents.details.capability.${row.key}` })}
-                    >
-                      {yesNo(row.enabled)}
-                    </Row>
-                  ))}
-                </Section>
-              )}
-
-              {(inputModes || outputModes) && (
-                <Section title={intl.formatMessage({ id: "agents.details.modes" })}>
-                  {inputModes && (
-                    <Row label={intl.formatMessage({ id: "agents.details.modes.input" })}>
-                      {inputModes}
-                    </Row>
-                  )}
-                  {outputModes && (
-                    <Row label={intl.formatMessage({ id: "agents.details.modes.output" })}>
-                      {outputModes}
-                    </Row>
-                  )}
-                </Section>
-              )}
-
-              <Section title={intl.formatMessage({ id: "agents.details.security" })}>
-                {authType ? (
-                  <Row label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}>
-                    {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
-                  </Row>
-                ) : (
-                  <Row label={intl.formatMessage({ id: "agents.details.auth.name.unknown" })}>
-                    {notAvailable}
-                  </Row>
+              <div className="space-y-8">
+                {skills.length > 0 && (
+                  <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
+                    <ul className="col-span-full space-y-2">
+                      {skills.map((name, index) => (
+                        // Index in the key too: skill names aren't guaranteed unique on one agent.
+                        <li key={`${name}-${index}`}>{name}</li>
+                      ))}
+                    </ul>
+                  </Section>
                 )}
-              </Section>
 
-              {canReadPlugins && teamId && (bindings.length > 0 || bindingsError) && (
-                <Section title={intl.formatMessage({ id: "agents.details.plugins" })}>
-                  {bindingsError && (
-                    <p role="alert" className="col-span-full text-destructive">
-                      {intl.formatMessage({ id: "agents.details.plugins.error" })}
-                    </p>
-                  )}
-                  <ul className="col-span-full space-y-2">
-                    {bindings.map((binding) => (
-                      <li key={binding.id} className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">
-                          {binding.pluginId}
-                          {binding.agentName === "*" && (
-                            <span className="ml-2 text-muted-foreground">
-                              {intl.formatMessage({ id: "agents.details.plugins.teamWide" })}
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {intl.formatMessage(
-                            { id: "agents.details.plugins.meta" },
-                            { mode: binding.mode, priority: binding.priority },
-                          )}
-                        </span>
-                        {canManagePlugins && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-muted-foreground"
-                            disabled={removingId !== null}
-                            aria-label={intl.formatMessage(
-                              { id: "agents.details.plugins.remove" },
-                              { plugin: binding.pluginId },
-                            )}
-                            onClick={() => setBindingToRemove(binding)}
-                          >
-                            <X className="size-3.5" aria-hidden="true" />
-                          </Button>
-                        )}
-                      </li>
+                {capabilityRows.length > 0 && (
+                  <Section title={intl.formatMessage({ id: "agents.details.capabilities" })}>
+                    {capabilityRows.map((row) => (
+                      <Row
+                        key={row.key}
+                        label={intl.formatMessage({ id: `agents.details.capability.${row.key}` })}
+                      >
+                        {yesNo(row.enabled)}
+                      </Row>
                     ))}
-                  </ul>
+                  </Section>
+                )}
+
+                {(inputModes || outputModes) && (
+                  <Section title={intl.formatMessage({ id: "agents.details.modes" })}>
+                    {inputModes && (
+                      <Row label={intl.formatMessage({ id: "agents.details.modes.input" })}>
+                        {inputModes}
+                      </Row>
+                    )}
+                    {outputModes && (
+                      <Row label={intl.formatMessage({ id: "agents.details.modes.output" })}>
+                        {outputModes}
+                      </Row>
+                    )}
+                  </Section>
+                )}
+
+                <Section title={intl.formatMessage({ id: "agents.details.security" })}>
+                  {authType ? (
+                    <Row label={intl.formatMessage({ id: `agents.details.auth.name.${authType}` })}>
+                      {intl.formatMessage({ id: `agents.details.auth.${authType}` })}
+                    </Row>
+                  ) : (
+                    <Row label={intl.formatMessage({ id: "agents.details.auth.name.unknown" })}>
+                      {notAvailable}
+                    </Row>
+                  )}
                 </Section>
-              )}
+
+                {canReadPlugins && teamId && (bindings.length > 0 || bindingsError) && (
+                  <>
+                    <div className="my-8 h-px bg-border" />
+                    <Section title={intl.formatMessage({ id: "agents.details.plugins" })}>
+                      {bindingsError && (
+                        <p role="alert" className="col-span-full text-destructive">
+                          {intl.formatMessage({ id: "agents.details.plugins.error" })}
+                        </p>
+                      )}
+                      {bindings.length > 0 && (
+                        <ul className="col-span-full grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-4">
+                          {bindings.map((binding) => (
+                            <li
+                              key={binding.id}
+                              className="col-span-full grid min-h-10 grid-cols-subgrid items-center py-1"
+                            >
+                              <span className="min-w-0 truncate">{binding.pluginId}</span>
+                              <span className="min-w-0 truncate">{binding.mode}</span>
+                              <span className="min-w-0 truncate">
+                                {intl.formatMessage(
+                                  { id: "agents.details.plugins.priority" },
+                                  { priority: binding.priority },
+                                )}
+                              </span>
+                              {canManagePlugins ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="justify-self-end text-muted-foreground"
+                                      disabled={removingId !== null}
+                                      aria-label={intl.formatMessage(
+                                        { id: "agents.details.plugins.actionsFor" },
+                                        { plugin: binding.pluginId },
+                                      )}
+                                    >
+                                      <EllipsisVertical className="size-4" aria-hidden="true" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onSelect={() => setBindingToRemove(binding)}
+                                    >
+                                      {intl.formatMessage({ id: "agents.details.plugins.remove" })}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <span aria-hidden="true" />
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </Section>
+                  </>
+                )}
+              </div>
             </div>
 
             <aside className="relative border-t border-border lg:border-l lg:border-t-0">
@@ -626,10 +647,9 @@ export function AgentDetailsPanel({
                 ? "agents.details.plugins.confirm.teamWide"
                 : "agents.details.plugins.confirm.description",
           },
-          { plugin: bindingToRemove?.pluginId, agent: current?.name },
+          { plugin: bindingToRemove?.pluginId },
         )}
         confirmLabel={intl.formatMessage({ id: "agents.details.plugins.confirm.button" })}
-        variant="destructive"
         role="alertdialog"
         closeOnConfirm={false}
         isLoading={removingId !== null}
