@@ -297,10 +297,44 @@ describe("EditAgentForm", () => {
       const { user, onSaved } = renderForm(agent);
 
       await user.click(screen.getByRole("button", { name: "Change credentials" }));
+      await user.click(screen.getByRole("radio", { name: "None" }));
       await user.click(screen.getByRole("button", { name: "Save changes" }));
 
       await waitFor(() => expect(onSaved).toHaveBeenCalled());
       expect(calls[0].body).toEqual({ auth_type: "none" });
+    });
+
+    it("opens on the stored type, so saving without new values does not clear it", async () => {
+      const agent = makeAgent({ authType: "bearer" });
+      const calls = mockUpdate(agent);
+      const { user, onSaved } = renderForm(agent);
+
+      await user.click(screen.getByRole("button", { name: "Change credentials" }));
+      expect(
+        screen.getByRole("radio", { name: "Bearer token", checked: true }),
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+      expect(
+        await screen.findByText("Enter the credentials the agent requires."),
+      ).toBeInTheDocument();
+      expect(calls).toHaveLength(0);
+      expect(onSaved).not.toHaveBeenCalled();
+    });
+
+    it("does not offer to change the credential of an OAuth agent, and keeps it on save", async () => {
+      const agent = makeAgent({ authType: "oauth" });
+      const calls = mockUpdate(agent);
+      const { user, onSaved } = renderForm(agent);
+
+      expect(screen.queryByRole("button", { name: "Change credentials" })).not.toBeInTheDocument();
+      const name = screen.getByPlaceholderText(NAME_PLACEHOLDER);
+      await user.clear(name);
+      await user.type(name, "Beta");
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(calls[0].body).toEqual({ name: "Beta" });
     });
 
     it("goes back to keeping the credential, dropping what was typed", async () => {
@@ -316,6 +350,20 @@ describe("EditAgentForm", () => {
 
       await waitFor(() => expect(onSaved).toHaveBeenCalledWith(null));
       expect(calls).toHaveLength(0);
+    });
+
+    it("keeps a stored protocol version that matches no option when saving other changes", async () => {
+      const agent = makeAgent({ protocolVersion: "0.2.9" });
+      const calls = mockUpdate(agent);
+      const { user, onSaved } = renderForm(agent);
+
+      const name = screen.getByPlaceholderText(NAME_PLACEHOLDER);
+      await user.clear(name);
+      await user.type(name, "Beta");
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(calls[0].body).toEqual({ name: "Beta" });
     });
 
     it("does not offer OAuth as a replacement", async () => {

@@ -8,7 +8,6 @@ import {
   type AgentAuthType,
   type AgentAuthValues,
   type ProtocolBinding,
-  type ProtocolVersion,
 } from "@/components/agents/manualAgent";
 import {
   buildAgentUpdate,
@@ -77,9 +76,9 @@ export function useEditAgentForm({ agent, onSaved }: UseEditAgentFormOptions) {
   const [name, setNameState] = useState(original.name);
   const [description, setDescription] = useState(original.description);
   const [endpointUrl, setEndpointUrlState] = useState(original.endpointUrl);
-  const [protocolVersion, setProtocolVersion] = useState<ProtocolVersion>(
-    original.protocolVersion === "0.3" ? "0.3" : "1.0",
-  );
+  // Kept as stored: the API accepts any version string, and one that matches no option
+  // must not be rewritten to "1.0" by an unrelated edit. It changes only when one is picked.
+  const [protocolVersion, setProtocolVersion] = useState<string>(original.protocolVersion);
   // Stays `null` until the user picks one, so an agent with no binding set keeps none.
   const [protocolBinding, setProtocolBinding] = useState<ProtocolBinding | null>(
     original.protocolBinding,
@@ -160,10 +159,10 @@ export function useEditAgentForm({ agent, onSaved }: UseEditAgentFormOptions) {
   );
   const startChangingAuth = useCallback(() => {
     setChangingAuth(true);
-    // Replacing starts from "no credential", never from the stored type, so the user
-    // picks what the agent should use instead of retyping what is already there.
-    setAuthTypeState("none");
-  }, []);
+    // Starts from the stored type, so saving with empty fields is blocked and clearing
+    // the credential takes choosing None on purpose.
+    setAuthTypeState(currentAuthType);
+  }, [currentAuthType]);
   const keepAuth = useCallback(() => {
     setChangingAuth(false);
     setAuthTypeState(currentAuthType);
@@ -261,6 +260,8 @@ export function useEditAgentForm({ agent, onSaved }: UseEditAgentFormOptions) {
     teamId,
     setTeamId,
     currentAuthType,
+    // OAuth cannot be entered here, and replacing it would drop it, so it is left alone.
+    canChangeAuth: currentAuthType !== "oauth", // pragma: allowlist secret
     changingAuth,
     startChangingAuth,
     keepAuth,

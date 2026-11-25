@@ -183,14 +183,16 @@ export function EditAgentForm({ agent, onCancel, onSaved }: EditAgentFormProps) 
                           },
                         )}
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={form.startChangingAuth}
-                  >
-                    {intl.formatMessage({ id: "agents.edit.auth.change" })}
-                  </Button>
+                  {form.canChangeAuth && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={form.startChangingAuth}
+                    >
+                      {intl.formatMessage({ id: "agents.edit.auth.change" })}
+                    </Button>
+                  )}
                 </>
               )}
             </section>
