@@ -39,7 +39,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-2">
       <dt className="w-20 shrink-0 text-xs leading-4 font-semibold text-foreground">{label}</dt>
-      <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-[13px] leading-4 text-secondary-foreground">
+      <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-[13px] leading-4 text-secondary-foreground dark:text-neutral-200">
         {children}
       </dd>
     </div>

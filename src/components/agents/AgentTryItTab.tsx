@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { ArrowUp, CircleStop } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { AGENT_TEST_QUERY_MAX_LENGTH, AGENT_TEST_TIMEOUT_MS } from "@/config/agentTest";
 import { useAgentTest } from "@/hooks/useAgentTest";
 import { AgentTestResult, STATUS_ROW } from "./AgentTestResult";
@@ -53,8 +54,12 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
         ? "counter"
         : "hint";
 
-  const send = () => {
-    if (!test.isLoading) void test.run(query);
+  const [sendStartedRun, setSendStartedRun] = useState(false);
+
+  const send = (fromSend: boolean) => {
+    if (test.isLoading) return;
+    setSendStartedRun(fromSend);
+    void test.run(query);
   };
 
   return (
@@ -66,7 +71,7 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
         className="flex flex-col gap-2 rounded-xl border border-input p-2 focus-within:ring-2 focus-within:ring-ring"
         onSubmit={(event) => {
           event.preventDefault();
-          send();
+          send(true);
         }}
       >
         <textarea
@@ -81,16 +86,16 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
             // Enter sends, as in a chat box; Shift+Enter starts a new line.
             if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
-              send();
+              send(true);
             }
           }}
-          className="min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm leading-5 text-foreground outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
         />
         <div className="flex justify-end">
           <Button
             type="submit"
             size="icon-xs"
-            className="rounded-sm"
+            className={cn("rounded-sm", !sendStartedRun && "disabled:opacity-100")}
             disabled={test.isLoading}
             aria-label={intl.formatMessage({ id: "agents.try.send" })}
           >
@@ -133,7 +138,11 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
           </Button>
         </div>
       ) : (
-        <AgentTestResult state={test} protocolVersion={protocolVersion} onRetest={send} />
+        <AgentTestResult
+          state={test}
+          protocolVersion={protocolVersion}
+          onRetest={() => send(false)}
+        />
       )}
     </div>
   );
