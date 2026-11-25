@@ -23,6 +23,9 @@ interface AgentTestResultProps {
   onRetest: () => void;
 }
 
+/** Shared with the in-flight row to avoid content shift. */
+export const STATUS_ROW = "flex min-h-8 items-center";
+
 /** "38 ms" under a second, "1.42s" above. */
 export function formatElapsed(ms: number): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(2)}s`;
@@ -36,7 +39,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-2">
       <dt className="w-20 shrink-0 text-xs leading-4 font-semibold text-foreground">{label}</dt>
-      <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-[13px] leading-4 text-secondary-foreground">
+      <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-[13px] leading-4 text-secondary-foreground dark:text-neutral-200">
         {children}
       </dd>
     </div>
@@ -147,7 +150,7 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
 
   return (
     <div aria-live="polite" className="space-y-2">
-      <div className="flex items-start gap-1">
+      <div className={`${STATUS_ROW} gap-1`}>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[13px] leading-4 font-medium">
           <span className="flex items-center gap-2 text-popover-foreground">
             <StatusIcon className={`size-3.5 shrink-0 ${iconTone}`} aria-hidden="true" />
@@ -160,12 +163,18 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
             </span>
           )}
         </div>
-        <Button type="button" size="sm" className="h-auto px-2 py-2 text-xs" onClick={onRetest}>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="shadow-none"
+          onClick={onRetest}
+        >
           {t("agents.try.retest")}
         </Button>
       </div>
 
-      <dl className="space-y-2 rounded-[6px] border border-input p-4">
+      <dl className="animate-in fade-in space-y-2 rounded-[6px] border border-input p-4 duration-200 motion-reduce:animate-none">
         <Row label={t("agents.try.row.agent")}>
           <span className="whitespace-pre-wrap break-words">{message}</span>
         </Row>

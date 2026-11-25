@@ -233,13 +233,37 @@ describe("AgentTryItTab", () => {
     expect(screen.queryByText(/OK|Failed/)).not.toBeInTheDocument();
   });
 
-  it("shows elapsed time and a counter while waiting, and lets the caller cancel", async () => {
+  it("counts characters in place of the notice, until a test takes the slot", async () => {
+    const user = userEvent.setup();
+    server.use(http.post(TEST_URL, () => success({ message: { parts: [{ text: "pong" }] } })));
+    renderTab();
+
+    const notice = /record a metric, update last used, or create a task/i;
+    expect(screen.getByText(notice)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Test agent"), "hello");
+    expect(screen.getByText("5 / 4096")).toBeInTheDocument();
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Test agent"));
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 4096$/)).not.toBeInTheDocument();
+
+    await run("hello");
+    expect(await screen.findByText("pong")).toBeInTheDocument();
+    expect(screen.getByLabelText("Test agent")).toHaveValue("hello");
+    expect(screen.queryByText(/\/ 4096$/)).not.toBeInTheDocument();
+  });
+
+  it("shows elapsed time while waiting, and lets the caller cancel", async () => {
     server.use(http.post(TEST_URL, () => new Promise(() => {})));
     renderTab();
     await run("hello");
 
-    expect(await screen.findByText(/^Elapsed /)).toBeInTheDocument();
-    expect(screen.getByText("5 / 4096")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/^Elapsed /, { ignore: "[aria-hidden='true']" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 4096$/)).not.toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() =>
