@@ -163,7 +163,13 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
             </span>
           )}
         </div>
-        <Button type="button" size="sm" className="h-auto px-2 py-2 text-xs" onClick={onRetest}>
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="shadow-none"
+          onClick={onRetest}
+        >
           {t("agents.try.retest")}
         </Button>
       </div>
