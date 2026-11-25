@@ -39,6 +39,7 @@ function activeCode(): string {
 
 function makeTool(overrides: Partial<Tool> = {}): Tool {
   return {
+    mcpServerId: null,
     id: "tool-search",
     name: "search_issues",
     originalName: "search_issues",

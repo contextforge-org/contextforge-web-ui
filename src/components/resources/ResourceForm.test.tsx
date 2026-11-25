@@ -13,6 +13,7 @@ function createMockResource(
   overrides: Partial<NonNullable<ResourceRead> & { content?: string }> = {},
 ): NonNullable<ResourceRead> & { content?: string } {
   return {
+    mcpServerId: null,
     id: "resource-1",
     uri: "resource://example/path",
     name: "Existing Resource",

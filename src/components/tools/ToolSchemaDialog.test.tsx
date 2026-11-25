@@ -9,6 +9,7 @@ import type { Tool } from "@/types/tool";
 // Helper to create mock tool
 function createMockTool(overrides?: Partial<Tool>): Tool {
   return {
+    mcpServerId: null,
     id: "tool-1",
     name: "Test Tool",
     originalName: "test_tool",

@@ -28,6 +28,7 @@ type Prompt = NonNullable<PromptRead>;
 
 function createMockPrompt(overrides: Partial<Prompt> = {}): Prompt {
   return {
+    mcpServerId: null,
     id: "prompt-1",
     name: "summarize",
     originalName: "summarize_document",

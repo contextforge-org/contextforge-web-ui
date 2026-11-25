@@ -8,6 +8,8 @@ export interface CopyValueProps {
   label: string;
   /** The full value copied to the clipboard (the visible text is middle-truncated). */
   value: string;
+  /** How many characters stay visible before the middle is cut. Defaults to the truncation's own (24). */
+  maxLength?: number;
 }
 
 /**
@@ -19,11 +21,15 @@ export interface CopyValueProps {
  * via the `common.copyValue` message so screen readers announce it in the
  * active locale.
  */
-export function CopyValue({ label, value }: CopyValueProps) {
+export function CopyValue({ label, value, maxLength }: CopyValueProps) {
   const intl = useIntl();
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <TruncatedMiddleText value={value} className="min-w-0 flex-1 font-mono text-[12px]" />
+      <TruncatedMiddleText
+        value={value}
+        maxLength={maxLength}
+        className="min-w-0 flex-1 font-mono text-[12px]"
+      />
       <CopyButton
         value={value}
         label={intl.formatMessage({ id: "common.copyValue" }, { label })}

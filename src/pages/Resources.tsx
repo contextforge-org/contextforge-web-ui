@@ -329,6 +329,7 @@ export function Resources() {
         description: resource.description ?? null,
         mimeType: resource.mimeType ?? null,
         size: null,
+        mcpServerId: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         enabled: true,

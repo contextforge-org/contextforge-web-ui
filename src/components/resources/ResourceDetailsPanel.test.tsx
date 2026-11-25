@@ -12,6 +12,7 @@ vi.mock("@/api/resources", async (importOriginal) => ({
 
 function mockResource(overrides?: Partial<NonNullable<ResourceRead>>): NonNullable<ResourceRead> {
   return {
+    mcpServerId: null,
     id: "42",
     uri: "file:///a.txt",
     name: "a.txt",
