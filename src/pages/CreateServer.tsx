@@ -923,8 +923,8 @@ export function CreateServer() {
         associatedTools: selectedComponents.tools,
         associatedResources: selectedComponents.resources,
         associatedPrompts: selectedComponents.prompts,
-        // The edit form has no agent picker yet; resend the current ids so the PUT keeps them.
-        associatedA2aAgents: uniqueStrings(editingServer.associatedA2aAgents ?? []),
+        // Left out on purpose: the server read lists enabled agents only, so resending it
+        // would detach disabled ones. The gateway keeps an omitted list as it is.
       };
 
       await updateVirtualServer(editingServer.id, detailsForUpdate);

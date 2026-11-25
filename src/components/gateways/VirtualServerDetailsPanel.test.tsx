@@ -228,6 +228,55 @@ describe("VirtualServerDetailsPanel components list", () => {
     expect(screen.getByText("router agent")).toBeInTheDocument();
   });
 
+  it("does not request agents without a2a.read, and lists the server's agent ids instead", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["servers.read"];
+    const agentRequests = vi.fn();
+    mswServer.use(
+      http.get("*/v1/a2a", () => {
+        agentRequests();
+        return HttpResponse.json([], { status: 403 });
+      }),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+
+    expect(await screen.findByText("agent-1")).toBeInTheDocument();
+    expect(agentRequests).not.toHaveBeenCalled();
+  });
+
+  it("drops the Agents tab once the server has no agents left", async () => {
+    const user = userEvent.setup();
+    mswServer.use(http.get("*/v1/a2a", () => HttpResponse.json([])));
+    const props = { error: null, open: true, onClose: vi.fn(), onAddSources: vi.fn() };
+    const { rerender } = render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        {...props}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    expect(screen.getByRole("tab", { name: "Agents" })).toBeInTheDocument();
+
+    rerender(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: [] })}
+        {...props}
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: "Agents" })).not.toBeInTheDocument();
+  });
+
   it("renders titled and untitled component rows with badges", async () => {
     const user = userEvent.setup();
     renderWithComponents();

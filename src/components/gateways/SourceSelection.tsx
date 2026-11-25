@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import {
   Activity,
@@ -20,6 +20,7 @@ import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
+import { StatusIndicator } from "@/components/ui/status-indicator";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
@@ -104,6 +105,58 @@ function getVisibilityConfig(
     default:
       return { Icon: Building2, labelId: "gateways.createServer.visibility.public" };
   }
+}
+
+const SOURCE_ROW_CLASS =
+  "grid min-h-12 grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] items-center gap-4 px-3 py-2 text-sm hover:bg-muted/30";
+
+interface SourceRowProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  selectLabel: string;
+  name: string;
+  icon: ReactNode;
+  counts: ReactNode;
+  visibility: string | null | undefined;
+  status: ReactNode;
+}
+
+/** One selectable source. Each kind passes its own icon, counts and status. */
+function SourceRow({
+  checked,
+  onCheckedChange,
+  selectLabel,
+  name,
+  icon,
+  counts,
+  visibility,
+  status,
+}: SourceRowProps) {
+  const intl = useIntl();
+  const visibilityConfig = getVisibilityConfig(visibility);
+  const VisibilityIcon = visibilityConfig.Icon;
+
+  return (
+    <div className={SOURCE_ROW_CLASS}>
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        aria-label={selectLabel}
+      />
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+          {icon}
+        </span>
+        <TruncatedText className="min-w-0 font-medium text-foreground">{name}</TruncatedText>
+      </div>
+      <div className="flex min-w-0 items-center gap-3 text-muted-foreground">{counts}</div>
+      <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+        <VisibilityIcon className="size-3.5" />
+        {intl.formatMessage({ id: visibilityConfig.labelId })}
+      </span>
+      {status}
+    </div>
+  );
 }
 
 export function SourceSelection({
@@ -438,57 +491,39 @@ export function SourceSelection({
                 {!sourcesLoading && hasAvailableSources && (
                   <div className="mt-5 overflow-hidden">
                     <div className="divide-y divide-border/60">
-                      {availableMCPServers.map((server) => {
-                        const toolCount = getToolCount(server);
-                        const resourceCount = getResourceCount(server);
-                        const promptCount = getPromptCount(server);
-                        const visibility = getVisibilityConfig(server.visibility);
-                        const VisibilityIcon = visibility.Icon;
-                        const isSelected = selectedMCPServerIds.has(server.id);
-
-                        return (
-                          <div
-                            key={server.id}
-                            className="grid min-h-12 grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] items-center gap-4 px-3 py-2 text-sm hover:bg-muted/30"
-                          >
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) =>
-                                toggleMCPServerSelection(server.id, checked === true)
-                              }
-                              aria-label={intl.formatMessage(
-                                { id: "gateways.source.selectSource" },
-                                { name: server.name },
-                              )}
-                            />
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                                <MCPIcon className="size-4 [&_path]:fill-current" />
-                              </span>
-                              <TruncatedText className="min-w-0 font-medium text-foreground">
-                                {server.name}
-                              </TruncatedText>
-                            </div>
-                            <div className="flex min-w-0 items-center gap-3 text-muted-foreground">
+                      {availableMCPServers.map((server) => (
+                        <SourceRow
+                          key={server.id}
+                          checked={selectedMCPServerIds.has(server.id)}
+                          onCheckedChange={(checked) =>
+                            toggleMCPServerSelection(server.id, checked)
+                          }
+                          selectLabel={intl.formatMessage(
+                            { id: "gateways.source.selectSource" },
+                            { name: server.name },
+                          )}
+                          name={server.name}
+                          icon={<MCPIcon className="size-4 [&_path]:fill-current" />}
+                          visibility={server.visibility}
+                          counts={
+                            <>
                               <span className="flex items-center gap-1.5">
                                 <Wrench className="size-3.5" />
-                                {toolCount}
+                                {getToolCount(server)}
                               </span>
                               <span className="text-border">•</span>
                               <span className="flex items-center gap-1.5">
                                 <Box className="size-3.5" />
-                                {resourceCount}
+                                {getResourceCount(server)}
                               </span>
                               <span className="text-border">•</span>
                               <span className="flex items-center gap-1.5">
                                 <MessageSquareCode className="size-3.5" />
-                                {promptCount}
+                                {getPromptCount(server)}
                               </span>
-                            </div>
-                            <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                              <VisibilityIcon className="size-3.5" />
-                              {intl.formatMessage({ id: visibility.labelId })}
-                            </span>
+                            </>
+                          }
+                          status={
                             <ServerStatusIndicator
                               server={server}
                               oauthStatus={oauthStatuses[server.id]}
@@ -497,88 +532,71 @@ export function SourceSelection({
                               compact
                               className="justify-self-start text-[13px] leading-4 font-normal"
                             />
-                          </div>
-                        );
-                      })}
+                          }
+                        />
+                      ))}
                       {availableAgents.map((agent) => {
                         const skillCount = agent.skills?.length ?? 0;
-                        const visibility = getVisibilityConfig(agent.visibility);
-                        const VisibilityIcon = visibility.Icon;
                         const isActive = agent.enabled && agent.reachable;
 
                         return (
-                          <div
+                          <SourceRow
                             key={`agent-${agent.id}`}
-                            className="grid min-h-12 grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] items-center gap-4 px-3 py-2 text-sm hover:bg-muted/30"
-                          >
-                            <Checkbox
-                              checked={selectedAgentIds.has(agent.id)}
-                              onCheckedChange={(checked) =>
-                                toggleAgentSelection(agent.id, checked === true)
-                              }
-                              aria-label={intl.formatMessage(
-                                { id: "gateways.source.selectSource" },
-                                { name: agent.name },
-                              )}
-                            />
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                                <Bot className="size-4" aria-hidden="true" />
-                              </span>
-                              <TruncatedText className="min-w-0 font-medium text-foreground">
-                                {agent.name}
-                              </TruncatedText>
-                            </div>
-                            <div className="flex min-w-0 items-center gap-3 text-muted-foreground">
-                              {agent.toolId && (
-                                <>
-                                  <span className="flex items-center gap-1.5">
-                                    <Wrench className="size-3.5" aria-hidden="true" />
-                                    <span aria-hidden="true">1</span>
-                                    <span className="sr-only">
-                                      {intl.formatMessage(
-                                        { id: "gateways.card.toolCount" },
-                                        { count: 1 },
-                                      )}
+                            checked={selectedAgentIds.has(agent.id)}
+                            onCheckedChange={(checked) => toggleAgentSelection(agent.id, checked)}
+                            selectLabel={intl.formatMessage(
+                              { id: "gateways.source.selectSource" },
+                              { name: agent.name },
+                            )}
+                            name={agent.name}
+                            icon={<Bot className="size-4" aria-hidden="true" />}
+                            visibility={agent.visibility}
+                            counts={
+                              <>
+                                {agent.toolId && (
+                                  <>
+                                    <span className="flex items-center gap-1.5">
+                                      <Wrench className="size-3.5" aria-hidden="true" />
+                                      <span aria-hidden="true">1</span>
+                                      <span className="sr-only">
+                                        {intl.formatMessage(
+                                          { id: "gateways.card.toolCount" },
+                                          { count: 1 },
+                                        )}
+                                      </span>
                                     </span>
-                                  </span>
-                                  <span className="text-border" aria-hidden="true">
-                                    •
-                                  </span>
-                                </>
-                              )}
-                              <span className="flex items-center gap-1.5">
-                                <Bot className="size-3.5" aria-hidden="true" />
-                                <span aria-hidden="true">{skillCount}</span>
-                                <span className="sr-only">
-                                  {intl.formatMessage(
-                                    { id: "gateways.source.skillCount" },
-                                    { count: skillCount },
-                                  )}
-                                </span>
-                              </span>
-                            </div>
-                            <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                              <VisibilityIcon className="size-3.5" />
-                              {intl.formatMessage({ id: visibility.labelId })}
-                            </span>
-                            <span className="flex items-center gap-1.5 justify-self-start text-[13px] leading-4 font-normal text-muted-foreground">
-                              <Activity
-                                className={cn(
-                                  "size-3.5",
-                                  isActive
-                                    ? "text-tool-status-active"
-                                    : "text-tool-status-inactive",
+                                    <span className="text-border" aria-hidden="true">
+                                      •
+                                    </span>
+                                  </>
                                 )}
-                                aria-hidden="true"
+                                <span className="flex items-center gap-1.5">
+                                  <Bot className="size-3.5" aria-hidden="true" />
+                                  <span aria-hidden="true">{skillCount}</span>
+                                  <span className="sr-only">
+                                    {intl.formatMessage(
+                                      { id: "gateways.source.skillCount" },
+                                      { count: skillCount },
+                                    )}
+                                  </span>
+                                </span>
+                              </>
+                            }
+                            status={
+                              <StatusIndicator
+                                Icon={Activity}
+                                iconClassName={
+                                  isActive ? "text-tool-status-active" : "text-tool-status-inactive"
+                                }
+                                label={intl.formatMessage({
+                                  id: isActive
+                                    ? "gateways.details.status.active"
+                                    : "gateways.details.status.inactive",
+                                })}
+                                className="justify-self-start text-[13px] leading-4 font-normal"
                               />
-                              {intl.formatMessage({
-                                id: isActive
-                                  ? "gateways.details.status.active"
-                                  : "gateways.details.status.inactive",
-                              })}
-                            </span>
-                          </div>
+                            }
+                          />
                         );
                       })}
                     </div>

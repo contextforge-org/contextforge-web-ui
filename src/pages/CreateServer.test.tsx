@@ -1182,10 +1182,47 @@ describe("CreateServer", () => {
             associatedTools: [],
             associatedResources: [],
             associatedPrompts: [],
-            associatedA2aAgents: [],
           });
         });
         expect(mockNavigate).toHaveBeenCalledWith("/app/gateways");
+      } finally {
+        componentMockState.mockForm = false;
+      }
+    });
+
+    it("leaves the agent list out of an edit, so agents the read omits stay attached", async () => {
+      routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
+      server.use(
+        http.get("*/v1/virtual-servers/gateway-1", () => {
+          return HttpResponse.json({
+            id: "gateway-1",
+            name: "Test Edit Server",
+            visibility: "team",
+            oauthEnabled: false,
+            associatedA2aAgents: ["agent-1"],
+          });
+        }),
+        http.get("*/v1/mcp-servers", () => {
+          return HttpResponse.json({ gateways: [] });
+        }),
+      );
+
+      componentMockState.mockForm = true;
+      try {
+        renderForm(<CreateServer />);
+
+        await waitFor(() => {
+          expect(screen.getByTestId("mock-create-server-form")).toBeInTheDocument();
+        });
+
+        act(() => {
+          componentMockState.capturedProps?.onSuccess({ name: "Updated Name" });
+        });
+
+        await waitFor(() => expect(mockUpdateVirtualServer).toHaveBeenCalled());
+        expect(mockUpdateVirtualServer.mock.lastCall?.[1]).not.toHaveProperty(
+          "associatedA2aAgents",
+        );
       } finally {
         componentMockState.mockForm = false;
       }
@@ -1227,7 +1264,6 @@ describe("CreateServer", () => {
             associatedTools: [],
             associatedResources: [],
             associatedPrompts: [],
-            associatedA2aAgents: [],
           });
         });
         // Error should be set on the CreateServerForm props

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useAuth } from "@/auth/useAuth";
 import type { ReactNode, Ref } from "react";
 import { useIntl } from "react-intl";
 import {
@@ -299,12 +300,14 @@ export function VirtualServerDetailsPanel({
 
   // There is no per-server agents endpoint, so list the visible agents and keep the associated ones.
   const associatedAgentIds = server?.associatedA2aAgents;
+  const { hasPermission, permissionsLoading } = useAuth();
+  const canReadAgents = !permissionsLoading && hasPermission("a2a.read");
   const {
     data: agentsData,
     isLoading: agentsLoading,
     refetch: refetchAgents,
   } = useQuery<A2AAgentRead[]>("/v1/a2a?limit=0&include_inactive=true", {
-    enabled: fetchEnabled && (associatedAgentIds?.length ?? 0) > 0,
+    enabled: fetchEnabled && canReadAgents && (associatedAgentIds?.length ?? 0) > 0,
   });
 
   const fetchedAgents = useMemo((): ComponentWithType[] => {

@@ -293,7 +293,7 @@ describe("virtualServers API", () => {
     expect(payload.server.associated_a2a_agents).toEqual(["agent-1", "agent-2"]);
   });
 
-  it("carries existing agent ids on update so a PUT does not drop them", () => {
+  it("writes agent ids on update when they are given", () => {
     const payload = buildUpdateVirtualServerPayload({
       name: "Agent server",
       visibility: "public",
