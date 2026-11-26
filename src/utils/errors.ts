@@ -1,4 +1,20 @@
 /**
+ * Reads the HTTP status off an API failure. Structural on purpose: useQuery
+ * sanitizes thrown ApiErrors into plain `{ message, status, ... }` objects, so
+ * an instanceof test would never match a query error. Matches both shapes.
+ */
+export function apiErrorStatus(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null || !("status" in err)) return undefined;
+  const { status } = err as { status: unknown };
+  return typeof status === "number" ? status : undefined;
+}
+
+/** True when an error is a 403 from the API. */
+export function isPermissionDenied(err: unknown): boolean {
+  return apiErrorStatus(err) === 403;
+}
+
+/**
  * Wrapper for async operations with standardized error handling
  *
  * @param operation - The async operation to execute

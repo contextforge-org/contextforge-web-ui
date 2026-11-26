@@ -3,22 +3,14 @@
  * authorized to see. Rendered when a gated card is shown but the endpoint 403s
  * (stale/coarser client permissions, or a team-switch race), or when a gate
  * fails closed. Never crashes; shows generic copy (never a raw server body).
+ *
+ * The matching predicate is `isPermissionDenied` in src/utils/errors.ts.
  */
 
 import { Lock } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { cn } from "@/lib/utils";
-
-/**
- * True when an error is a 403 from the API. Structural on purpose: useQuery
- * sanitizes thrown ApiErrors into plain `{ message, status, ... }` objects
- * (sanitizeError in src/hooks/useQuery.ts), so an instanceof test would never
- * match a query error. Matches both shapes.
- */
-export function isPermissionDenied(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "status" in err && err.status === 403;
-}
 
 interface PermissionDeniedProps {
   /** i18n message id; defaults to generic insufficient-permission copy. */

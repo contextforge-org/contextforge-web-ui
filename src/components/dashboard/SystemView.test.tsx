@@ -93,9 +93,11 @@ describe("SystemView", () => {
 
     // Executions = 30 (tools) + 7 (servers) = 37
     expect(screen.getByText("37")).toBeInTheDocument();
-    // Max = 0.8, weighted avg over 37 execs = (0.4*30 + 0.04*7)/37, min = 0.02
-    expect(screen.getByText("0.800ms")).toBeInTheDocument();
-    expect(screen.getByText("0.020ms")).toBeInTheDocument();
+    // /metrics reports seconds. Max = 0.8s, min = 0.02s, weighted avg over 37
+    // execs = (0.4*30 + 0.04*7)/37 = 0.3319s.
+    expect(screen.getByText("800ms")).toBeInTheDocument();
+    expect(screen.getByText("20.0ms")).toBeInTheDocument();
+    expect(screen.getByText("332ms")).toBeInTheDocument();
   });
 
   it("renders virtual server active/total, success rate, and latency", () => {
@@ -104,7 +106,8 @@ describe("SystemView", () => {
 
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
     expect(screen.getByText("99.97%")).toBeInTheDocument();
-    expect(screen.getByText("0.040ms")).toBeInTheDocument();
+    // 0.04s from the servers aggregate.
+    expect(screen.getByText("40.0ms")).toBeInTheDocument();
   });
 
   it("renders the components inventory with honest zeros and plugin placeholder", () => {

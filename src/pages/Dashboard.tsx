@@ -6,6 +6,7 @@ import type { ActionCard } from "@/components/gateways/types";
 import { MCPIcon } from "@/components/icons/MCPIcon";
 import { ActivityFeedButton } from "@/components/dashboard/ActivityFeedButton";
 import { ActivityView } from "@/components/dashboard/ActivityView";
+import { A2aRuntimeCard } from "@/components/dashboard/A2aRuntimeCard";
 import { ClearControl } from "@/components/dashboard/ClearControl";
 import { EmptyStatePlaceholder } from "@/components/dashboard/EmptyStatePlaceholder";
 import { McpHealthCard } from "@/components/dashboard/McpHealthCard";
@@ -236,16 +237,16 @@ function MainContent({
 }) {
   if (active === "system") return <SystemView />;
   if (active === "mcp") return <McpHealthCard health={systemHealth} />;
+  if (active === "a2a") return <A2aRuntimeCard health={systemHealth} />;
   if (active === "activity") return <ActivityView />;
   return <EmptyStatePlaceholder messageId={PLACEHOLDER_MESSAGE[active]} />;
 }
 
 /** Placeholder copy per view until the real card lands. Views with their own
  * component return above and never reach this map. */
-const PLACEHOLDER_MESSAGE: Record<Exclude<HomeViewId, "activity">, string> = {
+const PLACEHOLDER_MESSAGE: Record<Exclude<HomeViewId, "activity" | "a2a">, string> = {
   default: "dashboard.home.emptyState",
   mcp: "dashboard.home.placeholder.mcp",
-  a2a: "dashboard.home.placeholder.a2a",
   rest: "dashboard.home.placeholder.rest",
   grpc: "dashboard.home.placeholder.grpc",
   system: "dashboard.home.placeholder.system",
