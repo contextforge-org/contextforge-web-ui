@@ -190,9 +190,15 @@ describe("Dashboard home views (non-default states)", () => {
   });
 
   it("renders the source-specific placeholder for an ungated view", () => {
+    mockPath = "/app/?view=rest";
+    renderWithProviders(<Dashboard />);
+    expect(screen.getByText("No REST API sources have been added yet.")).toBeInTheDocument();
+  });
+
+  it("renders the A2A runtime card on the a2a view", () => {
     mockPath = "/app/?view=a2a";
     renderWithProviders(<Dashboard />);
-    expect(screen.getByText("No agent (A2A) sources have been added yet.")).toBeInTheDocument();
+    expect(screen.getByText("Runtime")).toBeInTheDocument();
   });
 
   it("renders the System view when the caller is permitted", () => {

@@ -1,10 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ApiError } from "@/api/client";
+
 import {
+  apiErrorStatus,
   extractApiErrorDetail,
   extractUpstreamApiErrorDetail,
+  isPermissionDenied,
   sanitizeError,
   withErrorHandling,
 } from "./errors";
+
+describe("apiErrorStatus", () => {
+  it("reads the status off an ApiError", () => {
+    expect(apiErrorStatus(new ApiError(404, null, "HTTP 404"))).toBe(404);
+  });
+
+  it("reads the status off the sanitized query-error shape useQuery stores", () => {
+    expect(apiErrorStatus({ message: "HTTP 404", status: 404 })).toBe(404);
+  });
+
+  it("returns undefined when there is no numeric status", () => {
+    expect(apiErrorStatus({ status: "404" })).toBeUndefined();
+    expect(apiErrorStatus({})).toBeUndefined();
+    expect(apiErrorStatus(null)).toBeUndefined();
+    expect(apiErrorStatus(undefined)).toBeUndefined();
+    expect(apiErrorStatus("404")).toBeUndefined();
+  });
+});
+
+describe("isPermissionDenied", () => {
+  it("matches an ApiError with status 403", () => {
+    expect(isPermissionDenied(new ApiError(403, null, "HTTP 403"))).toBe(true);
+  });
+
+  it("matches the sanitized query-error shape useQuery stores", () => {
+    expect(isPermissionDenied({ message: "HTTP 403", status: 403 })).toBe(true);
+  });
+
+  it("rejects other statuses and non-errors", () => {
+    expect(isPermissionDenied(new ApiError(500, null, "HTTP 500"))).toBe(false);
+    expect(isPermissionDenied({ status: 500 })).toBe(false);
+    expect(isPermissionDenied(null)).toBe(false);
+    expect(isPermissionDenied(undefined)).toBe(false);
+    expect(isPermissionDenied("403")).toBe(false);
+  });
+});
 
 describe("extractApiErrorDetail", () => {
   it("returns null for null", () => {
