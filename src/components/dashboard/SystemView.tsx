@@ -20,6 +20,7 @@ import { SystemStatsCard } from "./SystemStatsCard";
 import {
   aggregateSystemStats,
   countActiveTotal,
+  secondsToMs,
   type Activatable,
   type MetricsResponse,
 } from "./systemMetrics";
@@ -56,7 +57,7 @@ export function SystemView() {
           <VirtualServersCard
             counts={servers ? countActiveTotal(servers) : null}
             failureRate={serverMetrics?.failureRate ?? null}
-            avgResponseTime={serverMetrics?.avgResponseTime ?? null}
+            avgResponseTime={secondsToMs(serverMetrics?.avgResponseTime)}
             loading={metricsLoading || serversLoading}
           />
         </div>

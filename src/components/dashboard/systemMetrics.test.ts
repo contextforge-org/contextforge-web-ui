@@ -6,6 +6,7 @@ import {
   formatCount,
   formatResponseTime,
   formatSuccessRate,
+  secondsToMs,
   UNAVAILABLE,
   type EntityMetrics,
   type MetricsResponse,
@@ -62,14 +63,21 @@ describe("aggregateSystemStats", () => {
   });
 
   it("weights the average response time by execution count", () => {
-    // tools: avg 1ms over 10 execs; servers: avg 3ms over 30 execs -> (10 + 90)/40 = 2.5
+    // tools: avg 1s over 10 execs; servers: avg 3s over 30 execs -> (10 + 90)/40 = 2.5s
     const result = aggregateSystemStats(
       metrics({
         tools: entity({ totalExecutions: 10, avgResponseTime: 1 }),
         servers: entity({ totalExecutions: 30, avgResponseTime: 3 }),
       }),
     );
-    expect(result?.avgResponseTime).toBeCloseTo(2.5, 6);
+    expect(result?.avgResponseTime).toBeCloseTo(2500, 6);
+  });
+
+  it("converts seconds to milliseconds", () => {
+    const result = aggregateSystemStats(
+      metrics({ tools: entity({ totalExecutions: 1, avgResponseTime: 0.1234 }) }),
+    );
+    expect(result?.avgResponseTime).toBeCloseTo(123.4, 6);
   });
 
   it("takes min/max across types and skips null timings", () => {
@@ -80,8 +88,8 @@ describe("aggregateSystemStats", () => {
         prompts: entity({ totalExecutions: 0, minResponseTime: null, maxResponseTime: null }),
       }),
     );
-    expect(result?.minResponseTime).toBe(0.2);
-    expect(result?.maxResponseTime).toBe(5);
+    expect(result?.minResponseTime).toBeCloseTo(200, 6);
+    expect(result?.maxResponseTime).toBeCloseTo(5000, 6);
   });
 
   it("yields a null average when no type has timing data", () => {
@@ -125,6 +133,19 @@ describe("countActiveTotal", () => {
       { enabled: true, reachable: false },
     ]);
     expect(result).toEqual({ active: 1, total: 3 });
+  });
+});
+
+describe("secondsToMs", () => {
+  it("scales seconds to milliseconds", () => {
+    expect(secondsToMs(0.472)).toBeCloseTo(472, 6);
+    expect(secondsToMs(0)).toBe(0);
+  });
+
+  it("returns null for missing or NaN input", () => {
+    expect(secondsToMs(null)).toBeNull();
+    expect(secondsToMs(undefined)).toBeNull();
+    expect(secondsToMs(Number.NaN)).toBeNull();
   });
 });
 
