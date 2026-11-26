@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Login } from "./Login";
 import { useAuth } from "../auth/useAuth";
 import { useRouter, resolveNextParam } from "../router";
@@ -285,6 +285,58 @@ describe("Login", () => {
       fireEvent.click(ssoButton);
 
       expect(window.location.href).toBe("/auth/sso/login?next=%2Fapp%2F");
+    });
+
+    describe("with ssoAutoRedirect", () => {
+      function renderAt(path: string) {
+        vi.mocked(useAuth).mockReturnValue({
+          isAuthenticated: false,
+          login: mockLogin,
+          ssoEnabled: true,
+          ssoProviderName: "Keycloak",
+          ssoAutoRedirect: true,
+        } as unknown as ReturnType<typeof useAuth>);
+        vi.unstubAllGlobals();
+        sessionStorage.clear();
+        window.history.pushState({}, "", path);
+        const { href, search } = window.location;
+        vi.stubGlobal("location", { ...window.location, href, search });
+        renderWithI18n(<Login />);
+        return href;
+      }
+
+      it("starts SSO on its own, keeping next", () => {
+        vi.mocked(resolveNextParam).mockReturnValue("/app/tools");
+        renderAt("/app/login?next=%2Fapp%2Ftools");
+
+        expect(window.location.href).toBe("/auth/sso/login?next=%2Fapp%2Ftools");
+      });
+
+      it("does not redirect again within the cooldown, so a bounce cannot loop", () => {
+        renderAt("/app/login");
+        expect(window.location.href).toBe("/auth/sso/login?next=%2Fapp%2F");
+
+        cleanup();
+        vi.stubGlobal("location", { ...window.location, href: "/app/login", search: "" });
+        renderWithI18n(<Login />);
+
+        expect(window.location.href).toBe("/app/login");
+        expect(screen.getByRole("button", { name: /Sign in with Keycloak/i })).toBeInTheDocument();
+      });
+
+      it("shows the password form for local=1", () => {
+        const href = renderAt("/app/login?local=1");
+
+        expect(window.location.href).toBe(href);
+        expect(screen.getByRole("button", { name: /Sign in with Keycloak/i })).toBeInTheDocument();
+      });
+
+      it("does not loop back into SSO after an SSO failure", () => {
+        const href = renderAt("/app/login?error=sso_access_denied");
+
+        expect(window.location.href).toBe(href);
+        expect(screen.getByRole("alert")).toHaveTextContent(/Single sign-on failed/i);
+      });
     });
 
     it("renders a visible error for an SSO callback failure without navigating further", async () => {

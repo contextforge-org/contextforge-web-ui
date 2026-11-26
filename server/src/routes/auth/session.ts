@@ -21,10 +21,13 @@ const SSO_PROVIDER_NAME = "Keycloak";
 // Piggybacks on the session-bootstrap call every page load already makes
 // (AuthContext), rather than a separate /auth/sso/status fetch -- avoids an
 // extra request with no build-time coupling and no SSR.
-function ssoFields(): { ssoEnabled: boolean; providerName?: string } {
-  return config.ssoEnabled
-    ? { ssoEnabled: true, providerName: SSO_PROVIDER_NAME }
-    : { ssoEnabled: false };
+function ssoFields(): { ssoEnabled: boolean; providerName?: string; ssoAutoRedirect?: boolean } {
+  if (!config.ssoEnabled) return { ssoEnabled: false };
+  return {
+    ssoEnabled: true,
+    providerName: SSO_PROVIDER_NAME,
+    ...(config.ssoAutoRedirect && { ssoAutoRedirect: true }),
+  };
 }
 
 export default async function sessionRoute(fastify: FastifyInstance): Promise<void> {

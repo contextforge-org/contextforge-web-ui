@@ -8,9 +8,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 
+// One automatic attempt per tab per window: if SSO succeeds but the app bounces
+// straight back here (e.g. the gateway rejects the session), show the form
+// instead of looping through the identity provider.
+const SSO_AUTO_REDIRECT_KEY = "sso_auto_redirect_at";
+const SSO_AUTO_REDIRECT_COOLDOWN_MS = 60_000;
+
+function claimSsoAutoRedirect(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(SSO_AUTO_REDIRECT_KEY));
+    if (last && Date.now() - last < SSO_AUTO_REDIRECT_COOLDOWN_MS) return false;
+    sessionStorage.setItem(SSO_AUTO_REDIRECT_KEY, String(Date.now()));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function Login() {
   const intl = useIntl();
-  const { isAuthenticated, login, ssoEnabled, ssoProviderName } = useAuth();
+  const { isAuthenticated, login, ssoEnabled, ssoProviderName, ssoAutoRedirect } = useAuth();
   const { navigate } = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +40,17 @@ export function Login() {
     ssoErrorParam ? intl.formatMessage({ id: "auth.login.error.ssoFailed" }) : null,
   );
   const [loading, setLoading] = useState(false);
+  // A failed SSO attempt (ssoErrorParam) must not bounce straight back into SSO.
+  const isLocalLoginRequested = useMemo(
+    () => new URLSearchParams(window.location.search).get("local") === "1",
+    [],
+  );
+  const shouldAutoRedirect =
+    !isAuthenticated &&
+    ssoEnabled === true &&
+    ssoAutoRedirect === true &&
+    !ssoErrorParam &&
+    !isLocalLoginRequested;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -40,6 +68,12 @@ export function Login() {
   function handleSsoLogin() {
     window.location.href = `/auth/sso/login?next=${encodeURIComponent(returnTo)}`;
   }
+
+  useEffect(() => {
+    if (shouldAutoRedirect && claimSsoAutoRedirect()) handleSsoLogin();
+    // handleSsoLogin only reads returnTo, which is fixed for this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoRedirect]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
