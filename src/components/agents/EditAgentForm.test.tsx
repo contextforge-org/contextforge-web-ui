@@ -136,11 +136,29 @@ describe("EditAgentForm", () => {
     const calls = mockUpdate(makeAgent({ protocolBinding: null }));
     const { user, onSaved } = renderForm(makeAgent({ protocolBinding: null }));
 
-    expect(screen.getByRole("radio", { name: "JSON-RPC" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Automatic/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "JSON-RPC" })).not.toBeChecked();
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(null));
     expect(calls).toHaveLength(0);
+  });
+
+  it("lets an agent with no binding be set to JSON-RPC on purpose", async () => {
+    const agent = makeAgent({ protocolBinding: null });
+    const calls = mockUpdate(agent);
+    const { user, onSaved } = renderForm(agent);
+
+    await user.click(screen.getByRole("radio", { name: "JSON-RPC" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(calls[0].body).toEqual({ protocol_binding: "jsonrpc" });
+  });
+
+  it("offers Automatic only when the agent has no binding stored", () => {
+    renderForm(makeAgent({ protocolBinding: "jsonrpc" }));
+    expect(screen.queryByRole("radio", { name: /Automatic/ })).not.toBeInTheDocument();
   });
 
   it("never sends capabilities or skills", async () => {

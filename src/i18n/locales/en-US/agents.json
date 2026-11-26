@@ -217,6 +217,7 @@
   "agents.try.failure.generic": "The request failed. Try again.",
   "agents.card.actions.edit": "Edit",
   "agents.edit.title": "Edit {name}",
+  "agents.edit.binding.automatic": "Automatic (gateway decides)",
   "agents.edit.save": "Save changes",
   "agents.edit.saving": "Saving…",
   "agents.edit.success": "Saved {name}.",

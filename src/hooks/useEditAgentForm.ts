@@ -252,6 +252,7 @@ export function useEditAgentForm({ agent, onSaved }: UseEditAgentFormOptions) {
     setProtocolVersion,
     protocolBinding,
     setProtocolBinding,
+    hasStoredBinding: original.protocolBinding !== null,
     tags,
     setTags,
     visibility,

@@ -217,6 +217,7 @@
   "agents.try.failure.generic": "A requisição falhou. Tente novamente.",
   "agents.card.actions.edit": "Editar",
   "agents.edit.title": "Editar {name}",
+  "agents.edit.binding.automatic": "Automático (o gateway decide)",
   "agents.edit.save": "Salvar alterações",
   "agents.edit.saving": "Salvando…",
   "agents.edit.success": "{name} foi salvo.",

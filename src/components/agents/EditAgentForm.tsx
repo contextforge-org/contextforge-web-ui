@@ -23,6 +23,8 @@ import {
  * fields are shared with the connect form; an agent that uses it keeps its settings.
  */
 const EDITABLE_AUTH_TYPES = AGENT_AUTH_TYPES.filter((type) => type !== "oauth");
+/** Stands for "no binding set", which the gateway resolves itself. */
+const AUTOMATIC_BINDING = "automatic";
 
 interface EditAgentFormProps {
   /** The agent to edit, as the list holds it. */
@@ -96,11 +98,24 @@ export function EditAgentForm({ agent, onCancel, onSaved }: EditAgentFormProps) 
                   </span>
                 </legend>
                 <RadioGroup
-                  // With none set the gateway picks one, which the JSON-RPC option stands for.
-                  value={form.protocolBinding ?? "jsonrpc"}
-                  onValueChange={(value) => form.setProtocolBinding(value as ProtocolBinding)}
+                  // With none set the gateway picks one, so that is shown as its own option
+                  // rather than as JSON-RPC, which could then not be chosen on purpose.
+                  value={form.protocolBinding ?? AUTOMATIC_BINDING}
+                  onValueChange={(value) =>
+                    form.setProtocolBinding(
+                      value === AUTOMATIC_BINDING ? null : (value as ProtocolBinding),
+                    )
+                  }
                   aria-label={intl.formatMessage({ id: "agents.connect.manual.binding.label" })}
                 >
+                  {!form.hasStoredBinding && (
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value={AUTOMATIC_BINDING} id="agent-edit-binding-automatic" />
+                      <Label htmlFor="agent-edit-binding-automatic" className="font-normal">
+                        {intl.formatMessage({ id: "agents.edit.binding.automatic" })}
+                      </Label>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="jsonrpc" id="agent-edit-binding-jsonrpc" />
                     <Label htmlFor="agent-edit-binding-jsonrpc" className="font-normal">
