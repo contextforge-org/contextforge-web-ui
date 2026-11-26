@@ -19,8 +19,9 @@ vi.mock("@/auth/AuthContext", () => ({
 }));
 
 import { toast } from "sonner";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders } from "@/test/test-utils";
@@ -772,5 +773,186 @@ describe("AgentDetailsPanel", () => {
     renderPanel({ agent: null });
 
     expect(screen.queryByText("Agent details")).not.toBeInTheDocument();
+  });
+
+  describe("adding a skill", () => {
+    const withSkills = {
+      ...AGENT,
+      skills: [{ id: "tender_support", name: "Tender support", description: "d", tags: ["a"] }],
+    };
+
+    async function fillAndSubmit(name: string) {
+      await userEvent.click(await screen.findByRole("button", { name: "Add skill" }));
+      const dialog = await screen.findByRole("dialog");
+      await userEvent.type(within(dialog).getByRole("textbox", { name: /^Name/ }), name);
+      await userEvent.type(
+        within(dialog).getByRole("textbox", { name: /^Description/ }),
+        "Routes to prod",
+      );
+      await userEvent.type(
+        within(dialog).getByRole("combobox", { name: /^Tags/ }),
+        "routing, prod{Enter}",
+      );
+      await userEvent.type(
+        within(dialog).getByRole("textbox", { name: "Example prompt 1" }),
+        "Route this brief",
+      );
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add skill" }));
+      return dialog;
+    }
+
+    it("sends the existing skills plus the new one, with an id from the name", async () => {
+      useGateway({ agent: withSkills });
+      const onAddSkill = vi.fn().mockResolvedValue(undefined);
+      renderPanel({ agent: withSkills as AgentDetailsFields, onAddSkill });
+
+      await fillAndSubmit("Production routing");
+
+      await waitFor(() =>
+        expect(onAddSkill).toHaveBeenCalledWith("agent-1", [
+          withSkills.skills[0],
+          {
+            id: "production_routing",
+            name: "Production routing",
+            description: "Routes to prod",
+            tags: ["routing", "prod"],
+            examples: ["Route this brief"],
+          },
+        ]),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    });
+
+    it("reports a name whose id the agent already has, and sends nothing", async () => {
+      useGateway({ agent: withSkills });
+      const onAddSkill = vi.fn().mockResolvedValue(undefined);
+      renderPanel({ agent: withSkills as AgentDetailsFields, onAddSkill });
+
+      const dialog = await fillAndSubmit("Tender  Support");
+
+      expect(
+        await within(dialog).findByText("This agent already has a skill with this name."),
+      ).toBeInTheDocument();
+      expect(onAddSkill).not.toHaveBeenCalled();
+    });
+
+    it("requires a name, description and a tag", async () => {
+      useGateway();
+      const onAddSkill = vi.fn();
+      renderPanel({ onAddSkill });
+
+      await userEvent.click(await screen.findByRole("button", { name: "Add skill" }));
+      const dialog = await screen.findByRole("dialog");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add skill" }));
+
+      expect(within(dialog).getByText("Enter a name.")).toBeInTheDocument();
+      expect(within(dialog).getByText("Enter a description.")).toBeInTheDocument();
+      expect(within(dialog).getByText("Add at least one tag.")).toBeInTheDocument();
+      expect(onAddSkill).not.toHaveBeenCalled();
+    });
+
+    it("keeps the dialog open when saving fails", async () => {
+      useGateway();
+      const onAddSkill = vi.fn().mockRejectedValue(new Error("nope"));
+      renderPanel({ onAddSkill });
+
+      const dialog = await fillAndSubmit("Production routing");
+
+      await waitFor(() => expect(onAddSkill).toHaveBeenCalled());
+      expect(dialog).toBeInTheDocument();
+      expect(toast.success).not.toHaveBeenCalled();
+    });
+
+    it("lists the new skill straight away, without reopening the panel", async () => {
+      // The panel has already read the agent and its card, both without the new skill.
+      useGateway({ card: { ...CARD, skills: [] } });
+      function Host() {
+        const [agent, setAgent] = useState<AgentDetailsFields>(AGENT as AgentDetailsFields);
+        return (
+          <AgentDetailsPanel
+            agent={agent}
+            open
+            onClose={vi.fn()}
+            onAddSkill={async (_id, skills) => setAgent((prev) => ({ ...prev, skills }))}
+          />
+        );
+      }
+      renderWithProviders(<Host />);
+
+      expect(await screen.findByText("No skills have been added yet.")).toBeInTheDocument();
+      await fillAndSubmit("Production routing");
+
+      const list = await screen.findByRole("list");
+      expect(within(list).getByText("Production routing")).toBeInTheDocument();
+      expect(screen.queryByText("No skills have been added yet.")).not.toBeInTheDocument();
+    });
+
+    it("adds and removes example prompt rows and leaves empty ones out", async () => {
+      useGateway();
+      const onAddSkill = vi.fn().mockResolvedValue(undefined);
+      renderPanel({ onAddSkill });
+
+      await userEvent.click(await screen.findByRole("button", { name: "Add skill" }));
+      const dialog = await screen.findByRole("dialog");
+      const rows = () => within(dialog).getAllByRole("textbox", { name: /^Example prompt \d/ });
+
+      // One row to start with, so nothing to remove; Add is on the last row.
+      expect(rows()).toHaveLength(1);
+      expect(within(dialog).queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+      expect(rows()).toHaveLength(2);
+      // Remove is on every row but the last, which keeps Add.
+      expect(within(dialog).getAllByRole("button", { name: "Remove" })).toHaveLength(1);
+      expect(within(dialog).getAllByRole("button", { name: "Add" })).toHaveLength(1);
+
+      await userEvent.type(rows()[0], "First");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+      await userEvent.type(rows()[2], "Third");
+      await userEvent.click(within(dialog).getAllByRole("button", { name: "Remove" })[0]);
+      expect(rows()).toHaveLength(2);
+
+      await userEvent.type(within(dialog).getByRole("textbox", { name: /^Name/ }), "Routing");
+      await userEvent.type(within(dialog).getByRole("textbox", { name: /^Description/ }), "d");
+      await userEvent.type(within(dialog).getByRole("combobox", { name: /^Tags/ }), "a{Enter}");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add skill" }));
+
+      await waitFor(() =>
+        expect(onAddSkill).toHaveBeenCalledWith("agent-1", [
+          expect.objectContaining({ id: "routing", examples: ["Third"] }),
+        ]),
+      );
+    });
+
+    it("starts empty when reopened after Cancel", async () => {
+      useGateway();
+      renderPanel({ onAddSkill: vi.fn() });
+
+      await userEvent.click(await screen.findByRole("button", { name: "Add skill" }));
+      let dialog = await screen.findByRole("dialog");
+      await userEvent.type(within(dialog).getByRole("textbox", { name: /^Name/ }), "Draft skill");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+      await userEvent.click(screen.getByRole("button", { name: "Add skill" }));
+      dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByRole("textbox", { name: /^Name/ })).toHaveValue("");
+    });
+
+    it("is not offered for an agent registered from a card", async () => {
+      useGateway({ stored: STORED });
+      renderPanel({ onAddSkill: vi.fn() });
+
+      expect(await screen.findByText("Stored skill")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add skill" })).not.toBeInTheDocument();
+    });
+
+    it("is not offered without permission to update", async () => {
+      useGateway();
+      renderPanel({ onAddSkill: undefined });
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add skill" })).not.toBeInTheDocument();
+    });
   });
 });

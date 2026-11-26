@@ -5,6 +5,7 @@
 import { api } from "./client";
 import type { A2AAgentRead, A2ATestResponse, BodyCreateA2aAgentV1A2aPost } from "@/generated/types";
 import type { FetchCardResult } from "@/types/agentCard";
+import type { AgentSkill } from "@/components/agents/agentSkills";
 
 /**
  * Validates an agent ID to prevent path traversal and injection attacks
@@ -75,6 +76,15 @@ export const agentsApi = {
   test: (id: string, query?: string, signal?: AbortSignal): Promise<A2ATestResponse> => {
     const body = query?.trim() ? { query } : {};
     return api.post(`/v1/a2a/${validateAgentId(id)}/test`, body, { signal });
+  },
+
+  /**
+   * Replace an agent's skills. The list is the whole new one, so callers pass
+   * the skills the agent already has with the new one added. Returns the agent
+   * as stored.
+   */
+  updateSkills: (id: string, skills: AgentSkill[]): Promise<A2AAgentRead> => {
+    return api.put(`/v1/a2a/${validateAgentId(id)}`, { skills });
   },
 
   /** Remove one plugin binding. */

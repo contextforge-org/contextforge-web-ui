@@ -1,6 +1,6 @@
 import { test, expect } from "./fixtures/api-mock";
 import { APP } from "./utils/paths";
-import type { Page, Route } from "@playwright/test";
+import type { Locator, Page, Route } from "@playwright/test";
 import type { A2AAgentRead } from "../src/generated/types";
 
 type Agent = NonNullable<A2AAgentRead>;
@@ -1114,6 +1114,158 @@ test.describe("Agents page", () => {
 
       await expect(panel.getByText("pii-filter")).toBeVisible();
       await expect(panel.getByRole("button", { name: "Remove pii-filter" })).toHaveCount(0);
+    });
+
+    test.describe("adding skills", () => {
+      const SKILL = {
+        id: "tender_support",
+        name: "Tender support",
+        description: "Helps with tenders",
+        tags: ["tender"],
+      };
+
+      /**
+       * An agent added by hand: no stored card, and a card built from its own skills.
+       * `PUT` bodies are collected in `puts`; the reply is the agent with those skills.
+       */
+      async function mockManualAgent(
+        page: Page,
+        {
+          skills = [] as Array<Record<string, unknown>>,
+          putStatus = 200,
+        }: { skills?: Array<Record<string, unknown>>; putStatus?: number } = {},
+      ) {
+        const agent = { ...DETAILED, skills };
+        const puts: Array<{ skills: Array<Record<string, unknown>> }> = [];
+        await mockDetails(page, agent);
+        await page.route(
+          (url) => url.pathname.endsWith("/a2a/alpha/stored-card"),
+          (route) => json(route, { detail: "No stored Agent Card for this agent" }, 404),
+        );
+        await page.route(
+          (url) => url.pathname.endsWith("/a2a/alpha/card"),
+          (route) => json(route, { ...REGISTERED_CARD, skills }),
+        );
+        await page.route(
+          (url) => url.pathname.endsWith("/a2a/alpha"),
+          async (route) => {
+            if (route.request().method() !== "PUT") return route.fallback();
+            const body = route.request().postDataJSON();
+            puts.push(body);
+            if (putStatus !== 200) return json(route, { detail: "Skill rejected" }, putStatus);
+            return json(route, { ...agent, skills: body.skills });
+          },
+        );
+        return puts;
+      }
+
+      const dialogOf = (page: Page) => page.getByRole("dialog", { name: "Add skill" });
+
+      // While the dialog is open the panel behind it is hidden from the accessibility tree,
+      // so what the panel shows is checked with `before` first, or after the dialog closes.
+      async function openDialog(page: Page, before?: (panel: Locator) => Promise<void>) {
+        const panel = await openDetails(page);
+        await before?.(panel);
+        await panel.getByRole("button", { name: "Add skill" }).click();
+        const dialog = dialogOf(page);
+        await expect(dialog).toBeVisible();
+        return { panel, dialog };
+      }
+
+      async function fillSkill(
+        dialog: ReturnType<typeof dialogOf>,
+        { name, description = "Routes to prod", tags = "routing, prod" }: Record<string, string>,
+      ) {
+        await dialog.getByRole("textbox", { name: /^Name/ }).fill(name);
+        await dialog.getByRole("textbox", { name: /^Description/ }).fill(description);
+        await dialog.getByRole("combobox", { name: /^Tags/ }).fill(tags);
+        await dialog.getByRole("combobox", { name: /^Tags/ }).press("Enter");
+      }
+
+      test("adds a skill with an id taken from the name and lists it without reopening", async ({
+        page,
+      }) => {
+        const puts = await mockManualAgent(page);
+        const { panel, dialog } = await openDialog(page, (panel) =>
+          expect(panel.getByText("No skills have been added yet.")).toBeVisible(),
+        );
+
+        await fillSkill(dialog, { name: "Production routing" });
+        await dialog.getByRole("textbox", { name: "Example prompt 1" }).fill("Route this brief");
+        await dialog.getByRole("button", { name: "Add skill" }).click();
+
+        await expect(dialog).toBeHidden();
+        await expect(panel.getByRole("list").getByText("Production routing")).toBeVisible();
+        await expect(panel.getByText("No skills have been added yet.")).toBeHidden();
+        await expect(page.getByText("Skill “Production routing” added.")).toBeVisible();
+        expect(puts).toEqual([
+          {
+            skills: [
+              {
+                id: "production_routing",
+                name: "Production routing",
+                description: "Routes to prod",
+                tags: ["routing", "prod"],
+                examples: ["Route this brief"],
+              },
+            ],
+          },
+        ]);
+      });
+
+      test("reports a name whose id the agent already has, without saving", async ({ page }) => {
+        const puts = await mockManualAgent(page, { skills: [SKILL] });
+        const { dialog } = await openDialog(page);
+
+        await fillSkill(dialog, { name: "Tender  SUPPORT" });
+        await dialog.getByRole("button", { name: "Add skill" }).click();
+
+        await expect(
+          dialog.getByText("This agent already has a skill with this name."),
+        ).toBeVisible();
+        expect(puts).toHaveLength(0);
+
+        // Changing the name clears the error and the skill can be saved.
+        await dialog.getByRole("textbox", { name: /^Name/ }).fill("Tender support 2");
+        await expect(
+          dialog.getByText("This agent already has a skill with this name."),
+        ).toBeHidden();
+        await dialog.getByRole("button", { name: "Add skill" }).click();
+        await expect(dialog).toBeHidden();
+        expect(puts[0].skills.map((skill) => skill.id)).toEqual([
+          "tender_support",
+          "tender_support_2",
+        ]);
+      });
+
+      test("shows the server's reason and keeps the form when saving fails", async ({ page }) => {
+        const puts = await mockManualAgent(page, { putStatus: 422 });
+        const { panel, dialog } = await openDialog(page);
+
+        await fillSkill(dialog, { name: "Production routing" });
+        await dialog.getByRole("button", { name: "Add skill" }).click();
+
+        await expect(page.getByText("Skill rejected")).toBeVisible();
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByRole("textbox", { name: /^Name/ })).toHaveValue(
+          "Production routing",
+        );
+        // Nothing was added: closing the dialog shows the panel still without skills.
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(panel.getByText("No skills have been added yet.")).toBeVisible();
+        expect(puts).toHaveLength(1);
+      });
+
+      test("is not offered without a2a.update", async ({ page, apiMock }) => {
+        await apiMock.mockPermissions({ permissions: ["a2a.read"] });
+        await mockManualAgent(page);
+
+        const panel = await openDetails(page);
+
+        await expect(panel.getByText("No skills have been added yet.")).toBeHidden();
+        await expect(panel.getByText("Agent details", { exact: true })).toBeVisible();
+        await expect(panel.getByRole("button", { name: "Add skill" })).toHaveCount(0);
+      });
     });
   });
 });
