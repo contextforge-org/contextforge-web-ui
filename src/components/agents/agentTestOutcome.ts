@@ -21,6 +21,8 @@ export type AgentTestOutcome =
   | {
       kind: "success";
       text: string | null;
+      /** The reply as JSON, for when it carries no text (a file, data, or a shape not recognized). */
+      raw: string | null;
       /** The role as the agent sent it, e.g. `ROLE_AGENT` or `agent`. */
       rawRole: string | null;
       task: AgentTestTask | null;
@@ -55,7 +57,10 @@ export interface AgentTestFailure {
 }
 
 /** Task states that mean the agent could not do what was asked. */
-const FAILED_TASK_STATES = new Set(["failed", "rejected"]);
+const FAILED_TASK_STATES = new Set(["failed", "rejected", "canceled", "cancelled"]);
+
+/** Longest raw document shown; a reply can be large. */
+const RAW_MAX_LENGTH = 4000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,6 +79,18 @@ export function normalizeTaskState(raw: unknown): string | null {
     .toLowerCase()
     .replace(/^task_state_/, "")
     .replace(/_/g, "-");
+}
+
+/** The reply as indented JSON, cut short when long. */
+function rawText(value: unknown): string | null {
+  let text: string | undefined;
+  try {
+    text = JSON.stringify(value, null, 2);
+  } catch {
+    return null;
+  }
+  if (!text) return null;
+  return text.length > RAW_MAX_LENGTH ? `${text.slice(0, RAW_MAX_LENGTH)}…` : text;
 }
 
 /** The text of a message's parts. Other kinds of part (files, data) are left to the raw document. */
@@ -118,9 +135,12 @@ function hasContent(body: Record<string, unknown>): boolean {
 
 export function interpretTestResult(result: unknown): AgentTestOutcome {
   if (result === null || result === undefined || result === "") return { kind: "empty" };
-  if (typeof result === "string")
-    return { kind: "success", text: result, rawRole: null, task: null };
-  if (!isRecord(result)) return { kind: "success", text: null, rawRole: null, task: null };
+  if (typeof result === "string") {
+    return { kind: "success", text: result, raw: null, rawRole: null, task: null };
+  }
+  if (!isRecord(result)) {
+    return { kind: "success", text: null, raw: rawText(result), rawRole: null, task: null };
+  }
 
   // HTTP 200 does not mean the agent succeeded: a JSON-RPC error rides in `result`.
   const error = result.error;
@@ -140,7 +160,10 @@ export function interpretTestResult(result: unknown): AgentTestOutcome {
     return { kind: "failure", code: null, message: error, rawRole: null, task: null };
   }
 
-  // A JSON-RPC envelope carries the answer under `result`.
+  // A JSON-RPC envelope carries the answer under `result`, whatever its type.
+  if ("jsonrpc" in result && "result" in result && !isRecord(result.result)) {
+    return interpretTestResult(result.result);
+  }
   const body = isRecord(result.result) ? result.result : result;
   if (!hasContent(body)) return { kind: "empty" };
 
@@ -152,20 +175,21 @@ export function interpretTestResult(result: unknown): AgentTestOutcome {
     ? { id: asString(taskDoc.id), rawState, state: normalizeTaskState(rawState) }
     : null;
 
-  const statusMessage = taskDoc && isRecord(taskDoc.status) ? taskDoc.status.message : undefined;
-  const artifactText = Array.isArray(taskDoc?.artifacts)
-    ? joinText(
-        taskDoc.artifacts.map((artifact) =>
-          isRecord(artifact) ? partsText(artifact.parts) : null,
-        ),
-      )
-    : null;
+  const statusMessage =
+    taskDoc && isRecord(taskDoc.status) && isRecord(taskDoc.status.message)
+      ? taskDoc.status.message
+      : null;
+  // Each artifact is its own chunk, so one that repeats the status message is left out.
+  const artifactTexts = Array.isArray(taskDoc?.artifacts)
+    ? taskDoc.artifacts.map((artifact) => (isRecord(artifact) ? partsText(artifact.parts) : null))
+    : [];
   const text = joinText([
     messageDoc ? partsText(messageDoc.parts) : null,
-    isRecord(statusMessage) ? partsText(statusMessage.parts) : null,
-    artifactText,
+    statusMessage ? partsText(statusMessage.parts) : null,
+    ...artifactTexts,
   ]);
-  const rawRole = messageDoc ? asString(messageDoc.role) : null;
+  const rawRole =
+    asString(messageDoc?.role) ?? (statusMessage ? asString(statusMessage.role) : null);
 
   if (task?.state === "input-required" || task?.state === "auth-required") {
     return {
@@ -179,7 +203,7 @@ export function interpretTestResult(result: unknown): AgentTestOutcome {
   if (task?.state && FAILED_TASK_STATES.has(task.state)) {
     return { kind: "failure", code: null, message: text ?? "", rawRole, task };
   }
-  return { kind: "success", text, rawRole, task };
+  return { kind: "success", text, raw: text === null ? rawText(result) : null, rawRole, task };
 }
 
 /** Reads a failed test call: the `detail` the route returns, or a transport error. */

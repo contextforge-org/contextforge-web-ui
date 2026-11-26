@@ -66,6 +66,72 @@ describe("AgentTryItTab", () => {
     expect(seen).toHaveBeenCalledWith({ query: "ping" });
   });
 
+  it("sends the message as typed, keeping its indentation and trailing newline", async () => {
+    const seen = vi.fn();
+    server.use(
+      http.post(TEST_URL, async ({ request }) => {
+        seen(await request.json());
+        return success({ message: { role: "ROLE_AGENT", parts: [{ text: "ok" }] } });
+      }),
+    );
+    renderTab();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Test agent"), "  indented{Shift>}{Enter}{/Shift}");
+    await user.click(screen.getByRole("button", { name: "Send test message" }));
+
+    await screen.findByText("ok");
+    expect(seen).toHaveBeenCalledWith({ query: "  indented\n" });
+  });
+
+  it("treats a blank message as empty", async () => {
+    const seen = vi.fn();
+    server.use(
+      http.post(TEST_URL, async ({ request }) => {
+        seen(await request.json());
+        return success({ message: { role: "ROLE_AGENT", parts: [{ text: "ok" }] } });
+      }),
+    );
+    renderTab();
+    await run("   ");
+
+    await screen.findByText("ok");
+    expect(seen).toHaveBeenCalledWith({});
+  });
+
+  it("shows a reply it cannot read as text, rather than hiding it", async () => {
+    server.use(http.post(TEST_URL, () => success({ echo: "pong" })));
+    renderTab();
+    await run("ping");
+
+    expect(await screen.findByText(/"echo": "pong"/)).toBeInTheDocument();
+    expect(screen.queryByText(/replied without text/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps a live region mounted before the result, so the result is announced", async () => {
+    server.use(
+      http.post(TEST_URL, () =>
+        success({ message: { role: "ROLE_AGENT", parts: [{ text: "pong" }] } }),
+      ),
+    );
+    const { container } = renderTab();
+    const region = container.querySelector("[aria-live='polite']");
+    expect(region).toBeEmptyDOMElement();
+
+    await run("ping");
+    expect(await screen.findByText("pong")).toBeInTheDocument();
+    expect(region).toContainElement(screen.getByText("pong"));
+    expect(container.querySelectorAll("[aria-live]")).toHaveLength(1);
+  });
+
+  it("keeps the ticking timer out of a status region", async () => {
+    server.use(http.post(TEST_URL, () => new Promise(() => {})));
+    renderTab();
+    await run("ping");
+
+    expect(await screen.findByRole("timer")).toHaveTextContent(/Elapsed/);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("sends with Enter and keeps Shift+Enter for a new line", async () => {
     const seen = vi.fn();
     server.use(

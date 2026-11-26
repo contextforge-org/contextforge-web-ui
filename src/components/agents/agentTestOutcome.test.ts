@@ -22,7 +22,7 @@ describe("interpretTestResult", () => {
   it("reads a v1 message", () => {
     expect(
       interpretTestResult({ message: { role: "ROLE_AGENT", parts: [{ text: "Hello" }] } }),
-    ).toEqual({ kind: "success", text: "Hello", rawRole: "ROLE_AGENT", task: null });
+    ).toEqual({ kind: "success", text: "Hello", raw: null, rawRole: "ROLE_AGENT", task: null });
   });
 
   it("reads an earlier message with a kind on each part", () => {
@@ -32,7 +32,7 @@ describe("interpretTestResult", () => {
         role: "agent",
         parts: [{ kind: "text", text: "Hello" }],
       }),
-    ).toEqual({ kind: "success", text: "Hello", rawRole: "agent", task: null });
+    ).toEqual({ kind: "success", text: "Hello", raw: null, rawRole: "agent", task: null });
   });
 
   it("reads the answer inside a JSON-RPC envelope", () => {
@@ -57,6 +57,7 @@ describe("interpretTestResult", () => {
     ).toEqual({
       kind: "success",
       text: "Done",
+      raw: null,
       rawRole: null,
       task: { id: "t-1", rawState: "TASK_STATE_COMPLETED", state: "completed" },
     });
@@ -142,12 +143,71 @@ describe("interpretTestResult", () => {
     },
   );
 
-  it("still succeeds for a reply shape it does not know", () => {
+  it("keeps the raw reply when it carries no text, so it is not hidden", () => {
     expect(interpretTestResult({ echo: "pong" })).toEqual({
       kind: "success",
       text: null,
+      raw: JSON.stringify({ echo: "pong" }, null, 2),
       rawRole: null,
       task: null,
+    });
+  });
+
+  it("keeps the raw reply for a file-only message", () => {
+    const outcome = interpretTestResult({
+      message: { role: "ROLE_AGENT", parts: [{ url: "https://example.com/a.png" }] },
+    });
+    expect(outcome).toMatchObject({ kind: "success", text: null });
+    expect(outcome.kind === "success" && outcome.raw).toContain("a.png");
+  });
+
+  it("cuts a very long raw reply short", () => {
+    const outcome = interpretTestResult({ blob: "x".repeat(10_000) });
+    expect(outcome.kind === "success" && outcome.raw?.length).toBeLessThan(4100);
+  });
+
+  it("shows each distinct artifact once when one repeats the status message", () => {
+    expect(
+      interpretTestResult({
+        task: {
+          id: "t-4",
+          status: { state: "TASK_STATE_COMPLETED", message: { parts: [{ text: "Echo: test" }] } },
+          artifacts: [{ parts: [{ text: "Echo: test" }] }, { parts: [{ text: "Done" }] }],
+        },
+      }),
+    ).toMatchObject({ text: "Echo: test\n\nDone" });
+  });
+
+  it("reads the role from the status message when there is no top-level message", () => {
+    expect(
+      interpretTestResult({
+        task: {
+          id: "t-5",
+          status: {
+            state: "TASK_STATE_COMPLETED",
+            message: { role: "ROLE_AGENT", parts: [{ text: "Hi" }] },
+          },
+        },
+      }),
+    ).toMatchObject({ rawRole: "ROLE_AGENT" });
+  });
+
+  it.each(["TASK_STATE_CANCELED", "canceled", "cancelled"])(
+    "shows a task in %s as a failure, not a success",
+    (state) => {
+      expect(interpretTestResult({ task: { id: "t-6", status: { state } } })).toMatchObject({
+        kind: "failure",
+      });
+    },
+  );
+
+  it("reads a JSON-RPC envelope whose result is not an object", () => {
+    expect(interpretTestResult({ jsonrpc: "2.0", id: 1, result: "pong" })).toMatchObject({
+      kind: "success",
+      text: "pong",
+    });
+    expect(interpretTestResult({ jsonrpc: "2.0", id: 1, result: null })).toEqual({
+      kind: "empty",
     });
   });
 

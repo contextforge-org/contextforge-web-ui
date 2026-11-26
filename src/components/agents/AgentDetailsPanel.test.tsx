@@ -198,24 +198,26 @@ describe("AgentDetailsPanel", () => {
     useGateway();
     const { container } = renderPanel();
 
-    expect(screen.getByText("Bearer token in Authorization header")).toBeInTheDocument();
+    expect(await screen.findByText("Bearer token in Authorization header")).toBeInTheDocument();
     await screen.findByText("Vendor-fit routing");
     expect(container.ownerDocument.body.textContent).not.toContain("super-secret-token");
   });
 
-  it("says when the agent uses no authentication", () => {
-    useGateway();
-    renderPanel({ agent: { ...AGENT, authType: null } as AgentDetailsFields });
+  it("says when the agent uses no authentication", async () => {
+    const agent = { ...AGENT, authType: null } as AgentDetailsFields;
+    useGateway({ agent });
+    renderPanel({ agent });
 
-    expect(screen.getByText("No authentication")).toBeInTheDocument();
+    expect(await screen.findByText("No authentication")).toBeInTheDocument();
   });
 
-  it("reports an authentication type it does not know instead of calling it none", () => {
-    useGateway();
-    renderPanel({ agent: { ...AGENT, authType: "mtls" } as AgentDetailsFields });
+  it("reports an authentication type it does not know instead of calling it none", async () => {
+    const agent = { ...AGENT, authType: "mtls" } as AgentDetailsFields;
+    useGateway({ agent });
+    renderPanel({ agent });
 
+    expect(await screen.findByText("unknown")).toBeInTheDocument();
     expect(screen.queryByText("No authentication")).not.toBeInTheDocument();
-    expect(screen.getByText("unknown")).toBeInTheDocument();
   });
 
   it("flags an enabled agent that cannot be reached", () => {
@@ -382,6 +384,68 @@ describe("AgentDetailsPanel", () => {
           "true",
         ),
       );
+    });
+
+    it("holds back the tabs until it knows whether Try it is offered", async () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get("/api/v1/auth/email/me", async () => {
+          await gate;
+          return HttpResponse.json({ features: { a2a: true } });
+        }),
+      );
+      useGateway();
+      renderPanel();
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+
+      release();
+      expect(await screen.findByRole("tab", { name: "Try it" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+
+    it("falls back to Definition when the feature check fails", async () => {
+      server.use(http.get("/api/v1/auth/email/me", () => HttpResponse.error()));
+      useGateway();
+      renderPanel();
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the message while looking at Definition", async () => {
+      useGateway();
+      renderPanel();
+      const user = userEvent.setup();
+      await user.type(await screen.findByLabelText("Test agent"), "keep me");
+
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
+      await screen.findByText("Vendor-fit routing");
+      await user.click(screen.getByRole("tab", { name: "Try it" }));
+
+      expect(screen.getByLabelText("Test agent")).toHaveValue("keep me");
+    });
+
+    it("drops the message when the drawer closes, so a reopen starts clean", async () => {
+      useGateway();
+      const { rerender } = renderPanel();
+      await userEvent.setup().type(await screen.findByLabelText("Test agent"), "stale");
+
+      const closed = (open: boolean) => (
+        <AgentDetailsPanel agent={AGENT as AgentDetailsFields} open={open} onClose={vi.fn()} />
+      );
+      rerender(closed(false));
+      expect(screen.queryByLabelText("Test agent")).not.toBeInTheDocument();
+
+      rerender(closed(true));
+      expect(await screen.findByLabelText("Test agent")).toHaveValue("");
     });
 
     it("is hidden without a2a.invoke", async () => {

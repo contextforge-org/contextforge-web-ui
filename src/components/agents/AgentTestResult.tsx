@@ -76,6 +76,7 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
   let tone: "ok" | "failed" | "waiting" | "timeout" = "ok";
   let label = t("agents.try.status.ok");
   let message: string | null = null;
+  let rawReply: string | null = null;
   let errorType: string | null = null;
   let httpNote: string | null = null;
   let task: AgentTestTask | null = null;
@@ -123,7 +124,8 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
   } else if (outcome?.kind === "empty") {
     message = t("agents.try.empty");
   } else if (outcome?.kind === "success") {
-    message = outcome.text ?? t("agents.try.success.noText");
+    message = outcome.text ?? (outcome.raw ? null : t("agents.try.success.noText"));
+    rawReply = outcome.raw;
     task = outcome.task;
     rawRole = outcome.rawRole;
   }
@@ -146,7 +148,7 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
           : "text-foreground";
 
   return (
-    <div aria-live="polite" className="space-y-2">
+    <div className="space-y-2">
       <div className="flex items-start gap-1">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-[13px] leading-4 font-medium">
           <span className="flex items-center gap-2 text-popover-foreground">
@@ -167,7 +169,12 @@ export function AgentTestResult({ state, protocolVersion, onRetest }: AgentTestR
 
       <dl className="space-y-2 rounded-[6px] border border-input p-4">
         <Row label={t("agents.try.row.agent")}>
-          <span className="whitespace-pre-wrap break-words">{message}</span>
+          {message !== null && <span className="whitespace-pre-wrap break-words">{message}</span>}
+          {rawReply && (
+            <pre className="max-h-64 w-full overflow-auto whitespace-pre-wrap break-all font-mono text-xs leading-4">
+              {rawReply}
+            </pre>
+          )}
         </Row>
         {errorType && <Row label={t("agents.try.row.errorType")}>{errorType}</Row>}
         {httpNote && <Row label={t("agents.try.row.http")}>{httpNote}</Row>}

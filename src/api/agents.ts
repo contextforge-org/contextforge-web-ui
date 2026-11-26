@@ -67,14 +67,14 @@ export const agentsApi = {
 
   /**
    * Call an agent with a test message. The service chooses the request body
-   * from the agent's type, so only the optional `query` travels. An empty
-   * query is left out and the service sends its default, which makes this a
-   * connectivity check. The call reaches the agent: it counts in the agent's
+   * from the agent's type, so only the optional `query` travels. It is sent
+   * as typed; an empty or blank one is left out and the service sends its
+   * default, which makes this a connectivity check. The call reaches the agent: it counts in the agent's
    * metrics, updates its last interaction, and can create a task.
    */
   test: (id: string, query?: string, signal?: AbortSignal): Promise<A2ATestResponse> => {
-    const text = query?.trim();
-    return api.post(`/v1/a2a/${validateAgentId(id)}/test`, text ? { query: text } : {}, { signal });
+    const body = query?.trim() ? { query } : {};
+    return api.post(`/v1/a2a/${validateAgentId(id)}/test`, body, { signal });
   },
 
   /** Remove one plugin binding. */

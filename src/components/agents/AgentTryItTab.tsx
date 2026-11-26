@@ -44,7 +44,7 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <div>
       <div className="space-y-3">
         <label htmlFor={fieldId} className="block text-sm leading-5 font-medium text-foreground">
           {intl.formatMessage({ id: "agents.try.title" })}
@@ -87,8 +87,9 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
         </form>
 
         {test.isLoading ? (
-          <div role="status" className="flex items-center gap-3 text-[13px] leading-4">
-            <span className="font-medium text-muted-foreground">
+          <div className="flex items-center gap-3 text-[13px] leading-4">
+            {/* A timer is not announced as it ticks, unlike a status region. */}
+            <span role="timer" className="font-medium text-muted-foreground">
               {intl.formatMessage({ id: "agents.try.elapsed" }, { time: formatElapsed(elapsed) })}
             </span>
             <Button type="button" variant="ghost" size="xs" onClick={test.stopWaiting}>
@@ -111,9 +112,12 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
         )}
       </div>
 
-      {!test.isLoading && (
-        <AgentTestResult state={test} protocolVersion={protocolVersion} onRetest={send} />
-      )}
+      {/* Mounted before the result arrives, or a screen reader would not announce it. */}
+      <div aria-live="polite" className="mt-6 empty:mt-0">
+        {!test.isLoading && (
+          <AgentTestResult state={test} protocolVersion={protocolVersion} onRetest={send} />
+        )}
+      </div>
     </div>
   );
 }
