@@ -254,6 +254,33 @@ describe("VirtualServerDetailsPanel components list", () => {
     expect(agentRequests).not.toHaveBeenCalled();
   });
 
+  it("keeps agent id rows beside fetched tools without a2a.read", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["servers.read"];
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () =>
+        HttpResponse.json({ tools: [makeTool({ id: "tool-1", name: "fetched.tool" })] }),
+      ),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          id: "gw-mixed",
+          associatedToolIds: ["tool-1"],
+          associatedA2aAgents: ["agent-1"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+
+    expect(await screen.findByText("Search issues")).toBeInTheDocument();
+    expect(screen.getByText("agent-1")).toBeInTheDocument();
+  });
+
   it("drops the Agents tab once the server has no agents left", async () => {
     const user = userEvent.setup();
     mswServer.use(http.get("*/v1/a2a", () => HttpResponse.json([])));
@@ -265,7 +292,8 @@ describe("VirtualServerDetailsPanel components list", () => {
       />,
     );
     await user.click(await screen.findByRole("tab", { name: "Components" }));
-    expect(screen.getByRole("tab", { name: "Agents" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+    expect(screen.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
 
     rerender(
       <VirtualServerDetailsPanel
@@ -275,6 +303,7 @@ describe("VirtualServerDetailsPanel components list", () => {
     );
 
     expect(screen.queryByRole("tab", { name: "Agents" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("renders titled and untitled component rows with badges", async () => {

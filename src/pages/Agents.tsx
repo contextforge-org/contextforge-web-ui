@@ -339,7 +339,7 @@ export function Agents() {
     [intl, refetch],
   );
 
-  if (isConnecting) {
+  if (isConnecting && canCreate) {
     return (
       <div className="p-6">
         <ConnectAgentForm onCancel={() => setIsConnecting(false)} onCreated={handleConnected} />

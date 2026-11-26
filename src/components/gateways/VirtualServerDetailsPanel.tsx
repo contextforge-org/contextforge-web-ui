@@ -234,6 +234,11 @@ export function VirtualServerDetailsPanel({
     [hasAgents],
   );
 
+  // Don't leave the hidden Agents tab selected once the last agent is gone.
+  useEffect(() => {
+    if (!hasAgents) setComponentFilter((current) => (current === "agents" ? "all" : current));
+  }, [hasAgents]);
+
   const handleTabKeyDown = useCallback(
     (e: KeyboardEvent<HTMLButtonElement>, currentValue: ComponentFilter) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -372,7 +377,12 @@ export function VirtualServerDetailsPanel({
     });
   }, [server]);
 
-  const allComponents = fetchedComponents.length > 0 ? fetchedComponents : fallbackComponents;
+  // Without a2a.read the agent list can't load, so keep the id-only agent rows beside the fetched ones.
+  const allComponents = useMemo(() => {
+    if (fetchedComponents.length === 0) return fallbackComponents;
+    if (canReadAgents || permissionsLoading) return fetchedComponents;
+    return [...fetchedComponents, ...fallbackComponents.filter((c) => c.type === "agents")];
+  }, [fetchedComponents, fallbackComponents, canReadAgents, permissionsLoading]);
   // Fallback rows carry synthetic IDs, so only fetched rows can be removed.
   const canRemoveComponents = Boolean(onRemoveComponent) && fetchedComponents.length > 0;
 
