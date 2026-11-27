@@ -50,12 +50,14 @@ export function getVirtualServerComponentCounts(server: VirtualServer) {
   const toolCount = server.associatedToolIds?.length ?? server.associatedTools?.length ?? 0;
   const resourceCount = server.associatedResources?.length ?? 0;
   const promptCount = server.associatedPrompts?.length ?? 0;
+  const agentCount = server.associatedA2aAgents?.length ?? 0;
 
   return {
     toolCount,
     resourceCount,
     promptCount,
-    total: toolCount + resourceCount + promptCount,
+    agentCount,
+    total: toolCount + resourceCount + promptCount + agentCount,
   };
 }
 
@@ -89,5 +91,11 @@ export function buildComponentItems(server: VirtualServer): DetailComponentItem[
     type: "prompts" as const,
   }));
 
-  return [...toolItems, ...resourceItems, ...promptItems];
+  const agentItems = (server.associatedA2aAgents ?? []).map((agentId) => ({
+    id: agentId,
+    name: agentId,
+    type: "agents" as const,
+  }));
+
+  return [...toolItems, ...resourceItems, ...promptItems, ...agentItems];
 }

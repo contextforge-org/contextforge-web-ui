@@ -151,8 +151,11 @@ describe("Gateways", () => {
     expect(mockUseQuery).toHaveBeenCalledWith(
       "/v1/virtual-servers?limit=12&include_inactive=true&include_pagination=true",
     );
-    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query.
-    const listCalls = mockUseQuery.mock.calls.filter(([path]) => path !== "/teams");
+    // TeamsProvider (from renderWithProviders) also issues its own `/teams` query, and the
+    // page lists agents (disabled until a server has one) for the card skill counts.
+    const listCalls = mockUseQuery.mock.calls.filter(
+      ([path]) => path !== "/teams" && !String(path).startsWith("/v1/a2a"),
+    );
     expect(listCalls).toHaveLength(1);
   });
 
@@ -217,7 +220,7 @@ describe("Gateways", () => {
     expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     ).not.toBeInTheDocument();
   });
@@ -275,7 +278,7 @@ describe("Gateways", () => {
       screen.getByRole("button", { name: /Create server Make external sources/i }),
     ).toBeInTheDocument();
     expect(screen.getByText("GH repo tasks")).toBeInTheDocument();
-    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(screen.getByText("6 tools")).toBeInTheDocument();
     expect(screen.getByText("team")).toBeInTheDocument();
     expect(screen.queryByText("MCP server")).not.toBeInTheDocument();
 
@@ -1437,7 +1440,18 @@ describe("Gateways – remove component from details panel", () => {
     associatedToolIds: ["tool-1", "tool-2"],
     associatedResources: ["res-1", "res-2"],
     associatedPrompts: undefined,
+    associatedA2aAgents: ["agent-1", "agent-2"],
   });
+  const agents = [
+    {
+      id: "agent-1",
+      name: "router agent",
+      endpointUrl: "https://router.example.com",
+      enabled: true,
+    },
+    { id: "agent-2", name: "other agent", endpointUrl: "https://other.example.com", enabled: true },
+  ];
+  const agentsRefetch = vi.fn().mockResolvedValue(undefined);
   const components = {
     tools: { tools: [{ id: "tool-1", name: "t.lookup", originalName: "lookup" }] },
     resources: { resources: [{ id: "res-1", name: "Doc", uri: "res://doc" }] },
@@ -1452,6 +1466,7 @@ describe("Gateways – remove component from details panel", () => {
     mockGetVirtualServer.mockResolvedValue(detailServer);
     mockToastError.mockClear();
     listSetData.mockClear();
+    agentsRefetch.mockClear();
     mockUseQuery.mockImplementation((path) => {
       const base = {
         error: null,
@@ -1461,6 +1476,9 @@ describe("Gateways – remove component from details panel", () => {
         setData: vi.fn(),
       };
       if (path === "/v1/virtual-servers/gateway-1") return { ...base, data: detailServer };
+      if (String(path).startsWith("/v1/a2a")) {
+        return { ...base, refetch: agentsRefetch, data: agents };
+      }
       const kind = path?.match(/^\/v1\/virtual-servers\/gateway-1\/(\w+)/)?.[1];
       if (kind) return { ...base, data: components[kind as keyof typeof components] };
       return { ...base, setData: listSetData, data: { servers: [detailServer] } };
@@ -1492,6 +1510,19 @@ describe("Gateways – remove component from details panel", () => {
         ...remaining,
       ]),
     );
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("removes an agent by writing the server's remaining agent ids, then reloads agents", async () => {
+    mockUpdateVirtualServerComponents.mockResolvedValue(detailServer);
+    await removeComponent("router agent");
+
+    await waitFor(() =>
+      expect(mockUpdateVirtualServerComponents).toHaveBeenCalledWith("gateway-1", "agents", [
+        "agent-2",
+      ]),
+    );
+    await waitFor(() => expect(agentsRefetch).toHaveBeenCalled());
     expect(mockToastError).not.toHaveBeenCalled();
   });
 

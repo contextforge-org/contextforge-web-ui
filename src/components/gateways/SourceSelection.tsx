@@ -1,7 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import {
+  Activity,
   ArrowLeft,
+  Bot,
   Box,
   Building2,
   ChevronDown,
@@ -18,6 +20,7 @@ import { useAuth } from "@/auth/useAuth";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loading } from "@/components/ui/loading";
+import { StatusIndicator } from "@/components/ui/status-indicator";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import type { ActionCard } from "@/components/gateways/types";
 import { ServerStatusIndicator } from "@/components/servers/ServerStatusIndicator";
@@ -25,9 +28,11 @@ import { useOAuthStatuses } from "@/hooks/useOAuthStatuses";
 import { useQuery } from "@/hooks/useQuery";
 import { isOAuthServer } from "@/lib/serverStatus";
 import { cn } from "@/lib/utils";
+import type { A2AAgentRead } from "@/generated/types";
 import type { MCPServer } from "@/types/server";
 
 const MCP_SERVERS_QUERY_PATH = "/v1/mcp-servers?limit=100&include_inactive=true";
+const AGENTS_QUERY_PATH = "/v1/a2a?limit=0&include_inactive=true";
 
 type ListedMCPServer = MCPServer & {
   tool_count?: number;
@@ -43,6 +48,30 @@ interface MCPServersResponse {
 function getMCPServers(data: MCPServersResponse | ListedMCPServer[] | undefined) {
   if (Array.isArray(data)) return data;
   return data?.gateways ?? [];
+}
+
+// Narrowed to what the list renders; the full agent record carries credentials.
+type ListedAgent = Pick<
+  NonNullable<A2AAgentRead>,
+  "name" | "enabled" | "reachable" | "skills" | "toolId" | "visibility"
+> & { id: string };
+
+function getAgents(data: A2AAgentRead[] | undefined): ListedAgent[] {
+  return (Array.isArray(data) ? data : []).flatMap((agent) =>
+    agent && typeof agent.id === "string"
+      ? [
+          {
+            id: agent.id,
+            name: agent.name,
+            enabled: agent.enabled,
+            reachable: agent.reachable,
+            skills: agent.skills,
+            toolId: agent.toolId,
+            visibility: agent.visibility,
+          },
+        ]
+      : [],
+  );
 }
 
 function getMCPServerKeys(server: ListedMCPServer) {
@@ -65,7 +94,9 @@ function getComponentTotal(server: ListedMCPServer) {
   return getToolCount(server) + getResourceCount(server) + getPromptCount(server);
 }
 
-function getVisibilityConfig(visibility: ListedMCPServer["visibility"]) {
+function getVisibilityConfig(
+  visibility: ListedMCPServer["visibility"] | ListedAgent["visibility"],
+) {
   switch (visibility) {
     case "private":
       return { Icon: Lock, labelId: "gateways.createServer.visibility.private" };
@@ -76,15 +107,73 @@ function getVisibilityConfig(visibility: ListedMCPServer["visibility"]) {
   }
 }
 
+const SOURCE_ROW_CLASS =
+  "grid min-h-12 grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] items-center gap-4 px-3 py-2 text-sm hover:bg-muted/30";
+
+interface SourceRowProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  selectLabel: string;
+  name: string;
+  icon: ReactNode;
+  counts: ReactNode;
+  visibility: ListedMCPServer["visibility"] | ListedAgent["visibility"];
+  status: ReactNode;
+}
+
+/** One selectable source. Each kind passes its own icon, counts and status. */
+function SourceRow({
+  checked,
+  onCheckedChange,
+  selectLabel,
+  name,
+  icon,
+  counts,
+  visibility,
+  status,
+}: SourceRowProps) {
+  const intl = useIntl();
+  const visibilityConfig = getVisibilityConfig(visibility);
+  const VisibilityIcon = visibilityConfig.Icon;
+
+  return (
+    <div className={SOURCE_ROW_CLASS}>
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        aria-label={selectLabel}
+      />
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
+          {icon}
+        </span>
+        <TruncatedText className="min-w-0 font-medium text-foreground">{name}</TruncatedText>
+      </div>
+      <div className="flex min-w-0 items-center gap-3 text-muted-foreground">{counts}</div>
+      <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+        <VisibilityIcon className="size-3.5" />
+        {intl.formatMessage({ id: visibilityConfig.labelId })}
+      </span>
+      {status}
+    </div>
+  );
+}
+
 export function SourceSelection({
   actionCards,
   createServerActions,
   associatedMCPServerIds = [],
+  associatedA2aAgents = [],
   onSelectSources,
 }: {
   actionCards: ActionCard[];
   associatedMCPServerIds?: string[];
-  onSelectSources?: (selectedIds: string[], namesById: Record<string, string>) => void;
+  associatedA2aAgents?: string[];
+  onSelectSources?: (
+    selectedIds: string[],
+    namesById: Record<string, string>,
+    selectedAgentIds: string[],
+  ) => void;
   createServerActions?: {
     onBack: () => void;
     onSkip: () => void;
@@ -95,6 +184,7 @@ export function SourceSelection({
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
   const canReadMCPServers = !permissionsLoading && hasPermission("gateways.read");
+  const canReadAgents = !permissionsLoading && hasPermission("a2a.read");
   const firstEnabledIndex = actionCards.findIndex((card) => !card.disabled);
   const initialSelectedIndex = firstEnabledIndex === -1 ? 0 : firstEnabledIndex;
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -102,6 +192,7 @@ export function SourceSelection({
   const [isComponentsPanelOpen, setIsComponentsPanelOpen] = useState(false);
   const [hasRequestedMCPServers, setHasRequestedMCPServers] = useState(false);
   const [selectedMCPServerIds, setSelectedMCPServerIds] = useState<Set<string>>(new Set());
+  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
   const selectedNamesRef = useRef<Record<string, string>>({});
   const {
     data: mcpServersData,
@@ -110,7 +201,19 @@ export function SourceSelection({
   } = useQuery<MCPServersResponse | ListedMCPServer[]>(MCP_SERVERS_QUERY_PATH, {
     enabled: Boolean(createServerActions) && hasRequestedMCPServers && canReadMCPServers,
   });
+  const {
+    data: agentsData,
+    error: agentsError,
+    isLoading: agentsLoading,
+  } = useQuery<A2AAgentRead[]>(AGENTS_QUERY_PATH, {
+    enabled: Boolean(createServerActions) && hasRequestedMCPServers && canReadAgents,
+  });
   const mcpServers = useMemo(() => getMCPServers(mcpServersData), [mcpServersData]);
+  const associatedAgentIdSet = useMemo(() => new Set(associatedA2aAgents), [associatedA2aAgents]);
+  const availableAgents = useMemo(
+    () => getAgents(agentsData).filter((agent) => !associatedAgentIdSet.has(agent.id)),
+    [agentsData, associatedAgentIdSet],
+  );
   const oauthServerIds = useMemo(
     () => mcpServers.filter(isOAuthServer).map((server) => server.id),
     [mcpServers],
@@ -129,7 +232,9 @@ export function SourceSelection({
       ),
     [associatedMCPServerIdSet, mcpServers],
   );
-  const hasSelectedMCPServers = selectedMCPServerIds.size > 0;
+  const hasSelectedSources = selectedMCPServerIds.size > 0 || selectedAgentIds.size > 0;
+  const sourcesLoading = mcpServersLoading || agentsLoading;
+  const hasAvailableSources = availableMCPServers.length > 0 || availableAgents.length > 0;
   const panelId = "connected-sources-panel";
 
   // Selecting an offline source still works: its components stay in the catalog.
@@ -161,26 +266,37 @@ export function SourceSelection({
     } else {
       delete names[serverId];
     }
-    onSelectSources?.(Array.from(next), { ...names });
+    onSelectSources?.(Array.from(next), { ...names }, Array.from(selectedAgentIds));
+  };
+
+  const toggleAgentSelection = (agentId: string, checked: boolean) => {
+    const next = new Set(selectedAgentIds);
+    if (checked) next.add(agentId);
+    else next.delete(agentId);
+    setSelectedAgentIds(next);
+    onSelectSources?.(
+      Array.from(selectedMCPServerIds),
+      { ...selectedNamesRef.current },
+      Array.from(next),
+    );
   };
 
   return (
     <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
       <div className="w-full max-w-5xl space-y-8 px-6">
-        {createServerActions && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={createServerActions.onBack}
-            className="h-8 gap-2 px-0 text-sm font-medium text-foreground hover:bg-transparent hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            {intl.formatMessage({ id: "common.button.back" })}
-          </Button>
-        )}
-
         <div className="mx-auto flex w-full max-w-[796px] flex-col items-center gap-8">
+          {createServerActions && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={createServerActions.onBack}
+              className="h-8 gap-2 self-start px-0 text-sm font-medium text-foreground hover:bg-transparent hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              {intl.formatMessage({ id: "common.button.back" })}
+            </Button>
+          )}
           <div className="flex items-center justify-center gap-3">
             <MainNavIcon className="h-7 w-7 text-foreground" />
             <h1 className="text-2xl font-semibold leading-8 text-foreground">
@@ -279,7 +395,7 @@ export function SourceSelection({
         </div>
 
         {createServerActions && (
-          <div className="mx-auto w-full max-w-[832px] space-y-7">
+          <div className="mx-auto w-full max-w-[796px] space-y-7">
             <Button
               type="button"
               variant="ghost"
@@ -337,7 +453,7 @@ export function SourceSelection({
                   </Button>
                 </div>
 
-                {mcpServersLoading && (
+                {sourcesLoading && (
                   <div
                     role="status"
                     aria-live="polite"
@@ -348,7 +464,7 @@ export function SourceSelection({
                   </div>
                 )}
 
-                {!mcpServersLoading && mcpServersError && (
+                {!sourcesLoading && mcpServersError && (
                   <p
                     role="alert"
                     className="mt-5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -357,84 +473,130 @@ export function SourceSelection({
                   </p>
                 )}
 
-                {!mcpServersLoading && !mcpServersError && availableMCPServers.length === 0 && (
+                {!agentsLoading && agentsError && (
+                  <p role="status" className="mt-5 text-sm text-muted-foreground">
+                    {intl.formatMessage(
+                      { id: "gateways.source.agentsLoadFailed" },
+                      { detail: agentsError.message },
+                    )}
+                  </p>
+                )}
+
+                {!sourcesLoading && !mcpServersError && !hasAvailableSources && (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     {intl.formatMessage({ id: "gateways.source.emptySources" })}
                   </p>
                 )}
 
-                {!mcpServersLoading && !mcpServersError && availableMCPServers.length > 0 && (
+                {!sourcesLoading && hasAvailableSources && (
                   <div className="mt-5 overflow-hidden">
-                    <div className="grid grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] gap-4 border-b border-border px-3 pb-3 text-xs font-medium text-muted-foreground">
-                      <span className="sr-only">
-                        {intl.formatMessage({ id: "gateways.source.selectColumn" })}
-                      </span>
-                      <span>{intl.formatMessage({ id: "common.name" })}</span>
-                      <span>{intl.formatMessage({ id: "navigation.components" })}</span>
-                      <span>{intl.formatMessage({ id: "gateways.details.visibility" })}</span>
-                      <span>{intl.formatMessage({ id: "gateways.details.status" })}</span>
-                    </div>
                     <div className="divide-y divide-border/60">
-                      {availableMCPServers.map((server) => {
-                        const toolCount = getToolCount(server);
-                        const resourceCount = getResourceCount(server);
-                        const promptCount = getPromptCount(server);
-                        const visibility = getVisibilityConfig(server.visibility);
-                        const VisibilityIcon = visibility.Icon;
-                        const isSelected = selectedMCPServerIds.has(server.id);
-
-                        return (
-                          <div
-                            key={server.id}
-                            className="grid min-h-12 grid-cols-[32px_minmax(180px,1fr)_minmax(220px,1fr)_120px_112px] items-center gap-4 px-3 py-2 text-sm hover:bg-muted/30"
-                          >
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) =>
-                                toggleMCPServerSelection(server.id, checked === true)
-                              }
-                              aria-label={intl.formatMessage(
-                                { id: "gateways.source.selectSource" },
-                                { name: server.name },
-                              )}
-                            />
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground">
-                                <MCPIcon className="size-4 [&_path]:fill-current" />
-                              </span>
-                              <TruncatedText className="min-w-0 font-medium text-foreground">
-                                {server.name}
-                              </TruncatedText>
-                            </div>
-                            <div className="flex min-w-0 items-center gap-3 text-muted-foreground">
+                      {availableMCPServers.map((server) => (
+                        <SourceRow
+                          key={server.id}
+                          checked={selectedMCPServerIds.has(server.id)}
+                          onCheckedChange={(checked) =>
+                            toggleMCPServerSelection(server.id, checked)
+                          }
+                          selectLabel={intl.formatMessage(
+                            { id: "gateways.source.selectSource" },
+                            { name: server.name },
+                          )}
+                          name={server.name}
+                          icon={<MCPIcon className="size-4 [&_path]:fill-current" />}
+                          visibility={server.visibility}
+                          counts={
+                            <>
                               <span className="flex items-center gap-1.5">
                                 <Wrench className="size-3.5" />
-                                {toolCount}
+                                {getToolCount(server)}
                               </span>
                               <span className="text-border">•</span>
                               <span className="flex items-center gap-1.5">
                                 <Box className="size-3.5" />
-                                {resourceCount}
+                                {getResourceCount(server)}
                               </span>
                               <span className="text-border">•</span>
                               <span className="flex items-center gap-1.5">
                                 <MessageSquareCode className="size-3.5" />
-                                {promptCount}
+                                {getPromptCount(server)}
                               </span>
-                            </div>
-                            <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                              <VisibilityIcon className="size-3.5" />
-                              {intl.formatMessage({ id: visibility.labelId })}
-                            </span>
+                            </>
+                          }
+                          status={
                             <ServerStatusIndicator
                               server={server}
                               oauthStatus={oauthStatuses[server.id]}
                               onRetry={() => void retryOAuthStatus(server.id)}
                               authorizationManagementHint
                               compact
-                              className="justify-self-start"
+                              className="justify-self-start text-[13px] leading-4 font-normal"
                             />
-                          </div>
+                          }
+                        />
+                      ))}
+                      {availableAgents.map((agent) => {
+                        const skillCount = agent.skills?.length ?? 0;
+                        const isActive = agent.enabled && agent.reachable;
+
+                        return (
+                          <SourceRow
+                            key={`agent-${agent.id}`}
+                            checked={selectedAgentIds.has(agent.id)}
+                            onCheckedChange={(checked) => toggleAgentSelection(agent.id, checked)}
+                            selectLabel={intl.formatMessage(
+                              { id: "gateways.source.selectSource" },
+                              { name: agent.name },
+                            )}
+                            name={agent.name}
+                            icon={<Bot className="size-4" aria-hidden="true" />}
+                            visibility={agent.visibility}
+                            counts={
+                              <>
+                                {agent.toolId && (
+                                  <>
+                                    <span className="flex items-center gap-1.5">
+                                      <Wrench className="size-3.5" aria-hidden="true" />
+                                      <span aria-hidden="true">1</span>
+                                      <span className="sr-only">
+                                        {intl.formatMessage(
+                                          { id: "gateways.card.toolCount" },
+                                          { count: 1 },
+                                        )}
+                                      </span>
+                                    </span>
+                                    <span className="text-border" aria-hidden="true">
+                                      •
+                                    </span>
+                                  </>
+                                )}
+                                <span className="flex items-center gap-1.5">
+                                  <Bot className="size-3.5" aria-hidden="true" />
+                                  <span aria-hidden="true">{skillCount}</span>
+                                  <span className="sr-only">
+                                    {intl.formatMessage(
+                                      { id: "gateways.source.skillCount" },
+                                      { count: skillCount },
+                                    )}
+                                  </span>
+                                </span>
+                              </>
+                            }
+                            status={
+                              <StatusIndicator
+                                Icon={Activity}
+                                iconClassName={
+                                  isActive ? "text-tool-status-active" : "text-tool-status-inactive"
+                                }
+                                label={intl.formatMessage({
+                                  id: isActive
+                                    ? "gateways.details.status.active"
+                                    : "gateways.details.status.inactive",
+                                })}
+                                className="justify-self-start text-[13px] leading-4 font-normal"
+                              />
+                            }
+                          />
                         );
                       })}
                     </div>
@@ -467,7 +629,7 @@ export function SourceSelection({
                 {createServerActions.isSkipping
                   ? intl.formatMessage({ id: "gateways.createServer.creating" })
                   : intl.formatMessage({
-                      id: hasSelectedMCPServers
+                      id: hasSelectedSources
                         ? "gateways.source.submit"
                         : "gateways.source.skipForNow",
                     })}

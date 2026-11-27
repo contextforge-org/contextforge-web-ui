@@ -185,6 +185,127 @@ describe("VirtualServerDetailsPanel components list", () => {
     );
   }
 
+  it("lists the server's associated agents under the Agents filter", async () => {
+    const user = userEvent.setup();
+    mswServer.use(
+      http.get("*/v1/a2a", () =>
+        HttpResponse.json([
+          {
+            id: "agent-1",
+            name: "router agent",
+            endpointUrl: "https://router.example.com",
+            enabled: true,
+            reachable: true,
+          },
+          {
+            id: "agent-other",
+            name: "unrelated agent",
+            endpointUrl: "https://other.example.com",
+            enabled: true,
+            reachable: true,
+          },
+        ]),
+      ),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+
+    expect(await screen.findByText("router agent")).toBeInTheDocument();
+    expect(screen.getByText("https://router.example.com")).toBeInTheDocument();
+    expect(screen.queryByText("unrelated agent")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Tools" }));
+    expect(screen.queryByText("router agent")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+    expect(screen.getByText("router agent")).toBeInTheDocument();
+  });
+
+  it("does not request agents without a2a.read, and lists the server's agent ids instead", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["servers.read"];
+    const agentRequests = vi.fn();
+    mswServer.use(
+      http.get("*/v1/a2a", () => {
+        agentRequests();
+        return HttpResponse.json([], { status: 403 });
+      }),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+
+    expect(await screen.findByText("agent-1")).toBeInTheDocument();
+    expect(agentRequests).not.toHaveBeenCalled();
+  });
+
+  it("keeps agent id rows beside fetched tools without a2a.read", async () => {
+    const user = userEvent.setup();
+    authMock.permissions = ["servers.read"];
+    mswServer.use(
+      http.get("*/v1/virtual-servers/:id/tools", () =>
+        HttpResponse.json({ tools: [makeTool({ id: "tool-1", name: "fetched.tool" })] }),
+      ),
+    );
+    render(
+      <VirtualServerDetailsPanel
+        server={makeServer({
+          id: "gw-mixed",
+          associatedToolIds: ["tool-1"],
+          associatedA2aAgents: ["agent-1"],
+        })}
+        error={null}
+        open
+        onClose={vi.fn()}
+        onAddSources={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+
+    expect(await screen.findByText("Search issues")).toBeInTheDocument();
+    expect(screen.getByText("agent-1")).toBeInTheDocument();
+  });
+
+  it("drops the Agents tab once the server has no agents left", async () => {
+    const user = userEvent.setup();
+    mswServer.use(http.get("*/v1/a2a", () => HttpResponse.json([])));
+    const props = { error: null, open: true, onClose: vi.fn(), onAddSources: vi.fn() };
+    const { rerender } = render(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: ["agent-1"] })}
+        {...props}
+      />,
+    );
+    await user.click(await screen.findByRole("tab", { name: "Components" }));
+    await user.click(screen.getByRole("tab", { name: "Agents" }));
+    expect(screen.getByRole("tab", { name: "Agents" })).toHaveAttribute("aria-selected", "true");
+
+    rerender(
+      <VirtualServerDetailsPanel
+        server={makeServer({ id: "gw-agents", associatedA2aAgents: [] })}
+        {...props}
+      />,
+    );
+
+    expect(screen.queryByRole("tab", { name: "Agents" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("renders titled and untitled component rows with badges", async () => {
     const user = userEvent.setup();
     renderWithComponents();
@@ -354,7 +475,8 @@ describe("VirtualServerDetailsPanel components list", () => {
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
 
-    // ArrowLeft from the first tab wraps around to the last.
+    // ArrowLeft from the first tab wraps around to the last; with no agents that is Prompts.
+    expect(screen.queryByRole("tab", { name: "Agents" })).not.toBeInTheDocument();
     await user.keyboard("{ArrowLeft}");
     expect(screen.getByRole("tab", { name: "Prompts" })).toHaveAttribute("aria-selected", "true");
 

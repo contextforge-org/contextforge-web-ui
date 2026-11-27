@@ -7,6 +7,7 @@ export const handlers = [
   // renders <Agents /> without its own server.use(...) override doesn't hit
   // an unhandled request.
   http.get("*/api/a2a", () => HttpResponse.json([])),
+  http.get("*/api/v1/a2a", () => HttpResponse.json([])),
 
   // Mock Recent Activity endpoint — backed by RECENT_ACTIVITY_FIXTURE.
   http.get("*/api/logs/activity", ({ request }) => {

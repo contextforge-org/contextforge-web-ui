@@ -413,7 +413,7 @@ describe("CreateServer", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip for now" })).toBeInTheDocument();
@@ -495,7 +495,7 @@ describe("CreateServer", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     expect(await screen.findByText("github-notify")).toBeInTheDocument();
@@ -518,6 +518,7 @@ describe("CreateServer", () => {
         associatedTools: ["tool-alpha", "tool-beta"],
         associatedResources: ["resource-alpha"],
         associatedPrompts: ["prompt-alpha"],
+        associatedA2aAgents: [],
         associatedMCPServerIds: ["github-notify"],
       });
     });
@@ -550,6 +551,7 @@ describe("CreateServer", () => {
         tags: ["research", "tools"],
         description: "A composed endpoint for research tools.",
         associatedTools: [],
+        associatedA2aAgents: [],
         associatedMCPServerIds: [],
       });
     });
@@ -597,7 +599,7 @@ describe("CreateServer", () => {
     await screen.findByRole("heading", { name: "Connect a source" });
     await user.click(
       screen.getByRole("button", {
-        name: "Add tools, resources, and prompts from connected sources",
+        name: "Add tools, resources, prompts, and agents from connected sources",
       }),
     );
     await screen.findByText("alpha");
@@ -734,7 +736,9 @@ describe("CreateServer", () => {
     await user.click(screen.getByTestId("action-card-AI agent"));
 
     // Open the connected-sources panel, which enables the MCP servers query.
-    await user.click(screen.getByRole("button", { name: /Add tools, resources, and prompts/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Add tools, resources, prompts, and agents/i }),
+    );
 
     expect(await screen.findByText("Active Server")).toBeInTheDocument();
     expect(screen.getByText("Warning Server")).toBeInTheDocument();
@@ -1181,6 +1185,44 @@ describe("CreateServer", () => {
           });
         });
         expect(mockNavigate).toHaveBeenCalledWith("/app/gateways");
+      } finally {
+        componentMockState.mockForm = false;
+      }
+    });
+
+    it("leaves the agent list out of an edit, so agents the read omits stay attached", async () => {
+      routerMock.path = "/app/gateways/create-server?editServerId=gateway-1";
+      server.use(
+        http.get("*/v1/virtual-servers/gateway-1", () => {
+          return HttpResponse.json({
+            id: "gateway-1",
+            name: "Test Edit Server",
+            visibility: "team",
+            oauthEnabled: false,
+            associatedA2aAgents: ["agent-1"],
+          });
+        }),
+        http.get("*/v1/mcp-servers", () => {
+          return HttpResponse.json({ gateways: [] });
+        }),
+      );
+
+      componentMockState.mockForm = true;
+      try {
+        renderForm(<CreateServer />);
+
+        await waitFor(() => {
+          expect(screen.getByTestId("mock-create-server-form")).toBeInTheDocument();
+        });
+
+        act(() => {
+          componentMockState.capturedProps?.onSuccess({ name: "Updated Name" });
+        });
+
+        await waitFor(() => expect(mockUpdateVirtualServer).toHaveBeenCalled());
+        expect(mockUpdateVirtualServer.mock.lastCall?.[1]).not.toHaveProperty(
+          "associatedA2aAgents",
+        );
       } finally {
         componentMockState.mockForm = false;
       }

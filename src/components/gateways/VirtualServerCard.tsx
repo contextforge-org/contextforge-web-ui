@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import type { VirtualServer } from "@/types/server";
-import { Box, EllipsisVertical, MessageSquareCode, Plus, Wrench } from "lucide-react";
+import { Bot, Box, EllipsisVertical, MessageSquareCode, Plus, Wrench } from "lucide-react";
 import { useIntl } from "react-intl";
 
 export function VirtualServerCard({
@@ -31,6 +31,7 @@ export function VirtualServerCard({
   toggleDisabled = false,
   isDeleting = false,
   deleteDisabled = false,
+  skillCount = 0,
   className,
 }: {
   server: VirtualServer;
@@ -43,6 +44,8 @@ export function VirtualServerCard({
   toggleDisabled?: boolean;
   isDeleting?: boolean;
   deleteDisabled?: boolean;
+  /** Skills advertised by the server's associated agents; hidden when zero. */
+  skillCount?: number;
   className?: string;
 }) {
   const intl = useIntl();
@@ -157,20 +160,35 @@ export function VirtualServerCard({
         </CardContent>
       ) : (
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-3 text-[13px] font-medium text-secondary-foreground">
-            <span className="flex items-center gap-2" data-testid="tool-count">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-secondary-foreground">
+            <span className="flex items-center gap-2 whitespace-nowrap" data-testid="tool-count">
               <Wrench className="size-4 text-muted-foreground" />
-              {toolCount}
+              {intl.formatMessage({ id: "gateways.card.toolCount" }, { count: toolCount })}
             </span>
+            {skillCount > 0 && (
+              <>
+                <span className="text-border">•</span>
+                <span
+                  className="flex items-center gap-2 whitespace-nowrap"
+                  data-testid="skill-count"
+                >
+                  <Bot className="size-4 text-muted-foreground" />
+                  {intl.formatMessage({ id: "gateways.card.skillCount" }, { count: skillCount })}
+                </span>
+              </>
+            )}
             <span className="text-border">•</span>
-            <span className="flex items-center gap-2" data-testid="resource-count">
+            <span
+              className="flex items-center gap-2 whitespace-nowrap"
+              data-testid="resource-count"
+            >
               <Box className="size-4 text-muted-foreground" />
-              {resourceCount}
+              {intl.formatMessage({ id: "gateways.card.resourceCount" }, { count: resourceCount })}
             </span>
             <span className="text-border">•</span>
-            <span className="flex items-center gap-2" data-testid="prompt-count">
+            <span className="flex items-center gap-2 whitespace-nowrap" data-testid="prompt-count">
               <MessageSquareCode className="size-4 text-muted-foreground" />
-              {promptCount}
+              {intl.formatMessage({ id: "gateways.card.promptCount" }, { count: promptCount })}
             </span>
           </div>
           <div className="flex items-center gap-2 overflow-hidden">

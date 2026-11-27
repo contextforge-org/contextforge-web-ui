@@ -100,7 +100,7 @@ export function CreateServerForm({
 
   return (
     <form
-      className="rounded-xl border border-border bg-card px-7 py-7 shadow-xs dark:border-[#2b2b2f] dark:bg-[#141414]"
+      className="rounded-xl border border-border bg-card px-7 py-7 shadow-xs dark:border-secondary"
       onSubmit={onSubmit}
       noValidate
     >
@@ -185,7 +185,7 @@ export function CreateServerForm({
               onBlur={(event) => validateField("name", event.target.value)}
               placeholder={intl.formatMessage({ id: "gateways.createServer.namePlaceholder" })}
               maxLength={100}
-              className="h-10 rounded-md border-input bg-background px-3 text-sm shadow-none"
+              className="h-10 rounded-md border-input bg-transparent px-3 text-sm shadow-none"
             />
           )}
         </Field>
@@ -283,7 +283,7 @@ export function CreateServerForm({
                     id: "gateways.createServer.descriptionPlaceholder",
                   })}
                   maxLength={500}
-                  className="rounded-md border-border bg-background px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0 dark:border-[#55555c] dark:bg-[#141414]"
+                  className="rounded-md border-input bg-transparent px-3 py-3 text-sm shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-offset-0"
                 />
               )}
             </Field>

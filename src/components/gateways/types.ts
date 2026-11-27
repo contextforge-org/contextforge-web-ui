@@ -11,7 +11,7 @@ export interface ActionCard {
   disabledReason?: string;
 }
 
-export type ComponentFilter = "all" | "tools" | "resources" | "prompts";
+export type ComponentFilter = "all" | "tools" | "resources" | "prompts" | "agents";
 
 export interface CreateServerDetails {
   name: string;
@@ -23,6 +23,7 @@ export interface CreateServerDetails {
   associatedTools?: string[];
   associatedResources?: string[];
   associatedPrompts?: string[];
+  associatedA2aAgents?: string[];
   associatedMCPServerIds?: string[];
 }
 

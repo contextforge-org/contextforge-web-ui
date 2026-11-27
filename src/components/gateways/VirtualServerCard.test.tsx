@@ -120,6 +120,30 @@ describe("VirtualServerCard", () => {
     expect(screen.getByTestId("prompt-count")).toBeTruthy();
   });
 
+  it("shows the agent skill count only when the agents advertise skills", () => {
+    const server = makeServer({ associatedTools: ["t1"], associatedA2aAgents: ["a1"] });
+    const { rerender } = renderWithProviders(
+      <VirtualServerCard server={server} skillCount={4} onViewDetails={vi.fn()} />,
+    );
+    expect(screen.getByTestId("skill-count")).toHaveTextContent("4 skills");
+
+    rerender(<VirtualServerCard server={server} skillCount={0} onViewDetails={vi.fn()} />);
+    expect(screen.queryByTestId("skill-count")).toBeNull();
+    expect(screen.queryByText(/0 skills/)).toBeNull();
+  });
+
+  it("does not treat a server with only an agent as empty", () => {
+    renderWithProviders(
+      <VirtualServerCard
+        server={makeServer({ associatedA2aAgents: ["a1"] })}
+        skillCount={2}
+        onViewDetails={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Add sources and components")).toBeNull();
+    expect(screen.getByTestId("skill-count")).toHaveTextContent("2 skills");
+  });
+
   it("renders tags as badges when components exist", () => {
     renderWithProviders(
       <VirtualServerCard

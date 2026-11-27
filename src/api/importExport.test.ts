@@ -117,14 +117,13 @@ describe("importExportApi", () => {
       expect(result).toMatchObject({ import_id: "imp-1" });
     });
 
-    it("sends dry run, strategy, rekey secret and selection", async () => {
+    it("sends dry run, strategy and selection", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ import_id: "imp-2" }));
 
       await importExportApi.importConfig({
         data: EXPORT,
         conflictStrategy: "skip",
         dryRun: true,
-        rekeySecret: "new-secret", // pragma: allowlist secret
         selectedEntities: { tools: ["t1"] },
       });
 
@@ -132,7 +131,6 @@ describe("importExportApi", () => {
         import_data: EXPORT,
         conflict_strategy: "skip",
         dry_run: true,
-        rekey_secret: "new-secret", // pragma: allowlist secret
         selected_entities: { tools: ["t1"] },
       });
     });
