@@ -3,6 +3,9 @@ import { http, HttpResponse } from "msw";
 import { RECENT_ACTIVITY_FIXTURE } from "@/mocks/recentActivity";
 
 export const handlers = [
+  // The agent panel reads the deployment's feature flags to decide whether to show Try it.
+  http.get("*/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: true } })),
+
   // Mock A2A agents list endpoint — empty by default so any test that
   // renders <Agents /> without its own server.use(...) override doesn't hit
   // an unhandled request.

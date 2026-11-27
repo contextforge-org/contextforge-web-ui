@@ -20,7 +20,7 @@ vi.mock("@/auth/AuthContext", () => ({
 
 import { toast } from "sonner";
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders } from "@/test/test-utils";
@@ -144,6 +144,11 @@ describe("AgentDetailsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHasPermission.mockImplementation(() => true);
+    // Without Try it the panel shows the definition straight away; the tests below that
+    // read the definition rely on that. The Try it tests turn A2A on.
+    server.use(
+      http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: false } })),
+    );
   });
 
   it("shows the configuration in the sidebar", async () => {
@@ -193,24 +198,26 @@ describe("AgentDetailsPanel", () => {
     useGateway();
     const { container } = renderPanel();
 
-    expect(screen.getByText("Bearer token in Authorization header")).toBeInTheDocument();
+    expect(await screen.findByText("Bearer token in Authorization header")).toBeInTheDocument();
     await screen.findByText("Vendor-fit routing");
     expect(container.ownerDocument.body.textContent).not.toContain("super-secret-token");
   });
 
-  it("says when the agent uses no authentication", () => {
-    useGateway();
-    renderPanel({ agent: { ...AGENT, authType: null } as AgentDetailsFields });
+  it("says when the agent uses no authentication", async () => {
+    const agent = { ...AGENT, authType: null } as AgentDetailsFields;
+    useGateway({ agent });
+    renderPanel({ agent });
 
-    expect(screen.getByText("No authentication")).toBeInTheDocument();
+    expect(await screen.findByText("No authentication")).toBeInTheDocument();
   });
 
-  it("reports an authentication type it does not know instead of calling it none", () => {
-    useGateway();
-    renderPanel({ agent: { ...AGENT, authType: "mtls" } as AgentDetailsFields });
+  it("reports an authentication type it does not know instead of calling it none", async () => {
+    const agent = { ...AGENT, authType: "mtls" } as AgentDetailsFields;
+    useGateway({ agent });
+    renderPanel({ agent });
 
+    expect(await screen.findByText("unknown")).toBeInTheDocument();
     expect(screen.queryByText("No authentication")).not.toBeInTheDocument();
-    expect(screen.getByText("unknown")).toBeInTheDocument();
   });
 
   it("flags an enabled agent that cannot be reached", () => {
@@ -323,6 +330,178 @@ describe("AgentDetailsPanel", () => {
     await screen.findByText("Vendor-fit routing");
     expect(screen.queryByText("pii-filter")).not.toBeInTheDocument();
     expect(screen.queryByText("Plugins")).not.toBeInTheDocument();
+  });
+
+  describe("Try it tab", () => {
+    beforeEach(() => {
+      server.use(
+        http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: true } })),
+      );
+    });
+
+    it("is offered to a caller with a2a.invoke when A2A is on, and is the tab shown first", async () => {
+      useGateway();
+      renderPanel();
+
+      const tryIt = await screen.findByRole("tab", { name: "Try it" });
+      expect(tryIt).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("tab", { name: "Definition" })).toHaveAttribute(
+        "aria-selected",
+        "false",
+      );
+      expect(screen.getByRole("button", { name: "Send test message" })).toBeInTheDocument();
+      expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+    });
+
+    it("shows the definition from the other tab", async () => {
+      useGateway();
+      renderPanel();
+
+      await userEvent.setup().click(await screen.findByRole("tab", { name: "Definition" }));
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+    });
+
+    it("opens on Try it again for the next agent", async () => {
+      useGateway();
+      const { rerender } = renderPanel();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("tab", { name: "Definition" }));
+      expect(screen.getByRole("tab", { name: "Definition" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+
+      rerender(
+        <AgentDetailsPanel
+          agent={{ ...AGENT, id: "agent-2" } as AgentDetailsFields}
+          open
+          onClose={vi.fn()}
+        />,
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("tab", { name: "Try it" })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        ),
+      );
+    });
+
+    it("holds back the tabs until it knows whether Try it is offered", async () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get("/api/v1/auth/email/me", async () => {
+          await gate;
+          return HttpResponse.json({ features: { a2a: true } });
+        }),
+      );
+      useGateway();
+      renderPanel();
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+
+      release();
+      expect(await screen.findByRole("tab", { name: "Try it" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    });
+
+    it("falls back to Definition when the feature check fails", async () => {
+      server.use(http.get("/api/v1/auth/email/me", () => HttpResponse.error()));
+      useGateway();
+      renderPanel();
+
+      expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
+
+    it("falls back to Definition when the feature check hangs until the request times out", async () => {
+      server.use(http.get("/api/v1/auth/email/me", () => new Promise<never>(() => {})));
+      useGateway();
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        renderPanel();
+        expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(30_000);
+        });
+
+        expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+        expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("hides the kept-mounted Try it panel while Definition is selected", async () => {
+      useGateway();
+      renderPanel();
+      const user = userEvent.setup();
+      const field = await screen.findByLabelText("Test agent");
+      const panel = field.closest('[role="tabpanel"]');
+      expect(panel).toHaveAttribute("data-state", "active");
+
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
+      await screen.findByText("Vendor-fit routing");
+
+      // Still mounted to keep its state, but hidden and out of the tab order.
+      expect(panel).toHaveAttribute("data-state", "inactive");
+      expect(panel).toHaveClass("data-[state=inactive]:hidden");
+    });
+
+    it("keeps the message while looking at Definition", async () => {
+      useGateway();
+      renderPanel();
+      const user = userEvent.setup();
+      await user.type(await screen.findByLabelText("Test agent"), "keep me");
+
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
+      await screen.findByText("Vendor-fit routing");
+      await user.click(screen.getByRole("tab", { name: "Try it" }));
+
+      expect(screen.getByLabelText("Test agent")).toHaveValue("keep me");
+    });
+
+    it("drops the message when the drawer closes, so a reopen starts clean", async () => {
+      useGateway();
+      const { rerender } = renderPanel();
+      await userEvent.setup().type(await screen.findByLabelText("Test agent"), "stale");
+
+      const closed = (open: boolean) => (
+        <AgentDetailsPanel agent={AGENT as AgentDetailsFields} open={open} onClose={vi.fn()} />
+      );
+      rerender(closed(false));
+      expect(screen.queryByLabelText("Test agent")).not.toBeInTheDocument();
+
+      rerender(closed(true));
+      expect(await screen.findByLabelText("Test agent")).toHaveValue("");
+    });
+
+    it("is hidden without a2a.invoke", async () => {
+      mockHasPermission.mockImplementation((perm) => perm !== "a2a.invoke");
+      useGateway();
+      renderPanel();
+
+      await screen.findByText("Vendor-fit routing");
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
+
+    it("is hidden when A2A is off", async () => {
+      server.use(
+        http.get("/api/v1/auth/email/me", () => HttpResponse.json({ features: { a2a: false } })),
+      );
+      useGateway();
+      renderPanel();
+
+      await screen.findByText("Vendor-fit routing");
+      expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
   });
 
   it("offers only the actions the caller may take", async () => {
