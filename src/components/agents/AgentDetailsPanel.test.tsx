@@ -20,7 +20,7 @@ vi.mock("@/auth/AuthContext", () => ({
 
 import { toast } from "sonner";
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/mocks/server";
 import { renderWithProviders } from "@/test/test-utils";
@@ -418,6 +418,41 @@ describe("AgentDetailsPanel", () => {
 
       expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+    });
+
+    it("falls back to Definition when the feature check hangs until the request times out", async () => {
+      server.use(http.get("/api/v1/auth/email/me", () => new Promise<never>(() => {})));
+      useGateway();
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        renderPanel();
+        expect(screen.queryByText("Vendor-fit routing")).not.toBeInTheDocument();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(30_000);
+        });
+
+        expect(await screen.findByText("Vendor-fit routing")).toBeInTheDocument();
+        expect(screen.queryByRole("tab", { name: "Try it" })).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("hides the kept-mounted Try it panel while Definition is selected", async () => {
+      useGateway();
+      renderPanel();
+      const user = userEvent.setup();
+      const field = await screen.findByLabelText("Test agent");
+      const panel = field.closest('[role="tabpanel"]');
+      expect(panel).toHaveAttribute("data-state", "active");
+
+      await user.click(screen.getByRole("tab", { name: "Definition" }));
+      await screen.findByText("Vendor-fit routing");
+
+      // Still mounted to keep its state, but hidden and out of the tab order.
+      expect(panel).toHaveAttribute("data-state", "inactive");
+      expect(panel).toHaveClass("data-[state=inactive]:hidden");
     });
 
     it("keeps the message while looking at Definition", async () => {

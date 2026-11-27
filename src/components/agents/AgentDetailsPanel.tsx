@@ -215,13 +215,14 @@ export function AgentDetailsPanel({
   // The Try it tab calls the agent, so it needs a2a.invoke, and A2A switched on. The route
   // stays mounted when A2A is off, so only the deployment's feature flags say.
   const canInvoke = !permissionsLoading && hasPermission(INVOKE_PERMISSION);
-  const { data: me, error: meError } = useQuery<CurrentUserResponse>(
+  const { data: me, isLoading: meLoading } = useQuery<CurrentUserResponse>(
     open && agentId && canInvoke ? "/v1/auth/email/me" : null,
   );
   const showTryIt = canInvoke && me?.features?.a2a === true;
   // Until both checks settle the tabs are not known, so the panel holds back rather than
-  // showing Definition and then swapping to Try it under the reader's focus.
-  const tabsPending = permissionsLoading || (canInvoke && !me && !meError);
+  // showing Definition and then swapping to Try it under the reader's focus. A failed or
+  // timed-out request also stops loading, so it settles on Definition instead of hanging.
+  const tabsPending = permissionsLoading || (canInvoke && meLoading);
   const [activeTab, setActiveTab] = useState("tryIt");
   // Another agent, or a closed panel, starts back on Try it.
   useEffect(() => {
@@ -641,7 +642,7 @@ export function AgentDetailsPanel({
                 {/* Kept mounted across tabs so the message and result survive a look at Definition,
                     and dropped with the drawer so a call in flight stops and a reopen starts clean. */}
                 {showTryIt && agentId && open && (
-                  <TabsContent value="tryIt" forceMount>
+                  <TabsContent value="tryIt" forceMount className="data-[state=inactive]:hidden">
                     <AgentTryItTab agentId={agentId} protocolVersion={current.protocolVersion} />
                   </TabsContent>
                 )}

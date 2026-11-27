@@ -3,6 +3,8 @@ import { useIntl } from "react-intl";
 import { ArrowUp, CircleStop } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { AGENT_TEST_QUERY_MAX_LENGTH } from "@/config/agentTest";
 import { useAgentTest } from "@/hooks/useAgentTest";
 import { AgentTestResult, formatElapsed } from "./AgentTestResult";
@@ -46,9 +48,9 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
   return (
     <div>
       <div className="space-y-3">
-        <label htmlFor={fieldId} className="block text-sm leading-5 font-medium text-foreground">
+        <Label htmlFor={fieldId} className="block text-foreground">
           {intl.formatMessage({ id: "agents.try.title" })}
-        </label>
+        </Label>
         <form
           className="flex flex-col gap-2 rounded-xl border border-input p-2 focus-within:ring-2 focus-within:ring-ring"
           onSubmit={(event) => {
@@ -56,7 +58,7 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
             send();
           }}
         >
-          <textarea
+          <Textarea
             id={fieldId}
             value={query}
             maxLength={AGENT_TEST_QUERY_MAX_LENGTH}
@@ -71,7 +73,7 @@ export function AgentTryItTab({ agentId, protocolVersion }: AgentTryItTabProps) 
                 send();
               }
             }}
-            className="min-h-10 w-full resize-none bg-transparent px-2 py-1 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-h-10 resize-none rounded-none border-0 px-2 py-1 leading-5 text-foreground shadow-none [field-sizing:fixed] placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
           />
           <div className="flex justify-end">
             <Button
