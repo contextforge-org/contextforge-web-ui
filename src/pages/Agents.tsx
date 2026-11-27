@@ -24,6 +24,7 @@ import {
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { AgentDetailsPanel } from "@/components/agents/AgentDetailsPanel";
 import { ConnectAgentForm } from "@/components/agents/ConnectAgentForm";
+import { EditAgentForm } from "@/components/agents/EditAgentForm";
 import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/agentSkills";
 
 // Only the fields the card actually renders — `Agent` also carries credential
@@ -42,10 +43,11 @@ interface AgentCardProps {
   onOpen?: (id: string) => void;
   /** Omit to hide the action; the caller decides from the user's permissions. */
   onToggle?: (id: string, currentEnabled: boolean) => void;
+  onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
+function AgentCard({ agent, onOpen, onToggle, onEdit, onDelete }: AgentCardProps) {
   const intl = useIntl();
   const MAX_VISIBLE_CHIPS = 8;
   const isActive = agent.enabled && agent.reachable;
@@ -87,7 +89,7 @@ function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
             )}
           </div>
 
-          {agent.id && (onOpen || onToggle || onDelete) && (
+          {agent.id && (onOpen || onToggle || onEdit || onDelete) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -129,6 +131,11 @@ function AgentCard({ agent, onOpen, onToggle, onDelete }: AgentCardProps) {
                         ? "agents.card.actions.disable"
                         : "agents.card.actions.enable",
                     })}
+                  </DropdownMenuItem>
+                )}
+                {onEdit && (
+                  <DropdownMenuItem onClick={() => onEdit(agent.id as string)}>
+                    {intl.formatMessage({ id: "agents.card.actions.edit" })}
                   </DropdownMenuItem>
                 )}
                 {onDelete && (
@@ -206,6 +213,7 @@ export function Agents() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const {
@@ -325,6 +333,25 @@ export function Agents() {
     }
   }, [deleteTarget, detailsId, setAgentsData, intl]);
 
+  const handleEdit = useCallback((id: string) => {
+    // The form replaces the list, so the panel it was opened from goes with it.
+    setIsDetailsOpen(false);
+    setEditId(id);
+  }, []);
+
+  const handleSaved = useCallback(
+    (updated: A2AAgentRead | null) => {
+      const id = editId;
+      setEditId(null);
+      if (!updated || !id) return;
+      // Keep the row's enabled state and tags if they changed while the form was open.
+      setAgentsData((prev) => prev?.map((a) => (a?.id === id ? { ...a, ...updated } : a)));
+      toast.success(intl.formatMessage({ id: "agents.edit.success" }, { name: updated.name }));
+      refetch().catch(() => {});
+    },
+    [editId, setAgentsData, intl, refetch],
+  );
+
   const handleConnected = useCallback(
     (created: A2AAgentRead) => {
       setIsConnecting(false);
@@ -335,6 +362,21 @@ export function Agents() {
     },
     [intl, refetch],
   );
+
+  const editAgent = editId ? (agents.find((a) => a.id === editId) ?? null) : null;
+  if (editAgent) {
+    return (
+      <div className="p-6">
+        <EditAgentForm
+          // A different agent starts from its own values, not the last one's.
+          key={editAgent.id}
+          agent={editAgent}
+          onCancel={() => setEditId(null)}
+          onSaved={handleSaved}
+        />
+      </div>
+    );
+  }
 
   if (isConnecting) {
     return (
@@ -397,6 +439,7 @@ export function Agents() {
               agent={agent}
               onOpen={handleOpenDetails}
               onToggle={canUpdate ? handleToggle : undefined}
+              onEdit={canUpdate ? handleEdit : undefined}
               onDelete={canDelete ? handleDeleteRequest : undefined}
             />
           ))}
@@ -409,6 +452,7 @@ export function Agents() {
         open={isDetailsOpen && detailsAgent !== null}
         onClose={handleCloseDetails}
         onToggle={canUpdate ? handleToggle : undefined}
+        onEdit={canUpdate ? handleEdit : undefined}
         onDelete={canDelete ? handleDeleteRequest : undefined}
         onAddTag={canUpdate ? handleAddTag : undefined}
       />

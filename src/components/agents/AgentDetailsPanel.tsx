@@ -135,6 +135,7 @@ interface AgentDetailsPanelProps {
   onClose: () => void;
   /** Omit to hide the action; the caller decides from the user's permissions. */
   onToggle?: (id: string, currentEnabled: boolean) => void;
+  onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   /**
    * Saves the agent's full tag list after an inline add; receives the agent ID
@@ -154,6 +155,7 @@ export function AgentDetailsPanel({
   open,
   onClose,
   onToggle,
+  onEdit,
   onDelete,
   onAddTag,
 }: AgentDetailsPanelProps) {
@@ -376,7 +378,7 @@ export function AgentDetailsPanel({
 
   const tagLabels = getTagLabels(current?.tags ?? []);
   const lastUsed = formatLastSeen(current?.lastInteraction, { locale: intl.locale });
-  const hasActions = Boolean(agentId && (onToggle || onDelete));
+  const hasActions = Boolean(agentId && (onToggle || onEdit || onDelete));
 
   return (
     <>
@@ -442,6 +444,11 @@ export function AgentDetailsPanel({
                               ? "agents.card.actions.disable"
                               : "agents.card.actions.enable",
                           })}
+                        </DropdownMenuItem>
+                      )}
+                      {onEdit && (
+                        <DropdownMenuItem onClick={() => onEdit(agentId as string)}>
+                          {intl.formatMessage({ id: "agents.card.actions.edit" })}
                         </DropdownMenuItem>
                       )}
                       {onDelete && (

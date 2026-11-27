@@ -37,6 +37,24 @@ describe("agentsApi", () => {
     });
   });
 
+  describe("update", () => {
+    it("PUTs the changed fields to /v1/a2a/{id} and returns the stored agent", async () => {
+      const stored = { id: "a1", name: "Beta" };
+      mockFetch.mockResolvedValueOnce(json(stored));
+
+      await expect(agentsApi.update("a1", { name: "Beta" })).resolves.toEqual(stored);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/a2a/a1"),
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ name: "Beta" }) }),
+      );
+    });
+
+    it("rejects an id that is not a plain identifier", () => {
+      expect(() => agentsApi.update("../a1", { name: "Beta" })).toThrow("Invalid agent ID format");
+    });
+  });
+
   describe("create", () => {
     it("POSTs the embedded body (agent, visibility, team_id) to /v1/a2a", async () => {
       const body = {

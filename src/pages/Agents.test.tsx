@@ -628,6 +628,69 @@ describe("Agents", () => {
       expect(screen.getByText("Agent 1")).toBeInTheDocument();
     });
 
+    it("offers Edit in the card menu", async () => {
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
+
+      renderWithProviders(<Agents />);
+      await openMenu("Agent 1");
+
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+    });
+
+    it("hides Edit without a2a.update", async () => {
+      mockHasPermission.mockImplementation((perm) => perm === "a2a.delete");
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
+
+      renderWithProviders(<Agents />);
+      await openMenu("Agent 1");
+
+      expect(await screen.findByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Edit" })).not.toBeInTheDocument();
+    });
+
+    it("edits an agent, sends only what changed and shows the new name in the list", async () => {
+      // The gateway holds the agent, so the refetch after saving returns what was saved.
+      let stored = createMockAgent(1);
+      const bodies: unknown[] = [];
+      server.use(
+        http.get("/api/v1/a2a", () => HttpResponse.json([stored])),
+        http.put("/api/v1/a2a/:id", async ({ request }) => {
+          const body = (await request.json()) as Record<string, unknown>;
+          bodies.push(body);
+          stored = { ...stored, ...body } as typeof stored;
+          return HttpResponse.json(stored);
+        }),
+      );
+
+      renderWithProviders(<Agents />);
+      const user = await openMenu("Agent 1");
+      await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+
+      const name = await screen.findByPlaceholderText("Add an agent name");
+      expect(name).toHaveValue("Agent 1");
+      await user.clear(name);
+      await user.type(name, "Renamed");
+      await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Saved Renamed."));
+      expect(bodies).toEqual([{ name: "Renamed" }]);
+      expect(await screen.findByText("Renamed")).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Add an agent name")).not.toBeInTheDocument();
+    });
+
+    it("returns to the list without saving when the edit is cancelled", async () => {
+      server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
+
+      renderWithProviders(<Agents />);
+      const user = await openMenu("Agent 1");
+      await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+      await user.click(await screen.findByRole("button", { name: "Cancel" }));
+
+      expect(await screen.findByText("Agent 1")).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Add an agent name")).not.toBeInTheDocument();
+      expect(toast.success).not.toHaveBeenCalled();
+    });
+
     it("hides each action the user lacks permission for", async () => {
       mockHasPermission.mockImplementation((perm) => perm === "a2a.update");
       server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));

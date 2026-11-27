@@ -535,6 +535,24 @@ describe("AgentDetailsPanel", () => {
     expect(onDelete).toHaveBeenCalledWith("agent-1");
   });
 
+  it("offers Edit and calls the edit handler with the agent", async () => {
+    useGateway();
+    const onEdit = vi.fn();
+    renderPanel({ onEdit });
+
+    await userEvent.click(screen.getByRole("button", { name: "Actions for objekts router" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
+    expect(onEdit).toHaveBeenCalledWith("agent-1");
+  });
+
+  it("hides Edit when the caller may not edit", async () => {
+    useGateway();
+    renderPanel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Actions for objekts router" }));
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
   it("closes from the close button and Escape", async () => {
     useGateway();
     const onClose = vi.fn();

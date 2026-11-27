@@ -71,7 +71,6 @@
   "agents.connect.manual.binding.label": "Protocol binding",
   "agents.connect.manual.binding.jsonrpc": "JSON-RPC",
   "agents.connect.manual.binding.http": "HTTP+JSON",
-  "agents.connect.manual.binding.httpUnsupported": "ContextForge calls agents over JSON-RPC. HTTP+JSON isn't supported yet.",
   "agents.connect.manual.version.label": "Protocol version",
   "agents.connect.manual.oauth.intro": "ContextForge gets a token with the OAuth 2.0 client credentials flow.",
   "agents.connect.manual.oauth.tokenUrl": "Token URL",
@@ -215,5 +214,16 @@
   "agents.try.waiting.auth": "The agent needs authorization.",
   "agents.try.waiting.note": "The call reached the agent. This is neither a success nor a failure of the test.",
   "agents.try.timeout.message": "The agent did not answer in time. Nothing was returned.",
-  "agents.try.failure.generic": "The request failed. Try again."
+  "agents.try.failure.generic": "The request failed. Try again.",
+  "agents.card.actions.edit": "Edit",
+  "agents.edit.title": "Edit {name}",
+  "agents.edit.binding.automatic": "Automatic (gateway decides)",
+  "agents.edit.save": "Save changes",
+  "agents.edit.saving": "Saving…",
+  "agents.edit.success": "Saved {name}.",
+  "agents.edit.error.save": "The agent could not be saved.",
+  "agents.edit.auth.current": "Uses {type}. The stored credential is not shown.",
+  "agents.edit.auth.noneStored": "No credential is stored.",
+  "agents.edit.auth.change": "Change credentials",
+  "agents.edit.auth.keep": "Keep the stored credential"
 }

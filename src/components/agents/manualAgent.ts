@@ -18,6 +18,9 @@ export const AGENT_AUTH_TYPES: AgentAuthType[] = [
 export const PROTOCOL_VERSIONS = ["1.0", "0.3"] as const;
 export type ProtocolVersion = (typeof PROTOCOL_VERSIONS)[number];
 
+/** Wire bindings the gateway can invoke an agent with, named as the API names them in `protocol_binding`. */
+export type ProtocolBinding = "jsonrpc" | "http_json";
+
 export interface AgentAuthValues {
   token: string;
   username: string;

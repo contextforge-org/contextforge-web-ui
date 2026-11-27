@@ -8,6 +8,7 @@ import {
   hasRequiredCredentials,
   type AgentAuthType,
   type AgentAuthValues,
+  type ProtocolBinding,
   type ProtocolVersion,
 } from "@/components/agents/manualAgent";
 import type { CustomHeader } from "@/components/mcp-servers/CustomHeadersAuth";
@@ -125,6 +126,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
   const [manualEndpoint, setManualEndpoint] = useState("");
   const [manualDescription, setManualDescription] = useState("");
   const [manualTags, setManualTags] = useState<string[]>([]);
+  const [protocolBinding, setProtocolBinding] = useState<ProtocolBinding>("jsonrpc");
   const [protocolVersion, setProtocolVersion] = useState<ProtocolVersion>("1.0");
   const [manualAuthType, setManualAuthTypeState] = useState<AgentAuthType>("none");
 
@@ -528,7 +530,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
       name,
       endpoint_url: endpoint,
       protocol_version: protocolVersion,
-      // TODO(IBM/mcp-context-forge#7383): also send the protocol binding once the API stores one.
+      protocol_binding: protocolBinding,
       ...(description ? { description } : {}),
       ...(manualTags.length > 0 ? { tags: manualTags } : {}),
       // The manual form has no Resource field, so one typed in the card flow must not leak in.
@@ -541,6 +543,7 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     manualDescription,
     manualTags,
     manualAuthType,
+    protocolBinding,
     protocolVersion,
     visibility,
     teamId,
@@ -618,6 +621,8 @@ export function useConnectAgentForm({ onCreated }: UseConnectAgentFormOptions) {
     setManualDescription,
     manualTags,
     setManualTags,
+    protocolBinding,
+    setProtocolBinding,
     protocolVersion,
     setProtocolVersion,
     manualAuthType,

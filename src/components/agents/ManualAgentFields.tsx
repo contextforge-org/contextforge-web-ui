@@ -14,6 +14,7 @@ import {
   AGENT_AUTH_TYPES,
   PROTOCOL_VERSIONS,
   type AgentAuthType,
+  type ProtocolBinding,
   type ProtocolVersion,
 } from "./manualAgent";
 
@@ -161,22 +162,19 @@ export function ManualAgentFields({ form }: { form: ConnectAgentFormState }) {
             </span>
           </legend>
           <RadioGroup
-            value="JSONRPC"
+            value={form.protocolBinding}
+            onValueChange={(value) => form.setProtocolBinding(value as ProtocolBinding)}
             aria-label={intl.formatMessage({ id: "agents.connect.manual.binding.label" })}
           >
             <div className="flex items-center gap-2">
-              <RadioGroupItem value="JSONRPC" id="agent-binding-jsonrpc" />
+              <RadioGroupItem value="jsonrpc" id="agent-binding-jsonrpc" />
               <Label htmlFor="agent-binding-jsonrpc" className="font-normal">
                 {intl.formatMessage({ id: "agents.connect.manual.binding.jsonrpc" })}
               </Label>
             </div>
             <div className="flex items-center gap-2">
-              {/* TODO(IBM/mcp-context-forge#7383): disabled because the API stores no protocol
-                  binding yet, so a selection would be dropped on save. Enable this option, send
-                  `protocol_binding` ("jsonrpc" | "http_json") and drop the note below once that
-                  column exists in the generated client. */}
-              <RadioGroupItem value="HTTP+JSON" id="agent-binding-http" disabled />
-              <Label htmlFor="agent-binding-http" className="font-normal text-muted-foreground">
+              <RadioGroupItem value="http_json" id="agent-binding-http" />
+              <Label htmlFor="agent-binding-http" className="font-normal">
                 {intl.formatMessage({ id: "agents.connect.manual.binding.http" })}
               </Label>
             </div>
@@ -205,12 +203,6 @@ export function ManualAgentFields({ form }: { form: ConnectAgentFormState }) {
             ))}
           </RadioGroup>
         </fieldset>
-
-        {/* TODO(IBM/mcp-context-forge#7383): temporary note. Remove it, and the
-            `agents.connect.manual.binding.httpUnsupported` strings, once HTTP+JSON can be saved. */}
-        <p className="w-full text-xs text-muted-foreground">
-          {intl.formatMessage({ id: "agents.connect.manual.binding.httpUnsupported" })}
-        </p>
       </div>
 
       <SegmentedRadio
