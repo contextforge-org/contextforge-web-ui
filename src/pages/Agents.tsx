@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
 import { AgentDetailsPanel } from "@/components/agents/AgentDetailsPanel";
+import type { AgentSkill } from "@/components/agents/agentSkills";
 import { ConnectAgentForm } from "@/components/agents/ConnectAgentForm";
 import { getAgentSkillNames, type AgentSkillSource } from "@/components/agents/agentSkills";
 
@@ -297,6 +298,23 @@ export function Agents() {
     [setAgentsData, intl],
   );
 
+  const handleAddSkill = useCallback(
+    async (id: string, skills: AgentSkill[]) => {
+      try {
+        const updated = await agentsApi.updateSkills(id, skills);
+        setAgentsData((prev) =>
+          prev?.map((a) => (a?.id === id ? { ...a, skills: updated?.skills } : a)),
+        );
+      } catch (err) {
+        const detail = err instanceof ApiError ? extractApiErrorDetail(err.body) : null;
+        toast.error(detail || intl.formatMessage({ id: "agents.skills.add.saveError" }));
+        // The dialog stays open for a retry when this rejects.
+        throw err;
+      }
+    },
+    [setAgentsData, intl],
+  );
+
   const handleDeleteRequest = useCallback(
     (id: string) => {
       setDeleteTarget({ id, name: agents.find((a) => a.id === id)?.name ?? id });
@@ -411,6 +429,7 @@ export function Agents() {
         onToggle={canUpdate ? handleToggle : undefined}
         onDelete={canDelete ? handleDeleteRequest : undefined}
         onAddTag={canUpdate ? handleAddTag : undefined}
+        onAddSkill={canUpdate ? handleAddSkill : undefined}
       />
 
       <ConfirmDialog

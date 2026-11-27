@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useIntl } from "react-intl";
-import { Activity, EllipsisVertical, PanelRightClose, X } from "lucide-react";
+import { Activity, EllipsisVertical, PanelRightClose, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/auth/useAuth";
 import { agentsApi } from "@/api/agents";
@@ -37,7 +37,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/servers/ConfirmDialog";
-import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
+import { AddSkillDialog } from "./AddSkillDialog";
+import {
+  getAgentSkillNames,
+  type AgentSkill,
+  type AgentSkillEntry,
+  type AgentSkillSource,
+} from "./agentSkills";
 import { sourceUrlLength, summarizeBindings, summarizePublisher } from "./agentCardSummary";
 import { AgentTryItTab } from "./AgentTryItTab";
 
@@ -142,6 +148,13 @@ interface AgentDetailsPanelProps {
    * show the tags without the "add" option.
    */
   onAddTag?: (id: string, tags: string[]) => Promise<void>;
+  /**
+   * Saves the agent's full skill list after one is added; receives the agent ID
+   * and the complete new list, and rejects if saving fails. Omit to hide the
+   * "Add skill" action. Only offered for agents added by hand: the others
+   * publish their own skills in the card they were registered from.
+   */
+  onAddSkill?: (id: string, skills: AgentSkill[]) => Promise<void>;
 }
 
 /**
@@ -156,6 +169,7 @@ export function AgentDetailsPanel({
   onToggle,
   onDelete,
   onAddTag,
+  onAddSkill,
 }: AgentDetailsPanelProps) {
   const intl = useIntl();
   const { hasPermission, permissionsLoading } = useAuth();
@@ -177,6 +191,8 @@ export function AgentDetailsPanel({
           ...fetched,
           enabled: agent?.enabled ?? fetched.enabled,
           tags: agent?.tags ?? fetched.tags,
+          // Likewise skills, which an add updates in the list.
+          skills: agent.skills ?? fetched.skills,
         }
       : agent;
 
@@ -237,6 +253,7 @@ export function AgentDetailsPanel({
   } = useQuery<A2AAgentPluginBindingListResponse>(
     open && teamId && canReadPlugins ? `/v1/a2a-agents/plugin-bindings/${teamId}` : null,
   );
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [bindingToRemove, setBindingToRemove] =
     useState<NonNullable<A2AAgentPluginBindingResponse> | null>(null);
@@ -334,8 +351,34 @@ export function AgentDetailsPanel({
     : notAvailable;
 
   // The card is only served for enabled agents, so a disabled one falls back to what the agent lists.
+  // A card stored at registration is the agent's own word. Without one, the card is built from the
+  // skills the agent lists and was read once, so the list, which an add updates, goes first.
   const cardSkills = getAgentSkillNames({ skills: card?.skills });
-  const skills = cardSkills.length > 0 ? cardSkills : current ? getAgentSkillNames(current) : [];
+  const listedSkills = current ? getAgentSkillNames(current) : [];
+  const skills = storedCard
+    ? cardSkills.length > 0
+      ? cardSkills
+      : listedSkills
+    : listedSkills.length > 0
+      ? listedSkills
+      : cardSkills;
+
+  // An agent added by hand has no stored card; one whose card is still being read is not known yet.
+  const canAddSkill = Boolean(agentId && onAddSkill && storedCardSettled && !storedCard);
+  // The update replaces the whole list, so it starts from the skills the agent has now,
+  // wherever the API lists them.
+  const existingSkills: AgentSkillEntry[] = current
+    ? current.skills?.length
+      ? [...current.skills]
+      : Array.isArray(current.capabilities?.skills)
+        ? [...(current.capabilities.skills as AgentSkillEntry[])]
+        : []
+    : [];
+  const addSkill = async (skill: AgentSkill) => {
+    if (!agentId || !onAddSkill) return;
+    await onAddSkill(agentId, [...existingSkills, skill] as AgentSkill[]);
+    toast.success(intl.formatMessage({ id: "agents.skills.add.success" }, { name: skill.name }));
+  };
 
   const capabilitySource = card?.capabilities ?? current?.capabilities ?? {};
   const capabilityRows = [...CAPABILITY_KEYS, "extensions" as const]
@@ -417,6 +460,12 @@ export function AgentDetailsPanel({
                 >
                   {current.name}
                 </h2>
+                {canAddSkill && (
+                  <Button type="button" size="sm" onClick={() => setIsAddingSkill(true)}>
+                    <Plus aria-hidden="true" />
+                    {intl.formatMessage({ id: "agents.details.skills.add" })}
+                  </Button>
+                )}
                 {hasActions && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -536,14 +585,20 @@ export function AgentDetailsPanel({
                       </Section>
                     )}
 
-                    {skills.length > 0 && (
+                    {(skills.length > 0 || canAddSkill) && (
                       <Section title={intl.formatMessage({ id: "agents.details.skills" })}>
-                        <ul className="col-span-full space-y-2">
-                          {skills.map((name, index) => (
-                            // Index in the key too: skill names aren't guaranteed unique on one agent.
-                            <li key={`${name}-${index}`}>{name}</li>
-                          ))}
-                        </ul>
+                        {skills.length > 0 ? (
+                          <ul className="col-span-full space-y-2">
+                            {skills.map((name, index) => (
+                              // Index in the key too: skill names aren't guaranteed unique on one agent.
+                              <li key={`${name}-${index}`}>{name}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="col-span-full text-muted-foreground">
+                            {intl.formatMessage({ id: "agents.details.skills.empty" })}
+                          </p>
+                        )}
                       </Section>
                     )}
 
@@ -760,6 +815,15 @@ export function AgentDetailsPanel({
           </div>
         )}
       </aside>
+
+      {canAddSkill && (
+        <AddSkillDialog
+          open={isAddingSkill}
+          onOpenChange={setIsAddingSkill}
+          existingSkills={existingSkills}
+          onSubmit={addSkill}
+        />
+      )}
 
       <ConfirmDialog
         open={bindingToRemove !== null}

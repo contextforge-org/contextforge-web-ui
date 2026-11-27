@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { getAgentSkillNames, type AgentSkillSource } from "./agentSkills";
+import {
+  buildSkill,
+  deriveSkillId,
+  getAgentSkillNames,
+  validateSkillDraft,
+  type AgentSkillSource,
+  type SkillDraft,
+} from "./agentSkills";
 
 /** API data is not checked at runtime, so tests feed it values the types forbid. */
 const untyped = (value: unknown) => value as AgentSkillSource;
@@ -52,5 +59,84 @@ describe("getAgentSkillNames", () => {
     ["empty lists", { skills: [], capabilities: { skills: [] } }],
   ])("returns no skills for %s", (_name, agent) => {
     expect(getAgentSkillNames(untyped(agent))).toEqual([]);
+  });
+});
+
+describe("deriveSkillId", () => {
+  it("lower-cases and joins words with underscores", () => {
+    expect(deriveSkillId("Production routing")).toBe("production_routing");
+    expect(deriveSkillId("  AI / hybrid -- routing! ")).toBe("ai_hybrid_routing");
+  });
+
+  it("drops accents and is empty when nothing usable is left", () => {
+    expect(deriveSkillId("Café résumé")).toBe("cafe_resume");
+    expect(deriveSkillId("!!! ???")).toBe("");
+  });
+});
+
+describe("validateSkillDraft", () => {
+  const draft: SkillDraft = {
+    name: "Production routing",
+    description: "Routes to prod",
+    tags: ["routing"],
+    examples: [],
+  };
+
+  it("accepts a complete skill", () => {
+    expect(validateSkillDraft(draft, [])).toEqual({});
+  });
+
+  it("requires name, description and a tag", () => {
+    expect(validateSkillDraft({ ...draft, name: " ", description: "", tags: [] }, [])).toEqual({
+      name: "nameRequired",
+      description: "descriptionRequired",
+      tags: "tagsRequired",
+    });
+  });
+
+  it("flags an id the agent already has, however the name is spelled", () => {
+    const existing = [{ id: "production_routing", name: "Other" }, "plain string"];
+    expect(validateSkillDraft({ ...draft, name: "PRODUCTION  routing" }, existing).name).toBe(
+      "duplicateId",
+    );
+  });
+
+  it("applies the API limits and rejects markup", () => {
+    expect(validateSkillDraft({ ...draft, name: "x".repeat(256) }, []).name).toBe("nameTooLong");
+    expect(validateSkillDraft({ ...draft, name: "<b>x</b>" }, []).name).toBe("nameMarkup");
+    expect(validateSkillDraft({ ...draft, name: "???" }, []).name).toBe("nameNoId");
+    expect(validateSkillDraft({ ...draft, description: "x".repeat(8193) }, []).description).toBe(
+      "descriptionTooLong",
+    );
+    expect(validateSkillDraft({ ...draft, tags: ["<i>"] }, []).tags).toBe("tagMarkup");
+    expect(validateSkillDraft({ ...draft, tags: ["x".repeat(256)] }, []).tags).toBe("tagTooLong");
+    expect(
+      validateSkillDraft({ ...draft, tags: Array.from({ length: 51 }, (_, i) => `t${i}`) }, [])
+        .tags,
+    ).toBe("tagsTooMany");
+    expect(
+      validateSkillDraft(
+        draft,
+        Array.from({ length: 100 }, (_, i) => `s${i}`),
+      ).form,
+    ).toBe("tooManySkills");
+  });
+});
+
+describe("buildSkill", () => {
+  it("trims, derives the id and leaves out empty examples", () => {
+    expect(
+      buildSkill({
+        name: " Production routing ",
+        description: " d ",
+        tags: ["a"],
+        examples: ["", " "],
+      }),
+    ).toEqual({
+      id: "production_routing",
+      name: "Production routing",
+      description: "d",
+      tags: ["a"],
+    });
   });
 });
