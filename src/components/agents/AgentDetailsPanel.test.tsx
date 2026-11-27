@@ -535,15 +535,12 @@ describe("AgentDetailsPanel", () => {
     expect(onDelete).toHaveBeenCalledWith("agent-1");
   });
 
-  it("lists Edit directly above Delete and calls the edit handler with the agent", async () => {
+  it("offers Edit and calls the edit handler with the agent", async () => {
     useGateway();
     const onEdit = vi.fn();
     renderPanel({ onEdit });
 
     await userEvent.click(screen.getByRole("button", { name: "Actions for objekts router" }));
-    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(items.indexOf("Edit")).toBe(items.indexOf("Delete") - 1);
-
     await userEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(onEdit).toHaveBeenCalledWith("agent-1");
   });

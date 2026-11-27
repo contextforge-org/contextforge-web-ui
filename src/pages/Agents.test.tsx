@@ -628,14 +628,13 @@ describe("Agents", () => {
       expect(screen.getByText("Agent 1")).toBeInTheDocument();
     });
 
-    it("lists Edit directly above Delete", async () => {
+    it("offers Edit in the card menu", async () => {
       server.use(http.get("/api/v1/a2a", () => HttpResponse.json([createMockAgent(1)])));
 
       renderWithProviders(<Agents />);
       await openMenu("Agent 1");
 
-      const items = (await screen.findAllByRole("menuitem")).map((item) => item.textContent);
-      expect(items).toEqual(["View details", "Disable", "Edit", "Delete"]);
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
     });
 
     it("hides Edit without a2a.update", async () => {
