@@ -57,8 +57,6 @@ export interface ImportOptions {
   data: ConfigExport;
   conflictStrategy?: ImportConflictStrategy;
   dryRun?: boolean;
-  /** New encryption secret for cross-environment imports. */
-  rekeySecret?: string;
   selectedEntities?: EntitySelection;
 }
 
@@ -169,7 +167,6 @@ export const importExportApi = {
       import_data: opts.data,
       conflict_strategy: opts.conflictStrategy ?? "update",
       dry_run: opts.dryRun ?? false,
-      rekey_secret: opts.rekeySecret, // pragma: allowlist secret
       selected_entities: opts.selectedEntities,
     };
     return api.post<ImportResult>("/v1/import", body, { signal });
